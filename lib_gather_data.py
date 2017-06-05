@@ -38,14 +38,14 @@ def get_share_from_sheet(PAGER_XL,pager_code_to_aggcat,iso3_to_wb,sheetname='Rur
     return data_agg[data_agg.index.isin(iso3_to_wb)] #keeps only countries
 	
 def social_to_tx_and_gsp(economy,cat_info):       
-        '''(tx_tax, gamma_SP) from cat_info[['social','c','n']] '''
+        '''(tx_tax, gamma_SP) from cat_info[['social','c','weight']] '''
         
-        tx_tax = cat_info[['social','c','n']].prod(axis=1, skipna=False).sum(level=economy) / \
-                 cat_info[         ['c','n']].prod(axis=1, skipna=False).sum(level=economy)
+        tx_tax = cat_info[['social','c','weight']].prod(axis=1, skipna=False).sum() / \
+                 cat_info[         ['c','weight']].prod(axis=1, skipna=False).sum()
 
         #income from social protection PER PERSON as fraction of PER CAPITA social protection
         gsp=     cat_info[['social','c']].prod(axis=1,skipna=False) /\
-             cat_info[['social','c','n']].prod(axis=1, skipna=False).sum(level=economy)
+             cat_info[['social','c','weight']].prod(axis=1, skipna=False).sum()
         
         return tx_tax, gsp
 		
