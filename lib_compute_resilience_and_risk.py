@@ -158,6 +158,7 @@ def compute_dK(macro_event, cats_event,event_level,affected_cats):
     
     #counts affected and non affected
 
+    print('From here: \'weight\' = nAffected and nNotAffected: individuals') 
     naf = cats_event['weight']*cats_event.fa
     nna = cats_event['weight']*(1-cats_event.fa)
     cats_event_ia['weight'] = concat_categories(naf,nna, index= affected_cats)
@@ -201,17 +202,17 @@ def calculate_response(macro_event,cats_event_ia,event_level,helped_cats,default
     return macro_event, cats_event_iah
 	
 def compute_response(macro_event, cats_event_iah, event_level, default_rp, option_CB,optionT='data', optionPDS='unif_poor', optionB='data', optionFee='tax', fraction_inside=1, loss_measure='dk'):    
+
+    print('NB: when summing over cats_event_iah, be aware that each hh appears 4X in the file: {a,na}x{helped,not_helped}')
     
     """Computes aid received,  aid fee, and other stuff, from losses and PDS options on targeting, financing, and dimensioning of the help.
     Returns copies of macro_event and cats_event_iah updated with stuff"""
     macro_event    = macro_event.copy()
     cats_event_iah = cats_event_iah.copy()
 
-    macro_event['fa'] = (cats_event_iah['fa']*cats_event_iah['weight']).sum(level=event_level)/(2*cats_event_iah['weight'].sum(level=event_level))
-    #macro_event['fa'] = agg_to_event_level(cats_event_iah,'fa',event_level)/2 # because cats_event_ia is duplicated in cats_event_iah, cats_event_iah.n.sum(level=event_level) is 2 instead of 1, here /2 is to correct it. macro_event['fa'] =  agg_to_event_level(cats_event_ia,'fa') would work but needs to pass a new variable cats_event
-
-    #print('fa\n\n')
-    #print(macro_event['fa'])
+    macro_event['fa'] = cats_event_iah.loc[(cats_event_iah.affected_cat=='a'),'weight'].sum(level=event_level)/(cats_event_iah['weight'].sum(level=event_level))
+    # Edit: no factor of 2 in denominator because we're only summing affected householdds here
+    #macro_event['fa'] = agg_to_event_level(cats_event_iah,'fa',event_level)/2 # because cats_event_ia is duplicated in cats_event_iah, cats_event_iah.n.sum(level=event_level) is 2 instead of 1, here /2 is to correct it.
 
     ####targeting errors
     if optionT=='perfect':
@@ -238,11 +239,10 @@ def compute_response(macro_event, cats_event_iah, event_level, default_rp, optio
         return None
     
     #counting (mind self multiplication of n)
-    print('!! Not setting weights to 1')
-    #cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,'weight']*=(1-macro_event['error_excl'])
-    #cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='a') ,'weight']*=(  macro_event['error_excl'])
-    #cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),'weight']*=(  macro_event['error_incl'])  
-    #cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='na'),'weight']*=(1-macro_event['error_incl'])
+    cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,'weight']*=(1-macro_event['error_excl'])
+    cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='a') ,'weight']*=(  macro_event['error_excl'])
+    cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),'weight']*=(  macro_event['error_incl'])  
+    cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='na'),'weight']*=(1-macro_event['error_incl'])
     ###!!!! n is one again from here.
     #print(cats_event_iah.weight.sum(level=event_level))
 	
@@ -250,26 +250,17 @@ def compute_response(macro_event, cats_event_iah, event_level, default_rp, optio
     # MAXIMUM NATIONAL SPENDING ON SCALE UP
     
     # --> I think max_aid is total; it gets divided by weight again, later
-    # macro_event['max_increased_spending'] = 0.05
+    macro_event['max_increased_spending'] = 0.05
 
-    # This is per cap!!
-    macro_event['max_aid'] = macro_event['max_increased_spending']*(macro_event['gdp_pc_pp']*macro_event['pop']).sum(level=['hazard','rp']).mean()/macro_event['pop'].sum(level=['hazard','rp']).mean()
-
-    #n_q12 = cats_event_iah.loc[(cats_event_iah.quintile == 1) & (cats_event_iah.helped_cat == 'helped') & (cats_event_iah.affected_cat == 'a'),'weight'].sum(level=event_level)
-
-    # Max aid (pc) = dk*weight/pop(q1&2)
-    #macro_event['max_aid'] = cats_event_iah['dk']*cats_event_iah['weight'].loc[(cats_event_iah.quintile == 1)].sum()#/n_q12 
-    #macro_event['max_aid'] = (cats_event_iah.loc[(cats_event_iah.quintile == 1),'dk']*cats_event_iah.loc[(cats_event_iah.quintile == 1),'weight']).sum(level=event_level)/n_q12
-    
-    #print('Max aid:',macro_event['max_aid'])
-
-    #Set help received/loss reimbursable to 50% of average losses for lowest 2 quintiles
-    #macro_event['shareable'] = 0.5
+    # max_aid is per cap, and it is constant for all disasters & provinces
+    # --> If this much were distributed to everyone in the country, it would be 5% of GDP
+    # --> All of these '.mean()' are because I'm bad at Pandas. The arrays are all the same value, and we want to pull out a single instance here
+    macro_event['max_aid'] = macro_event['max_increased_spending'].mean()*macro_event[['gdp_pc_pp','pop']].prod(axis=1).sum(level=['hazard','rp']).mean()/macro_event['pop'].sum(level=['hazard','rp']).mean()
 
     if optionFee == 'insurance_premium':
         temp = cats_event_iah.copy()
 	
-    if optionPDS=='no':        
+    if optionPDS=='no':
         macro_event['aid'] = 0
         macro_event['need']=0
         cats_event_iah['help_received']=0
@@ -277,25 +268,28 @@ def compute_response(macro_event, cats_event_iah, event_level, default_rp, optio
         
     elif optionPDS=='unif_poor':
 
-        q1_reimbursable = 0.25*0.8*cats_event_iah.loc[(cats_event_iah.quintile==1),[loss_measure,'n','weight']].prod(axis=1).sum(level=event_level)
-        q1_reimbursable.to_csv('~/Desktop/my_q1r.csv',encoding='utf-8', header=True)
+        cats_event_iah['help_received'] = 0        
 
-        print('q1_reimbursable:\n\n',q1_reimbursable)
+        # For this policy:
+        # --> help_received = 0.8*average losses of lowest quintile
+        cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')&(cats_event_iah.affected_cat=='a'),'help_received'] = macro_event['shareable']*cats_event_iah.loc[(cats_event_iah.affected_cat=='a')&(cats_event_iah.quintile==1),[loss_measure,'weight']].prod(axis=1).sum(level=event_level)/cats_event_iah.loc[(cats_event_iah.affected_cat=='a')&(cats_event_iah.quintile==1),'weight'].sum(level=event_level)
 
-        cats_event_iah.ix[(cats_event_iah.helped_cat=='helped'),'help_received']= q1_reimbursable
-        #cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='na'),'help_received']= macro_event['shareable']*cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a'),loss_measure]
+        # These should be zero here, but just to make sure...
         cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped'),'help_received']=0
         cats_event_iah.ix[(cats_event_iah.affected_cat=='na'),'help_received']=0
+        # Could test with these:
+        #assert(cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped'),'help_received'].sum()==0)
+        #assert(cats_event_iah.ix[(cats_event_iah.affected_cat=='na'),'help_received'].sum()==0)
 
-        #macro_event['help_fee'] = cats_event_iah['help_received'].sum(level=event_level)*cats_event_iah['k']/
 
     elif optionPDS=='unif_poor_only':
-        cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')&(cats_event_iah.affected_cat=='a'),'help_received']= macro_event['shareable']*cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a'),loss_measure]
-        cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')&(cats_event_iah.affected_cat=='na'),'help_received']= macro_event['shareable']*cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a'),loss_measure]
+        cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')&(cats_event_iah.affected_cat=='a')&(cats_event_iah.quintile==1),'help_received']=macro_event['shareable']*cats_event_iah.loc[(cats_event_iah.affected_cat=='a')&(cats_event_iah.quintile==1),[loss_measure,'weight']].prod(axis=1).sum(level=event_level)/cats_event_iah.loc[(cats_event_iah.affected_cat=='a')&(cats_event_iah.quintile==1),'weight'].sum(level=event_level)
+
+        # These should be zero here, but just to make sure...
         cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')|(cats_event_iah.quintile > 1),'help_received']=0
+        cats_event_iah.ix[(cats_event_iah.affected_cat=='na')|(cats_event_iah.quintile > 1),'help_received']=0
 
         print('Calculating loss measure\n')
-        #print(cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a'),loss_measure].head(10))
 
     elif optionPDS=='prop':
         if not 'has_received_help_from_PDS_cat' in cats_event_iah.columns:
@@ -311,79 +305,84 @@ def compute_response(macro_event, cats_event_iah, event_level, default_rp, optio
             cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='na')  & (cats_event_iah.has_received_help_from_PDS_cat=='not_helped'),'help_received']= macro_event['shareable']*cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a')  & (cats_event_iah.has_received_help_from_PDS_cat=='helped'),loss_measure]			
             cats_event_iah.ix[cats_event_iah.helped_cat=='not_helped','help_received']=0           
 		
-    #macro_event['need']=(cats_event_iah['help_received']*cats_event_iah['weight']).sum(level=event_level)/macro_event['pop'].sum(level=['hazard','rp']).mean()
-    macro_event['need']=(cats_event_iah['help_received'].T*cats_event_iah['weight']).T.sum(level=event_level)
-
-    #print(macro_event['need'])
+    # What is the function of need?
+    # --> Defining it as the cost of disaster assistance distributed among all people in each province
+    macro_event['need'] = cats_event_iah[['help_received','weight']].prod(axis=1).sum(level=event_level)/(cats_event_iah['weight'].sum(level=event_level))
+    macro_event['need_tot'] = cats_event_iah[['help_received','weight']].prod(axis=1).sum(level=event_level)
 
     #actual aid reduced by capacity
     if optionB=='data' or optionB=='unif_poor':
-        #macro_event['aid'] = (macro_event['need']).clip(upper=macro_event['max_aid'])
-        # This isn't need! need is how much we need to raise from the whole population
 
+        # See discussion above. This is the cost 
+        print('No upper limit on help_received coded at this point...if we did exceed 5% of GDP, the help_fee would just be capped')
+        macro_event['my_help_fee'] = macro_event['need'].clip(upper=macro_event['max_aid'])#flag
 
-        macro_event['aid'] = macro_event['need']
-
-        print(macro_event[['need','aid','max_aid']].head(10))
-        print(macro_event[['need','aid','max_aid']].tail(10))	
-    elif optionB=='max01':
-        macro_event['max_aid'] = 0.01*macro_event['gdp_pc_pp']
-        macro_event['aid'] = (macro_event['need']).clip(upper=macro_event['max_aid']) 
-    elif optionB=='max05':
-        macro_event['max_aid'] = 0.05*macro_event['gdp_pc_pp']
-        macro_event['aid'] = (macro_event['need']).clip(upper=macro_event['max_aid'])
-    elif optionB=='unlimited':
-        macro_event['aid'] = macro_event['need']
-    elif optionB=='one_per_affected':
-        d = cats_event_iah.ix[(cats_event_iah.affected_cat=='a')]        
-        d['un']=1
-        macro_event['need'] = agg_to_event_level(d,'un',event_level)
-        macro_event['aid'] = macro_event['need']
-    elif optionB=='one_per_helped':
-        d = cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')]        
-        d['un']=1
-        macro_event['need'] = agg_to_event_level(d,'un',event_level)
-        macro_event['aid'] = macro_event['need']
-    elif optionB=='one':
-        macro_event['aid'] = 1
-    elif optionB=='no':
-        pass	
-    
-    if optionPDS=='unif_poor':	
-        macro_event['unif_aid'] = macro_event['aid']#/(cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')&(cats_event_iah.quintile==1),'weight'].sum(level=event_level))<-already pc
-
-        print(macro_event['unif_aid'].head(10))
+    else:
+        assert(False)
         
-        # Turning this off in-flight
-        #cats_event_iah.ix[(cats_event_iah.helped_cat=='helped'),'help_received'] = macro_event['unif_aid']
-        cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped'),'help_received']=0
+    #elif optionB=='max01':
+    #    macro_event['max_aid'] = 0.01*macro_event['gdp_pc_pp']
+    #    macro_event['aid'] = (macro_event['need']).clip(upper=macro_event['max_aid']) 
+    #elif optionB=='max05':
+    #    macro_event['max_aid'] = 0.05*macro_event['gdp_pc_pp']
+    #    macro_event['aid'] = (macro_event['need']).clip(upper=macro_event['max_aid'])
+    #elif optionB=='unlimited':
+    #    macro_event['aid'] = macro_event['need']
+    #elif optionB=='one_per_affected':
+    #    d = cats_event_iah.ix[(cats_event_iah.affected_cat=='a')]        
+    #    d['un']=1
+    #    macro_event['need'] = agg_to_event_level(d,'un',event_level)
+    #    macro_event['aid'] = macro_event['need']
+    #elif optionB=='one_per_helped':
+    #    d = cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')]        
+    #    d['un']=1
+    #    macro_event['need'] = agg_to_event_level(d,'un',event_level)
+    #    macro_event['aid'] = macro_event['need']
+    #elif optionB=='one':
+    #    macro_event['aid'] = 1
+    #elif optionB=='no':
+    #    pass	
+    
+    #NO!!!!!
+    #if optionPDS=='unif_poor':
+        # NO. we have already calculated help_received.
+        #macro_event['unif_aid'] = macro_event['aid']
 
-    elif optionPDS=='unif_poor_only':
-        macro_event['unif_aid'] = macro_event['aid']/(cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')&(cats_event_iah.quintile==1),'weight'].sum(level=event_level)) 
-        cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')&(cats_event_iah.quintile==1),'help_received'] = macro_event['unif_aid']
-        cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')|(cats_event_iah.quintile==1),'help_received']=0
-    elif optionPDS=='prop':
-        cats_event_iah['help_received'] = macro_event['aid']/macro_event['need']*cats_event_iah['help_received'] 		
+    #elif optionPDS=='unif_poor_only':
+    #    macro_event['unif_aid'] = macro_event['aid']/(cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')&(cats_event_iah.quintile==1),'weight'].sum(level=event_level)) 
+    #    cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')&(cats_event_iah.quintile==1),'help_received'] = macro_event['unif_aid']
+    #    cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')|(cats_event_iah.quintile==1),'help_received']=0
+    
+    #if optionPDS=='prop':
+    #    cats_event_iah['help_received'] = macro_event['aid']/macro_event['need']*cats_event_iah['help_received'] 		
 		
     if optionFee=='tax':
-
-        #print(agg_to_event_level(cats_event_iah,'k',event_level))
-        #print('\n','aid')
-        #print(macro_event['aid'])
-        #print('\n','help_fee')
 
         # Original code:
         #cats_event_iah['help_fee'] = fraction_inside*macro_event['aid']*cats_event_iah['k']/agg_to_event_level(cats_event_iah,'k',event_level)
 
         # I *think* this is only transfers inside province 
-        #flag
-        cats_event_iah['help_fee_B'] = cats_event_iah[['help_received','n']].prod(axis=1).sum(level=event_level)*(cats_event_iah['k']/cats_event_iah['k'].sum(level=event_level))/4#flag
-        cats_event_iah['help_fee'] = fraction_inside*macro_event['aid']*(cats_event_iah['k']/(cats_event_iah[['k','weight']]).prod(axis=1).sum(level=event_level))
-        #print('help fee:\n\n',cats_event_iah[['help_fee','k','dk']])
+        # not going to multiply by weight here, because then it would look like some households are paying hundreds of times more...save that for the histogram
+        # but we do need to multiply 'my_help_fee' by weight, 
+        # --> If 1 hh had all the capital, its help_fee would be my_help_fee, which is the per capita value
+
+        print(cats_event_iah.head())
+
+        cats_event_iah.loc[cats_event_iah.weight != 0,'help_fee'] = (cats_event_iah.loc[cats_event_iah.weight != 0,['help_received','weight']].prod(axis=1).sum(level=event_level) * 
+                                                                     # ^ total expenditure
+                                                                     (cats_event_iah.loc[cats_event_iah.weight != 0,['k','weight']].prod(axis=1) /
+                                                                      cats_event_iah.loc[cats_event_iah.weight != 0,['k','weight']].prod(axis=1).sum(level=event_level)) /
+                                                                     # ^ weighted average of capital
+                                                                     cats_event_iah.loc[cats_event_iah.weight != 0,'weight']) 
+                                                                     # ^ back to per household/unweighted value
+
+        #print(macro_event['need_tot'])
+        #print(cats_event_iah['k'].sum(level=event_level))
+        #print(cats_event_iah[['help_fee','weight']].prod(axis=1).sum(level=event_level))
 
         cats_event_iah.reset_index().loc[(cats_event_iah.reset_index().province == 'Abra') & (cats_event_iah.reset_index().hazard == 'earthquake') ].to_csv('~/Desktop/my_file.csv',encoding='utf-8', header=True)
 
-        print(cats_event_iah['help_fee'].head(50))
+        #assert(False)
 
     elif optionFee=='insurance_premium':
         print(optionFee)
@@ -436,7 +435,7 @@ def compute_dW(macro_event,cats_event_iah,event_level,option_CB,return_stats=Tru
     df_out['delta_W']    =delta_W
     df_out['delta_W_tot']=delta_W*macro_event['pop'] 
 
-    df_out['average_aid_cost_pc'] = macro_event['aid']
+    df_out['average_aid_cost_pc'] = macro_event['my_help_fee']
     
     if return_stats:
         if not 'has_received_help_from_PDS_cat' in cats_event_iah.columns:

@@ -78,14 +78,14 @@ q_labels = ['Poorest quintile','Q2','Q3','Q4','Wealthiest quintile']
 q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 # Look at single event:
-myHaz = [['Negros Occidental','Aurora','Bulacan'],['flood','earthquake'],[1,20,50,100,250,1500]]
+myHaz = [['Negros Occidental','Abra','Aurora','Bulacan'],['flood','earthquake'],[1,20,50,100,250,1500]]
 
 pov_line = 3.10*365.25*50.0
 
 iah = iah.reset_index()
 for myDis in ['earthquake','flood','surge','tsunami','wind']:
     for myRP in [1,20,50,100,250,500,1000,1500]:
-    
+        
         cutA = iah.loc[(iah.hazard == myDis) & (iah.rp == myRP) & (iah.helped_cat == 'helped')].set_index(['province','hazard','rp'])
 
         # look at instantaneous dk
@@ -187,8 +187,10 @@ for myProv in myHaz[0]:
         for myRP in myHaz[2]:
     
             print('len_t=',iah.shape[0])
-            cut = iah.loc[(iah.province == myProv) & (iah.hazard == myDis) & (iah.rp == myRP)].set_index(['province','hazard','rp'])
-                    
+            cut = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped')))  & (iah.province == myProv) & (iah.hazard == myDis) & (iah.rp == myRP)].set_index(['province','hazard','rp'])
+        
+            cut.to_csv('~/Desktop/my_post_file.csv',encoding='utf-8', header=True)
+
             # look at quintiles
             q1 = cut.loc[cut.quintile == 1].reset_index()
             q2 = cut.loc[cut.quintile == 2].reset_index()
@@ -276,18 +278,18 @@ for myProv in myHaz[0]:
             # Means
             ax1 = plt.subplot(111)
             for ij in range(0,5):
-                ax1.bar([6*ii+ij for ii in range(1,5)],[0.01*np.array(k_mean[ij]),dk_mean[ij],dc_mean[ij],dw_mean[ij]],color=q_colors[ij],alpha=0.7,label=q_labels[ij])
-                #ax1.bar([6*ii+ij for ii in range(1,9)],[0.01*np.array(k_mean[ij]),dk_mean[ij],dc_mean[ij],dw_mean[ij],pds_help_fee_mean[ij],-1*np.array(pds_help_rec_mean[ij]),nrh_mean[ij],dw_pds_mean[ij]],color=q_colors[ij],alpha=0.7,label=q_labels[ij])
+                #ax1.bar([6*ii+ij for ii in range(1,5)],[0.01*np.array(k_mean[ij]),dk_mean[ij],dc_mean[ij],dw_mean[ij]],color=q_colors[ij],alpha=0.7,label=q_labels[ij])
+                ax1.bar([6*ii+ij for ii in range(1,9)],[0.01*np.array(k_mean[ij]),dk_mean[ij],dc_mean[ij],dw_mean[ij],pds_help_fee_mean[ij],-1*np.array(pds_help_rec_mean[ij]),nrh_mean[ij],dw_pds_mean[ij]],color=q_colors[ij],alpha=0.7,label=q_labels[ij])
             ax1.xaxis.set_ticks([])
             plt.ylabel('Mean PHP ('+myProv+', '+myDis+', rp='+str(myRP)+' yr)')
             ax1.annotate('1% of assets',              xy=( 6,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
             ax1.annotate('Asset loss',                xy=(12,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
             ax1.annotate('Consumption\nloss',         xy=(18,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
             ax1.annotate('Welfare loss',              xy=(24,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            #ax1.annotate('PDS Help\nFee',             xy=(30,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            #ax1.annotate('PDS Help\nRec',             xy=(36,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            #ax1.annotate('Net cost \nof help',        xy=(42,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            #ax1.annotate('Welfare loss\npost-support',xy=(48,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+            ax1.annotate('PDS Help\nFee',             xy=(30,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+            ax1.annotate('PDS Help\nRec',             xy=(36,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+            ax1.annotate('Net cost \nof help',        xy=(42,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+            ax1.annotate('Welfare loss\npost-support',xy=(48,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
             #ax1.annotate('Consumption\nloss (post, NPV)',xy=(36,-500),xycoords='data',ha='left',va='top',annotation_clip=False)
             ax1.legend()
 
