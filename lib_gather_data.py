@@ -40,12 +40,12 @@ def get_share_from_sheet(PAGER_XL,pager_code_to_aggcat,iso3_to_wb,sheetname='Rur
 def social_to_tx_and_gsp(economy,cat_info):       
         '''(tx_tax, gamma_SP) from cat_info[['social','c','weight']] '''
         
-        tx_tax = cat_info[['social','c','weight']].prod(axis=1, skipna=False).sum() / \
-                 cat_info[         ['c','weight']].prod(axis=1, skipna=False).sum()
+        tx_tax = cat_info[['social','c','hhwgt']].prod(axis=1, skipna=False).sum() / \
+                 cat_info[         ['c','hhwgt']].prod(axis=1, skipna=False).sum()
 
         #income from social protection PER PERSON as fraction of PER CAPITA social protection
         gsp=     cat_info[['social','c']].prod(axis=1,skipna=False) /\
-             cat_info[['social','c','weight']].prod(axis=1, skipna=False).sum()
+             cat_info[['social','c','hhwgt']].prod(axis=1, skipna=False).sum()
         
         return tx_tax, gsp
 		
@@ -91,3 +91,78 @@ def match_quintiles_score(hhdataframe,quintiles):
 def reshape_data(income):
 	data = np.reshape(income.values,(len(income.values))) 
 	return data
+
+def get_AIR_data(fname,sname,keep_sec,keep_per):
+    # AIR dataset province code to province name
+    AIR_prov_lookup = pd.read_excel(fname,sheetname='Lookup_Tables',usecols=['province_code','province'],index_col='province_code')
+    AIR_prov_lookup = AIR_prov_lookup['province'].to_dict()
+
+    AIR_prov_corrections = {'Tawi-Tawi':'Tawi-tawi',
+                            #'Metropolitan Manila':'Manila',
+                            #'Davao del Norte':'Davao',
+                            #'Batanes':'Batanes_off',
+                            'North Cotabato':'Cotabato'}
+    
+    # AIR dataset peril code to peril name
+    AIR_peril_lookup_1 = pd.read_excel(fname,sheetname="Lookup_Tables",usecols=['perilsetcode','peril'],index_col='perilsetcode')
+    AIR_peril_lookup_1 = AIR_peril_lookup_1['peril'].dropna().to_dict()
+    AIR_peril_lookup_2 = {'EQ':'earthquake', 'HUSSPF':'typhoon', 'HU':'wind', 'SS':'surge', 'PF':'flood'}
+
+    AIR_value_destroyed = pd.read_excel(fname,sheetname="Loss_Results",
+                                        usecols=['perilsetcode',"province","Perspective","Sector","EP10","EP25","EP30","EP50","EP100","EP200","EP250","EP500","EP1000"]).squeeze()
+    AIR_value_destroyed.columns=['hazard','province','Perspective','Sector',10,25,30,50,100,200,250,500,1000]
+
+    # Change province code to province name
+    #AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['hazard','Perspective','Sector'])
+    AIR_value_destroyed["province"].replace(AIR_prov_lookup,inplace=True)
+    AIR_value_destroyed["province"].replace(AIR_prov_corrections,inplace=True) 
+    #AIR_prov_corrections
+
+    AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index('province')
+    AIR_value_destroyed = AIR_value_destroyed.drop('All Provinces')
+
+    AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['hazard','province','Perspective','Sector'])
+    AIR_value_destroyed = AIR_value_destroyed.drop(['index'],axis=1, errors="ignore")
+
+    # Stack return periods column
+    AIR_value_destroyed.columns.name='rp'
+    AIR_value_destroyed = AIR_value_destroyed.stack()
+
+    # Name values
+    #AIR_value_destroyed.name='v'
+
+    # Choose only Sector = 0 (Private Assets) 
+    # --> Alternative: 15 = All Assets (Private + Govt (16) + Emergency (17))
+    sector_dict = {'Private':0, 'private':0,
+                   'Government':16, 'government':16,
+                   'Emergency':17, 'emergency':17,
+                   'All':15, 'all':15}
+    
+    AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['Sector'])
+    AIR_value_destroyed = AIR_value_destroyed.drop([iSec for iSec in range(0,30) if iSec != sector_dict[keep_sec]])
+    
+    # Choose only Perspective = Occurrence ('Occ') OR Aggregate ('Agg')
+    AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['Perspective'])
+    AIR_value_destroyed = AIR_value_destroyed.drop([iPer for iPer in ['Occ', 'Agg'] if iPer != keep_per])
+    
+    # Map perilsetcode to perils to hazard
+    AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['hazard'])
+    AIR_value_destroyed = AIR_value_destroyed.drop(-1)
+
+    # Drop Sector and Perspective columns
+    AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['province','hazard','rp'])
+    AIR_value_destroyed = AIR_value_destroyed.drop(['Sector','Perspective'],axis=1, errors="ignore")
+    
+    AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index('province')
+    AIR_value_destroyed["hazard"].replace(AIR_peril_lookup_1,inplace=True)
+    AIR_value_destroyed["hazard"].replace(AIR_peril_lookup_2,inplace=True)
+    
+    # Keep only earthquake (EQ) and tsunami (HUSSPF)
+    AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['hazard'])
+    AIR_value_destroyed = AIR_value_destroyed.drop(['typhoon'])    
+
+    AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['province','hazard','rp'])
+
+    AIR_value_destroyed = AIR_value_destroyed.sort_index().squeeze()
+
+    return AIR_value_destroyed

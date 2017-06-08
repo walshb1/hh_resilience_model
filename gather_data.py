@@ -119,15 +119,16 @@ cat_info.drop(['cash_abroad','cash_domestic','regft'],axis=1,inplace=True)
 # Weight = household_weight * family_size
 cat_info['weight'] = cat_info[['hhwgt','fsize']].prod(axis=1)
 print('Total population:',cat_info.weight.sum())
+print('Total n households:',cat_info.hhwgt.sum())
 
 # Change the name: district to code, and create an multi-level index 
 cat_info = cat_info.rename(columns={'district':'code'})
 
 # Assing weighted household consumption to quintiles within each province
 listofquintiles=np.arange(0.20, 1.01, 0.20) 
-cat_info = cat_info.reset_index().groupby('province',sort=True).apply(lambda x:match_quintiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.weight),listofquintiles)))
+cat_info = cat_info.reset_index().groupby('province',sort=True).apply(lambda x:match_quintiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.hhwgt),listofquintiles)))
 
-# 'c_5' is the upper consumption limit for the lowest quartile
+# 'c_5' is the upper consumption limit for the lowest quintile
 cat_info_c_5 = cat_info.reset_index().groupby('province',sort=True).apply(lambda x:x.ix[x.quintile==1,'c'].max())
 cat_info = cat_info.reset_index().set_index(['province','hhid']) #change the name: district to code, and create an multi-level index 
 cat_info['c_5'] = broadcast_simple(cat_info_c_5,cat_info.index)
@@ -156,7 +157,7 @@ cat_info.ix[cat_info.k<0,'k'] = 0.0
 # Getting rid of Prov_code 98, 99 here
 cat_info.dropna(inplace=True)
 
-# Assign access to early warning baced on 'poorhh' flag
+# Assign access to early warning based on 'poorhh' flag
 # --> doesn't seem to match up with the quintiles we assigned
 cat_info['shew'] = broadcast_simple(PSA['shewr'],cat_info.index)
 cat_info.ix[cat_info.poorhh == 1,'shew'] = broadcast_simple(PSA['shewp'],cat_info.index)
@@ -165,15 +166,91 @@ cat_info.ix[cat_info.poorhh == 1,'shew'] = broadcast_simple(PSA['shewp'],cat_inf
 cat_info['fa'] = 0
 cat_info.fillna(0,inplace=True)
 
-#hazard
-hazard_ratios = pd.read_csv(inputs+'/PHL_frac_value_destroyed_gar_completed_edit.csv').set_index(['province', 'hazard', 'rp'])
-
-
-cat_info = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in ['province','hhid','weight','code','np','flooding','score','v','c','social','c_5','n','gamma_SP','k','shew','fa','quintile']],axis=1)
+# Cleanup dfs for writing out
+cat_info = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in ['province','hhid','weight','code','np','flooding','score','v','c','social','c_5','n','gamma_SP','k','shew','fa','quintile','hhwgt']],axis=1)
 cat_info_index = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in ['province','hhid']],axis=1)
 
-hazard_ratios_s = pd.merge(hazard_ratios.reset_index(),cat_info_index.reset_index(),on=['province'],how='inner').set_index(['province','hazard','rp','hhid'])
+#########################
+# HAZARD INFO
+#
+# This is the GAR
+#hazard_ratios = pd.read_csv(inputs+'/PHL_frac_value_destroyed_gar_completed_edit.csv').set_index(['province', 'hazard', 'rp'])
+
+# This is the AIR dataset:
+# df_AIR is already in pesos
+# --> Need to think about public assets
+#df_AIR = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','all','Agg')
+df_AIR = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','Private','Agg').reset_index()
+df_AIR.columns = ['province','hazard','rp','value_destroyed']
+
+# Edit & Shuffle provinces
+AIR_prov_rename = {'Shariff Kabunsuan':'Maguindanao',
+                   'Davao Oriental':'Davao',
+                   'Davao del Norte':'Davao',
+                   'Metropolitan Manila':'Manila',
+                   'Dinagat Islands':'Surigao del Norte'}
+df_AIR['province'].replace(AIR_prov_rename,inplace=True) 
+
+# Add NCR 2-4 to AIR dataset
+df_NCR = pd.DataFrame(df_AIR.loc[(df_AIR.province == 'Manila')])
+df_NCR['province'] = 'NCR-2nd Dist.'
+df_AIR = df_AIR.append(df_NCR)
+
+df_NCR['province'] = 'NCR-3rd Dist.'
+df_AIR = df_AIR.append(df_NCR)
+
+df_NCR['province'] = 'NCR-4th Dist.'
+df_AIR = df_AIR.append(df_NCR)
+
+# In AIR, we only have 'Metropolitan Manila'
+# Distribute losses among Manila & NCR 2-4 according to assets
+cat_info = cat_info.reset_index()
+k_NCR = cat_info.loc[((cat_info.province == 'Manila') | (cat_info.province == 'NCR-2nd Dist.') 
+                      | (cat_info.province == 'NCR-3rd Dist.') | (cat_info.province == 'NCR-4th Dist.')), ['k','hhwgt']].prod(axis=1).sum()
+
+df_AIR.loc[df_AIR.province ==        'Manila','value_destroyed'] *= cat_info.loc[cat_info.province ==        'Manila', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
+df_AIR.loc[df_AIR.province == 'NCR-2nd Dist.','value_destroyed'] *= cat_info.loc[cat_info.province == 'NCR-2nd Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
+df_AIR.loc[df_AIR.province == 'NCR-3rd Dist.','value_destroyed'] *= cat_info.loc[cat_info.province == 'NCR-3rd Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
+df_AIR.loc[df_AIR.province == 'NCR-4th Dist.','value_destroyed'] *= cat_info.loc[cat_info.province == 'NCR-4th Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
+
+# Sum over the provinces that we're merging
+# Losses are absolute value, so they are additive
+df_AIR = df_AIR.reset_index().set_index(['province','hazard','rp']).sum(level=['province','hazard','rp']).drop(['index'],axis=1)
+
+# Turn losses into fraction
+cat_info = cat_info.reset_index().set_index(['province'])
+
+hazard_ratios = cat_info[['k','hhwgt']].prod(axis=1).sum(level='province').to_frame(name='provincial_capital')
+hazard_ratios = hazard_ratios.join(df_AIR,how='outer')
+
+hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['provincial_capital']
+hazard_ratios = hazard_ratios.drop(['provincial_capital','value_destroyed'],axis=1)
+
+# Have frac destroyed, need fa...
+# Frac value destroyed = SUM_i(k*v*fa)
+
+hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on='province',how='outer').set_index(event_level+['hhid'])[['frac_destroyed','v']]
+
+hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v']).clip(upper=0.9)
+hazard_ratios= hazard_ratios.drop(['frac_destroyed','v'],axis=1)
+
+# Transfer fa in excess of 90% to vulnerability
+#fa_threshold = 0.90
+#excess=hazard_ratios[hazard_ratios>fa_threshold].max(level=['province'])
+#for c in excess.index:
+#    
+#    r = (excess/fa_threshold)[c]
+#    #print(c,r, fa_guessed_gar[fa_guessed_gar>fa_threshold].ix[c])
+#    hazard_ratios.update(hazard_ratios.ix[[c]]/r)  # i don't care.
+#    
+#    cat_info.ix[c,'v'] *= r
+#    #vr.ix[c] *= r
+#    #v.ix[c] *=r#
+#cat_info['v'] = cat_info.v.clip(upper=.99)
 
 df.to_csv(intermediate+'/macro.csv',encoding='utf-8', header=True,index=True)
+
+cat_info = cat_info.drop(['index'],axis=1)
 cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index=True)
-hazard_ratios_s.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
+
+hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)

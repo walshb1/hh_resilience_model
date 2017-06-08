@@ -27,6 +27,11 @@ sns.set_style('darkgrid')
 brew_pal = brew.get_map('Set1', 'qualitative', 8).mpl_colors
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
 
+font = {'family' : 'sans serif',
+    'size'   : 20}
+plt.rc('font', **font)
+mpl.rcParams['xtick.labelsize'] = 16
+
 import warnings
 warnings.filterwarnings('always',category=UserWarning)
 
@@ -60,8 +65,6 @@ iah_pds = pd.read_csv(output+'iah_tax_unif_poor_.csv', index_col=['province','ha
 
 #cats = pd.read_csv(output+'cats_tax_no_.csv', index_col=['province','hazard','rp'])
 
-print(iah.columns)
-
 # Transform dw:
 wprime = df.wprime.mean()
 print(wprime)
@@ -69,24 +72,72 @@ print(wprime)
 iah['dw'] = iah['dw']/wprime
 iah['pds_dw']  = iah_pds['dw']/wprime
 
-
 iah['pds_nrh'] = iah_pds['help_fee']-iah_pds['help_received'] # Net received help
 iah['pds_help_fee'] = iah_pds['help_fee']
 iah['pds_help_received'] = iah_pds['help_received']
+
+iah['hhwgt'] = iah['hhwgt'].fillna(0)
+iah['weight'] = iah['weight'].fillna(0)
+
+avg_hhsize = iah['weight'].sum(level=event_level).mean(skipna=True)/iah['hhwgt'].sum(level=event_level).mean(skipna=True) # weight is head count
 
 q_labels = ['Poorest quintile','Q2','Q3','Q4','Wealthiest quintile']
 q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 # Look at single event:
-myHaz = [['Negros Occidental','Abra','Aurora','Bulacan'],['flood','earthquake'],[1,20,50,100,250,1500]]
+myHaz = [['Negros Occidental','Abra','Aurora','Bulacan','Pangasinan'],['flood','wind'],[25,100,500,1000]]
 
-pov_line = 3.10*365.25*50.0
+pov_line = 3.10*365*50.0*avg_hhsize
 
 iah = iah.reset_index()
-for myDis in ['earthquake','flood','surge','tsunami','wind']:
-    for myRP in [1,20,50,100,250,500,1000,1500]:
+for myDis in ['flood','earthquake','surge','wind']:
+
+    cut_rps = iah.loc[(iah.hazard == myDis)].set_index(['province','hazard','rp']).fillna(0)
+    if (cut_rps['weight'].sum() == 0 or cut_rps.shape[0] == 0): continue
+
+    cut_rps['c_initial'] = cut_rps['c']#cut_rps['k']*df['avg_prod_k'].mean()
+    cut_rps['delta_c']   = cut_rps['dk']*(df['avg_prod_k'].mean()+1/df['T_rebuild_K'].mean())
+    cut_rps['c_final']   = cut_rps['c_initial'] - cut_rps['delta_c']
+    
+    cut_rps['c_initial'] = cut_rps['c_initial'].clip(upper=500000)
+    cut_rps['c_final']   = cut_rps['c_final'].clip(upper=500000)
+
+    cut_rps['disaster_n_pov'] = 0
+    cut_rps.loc[(cut_rps.c_final <= pov_line) & (cut_rps.c_initial > pov_line), 'disaster_n_pov'] = cut_rps.loc[(cut_rps.c_final <= pov_line) & (cut_rps.c_initial > pov_line), 'weight']
+
+    n_pov = pd.DataFrame(cut_rps['disaster_n_pov'].sum(level=['province','rp']).reset_index(),columns=['province','rp','disaster_n_pov']).set_index(['province','rp'])
+    n_pov['disaster_n_pov_pct'] = (n_pov['disaster_n_pov']/cut_rps.weight.sum(level=['province','rp']).reset_index().set_index(['province','rp']).T).T
+    
+    n_pov.disaster_n_pov/=100.
+    n_pov = n_pov.reset_index().set_index(['province','rp'])
+
+    n_pov = sum_with_rp(n_pov[['disaster_n_pov','disaster_n_pov_pct']],['disaster_n_pov','disaster_n_pov_pct'],sum_provinces=False)
+
+    make_map_from_svg(
+        n_pov.disaster_n_pov, 
+        '../map_files/'+myCountry+'/BlankSimpleMap.svg',
+        outname='new_poverty_incidence_'+myDis+'_allRPs',
+        color_maper=plt.cm.get_cmap('RdYlGn_r'), 
+        label='Number of Filipinos pushed into poverty each year by '+myDis+'s',
+        new_title='Number of Filipinos pushed into poverty each year by '+myDis+'s',
+        do_qualitative=False,
+        res=800)
+    
+    make_map_from_svg(
+        n_pov.disaster_n_pov_pct, 
+        '../map_files/'+myCountry+'/BlankSimpleMap.svg',
+        outname='new_poverty_incidence_pct_'+myDis+'_allRPs',
+        color_maper=plt.cm.get_cmap('RdYlGn_r'), 
+        label='Filipinos pushed into poverty each year by '+myDis+'s [%]',
+        new_title='Filipinos pushed into poverty by '+myDis+'s [%]',
+        do_qualitative=False,
+        res=800)
+    
+    for myRP in [1,10,25,50,100,200,250,500,1000]:
         
-        cutA = iah.loc[(iah.hazard == myDis) & (iah.rp == myRP) & (iah.helped_cat == 'helped')].set_index(['province','hazard','rp'])
+        cutA = iah.loc[(iah.hazard == myDis) & (iah.rp == myRP)].set_index(['province','hazard','rp']).fillna(0)
+        #cutA = iah.loc[(iah.hazard == myDis) & (iah.rp == myRP) & (iah.helped_cat == 'helped')].set_index(['province','hazard','rp']).fillna(0)
+        if (cutA['weight'].sum() == 0 or cutA.shape[0] == 0): continue
 
         # look at instantaneous dk
         ax=plt.gca()
@@ -105,10 +156,7 @@ for myDis in ['earthquake','flood','surge','tsunami','wind']:
         disaster_n_pov['disaster_n_pov_pct'] = (disaster_n_pov['disaster_n_pov']/cutA.weight.sum(level='province').reset_index().set_index('province').T).T
 
         disaster_n_pov.disaster_n_pov/=100.
-        
-
-        #IR_value_destroyed["province"].replace(AIR_prov_corrections,inplace=True)
-        disaster_n_pov = disaster_n_pov.reset_index().replace({'Sulu':'drop_Sulu'}).set_index('province')
+        disaster_n_pov = disaster_n_pov.reset_index().set_index('province')
 
         ci_heights, ci_bins = np.histogram(cutA['c_initial'],       bins=50, weights=cutA['weight'])
         cf_heights, cf_bins = np.histogram(cutA['c_final'],    bins=ci_bins, weights=cutA['weight'])
@@ -117,6 +165,8 @@ for myDis in ['earthquake','flood','surge','tsunami','wind']:
         ax.bar(cf_bins[:-1], cf_heights, width=ci_bins[1], label='Post-disaster Consumption', facecolor=q_colors[1],alpha=0.4)
 
         delta_p = cutA.loc[(cutA.c_final <= pov_line),'weight'].sum() - cutA.loc[(cutA.c_initial <= pov_line),'weight'].sum()
+        alt_delta_p = cutA.loc[(cutA.c_initial > pov_line) & (cutA.c_final <= pov_line),'weight'].sum()
+
         p_str = format_delta_p(delta_p)
         p_pct = ' ('+str(round((delta_p/cutA['weight'].sum())*100.,2))+'% of population)'
 
@@ -127,14 +177,14 @@ for myDis in ['earthquake','flood','surge','tsunami','wind']:
         fig = ax.get_figure()
         plt.xlabel(r'Consumption [Philippine pesos yr$^{-1}$]')
         plt.ylabel('Population')
-        plt.legend(loc='upper left')
+        plt.legend(loc='best')
         print('poverty_k_'+myDis+'_'+str(myRP)+'.pdf')
-        fig.savefig('../output_plots/PH/poverty_k_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')
+        fig.savefig('../output_plots/PH/poverty_k_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',format='pdf')
         plt.cla()    
         
         ##
 
-        # look at instantaneous dk
+        # look at affected people
         ax=plt.gca()
 
         ci_heights, ci_bins = np.histogram(cutA.loc[(cutA.affected_cat =='a'),'c_initial'],       bins=50, weights=cutA.loc[(cutA.affected_cat =='a'),'weight'])
@@ -143,7 +193,8 @@ for myDis in ['earthquake','flood','surge','tsunami','wind']:
         ax.bar(ci_bins[:-1], ci_heights, width=ci_bins[1], label='Initial Consumption', facecolor=q_colors[0],alpha=0.4)
         ax.bar(cf_bins[:-1], cf_heights, width=ci_bins[1], label='Post-disaster Consumption', facecolor=q_colors[1],alpha=0.4)
 
-        print(cutA['weight'].sum())
+        print('All people: ',cutA['weight'].sum())
+        print('Affected people: ',cutA.loc[(cutA.affected_cat =='a'),'weight'].sum())
 
         delta_p = cutA.loc[(cutA.affected_cat =='a') & (cutA.c_final <= pov_line),'weight'].sum() 
         delta_p -= cutA.loc[(cutA.affected_cat =='a') & (cutA.c_initial <= pov_line),'weight'].sum()
@@ -157,9 +208,10 @@ for myDis in ['earthquake','flood','surge','tsunami','wind']:
         fig = ax.get_figure()
         plt.xlabel(r'Consumption [Philippine pesos yr$^{-1}$]')
         plt.ylabel('Population')
-        plt.legend(loc='upper left')
-        print('poverty_k_'+myDis+'_'+str(myRP)+'.pdf')
-        fig.savefig('../output_plots/PH/poverty_k_aff_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')
+        #plt.ylim(0,400000)
+        plt.legend(loc='best')
+        print('poverty_k_aff_'+myDis+'_'+str(myRP)+'.pdf')
+        fig.savefig('../output_plots/PH/poverty_k_aff_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',format='pdf')
         plt.cla()
 
         make_map_from_svg(
@@ -197,18 +249,6 @@ for myProv in myHaz[0]:
             q3 = cut.loc[cut.quintile == 3].reset_index()
             q4 = cut.loc[cut.quintile == 4].reset_index()
             q5 = cut.loc[cut.quintile == 5].reset_index()
-
-            #k_meds = get_weighted_median(q1,q2,q3,q4,q5,'k')
-            #dk_meds = get_weighted_median(q1,q2,q3,q4,q5,'dk')
-            #dc_meds = get_weighted_median(q1,q2,q3,q4,q5,'dc_npv_pre')
-            #dw_meds = get_weighted_median(q1,q2,q3,q4,q5,'dw')
-            #nrh_meds = get_weighted_median(q1,q2,q3,q4,q5,'pds_nrh')
-            #dw_pds_meds = get_weighted_median(q1,q2,q3,q4,q5,'pds_dw')
-
-            #print('\nk/100 (med) = ',0.01*np.array(k_meds))
-            #print('\ndk (med) = ',dk_meds)
-            #print('\ndc (med) = ',dc_meds)
-            #print('\ndw (med) = ',dw_meds)
 
             k_mean = get_weighted_mean(q1,q2,q3,q4,q5,'k')
             dk_mean = get_weighted_mean(q1,q2,q3,q4,q5,'dk')
@@ -253,87 +293,26 @@ for myProv in myHaz[0]:
                 
                 fig = ax.get_figure()
                 print('Saving: hists/'+istr+'_'+myProv+'_'+myDis+'_'+str(myRP)+'.pdf')
-                fig.savefig('../output_plots/PH/'+istr+'_'+myProv+'_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')
+                fig.savefig('../output_plots/PH/'+istr+'_'+myProv+'_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',format='pdf')
                 plt.cla()
-
-            # Median
-            #ax1 = plt.subplot(111)
-            #for ij in range(0,5):
-            #    ax1.bar([6*ii+ij for ii in range(1,7)],[0.01*np.array(k_meds[ij]),dk_meds[ij],dc_meds[ij],dw_meds[ij],nrh_meds[ij],dw_pds_meds[ij]],color=q_colors[ij],alpha=0.7,label=q_labels[ij])
-            #ax1.xaxis.set_ticks([])
-            #plt.ylabel('Median PHP ('+myProv+', '+myDis+', rp='+str(myRP)+' yr)')
-            #ax1.annotate('1% of assets',             xy=( 6,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            #ax1.annotate('Asset loss',                xy=(12,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            #ax1.annotate('Consumption\nloss',         xy=(18,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            #ax1.annotate('Welfare loss',              xy=(24,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            #ax1.annotate('Net cost \nof help',        xy=(30,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            #ax1.annotate('Welfare loss\npost-support',xy=(36,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            ##ax1.annotate('Consumption\nloss (post, NPV)',xy=(36,-500),xycoords='data',ha='left',va='top',annotation_clip=False)
-            #ax1.legend()
-
-            #print('Saving: histo_'+myProv+'_'+myDis+'_'+str(myRP)+'.pdf\n')
-            #plt.savefig('../output_plots/PH/medians_'+myProv+'_'+myDis+'_'+str(myRP)+'.pdf',bbox_inches='tight',format='pdf')
-            #plt.cla()
 
             # Means
             ax1 = plt.subplot(111)
             for ij in range(0,5):
                 #ax1.bar([6*ii+ij for ii in range(1,5)],[0.01*np.array(k_mean[ij]),dk_mean[ij],dc_mean[ij],dw_mean[ij]],color=q_colors[ij],alpha=0.7,label=q_labels[ij])
-                ax1.bar([6*ii+ij for ii in range(1,9)],[0.01*np.array(k_mean[ij]),dk_mean[ij],dc_mean[ij],dw_mean[ij],pds_help_fee_mean[ij],-1*np.array(pds_help_rec_mean[ij]),nrh_mean[ij],dw_pds_mean[ij]],color=q_colors[ij],alpha=0.7,label=q_labels[ij])
+                ax1.bar([6*ii+ij for ii in range(1,7)],[0.01*np.array(k_mean[ij]),dk_mean[ij],dc_mean[ij],dw_mean[ij],nrh_mean[ij],dw_pds_mean[ij]],color=q_colors[ij],alpha=0.7,label=q_labels[ij])
             ax1.xaxis.set_ticks([])
             plt.ylabel('Mean PHP ('+myProv+', '+myDis+', rp='+str(myRP)+' yr)')
             ax1.annotate('1% of assets',              xy=( 6,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
             ax1.annotate('Asset loss',                xy=(12,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
             ax1.annotate('Consumption\nloss',         xy=(18,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
             ax1.annotate('Welfare loss',              xy=(24,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            ax1.annotate('PDS Help\nFee',             xy=(30,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            ax1.annotate('PDS Help\nRec',             xy=(36,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            ax1.annotate('Net cost \nof help',        xy=(42,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            ax1.annotate('Welfare loss\npost-support',xy=(48,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            #ax1.annotate('Consumption\nloss (post, NPV)',xy=(36,-500),xycoords='data',ha='left',va='top',annotation_clip=False)
-            ax1.legend()
+            #ax1.annotate('PDS Help\nFee',             xy=(30,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+            #ax1.annotate('PDS Help\nRec',             xy=(36,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+            ax1.annotate('Net cost \nof help',        xy=(30,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+            ax1.annotate('Welfare loss\npost-support',xy=(36,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+            ax1.legend(loc='best')
 
             print('Saving: histo_'+myProv+'_'+myDis+'_'+str(myRP)+'.pdf\n')
-            plt.savefig('../output_plots/PH/means_'+myProv+'_'+myDis+'_'+str(myRP)+'.pdf',bbox_inches='tight',format='pdf')
+            plt.savefig('../output_plots/PH/means_'+myProv+'_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',bbox_inches='tight',format='pdf')
             plt.cla()
-
-# Don't think this is the correct weighting...
-df_prov_mh = df[['risk','risk_to_assets']].sum(level='province')
-df_prov_mh['resilience'] = df['resilience'].mean(level='province')
-
-df_orig = pd.read_csv('~/Desktop/Dropbox/Bank/resilience_model/output/gdpNTL/PHL_results_tax_no.csv',index_col='province')[['risk','risk_to_assets','resilience']]
-
-# path to the blank map 
-svg_file_path = '../map_files/'+myCountry+'/BlankSimpleMap.svg'
-inp_res = 800
-
-
-make_map_from_svg(
-        df_prov_mh.risk_to_assets, #data 
-        svg_file_path,                  #path to blank map
-        outname='asset_risk_',  #base name for output  (will create img/map_of_asset_risk.png, img/legend_of_asset_risk.png, etc.)
-        color_maper=plt.cm.get_cmap('Blues'), #color scheme (from matplotlib. Chose them from http://colorbrewer2.org/)
-        label='Annual asset losses (% of GDP)',
-        new_title='Map of asset risk in the Philippines',  #title for the colored SVG
-        do_qualitative=False,
-        res=inp_res)
-
-make_map_from_svg(
-        df_prov_mh.resilience, 
-        svg_file_path,
-        outname='se_resilience_',
-        color_maper=plt.cm.get_cmap('RdYlGn'), 
-        label='Socio-economic capacity (%)',
-        new_title='Map of socio-economic resilience in the Philippines',
-        do_qualitative=False,
-        res=inp_res)
-
-make_map_from_svg(
-        df_prov_mh.risk, 
-        svg_file_path,
-        outname='welfare_risk_',
-        color_maper=plt.cm.get_cmap('Purples'), 
-        label='Annual welfare losses (% of GDP)',
-        new_title='Map of welfare risk in the Philippines',
-        do_qualitative=False,
-        res=inp_res)
