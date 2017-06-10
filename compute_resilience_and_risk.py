@@ -44,7 +44,7 @@ else:
 # How much is disbursed?
 # --> 'unif_poor' = uniform disbursement based of average asset losses of poor
 # --> 'unif' = uniform disbursement based of average losses
-optionPDS = 'unif_poor'#'no'
+optionPDS = 'no'#'unif_poor'#'no'
 
 # Cap on benefits (bool)
 option_CB = 1 #0 is for calculation of benefits only; 1 by default
@@ -108,6 +108,8 @@ print('E')
 out = compute_dW(macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True)
 print('F')
 
+# Flag: running local welfare
+print('running local welfare')
 results,iah = process_output(out,macro_event,economy,default_rp,return_iah=True,is_local_welfare=False)
 print('G')
 

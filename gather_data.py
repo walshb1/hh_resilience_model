@@ -76,7 +76,7 @@ df.drop(['population'],axis=1,inplace=True)
 df['gdp_pc_pp']   = PSA['gdp']/df['pop'] #in Pesos
 df['avg_hh_size'] = df['pop']/PSA['pop'] # nPeople/nHH
 
-cat_info = pd.read_csv(inputs+'fies2015.csv',usecols=['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn','walls','roof','totex','cash_abroad','cash_domestic','regft','hhwgt','fsize','poorhh'])
+cat_info = pd.read_csv(inputs+'fies2015.csv',usecols=['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn','walls','roof','totex','cash_abroad','cash_domestic','regft','hhwgt','fsize','poorhh','totdis'])
 get_hhid_FIES(cat_info)
 
 cat_info = cat_info.rename(columns={'w_prov':'province'})
@@ -107,14 +107,14 @@ cat_info.drop(['walls','roof'],axis=1,inplace=True)
 # --> What's the difference between income & consumption/disbursements?
 # --> totdis = 'total family disbursements'; totex = 'total family expenditures'
 # --> (SL model) cat_info['c'] = cat_info[['emp','agri','other_agri','non_agri','other_inc','income_local']].sum(1)
-cat_info['c'] = cat_info['totex']
+cat_info['c'] = cat_info['totdis']
 
 # Cash receipts, abroad & domestic, other gifts
 # --> Excluding international remittances ('cash_abroad')
 # --> what about 'net_receipt'?
 cat_info['social'] = cat_info[['cash_domestic','regft']].sum(axis=1)/cat_info['totex']
 cat_info.ix[cat_info.social>1,'social']=1
-cat_info.drop(['cash_abroad','cash_domestic','regft'],axis=1,inplace=True)
+cat_info.drop(['cash_domestic','regft'],axis=1,inplace=True)
 
 # Weight = household_weight * family_size
 cat_info['weight'] = cat_info[['hhwgt','fsize']].prod(axis=1)
@@ -126,7 +126,7 @@ cat_info = cat_info.rename(columns={'district':'code'})
 
 # Assing weighted household consumption to quintiles within each province
 listofquintiles=np.arange(0.20, 1.01, 0.20) 
-cat_info = cat_info.reset_index().groupby('province',sort=True).apply(lambda x:match_quintiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.hhwgt),listofquintiles)))
+cat_info = cat_info.reset_index().groupby('province',sort=True).apply(lambda x:match_quintiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.weight),listofquintiles)))
 
 # 'c_5' is the upper consumption limit for the lowest quintile
 cat_info_c_5 = cat_info.reset_index().groupby('province',sort=True).apply(lambda x:x.ix[x.quintile==1,'c'].max())
@@ -151,6 +151,7 @@ df['tau_tax'] = 1/((cat_info[['c','n_national']].prod(axis=1, skipna=False).sum(
 cat_info['gamma_SP'] = cat_info[['social','c']].prod(axis=1,skipna=False)/cat_info[['social','c','n_national']].prod(axis=1, skipna=False).sum()
 cat_info.drop('n_national',axis=1,inplace=True)
 
+# Intl remittances: subtract from 'c'
 cat_info['k'] = (1-cat_info['social'])*cat_info['c']/((1-df['tau_tax'])*df['avg_prod_k']) #calculate the capital
 cat_info.ix[cat_info.k<0,'k'] = 0.0
 
@@ -167,7 +168,7 @@ cat_info['fa'] = 0
 cat_info.fillna(0,inplace=True)
 
 # Cleanup dfs for writing out
-cat_info = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in ['province','hhid','weight','code','np','flooding','score','v','c','social','c_5','n','gamma_SP','k','shew','fa','quintile','hhwgt']],axis=1)
+cat_info = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in ['province','hhid','weight','code','np','flooding','score','v','c','social','c_5','n','gamma_SP','k','shew','fa','quintile','hhwgt','cash_abroad']],axis=1)
 cat_info_index = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in ['province','hhid']],axis=1)
 
 #########################
@@ -231,26 +232,20 @@ hazard_ratios = hazard_ratios.drop(['provincial_capital','value_destroyed'],axis
 
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on='province',how='outer').set_index(event_level+['hhid'])[['frac_destroyed','v']]
 
-hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v']).clip(upper=0.9)
-hazard_ratios= hazard_ratios.drop(['frac_destroyed','v'],axis=1)
+# Transfer fa in excess of 95% to vulnerability
+fa_threshold = 0.95
+hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v']).fillna(0)
 
-# Transfer fa in excess of 90% to vulnerability
-#fa_threshold = 0.90
-#excess=hazard_ratios[hazard_ratios>fa_threshold].max(level=['province'])
-#for c in excess.index:
-#    
-#    r = (excess/fa_threshold)[c]
-#    #print(c,r, fa_guessed_gar[fa_guessed_gar>fa_threshold].ix[c])
-#    hazard_ratios.update(hazard_ratios.ix[[c]]/r)  # i don't care.
-#    
-#    cat_info.ix[c,'v'] *= r
-#    #vr.ix[c] *= r
-#    #v.ix[c] *=r#
-#cat_info['v'] = cat_info.v.clip(upper=.99)
+hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold
+hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=0.000001,upper=fa_threshold)
+
+cat_info = cat_info.reset_index().set_index(['province','hhid'])
+cat_info['v'] = hazard_ratios.reset_index().set_index(['province','hhid'])['v'].mean(level=['province','hhid']).clip(upper=0.99)
 
 df.to_csv(intermediate+'/macro.csv',encoding='utf-8', header=True,index=True)
 
 cat_info = cat_info.drop(['index'],axis=1)
 cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index=True)
 
+hazard_ratios= hazard_ratios.drop(['frac_destroyed','v'],axis=1)
 hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)

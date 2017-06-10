@@ -5,20 +5,13 @@ from pandas_helper import get_list_of_index_names, broadcast_simple, concat_cate
 from scipy.interpolate import interp1d
 from lib_gather_data import social_to_tx_and_gsp
 
-def get_weighted_mean(q1,q2,q3,q4,q5,key):
+def get_weighted_mean(q1,q2,q3,q4,q5,key,weight_key='weight'):
 
-    print(key,'using hhwgt:',
-          [np.average(q1[key], weights=q1['hhwgt']),
-           np.average(q2[key], weights=q2['hhwgt']),
-           np.average(q3[key], weights=q3['hhwgt']),
-           np.average(q4[key], weights=q4['hhwgt']),
-           np.average(q5[key], weights=q5['hhwgt'])])
-
-    return [np.average(q1[key], weights=q1['weight']),
-            np.average(q2[key], weights=q2['weight']),
-            np.average(q3[key], weights=q3['weight']),
-            np.average(q4[key], weights=q4['weight']),
-            np.average(q5[key], weights=q5['weight'])]
+    return [np.average(q1[key], weights=q1[weight_key]),
+            np.average(q2[key], weights=q2[weight_key]),
+            np.average(q3[key], weights=q3[weight_key]),
+            np.average(q4[key], weights=q4[weight_key]),
+            np.average(q5[key], weights=q5[weight_key])]
 
 def get_weighted_median(q1,q2,q3,q4,q5,key):
     
@@ -227,7 +220,7 @@ def compute_response(macro_event, cats_event_iah, event_level, default_rp, optio
     macro_event    = macro_event.copy()
     cats_event_iah = cats_event_iah.copy()
 
-    macro_event['fa'] = cats_event_iah.loc[(cats_event_iah.affected_cat=='a'),'hhwgt'].sum(level=event_level)/(cats_event_iah['hhwgt'].sum(level=event_level))
+    macro_event['fa'] = (cats_event_iah.loc[(cats_event_iah.affected_cat=='a'),'hhwgt'].sum(level=event_level)/(cats_event_iah['hhwgt'].sum(level=event_level))).fillna(0)
 
     print('Check fa: ',macro_event['fa'].sum(level=event_level))
     # Need to check whether everything is right here:
@@ -397,8 +390,7 @@ def compute_response(macro_event, cats_event_iah, event_level, default_rp, optio
         # but we do need to multiply 'my_help_fee' by weight, 
         # --> If 1 hh had all the capital, its help_fee would be my_help_fee, which is the per capita value
 
-        print(cats_event_iah.head())
-
+        cats_event_iah['help_fee'] = 0
         cats_event_iah.loc[cats_event_iah.weight != 0,'help_fee'] = (cats_event_iah.loc[cats_event_iah.weight != 0,['help_received','hhwgt']].prod(axis=1).sum(level=event_level) * 
                                                                      # ^ total expenditure
                                                                      (cats_event_iah.loc[cats_event_iah.weight != 0,['k','hhwgt']].prod(axis=1) /

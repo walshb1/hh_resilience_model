@@ -449,7 +449,7 @@
     }
 .sulu
     {  
-       fill: #006837;
+       fill: #4BAF5C;
        stroke:#000000;
        stroke-width:2;
     }
@@ -473,7 +473,7 @@
     }
 .tawi_tawi
     {  
-       fill: #006837;
+       fill: #A50026;
        stroke:#000000;
        stroke-width:2;
     }
