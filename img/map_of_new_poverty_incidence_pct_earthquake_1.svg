@@ -449,7 +449,7 @@
     }
 .sulu
     {  
-       fill: #4BAF5C;
+       fill: #9AD468;
        stroke:#000000;
        stroke-width:2;
     }
