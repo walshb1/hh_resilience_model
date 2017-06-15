@@ -10,6 +10,7 @@ get_ipython().magic('autoreload 2')
 # Import packages for data analysis
 from lib_gather_data import *
 from replace_with_warning import *
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from pandas import isnull
@@ -64,7 +65,7 @@ prov_code = pd.read_excel(inputs+'FIES_provinces.xlsx')[['province_code','provin
 ###Define parameters
 df['pi']                     = reduction_vul       # how much early warning reduces vulnerability
 df['rho']                    = discount_rate       # discount rate
-df['pop']                    = df['population']    # Provincial population
+df['psa_pop']                = df['population']    # Provincial population
 df['shareable']              = asset_loss_covered  # target of asset losses to be covered by scale up
 df['protection']             = 1                   # Protected from events with RP < 'protection'
 df['avg_prod_k']             = 0.337960802589002   # average productivity of capital, value from the global resilience model
@@ -73,19 +74,28 @@ df['income_elast']           = inc_elast           # income elasticity
 df['max_increased_spending'] = max_support         # 5% of GDP in post-disaster support maximum, if everything is ready
 df.drop(['population'],axis=1,inplace=True)
 
-df['gdp_pc_pp']   = PSA['gdp']/df['pop'] #in Pesos
-df['avg_hh_size'] = df['pop']/PSA['pop'] # nPeople/nHH
+#df['gdp_pc_pp']   = PSA['gdp']/df['psa_pop'] #in Pesos
+df['avg_hh_size'] = df['psa_pop']/PSA['pop'] # nPeople/nHH
 
 #ft2015 = 14832.0962
 #pv2015 = 21240.2924
 
 cat_info = pd.read_csv(inputs+'fies2015.csv',usecols=['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn','walls','roof','totex','cash_abroad','cash_domestic','regft','hhwgt','fsize','poorhh','totdis','tothrec','pcinc_s','pcinc_ppp11','pcwgt'])
 
+print('Survey popualation:',cat_info.pcwgt.sum())
+
 get_hhid_FIES(cat_info)
 
 cat_info = cat_info.rename(columns={'w_prov':'province'})
 cat_info = cat_info.reset_index().set_index([cat_info.province.replace(prov_code)]) #replace district code with its name
 cat_info = cat_info.drop('province',axis=1)
+
+df['pop'] = cat_info.pcwgt.sum(level='province')
+df['gdp_pc_pp_prov'] = cat_info[['pcinc_s','pcwgt']].prod(axis=1).sum(level='province')/cat_info['hhwgt'].sum(level='province')
+df['gdp_pc_pp_nat'] = cat_info[['pcinc_s','pcwgt']].prod(axis=1).sum()/cat_info['hhwgt'].sum()
+# ^ this is per capita income*population/number of households
+
+df['pct_diff'] = 100.*(df['psa_pop']-df['pop'])/df['pop']
 
 # --> trying to get rid of provinces 97 & 98 here
 # ^ doesn't matter; they go later
@@ -114,22 +124,26 @@ cat_info.drop(['walls','roof'],axis=1,inplace=True)
 # --> totex = 'total family expenditures'
 # --> pcinc_s seems to be what they use to calculate poverty...
 # --> can be converted to pcinc_ppp11 by dividing by (365*21.1782)
-cat_info['c'] = cat_info[['pcinc_s','pcwgt']].prod(axis=1)/cat_info['hhwgt']
+cat_info['c'] = (cat_info[['pcinc_s','pcwgt']].prod(axis=1)/cat_info['hhwgt'])
+
 # --> (SL model) cat_info['c'] = cat_info[['emp','agri','other_agri','non_agri','other_inc','income_local']].sum(1)
 
 # Cash receipts, abroad & domestic, other gifts
 # --> Excluding international remittances ('cash_abroad')
 # --> what about 'net_receipt'?
 cat_info['social'] = cat_info[['tothrec']].sum(axis=1)/cat_info['c']
-cat_info.ix[cat_info.social>1,'social']=1
+cat_info.ix[cat_info.social>=1,'social'] = 0.99
 cat_info.drop(['cash_domestic','regft'],axis=1,inplace=True)
 
 # per cap weight = household_weight * family_size (?)
 #cat_info['weight'] = cat_info[['hhwgt','fsize']].prod(axis=1)
 cat_info['weight'] = cat_info['pcwgt']
 
+pov_line = 22302.6775
 print('Total population:',cat_info.weight.sum())
 print('Total n households:',cat_info.hhwgt.sum())
+print('Poor in poverty:',    cat_info.loc[(cat_info.pcinc_s <= pov_line),'weight'].sum())
+print('Families in poverty:',cat_info.loc[(cat_info.pcinc_s <= pov_line), 'hhwgt'].sum())
 
 # Change the name: district to code, and create an multi-level index 
 cat_info = cat_info.rename(columns={'district':'code'})
@@ -143,7 +157,7 @@ cat_info_c_5 = cat_info.reset_index().groupby('province',sort=True).apply(lambda
 cat_info = cat_info.reset_index().set_index(['province','hhid']) #change the name: district to code, and create an multi-level index 
 cat_info['c_5'] = broadcast_simple(cat_info_c_5,cat_info.index)
 
-# Population of household as fraction of population of province
+# Population of household as fraction of population of provinces
 cat_info['n'] = cat_info.hhwgt/cat_info.hhwgt.sum(level=economy)
 
 # population of household as fraction of total population
@@ -155,10 +169,10 @@ print('normalization:',cat_info.n_national.sum())
 
 # Get the tax used for domestic social transfer
 # --> tau_tax = 0.075391
-df['tau_tax'] = 1/((cat_info[['c','n_national']].prod(axis=1, skipna=False).sum())/(cat_info[['social','c','n_national']].prod(axis=1, skipna=False).sum())+1)
+df['tau_tax'] = cat_info[['social','c','hhwgt']].prod(axis=1, skipna=False).sum()/cat_info[['c','hhwgt']].prod(axis=1, skipna=False).sum()
 
 # Get the share of Social Protection
-cat_info['gamma_SP'] = cat_info[['social','c']].prod(axis=1,skipna=False)/cat_info[['social','c','n_national']].prod(axis=1, skipna=False).sum()
+cat_info['gamma_SP'] = cat_info[['social','c']].prod(axis=1,skipna=False)*cat_info['hhwgt'].sum()/cat_info[['social','c','hhwgt']].prod(axis=1, skipna=False).sum()
 cat_info.drop('n_national',axis=1,inplace=True)
 
 # Intl remittances: subtract from 'c'
@@ -244,10 +258,10 @@ hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on='
 
 # Transfer fa in excess of 95% to vulnerability
 fa_threshold = 0.95
-hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v']).fillna(0)
+hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v']).fillna(1E-8)
 
 hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold
-hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=0.000001,upper=fa_threshold)
+hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=0.0000001,upper=fa_threshold)
 
 cat_info = cat_info.reset_index().set_index(['province','hhid'])
 cat_info['v'] = hazard_ratios.reset_index().set_index(['province','hhid'])['v'].mean(level=['province','hhid']).clip(upper=0.99)

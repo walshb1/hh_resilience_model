@@ -39,13 +39,10 @@ def get_share_from_sheet(PAGER_XL,pager_code_to_aggcat,iso3_to_wb,sheetname='Rur
 	
 def social_to_tx_and_gsp(economy,cat_info):       
         '''(tx_tax, gamma_SP) from cat_info[['social','c','weight']] '''
-        
-        tx_tax = cat_info[['social','c','hhwgt']].prod(axis=1, skipna=False).sum() / \
-                 cat_info[         ['c','hhwgt']].prod(axis=1, skipna=False).sum()
 
+        tx_tax = cat_info[['social','c','hhwgt']].prod(axis=1, skipna=False).sum() / cat_info[['c','hhwgt']].prod(axis=1, skipna=False).sum()
         #income from social protection PER PERSON as fraction of PER CAPITA social protection
-        gsp=     cat_info[['social','c']].prod(axis=1,skipna=False) /\
-             cat_info[['social','c','hhwgt']].prod(axis=1, skipna=False).sum()
+        gsp= cat_info[['social','c']].prod(axis=1,skipna=False) / cat_info[['social','c','hhwgt']].prod(axis=1, skipna=False).sum()
         
         return tx_tax, gsp
 		
@@ -109,8 +106,8 @@ def get_AIR_data(fname,sname,keep_sec,keep_per):
     AIR_peril_lookup_2 = {'EQ':'earthquake', 'HUSSPF':'typhoon', 'HU':'wind', 'SS':'surge', 'PF':'flood'}
 
     AIR_value_destroyed = pd.read_excel(fname,sheetname="Loss_Results",
-                                        usecols=['perilsetcode',"province","Perspective","Sector","EP10","EP25","EP30","EP50","EP100","EP200","EP250","EP500","EP1000"]).squeeze()
-    AIR_value_destroyed.columns=['hazard','province','Perspective','Sector',10,25,30,50,100,200,250,500,1000]
+                                        usecols=['perilsetcode',"province","Perspective","Sector","EP1","EP10","EP25","EP30","EP50","EP100","EP200","EP250","EP500","EP1000"]).squeeze()
+    AIR_value_destroyed.columns=['hazard','province','Perspective','Sector',1,10,25,30,50,100,200,250,500,1000]
 
     # Change province code to province name
     #AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['hazard','Perspective','Sector'])

@@ -103,8 +103,8 @@ myHaz = [['Mountain Province','Davao Occidental','Negros Occidental','Abra','Aur
 #pov_line = (9064*12.)*(avg_hhsize/5)
 #pov_line = 1.90*365*cf_ppp
 #pov_line = 6329.*(12./5.)
-sub_line = 14832.0962
-pov_line = 21240.2924
+sub_line = 14832.0962*(22302.6775/21240.2924)
+pov_line = 22302.6775#21240.2924
 
 iah = iah.reset_index()
 for myDis in ['flood','earthquake','surge','wind']:
@@ -153,8 +153,11 @@ for myDis in ['flood','earthquake','surge','wind']:
     n_pov = sum_with_rp(n_pov[['disaster_n_pov','disaster_n_pov_pct','disaster_n_sub','disaster_n_sub_pct']],
                         ['disaster_n_pov','disaster_n_pov_pct','disaster_n_sub','disaster_n_sub_pct'],sum_provinces=False)
 
+
+    my_n_pov = n_pov.copy().drop(['Batanes'],axis=0)
+
     make_map_from_svg(
-        n_pov.disaster_n_pov, 
+        my_n_pov.disaster_n_pov, 
         '../map_files/'+myCountry+'/BlankSimpleMap.svg',
         outname='new_poverty_incidence_'+myDis+'_allRPs',
         color_maper=plt.cm.get_cmap('RdYlGn_r'), 
@@ -164,7 +167,7 @@ for myDis in ['flood','earthquake','surge','wind']:
         res=800)
     
     make_map_from_svg(
-        n_pov.disaster_n_pov_pct, 
+        my_n_pov.disaster_n_pov_pct, 
         '../map_files/'+myCountry+'/BlankSimpleMap.svg',
         outname='new_poverty_incidence_pct_'+myDis+'_allRPs',
         color_maper=plt.cm.get_cmap('RdYlGn_r'), 
@@ -174,7 +177,7 @@ for myDis in ['flood','earthquake','surge','wind']:
         res=800)
 
     make_map_from_svg(
-        n_pov.disaster_n_sub, 
+        my_n_pov.disaster_n_sub, 
         '../map_files/'+myCountry+'/BlankSimpleMap.svg',
         outname='new_subsistence_incidence_'+myDis+'_allRPs',
         color_maper=plt.cm.get_cmap('RdYlGn_r'), 
@@ -184,7 +187,7 @@ for myDis in ['flood','earthquake','surge','wind']:
         res=800)
     
     make_map_from_svg(
-        n_pov.disaster_n_sub_pct, 
+        my_n_pov.disaster_n_sub_pct, 
         '../map_files/'+myCountry+'/BlankSimpleMap.svg',
         outname='new_subsistence_incidence_pct_'+myDis+'_allRPs',
         color_maper=plt.cm.get_cmap('RdYlGn_r'), 
@@ -233,17 +236,20 @@ for myDis in ['flood','earthquake','surge','wind']:
 
         ##### Experiment
         #print('rich, below pov',cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial <= pov_line), 'weight'].sum(level=['hazard','rp']).mean())
-        #crb_heights, crb_bins = np.histogram(cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial <= pov_line),'c_initial'].fillna(-1),    
-        #                                     bins=ci_bins, weights=cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial <= pov_line),'weight'].fillna(-1))
-        #
-        #
-        #print('rich, below pov',cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial > pov_line), 'weight'].sum(level=['hazard','rp']).mean())
-        #cra_heights, cra_bins = np.histogram(cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial > pov_line),'c_initial'].fillna(-1),    
-        #                                     bins=ci_bins, weights=cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial > pov_line),'weight'].fillna(-1))
-        #
+        #crb_heights, crb_bins = np.histogram(cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial <= pov_line),'c_initial'].fillna(0),    
+        #                                     bins=ci_bins, weights=cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial <= pov_line),'weight'].fillna(0))
+        
+        
+        #print('rich, above pov',cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial > pov_line), 'weight'].sum(level=['hazard','rp']).mean())
+        #cra_heights, cra_bins = np.histogram(cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial > pov_line),'c_initial'].fillna(0),    
+        #                                     bins=ci_bins, weights=cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial > pov_line),'weight'].fillna(0))
+        
+        #cra_heights /= 1.E6
+        #crb_heights /= 1.E6
+
         #ax.bar(crb_bins[:-1], crb_heights, width=ci_bins[1], label='Initial Consumption, Rich', facecolor=q_colors[2],alpha=0.8)
         #ax.bar(cra_bins[:-1], cra_heights, width=ci_bins[1], label='Initial Consumption, Rich', facecolor=q_colors[3],alpha=0.8)
-        #
+        
         ###############
 
         # Change in poverty incidence
@@ -265,8 +271,9 @@ for myDis in ['flood','earthquake','surge','wind']:
         ax.annotate(r'$\Delta$N$_s$ = +'+s_str+s_pct,xy=(sub_line*1.1,1.5*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
 
         fig = ax.get_figure()
+        plt.title(str(myRP)+'-Year '+myDis[:1].upper()+myDis[1:]+' Event')
         plt.xlabel(r'Consumption [Philippine pesos yr$^{-1}$]')
-        plt.ylabel('Population [millions]')
+        plt.ylabel('Population [Millions]')
         plt.legend(loc='best')
         print('poverty_k_'+myDis+'_'+str(myRP)+'.pdf')
         fig.savefig('../output_plots/PH/poverty_k_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',format='pdf')
@@ -357,31 +364,40 @@ for myProv in myHaz[0]:
             print('pds_help_rec_mean (avg) = ',pds_help_rec_mean)
 
             # histograms
-            df_wgt = pd.DataFrame({'q1_w': q1['weight'],'q2_w': q2['weight'],'q3_w': q3['weight'],'q4_w': q4['weight'],'q5_w': q5['weight']}, 
+            df_wgt = pd.DataFrame({'q1_w': q1.loc[q1.affected_cat=='a','weight'],
+                                   'q2_w': q2.loc[q2.affected_cat=='a','weight'],
+                                   'q3_w': q3.loc[q3.affected_cat=='a','weight'],
+                                   'q4_w': q4.loc[q4.affected_cat=='a','weight'],
+                                   'q5_w': q5.loc[q5.affected_cat=='a','weight']}, 
                                   columns=['q1_w', 'q2_w', 'q3_w', 'q4_w', 'q5_w']).fillna(0)
 
-            df_wgt.to_csv('~/Desktop/weights.csv')
+            #df_wgt.to_csv('~/Desktop/weights.csv')
 
             for istr in ['dk','dc','dw']:
 
-                continue
+                upper_clip = 75000
+                if istr == 'dw': upper_clip =  200000
 
-                df_tmp = pd.DataFrame({'q1': q1[istr],'q2': q2[istr],'q3': q3[istr],'q4': q4[istr],'q5': q5[istr]},columns=['q1', 'q2', 'q3', 'q4', 'q5']).fillna(0)
+                df_tmp = pd.DataFrame({'q1': q1.loc[q1.affected_cat=='a',istr],
+                                       'q2': q2.loc[q2.affected_cat=='a',istr],
+                                       'q3': q3.loc[q3.affected_cat=='a',istr],
+                                       'q4': q4.loc[q4.affected_cat=='a',istr],
+                                       'q5': q5.loc[q5.affected_cat=='a',istr]},columns=['q1', 'q2', 'q3', 'q4', 'q5']).fillna(0)
 
-                q1_heights, q1_bins = np.histogram(df_tmp['q1'],weights=df_wgt['q1_w'])
-                q2_heights, q2_bins = np.histogram(df_tmp['q2'],weights=df_wgt['q2_w'],bins=q1_bins)
-                q3_heights, q3_bins = np.histogram(df_tmp['q3'],weights=df_wgt['q3_w'],bins=q1_bins)
-                q4_heights, q4_bins = np.histogram(df_tmp['q4'],weights=df_wgt['q4_w'],bins=q1_bins)
-                q5_heights, q5_bins = np.histogram(df_tmp['q5'],weights=df_wgt['q5_w'],bins=q1_bins)
+                q1_heights, q1_bins = np.histogram(df_tmp['q1'].clip(upper=upper_clip),weights=df_wgt['q1_w'])
+                #q2_heights, q2_bins = np.histogram(df_tmp['q2'].clip(upper=upper_clip),weights=df_wgt['q2_w'],bins=q1_bins)
+                q3_heights, q3_bins = np.histogram(df_tmp['q3'].clip(upper=upper_clip),weights=df_wgt['q3_w'],bins=q1_bins)
+                #q4_heights, q4_bins = np.histogram(df_tmp['q4'].clip(upper=upper_clip),weights=df_wgt['q4_w'],bins=q1_bins)
+                q5_heights, q5_bins = np.histogram(df_tmp['q5'].clip(upper=upper_clip),weights=df_wgt['q5_w'],bins=q1_bins)
 
-                width = (q1_bins[1] - q1_bins[0])/6
+                width = (q1_bins[1] - q1_bins[0])
             
                 ax = plt.gca()
-                ax.bar(q1_bins[:-1], q1_heights, width=width, label='q1', facecolor=q_colors[0],alpha=0.5)
-                ax.bar(q2_bins[:-1]+1*width, q2_heights, width=width, label='q2', facecolor=q_colors[1],alpha=0.5)
-                ax.bar(q3_bins[:-1]+2*width, q3_heights, width=width, label='q3', facecolor=q_colors[2],alpha=0.5)
-                ax.bar(q4_bins[:-1]+3*width, q4_heights, width=width, label='q4', facecolor=q_colors[3],alpha=0.5)
-                ax.bar(q5_bins[:-1]+4*width, q5_heights, width=width, label='q5', facecolor=q_colors[4],alpha=0.5)
+                ax.bar(q1_bins[:-1], q1_heights, width=width, label='q1', facecolor=q_colors[0],alpha=0.3)
+                #ax.bar(q2_bins[:-1], q2_heights, width=width, label='q2', facecolor=q_colors[1],alpha=0.3)
+                ax.bar(q3_bins[:-1], q3_heights, width=width, label='q3', facecolor=q_colors[2],alpha=0.3)
+                #ax.bar(q4_bins[:-1], q4_heights, width=width, label='q4', facecolor=q_colors[3],alpha=0.3)
+                ax.bar(q5_bins[:-1], q5_heights, width=width, label='q5', facecolor=q_colors[4],alpha=0.3)
 
                 plt.title(myDis+' in '+myProv+' (rp = '+str(myRP)+') - '+istr)
                 plt.xlabel(istr,fontsize=12)
@@ -398,14 +414,16 @@ for myProv in myHaz[0]:
                 ax1.bar([6*ii+ij for ii in range(1,7)],[0.01*np.array(k_mean[ij]),dk_mean[ij],dc_mean[ij],dw_mean[ij],nrh_mean[ij],dw_pds_mean[ij]],color=q_colors[ij],
                         alpha=0.7,label=q_labels[ij])
 
+            label_y_val = 1.1*np.array(nrh_mean).min()
+
             ax1.xaxis.set_ticks([])
             plt.ylabel('Mean PHP ('+myProv+', '+myDis+', rp='+str(myRP)+' yr)')
-            ax1.annotate('1% of assets',              xy=( 6,ax.get_ylim()[0]),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            ax1.annotate('Asset loss',                xy=(12,ax.get_ylim()[0]),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            ax1.annotate('Consumption\nloss',         xy=(18,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            ax1.annotate('Welfare loss',              xy=(24,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            ax1.annotate('Net cost \nof help',        xy=(30,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            ax1.annotate('Welfare loss\npost-support',xy=(36,-500),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+            ax1.annotate('1% of assets',              xy=( 6,label_y_val),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+            ax1.annotate('Asset loss',                xy=(12,label_y_val),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+            ax1.annotate('Consumption\nloss',         xy=(18,label_y_val),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+            ax1.annotate('Welfare loss',              xy=(24,label_y_val),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+            ax1.annotate('Net cost \nof help',        xy=(30,label_y_val),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+            ax1.annotate('Welfare loss\npost-support',xy=(36,label_y_val),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
             ax1.legend(loc='best')
 
             print('Saving: histo_'+myProv+'_'+myDis+'_'+str(myRP)+'.pdf\n')

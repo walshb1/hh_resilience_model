@@ -1,9 +1,15 @@
 #modified version from lib_compute_resilience_and_risk_financing.py
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from pandas_helper import get_list_of_index_names, broadcast_simple, concat_categories
 from scipy.interpolate import interp1d
 from lib_gather_data import social_to_tx_and_gsp
+
+import seaborn as sns
+
+sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
+q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 def get_weighted_mean(q1,q2,q3,q4,q5,key,weight_key='weight'):
 
@@ -58,7 +64,7 @@ def process_input(macro,cat_info,hazard_ratios,economy,event_level,default_rp,ve
 
     if type(hazard_ratios)==pd.DataFrame:
         #These lines remove countries in macro not in cat_info
-        hazard_ratios = hazard_ratios.dropna()
+        hazard_ratios = hazard_ratios.fillna(0)
         common_places = [c for c in macro.index if c in cat_info.index and c in hazard_ratios.index]
         print(common_places)
 
@@ -92,34 +98,41 @@ def process_input(macro,cat_info,hazard_ratios,economy,event_level,default_rp,ve
         hazard_ratios_event = interpolate_rps(hazard_ratios, macro.protection,option=default_rp)
 
     # PSA input: original value of c
-    avg_c = round(np.average(macro['gdp_pc_pp'],weights=macro['pop'])/50.,2)
-    print('\nMean consumption (PSA): ',avg_c,' USD.\nMean GDP pc ',round(np.average(macro['gdp_pc_pp'],weights=macro['pop'])/50.,2),' USD.\n')
+    avg_c = round(np.average(macro['gdp_pc_pp_prov'],weights=macro['pop'])/50.,2)
+    print('\nMean consumption (PSA): ',avg_c,' USD.\nMean GDP pc ',round(np.average(macro['gdp_pc_pp_prov'],weights=macro['pop'])/50.,2),' USD.\n')
 
-    # Recompute
-    # Here we assume that gdp = consumption = prod_from_k
-    # original code: macro['gdp_pc_pp'] = macro['avg_prod_k']*agg_to_economy_level(cat_info,'k',economy)s
-    # num: k (capital/household)*nHH. denom: total pop = sum(weight)
-    macro['gdp_pc_pp'] = macro['avg_prod_k']*(cat_info['k']*cat_info['hhwgt']).sum(level=economy)/(cat_info['hhwgt'].sum(level=economy))
-    # ^ this is per household!!
-
-    cat_info['c'] = macro['avg_prod_k']*((1-macro['tau_tax'])*cat_info['k']
-                                         + cat_info['gamma_SP']*macro['tau_tax']*(cat_info['k']*cat_info['hhwgt'])/(cat_info['hhwgt'].sum()))
-    # this is per household: k*hhwgt/hhwgt
-
-    print('Recalc mean cons = (per cap, not per hh)',round(np.average((cat_info['c']*cat_info['hhwgt']).sum(level=economy)/macro['pop'],weights=macro['pop'])/50.,2),'USD.\n')
+    
 
     cat_info['protection']=broadcast_simple(macro['protection'],cat_info.index)	
 
     #add finance to diversification and taxation
     cat_info['social'] = unpack_social(macro,cat_info)
-    
+
     #cat_info['social']+= 0.1* cat_info['axfin']
     macro['tau_tax'], cat_info['gamma_SP'] = social_to_tx_and_gsp(economy,cat_info)
             
     #RECompute consumption from k and new gamma_SP and tau_tax
-    cat_info['c']= macro['avg_prod_k']*((1-macro['tau_tax'])*cat_info['k'] 
-                                        + cat_info['gamma_SP']*macro['tau_tax']*(cat_info['k']*cat_info['hhwgt'])/(cat_info['hhwgt'].sum()))
+    cat_info['c']= macro['avg_prod_k']*(1-macro['tau_tax'])*cat_info['k']/(1-cat_info['social'])
     # ^ this is per hh
+
+    print('all weights ',cat_info['weight'].sum())
+
+    cat_info['c_spot'] = (cat_info['c']*cat_info['hhwgt']/cat_info['pcwgt']).clip(upper=100000)
+    print('should be: ',cat_info.loc[cat_info.pcinc_s <= 22302.6775,'weight'].sum())
+    print('pov B: ',cat_info.loc[cat_info.c_spot <= 22302.6775,'weight'].sum())
+    #print('- poor: ',cat_info.loc[(cat_info.poorhh == 1) & (cat_info.c <= 22302.6775),'weight'].sum())
+    #print('- rich: ',cat_info.loc[(cat_info.poorhh == 0) & (cat_info.c <= 22302.6775),'weight'].sum())
+    #cat_info = cat_info.dropna()
+
+    #print(cat_info.loc[(cat_info.poorhh == 0) & (cat_info.c <= 22302.6775),['c','k','weight','pcwgt','social']].head(10))
+
+    #plt.cla()
+    #ax = plt.gca()
+    #ci_heights, ci_bins = np.histogram(cat_info.c,bins=50, weights=cat_info.pcwgt)
+    #ax.bar(ci_bins[:-1], ci_heights, width=ci_bins[1], facecolor=q_colors[1], label='C2',alpha=0.4)
+    #plt.legend()
+    #fig = ax.get_figure()
+    #fig.savefig('./my_B.png',format='png')#+'.pdf',format='pdf')
 
     print('Re-recalc mean cons (pc)',round(np.average((cat_info['c']*cat_info['hhwgt']).sum(level=economy)/macro['pop'],weights=macro['pop'])/50.,2),'USD.\n')    
 
@@ -166,14 +179,21 @@ def compute_dK(macro_event, cats_event,event_level,affected_cats):
     #counts affected and non affected
 
     print('From here: \'hhwgt\' = nAffected and nNotAffected: households') 
+
+    cats_event['fa'] = cats_event.fa.fillna(1E-8)
+
     hh_naf = cats_event['hhwgt']*cats_event.fa
     hh_nna = cats_event['hhwgt']*(1-cats_event.fa)
-    cats_event_ia['hhwgt'] = concat_categories(hh_naf,hh_nna, index= affected_cats)
+    cats_event_ia['hhwgt'] = concat_categories(hh_naf,hh_nna, index= affected_cats)    
+    print(cats_event_ia['hhwgt'].shape[0])
+    print(cats_event_ia['hhwgt'].dropna().shape[0])
 
     print('From here: \'weight\' = nAffected and nNotAffected: individuals') 
     naf = cats_event['weight']*cats_event.fa
     nna = cats_event['weight']*(1-cats_event.fa)
     cats_event_ia['weight'] = concat_categories(naf,nna, index= affected_cats)
+    print(cats_event_ia['weight'].shape[0])
+    print(cats_event_ia['weight'].dropna().shape[0])
     
     #de_index so can access cats as columns and index is still event
     cats_event_ia = cats_event_ia.reset_index(['hhid', 'affected_cat']).sort_index()
@@ -187,11 +207,18 @@ def compute_dK(macro_event, cats_event,event_level,affected_cats):
     cats_event_ia.ix[(cats_event_ia.affected_cat=='na'), 'dk']=0
 
     #'provincial' losses
-    macro_event['dk_event'] =  cats_event_ia[['dk','hhwgt']].prod(axis=1,skipna=False).sum(level=event_level)
+    macro_event['dk_event'] =  cats_event_ia[['dk','hhwgt']].prod(axis=1,skipna=False).sum(level=event_level).fillna(0)
     
     #immediate consumption losses: direct capital losses plus losses through event-scale depression of transfers
     cats_event_ia['dc'] = (1-macro_event['tau_tax'])*cats_event_ia['dk']  +  cats_event_ia['gamma_SP']*macro_event['tau_tax'] *macro_event['dk_event'] 
     
+    # This term is the impact on income from labor
+    #cats_event_ia['dc_1'] = (1-macro_event['tau_tax'])*cats_event_ia['dk']
+
+    # This term is the impact on national transfers
+    # --> gamma_SP = 
+    #cats_event_ia['dc_2'] = cats_event_ia['gamma_SP']*macro_event['tau_tax'] *macro_event['dk_event'] 
+
     # NPV consumption losses accounting for reconstruction and productivity of capital (pre-response)
     cats_event_ia['dc_npv_pre'] = cats_event_ia['dc']*macro_event['macro_multiplier']
     return 	macro_event, cats_event_ia
@@ -220,7 +247,7 @@ def compute_response(macro_event, cats_event_iah, event_level, default_rp, optio
     macro_event    = macro_event.copy()
     cats_event_iah = cats_event_iah.copy()
 
-    macro_event['fa'] = (cats_event_iah.loc[(cats_event_iah.affected_cat=='a'),'hhwgt'].sum(level=event_level)/(cats_event_iah['hhwgt'].sum(level=event_level))).fillna(0)
+    macro_event['fa'] = (cats_event_iah.loc[(cats_event_iah.affected_cat=='a'),'hhwgt'].sum(level=event_level)/(cats_event_iah['hhwgt'].sum(level=event_level))).fillna(1E-8)
 
     print('Check fa: ',macro_event['fa'].sum(level=event_level))
     # Need to check whether everything is right here:
@@ -276,7 +303,7 @@ def compute_response(macro_event, cats_event_iah, event_level, default_rp, optio
     # max_aid is per cap, and it is constant for all disasters & provinces
     # --> If this much were distributed to everyone in the country, it would be 5% of GDP
     # --> All of these '.mean()' are because I'm bad at Pandas. The arrays are all the same value, and we want to pull out a single instance here
-    macro_event['max_aid'] = macro_event['max_increased_spending'].mean()*macro_event[['gdp_pc_pp','pop']].prod(axis=1).sum(level=['hazard','rp']).mean()/macro_event['pop'].sum(level=['hazard','rp']).mean()
+    macro_event['max_aid'] = macro_event['max_increased_spending'].mean()*macro_event[['gdp_pc_pp_prov','pop']].prod(axis=1).sum(level=['hazard','rp']).mean()/macro_event['pop'].sum(level=['hazard','rp']).mean()
 
     if optionFee == 'insurance_premium':
         temp = cats_event_iah.copy()
@@ -345,10 +372,10 @@ def compute_response(macro_event, cats_event_iah, event_level, default_rp, optio
         assert(False)
         
     #elif optionB=='max01':
-    #    macro_event['max_aid'] = 0.01*macro_event['gdp_pc_pp']
+    #    macro_event['max_aid'] = 0.01*macro_event['gdp_pc_pp_nat']
     #    macro_event['aid'] = (macro_event['need']).clip(upper=macro_event['max_aid']) 
     #elif optionB=='max05':
-    #    macro_event['max_aid'] = 0.05*macro_event['gdp_pc_pp']
+    #    macro_event['max_aid'] = 0.05*macro_event['gdp_pc_pp_nat']
     #    macro_event['aid'] = (macro_event['need']).clip(upper=macro_event['max_aid'])
     #elif optionB=='unlimited':
     #    macro_event['aid'] = macro_event['need']
@@ -509,7 +536,9 @@ def unpack_social(m,cat):
     """Compute social from gamma_SP, taux tax and k and avg_prod_k"""
     c  = cat.c
     gs = cat.gamma_SP
-    social = gs*m.gdp_pc_pp*m.tau_tax/(c+1.0e-10) #gdp*tax should give the total social protection. gs=each one's social protection/(total social protection). social is defined as t(which is social protection)/c_i(consumption)
+
+    social = gs*m.gdp_pc_pp_nat*m.tau_tax/(c+1.0e-10) #gdp*tax should give the total social protection. gs=each one's social protection/(total social protection). social is defined as t(which is social protection)/c_i(consumption)
+
     return social
 	
 def interpolate_rps(fa_ratios,protection_list,option):
@@ -679,9 +708,9 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah, is_local_welfare=True)
 
     # flag: gdp_pc_pp is per household. making sure all other things are per household
     if is_local_welfare:
-        wprime =(welf(df['gdp_pc_pp']/rho+h,df['income_elast'])-welf(df['gdp_pc_pp']/rho-h,df['income_elast']))/(2*h)
+        wprime =(welf(df['gdp_pc_pp_prov']/rho+h,df['income_elast'])-welf(df['gdp_pc_pp_prov']/rho-h,df['income_elast']))/(2*h)
     else:
-        nat_GDP_pc = np.average(df['gdp_pc_pp'], weights=df['pop'])
+        nat_GDP_pc = np.average(df['gdp_pc_pp_nat'])
         wprime =(welf(nat_GDP_pc/rho+h,df['income_elast'])-welf(nat_GDP_pc/rho-h,df['income_elast']))/(2*h)
         
     dWref   = wprime*df['dK']
@@ -691,13 +720,9 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah, is_local_welfare=True)
     df['dWref'] = dWref
     df['dWpc_currency'] = df['delta_W']/wprime 
     df['dWtot_currency']=df['dWpc_currency']*cats_event_iah['hhwgt'].sum(level=['province','hazard','rp'])#*df['pop']
-
-    print(df[['pop','dK','dKtot','wprime','dWref','delta_W','dWpc_currency','dWtot_currency','gdp_pc_pp']])
     
     #Risk to welfare as percentage of local GDP
-    df['risk']= df['dWpc_currency']/(df['gdp_pc_pp'])
-
-    #print(df['dWpc_currency'],df['gdp_pc_pp'])
+    df['risk']= df['dWpc_currency']/(df['gdp_pc_pp_prov'])
     
     ############
     #SOCIO-ECONOMIC CAPACITY)

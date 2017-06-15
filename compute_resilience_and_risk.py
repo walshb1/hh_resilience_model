@@ -109,7 +109,7 @@ out = compute_dW(macro_event,cats_event_iah,event_level,option_CB,return_stats=T
 print('F')
 
 # Flag: running local welfare
-print('running local welfare')
+print('running national welfare')
 results,iah = process_output(out,macro_event,economy,default_rp,return_iah=True,is_local_welfare=False)
 print('G')
 
