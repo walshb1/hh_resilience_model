@@ -62,7 +62,7 @@ make_map_from_svg(
         svg_file_path,
         outname='welfare_risk_',
         color_maper=plt.cm.get_cmap('Purples'), 
-        label='Annual welfare losses (% of GDP)',
+        label='Annual well-being losses (% of GDP)',
         new_title='Map of welfare risk in the Philippines',
         do_qualitative=True,
         res=inp_res)

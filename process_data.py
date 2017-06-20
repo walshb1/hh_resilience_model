@@ -101,7 +101,7 @@ q_labels = ['Poorest quintile','Q2','Q3','Q4','Wealthiest quintile']
 q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 # Look at single event:
-myHaz = [['Mountain Province','Davao Occidental','Negros Occidental','Abra','Aurora','Bulacan','Pangasinan','Sulu','Davao','Palawan','Eastern Samar','Cebu','Manila'],['flood','wind'],[25,100,500,1000]]
+myHaz = [['Manila','Mountain Province','Davao Occidental','Negros Occidental','Abra','Aurora','Bulacan','Pangasinan','Sulu','Davao','Palawan','Eastern Samar','Cebu'],['flood','wind'],[1,10,25,30,50,100,250,500,1000]]
 
 #pov_line = (9064*12.)*(avg_hhsize/5)
 #pov_line = 1.90*365*cf_ppp
@@ -111,6 +111,8 @@ pov_line = 22302.6775#21240.2924
 
 iah = iah.reset_index()
 for myDis in ['flood','earthquake','surge','wind']:
+
+    continue
 
     cut_rps = iah.loc[(iah.hazard == myDis)].set_index(['province','hazard','rp']).fillna(0)
     if (cut_rps['weight'].sum() == 0 or cut_rps.shape[0] == 0): continue
@@ -333,12 +335,86 @@ for myDis in ['flood','earthquake','surge','wind']:
             new_title='Filipinos pushed into poverty by '+myDis+' (RP = '+str(myRP)+') [%]',
             do_qualitative=False,
             res=800)
+
+df_out_sum = pd.DataFrame()
+df_out = pd.DataFrame()
+
+rp_all = []
+dk_all = []
+dw_all = []
+
+dk_q1 = []
+dw_q1 = []
+
+for myRP in myHaz[2]:
+
+    # Don't care about province or hazard, but I DO still need to separate out by RP
+    # try means for all of the Philippines
+    all_q1 = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+                     & (iah.quintile == 1) & (iah.rp == myRP)]
+    all_q2 = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+                     & (iah.quintile == 2) & (iah.rp == myRP)]
+    all_q3 = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+                     & (iah.quintile == 3) & (iah.rp == myRP)]
+    all_q4 = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+                     & (iah.quintile == 4) & (iah.rp == myRP)]
+    all_q5 = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+                     & (iah.quintile == 5) & (iah.rp == myRP)]
+
+    print('RP = ',myRP,'dk =',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+                  & (iah.rp == myRP),['dk','weight']].prod(axis=1).sum())
+    print('RP = ',myRP,'dw =',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+                  & (iah.rp == myRP),['dw','weight']].prod(axis=1).sum())          
+
+    rp_all.append(myRP)
+    dk_all.append(iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+                          & (iah.rp == myRP),['dk','weight']].prod(axis=1).sum())
+    dw_all.append(iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+                          & (iah.rp == myRP),['dw','weight']].prod(axis=1).sum())
+
+    dk_q1.append(iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+                         & (iah.rp == myRP) & (iah.quintile == 1),['dk','weight']].prod(axis=1).sum())
+    dw_q1.append(iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+                         & (iah.rp == myRP) & (iah.quintile == 1),['dw','weight']].prod(axis=1).sum())
+
+    k_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'k')
+    dk_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'dk')
+    dc_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'dc_npv_pre')
+    dw_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'dw')
+    nrh_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'pds_nrh')
+    dw_pds_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'pds_dw')
+    pds_help_fee_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'pds_help_fee')
+    pds_help_rec_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'pds_help_received')
     
-for myProv in myHaz[0]:
-    for myDis in myHaz[1]:
-        for myRP in myHaz[2]:
-    
-            print('len_t=',iah.shape[0])
+    df_this_sum = pd.DataFrame({     'k_q1':     k_mean[0],     'k_q2':     k_mean[1],     'k_q3':     k_mean[2],     'k_q4':     k_mean[3],     'k_q5':     k_mean[4],
+                                     'dk_q1':    dk_mean[0],    'dk_q2':    dk_mean[1],    'dk_q3':    dk_mean[2],    'dk_q4':    dk_mean[3],    'dk_q5':    dk_mean[4], 
+                                     'dc_q1':    dc_mean[0],    'dc_q2':    dc_mean[1],    'dc_q3':    dc_mean[2],    'dc_q4':    dc_mean[3],    'dc_q5':    dc_mean[4],
+                                     'dw_q1':    dw_mean[0],    'dw_q2':    dw_mean[1],    'dw_q3':    dw_mean[2],    'dw_q4':    dw_mean[3],    'dw_q5':    dw_mean[4],
+                                     'nrh_q1':   nrh_mean[0],   'nrh_q2':   nrh_mean[1],   'nrh_q3':   nrh_mean[2],   'nrh_q4':   nrh_mean[3],   'nrh_q5':   nrh_mean[4],
+                                     'dw_pds_q1':dw_pds_mean[0],'dw_pds_q2':dw_pds_mean[1],'dw_pds_q3':dw_pds_mean[2],'dw_pds_q4':dw_pds_mean[3],'dw_pds_q5':dw_pds_mean[4]},
+                               columns=[     'k_q1',     'k_q2',     'k_q3',     'k_q4',     'k_q5',
+                                             'dk_q1',    'dk_q2',    'dk_q3',    'dk_q4',    'dk_q5',
+                                             'dc_q1',    'dc_q2',    'dc_q3',    'dc_q4',    'dc_q5',
+                                             'dw_q1',    'dw_q2',    'dw_q3',    'dw_q4',    'dw_q5',
+                                             'nrh_q1',   'nrh_q2',   'nrh_q3',   'nrh_q4',   'nrh_q5',
+                                             'dw_pds_q1','dw_pds_q2','dw_pds_q3','dw_pds_q4','dw_pds_q5'],
+                               index=[myRP])
+
+    if df_out_sum.empty: df_out_sum = df_this_sum
+    else: df_out_sum = df_out_sum.append(df_this_sum)
+
+    print('--> WHOLE COUNTRY (rp =',myRP,')')
+    print('k/100 (avg) = ',0.01*np.array(k_mean))
+    print('dk (avg) = ',dk_mean)
+    print('dc (avg) = ',dc_mean)
+    print('dw (pc avg) = ',dw_mean)
+    print('pds_help_fee_mean (avg) = ',pds_help_fee_mean)
+    print('pds_help_rec_mean (avg) = ',pds_help_rec_mean)
+    print('\n')
+
+    for myProv in myHaz[0]:
+        for myDis in myHaz[1]:
+
             cut = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped')))  & (iah.province == myProv) & (iah.hazard == myDis) & (iah.rp == myRP)].set_index(['province','hazard','rp'])
 
             if cut.shape[0] == 0: continue
@@ -359,12 +435,22 @@ for myProv in myHaz[0]:
             pds_help_fee_mean = get_weighted_mean(q1,q2,q3,q4,q5,'pds_help_fee')
             pds_help_rec_mean = get_weighted_mean(q1,q2,q3,q4,q5,'pds_help_received')
 
-            print('k/100 (avg) = ',0.01*np.array(k_mean))
-            print('dk (avg) = ',dk_mean)
-            print('dc (avg) = ',dc_mean)
-            print('dw (pc avg) = ',dw_mean)
-            print('pds_help_fee_mean (avg) = ',pds_help_fee_mean)
-            print('pds_help_rec_mean (avg) = ',pds_help_rec_mean)
+            df_this = pd.DataFrame({     'k_q1':     k_mean[0],     'k_q2':     k_mean[1],     'k_q3':     k_mean[2],     'k_q4':     k_mean[3],     'k_q5':     k_mean[4],
+                                        'dk_q1':    dk_mean[0],    'dk_q2':    dk_mean[1],    'dk_q3':    dk_mean[2],    'dk_q4':    dk_mean[3],    'dk_q5':    dk_mean[4], 
+                                        'dc_q1':    dc_mean[0],    'dc_q2':    dc_mean[1],    'dc_q3':    dc_mean[2],    'dc_q4':    dc_mean[3],    'dc_q5':    dc_mean[4],
+                                        'dw_q1':    dw_mean[0],    'dw_q2':    dw_mean[1],    'dw_q3':    dw_mean[2],    'dw_q4':    dw_mean[3],    'dw_q5':    dw_mean[4],
+                                       'nrh_q1':   nrh_mean[0],   'nrh_q2':   nrh_mean[1],   'nrh_q3':   nrh_mean[2],   'nrh_q4':   nrh_mean[3],   'nrh_q5':   nrh_mean[4],
+                                    'dw_pds_q1':dw_pds_mean[0],'dw_pds_q2':dw_pds_mean[1],'dw_pds_q3':dw_pds_mean[2],'dw_pds_q4':dw_pds_mean[3],'dw_pds_q5':dw_pds_mean[4]},
+                                      columns=[     'k_q1',     'k_q2',     'k_q3',     'k_q4',     'k_q5',
+                                                   'dk_q1',    'dk_q2',    'dk_q3',    'dk_q4',    'dk_q5',
+                                                   'dc_q1',    'dc_q2',    'dc_q3',    'dc_q4',    'dc_q5',
+                                                   'dw_q1',    'dw_q2',    'dw_q3',    'dw_q4',    'dw_q5',
+                                                  'nrh_q1',   'nrh_q2',   'nrh_q3',   'nrh_q4',   'nrh_q5',
+                                               'dw_pds_q1','dw_pds_q2','dw_pds_q3','dw_pds_q4','dw_pds_q5'],
+                                      index=[[myProv],[myDis],[myRP]])
+
+            if df_out.empty: df_out = df_this
+            else: df_out = df_out.append(df_this)
 
             # histograms
             df_wgt = pd.DataFrame({'q1_w': q1.loc[(q1.affected_cat=='a') & (q1.c <= 100000),'weight'],
@@ -377,6 +463,8 @@ for myProv in myHaz[0]:
             #df_wgt.to_csv('~/Desktop/weights.csv')
 
             for istr in ['dk','dc','dw']:
+
+                continue
 
                 upper_clip = 75000
                 if istr == 'dw': upper_clip =  200000
@@ -429,21 +517,27 @@ for myProv in myHaz[0]:
             # Means
             ax1 = plt.subplot(111)
             for ij in range(0,5):
-                ax1.bar([6*ii+ij for ii in range(1,7)],[0.01*np.array(k_mean[ij]),dk_mean[ij],dc_mean[ij],dw_mean[ij],nrh_mean[ij],dw_pds_mean[ij]],color=q_colors[ij],
-                        alpha=0.7,label=q_labels[ij])
+                ax1.bar([6*ii+ij for ii in range(1,4)],[dk_mean[ij],dw_mean[ij],dw_pds_mean[ij]],color=q_colors[ij],alpha=0.7,label=q_labels[ij])
+                #ax1.bar([6*ii+ij for ii in range(1,7)],[0.01*np.array(k_mean[ij]),dk_mean[ij],dc_mean[ij],dw_mean[ij],nrh_mean[ij],dw_pds_mean[ij]],color=q_colors[ij],alpha=0.7,label=q_labels[ij])
 
-            label_y_val = 1.1*np.array(nrh_mean).min()
+            label_y_val = 0.2*np.array(nrh_mean).min()
 
             ax1.xaxis.set_ticks([])
-            plt.ylabel('Mean PHP ('+myProv+', '+myDis+', rp='+str(myRP)+' yr)')
-            ax1.annotate('1% of assets',              xy=( 6,label_y_val),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            ax1.annotate('Asset loss',                xy=(12,label_y_val),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            ax1.annotate('Consumption\nloss',         xy=(18,label_y_val),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            ax1.annotate('Welfare loss',              xy=(24,label_y_val),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            ax1.annotate('Net cost \nof help',        xy=(30,label_y_val),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-            ax1.annotate('Welfare loss\npost-support',xy=(36,label_y_val),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+            plt.title(str(myRP)+'-Year '+myDis[:1].upper()+myDis[1:]+' Event in '+myProv)
+            plt.ylabel('Mean impact [PHP]')
+            #ax1.annotate('1% of assets',              xy=( 6,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
+            ax1.annotate('Asset loss',                xy=(6,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=12,annotation_clip=False)
+            #ax1.annotate('Consumption\nloss',         xy=(18,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
+            ax1.annotate('Well-being loss',              xy=(12,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=12,annotation_clip=False)
+            #ax1.annotate('Net cost \nof help',        xy=(30,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
+            ax1.annotate('Well-being loss\npost-support',xy=(18,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=12,annotation_clip=False)
             ax1.legend(loc='best')
 
             print('Saving: histo_'+myProv+'_'+myDis+'_'+str(myRP)+'.pdf\n')
             plt.savefig('../output_plots/PH/means_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',bbox_inches='tight',format='pdf')
             plt.cla()
+
+df_out.to_csv('~/Desktop/my_means.csv')
+df_out_sum.to_csv('~/Desktop/my_means_ntl.csv')
+
+print(rp_all,'\n',dk_all,'\n',dw_all,'\n',dk_q1,'\n',dw_q1)

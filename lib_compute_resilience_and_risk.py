@@ -213,11 +213,10 @@ def compute_dK(macro_event, cats_event,event_level,affected_cats):
     cats_event_ia['dc'] = (1-macro_event['tau_tax'])*cats_event_ia['dk']  +  cats_event_ia['gamma_SP']*macro_event['tau_tax'] *macro_event['dk_event'] 
     
     # This term is the impact on income from labor
-    #cats_event_ia['dc_1'] = (1-macro_event['tau_tax'])*cats_event_ia['dk']
+    # cats_event_ia['dc_1'] = (1-macro_event['tau_tax'])*cats_event_ia['dk']
 
     # This term is the impact on national transfers
-    # --> gamma_SP = 
-    #cats_event_ia['dc_2'] = cats_event_ia['gamma_SP']*macro_event['tau_tax'] *macro_event['dk_event'] 
+    # cats_event_ia['dc_2'] = cats_event_ia['gamma_SP']*macro_event['tau_tax'] *macro_event['dk_event'] 
 
     # NPV consumption losses accounting for reconstruction and productivity of capital (pre-response)
     cats_event_ia['dc_npv_pre'] = cats_event_ia['dc']*macro_event['macro_multiplier']
@@ -474,9 +473,8 @@ def compute_dW(macro_event,cats_event_iah,event_level,option_CB,return_stats=Tru
   
     #aggregates dK and delta_W at df level
     # --> dK, dW are averages per household
-    dK      = (cats_event_iah['dk']*cats_event_iah['hhwgt']).sum(level=event_level)/cats_event_iah['hhwgt'].sum(level=event_level)
-    
-    delta_W = (cats_event_iah['dw']*cats_event_iah['hhwgt']).sum(level=event_level)/cats_event_iah['hhwgt'].sum(level=event_level)
+    dK      = cats_event_iah[['dk','hhwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah['hhwgt'].sum(level=event_level)
+    delta_W = cats_event_iah[['dw','hhwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah['hhwgt'].sum(level=event_level)
 
     ###########
     #OUTPUT
