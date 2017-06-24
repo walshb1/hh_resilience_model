@@ -1,0 +1,6 @@
+def get_economic_unit(myCountry):
+    
+    if myCountry == 'PH': return 'province'
+    elif myCountry == 'FJ': return 'province'#'Tikina'
+    
+    else: assert(False)

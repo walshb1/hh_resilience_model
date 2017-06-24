@@ -101,7 +101,7 @@ q_labels = ['Poorest quintile','Q2','Q3','Q4','Wealthiest quintile']
 q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 # Look at single event:
-myHaz = [['Manila','Mountain Province','Davao Occidental','Negros Occidental','Abra','Aurora','Bulacan','Pangasinan','Sulu','Davao','Palawan','Eastern Samar','Cebu'],['flood','wind'],[1,10,25,30,50,100,250,500,1000]]
+myHaz = [['Manila','Mountain Province','Bukidnon','Negros Oriental','Bulacan','Northern Samar','Cebu'],['flood','wind'],[1,10,25,30,50,100,250,500,1000]]
 
 #pov_line = (9064*12.)*(avg_hhsize/5)
 #pov_line = 1.90*365*cf_ppp
@@ -111,8 +111,6 @@ pov_line = 22302.6775#21240.2924
 
 iah = iah.reset_index()
 for myDis in ['flood','earthquake','surge','wind']:
-
-    continue
 
     cut_rps = iah.loc[(iah.hazard == myDis)].set_index(['province','hazard','rp']).fillna(0)
     if (cut_rps['weight'].sum() == 0 or cut_rps.shape[0] == 0): continue
@@ -268,11 +266,11 @@ for myDis in ['flood','earthquake','surge','wind']:
         s_pct = ' ('+str(round((delta_s/cutA['weight'].sum())*100.,2))+'% of population)'
 
         plt.plot([pov_line,pov_line],[0,1.25*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
-        ax.annotate('Poverty line',xy=(1.1*pov_line,1.25*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
+        ax.annotate('Poverty line',xy=(1.1*pov_line,1.25*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
         ax.annotate(r'$\Delta$N$_s$ = +'+p_str+p_pct,xy=(pov_line*1.1,1.15*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
 
         plt.plot([sub_line,sub_line],[0,1.6*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
-        ax.annotate('Subsistence line',xy=(1.1*sub_line,1.60*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
+        ax.annotate('Subsistence line',xy=(1.1*sub_line,1.60*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
         ax.annotate(r'$\Delta$N$_s$ = +'+s_str+s_pct,xy=(sub_line*1.1,1.5*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
 
         fig = ax.get_figure()
@@ -464,8 +462,6 @@ for myRP in myHaz[2]:
 
             for istr in ['dk','dc','dw']:
 
-                continue
-
                 upper_clip = 75000
                 if istr == 'dw': upper_clip =  200000
 
@@ -517,21 +513,23 @@ for myRP in myHaz[2]:
             # Means
             ax1 = plt.subplot(111)
             for ij in range(0,5):
-                ax1.bar([6*ii+ij for ii in range(1,4)],[dk_mean[ij],dw_mean[ij],dw_pds_mean[ij]],color=q_colors[ij],alpha=0.7,label=q_labels[ij])
+                ax1.bar([6*ii+ij for ii in range(1,3)],[dk_mean[ij],dw_mean[ij]],color=q_colors[ij],alpha=0.7,label=q_labels[ij])
                 #ax1.bar([6*ii+ij for ii in range(1,7)],[0.01*np.array(k_mean[ij]),dk_mean[ij],dc_mean[ij],dw_mean[ij],nrh_mean[ij],dw_pds_mean[ij]],color=q_colors[ij],alpha=0.7,label=q_labels[ij])
-
+                        
             label_y_val = 0.2*np.array(nrh_mean).min()
 
             ax1.xaxis.set_ticks([])
             plt.title(str(myRP)+'-Year '+myDis[:1].upper()+myDis[1:]+' Event in '+myProv)
-            plt.ylabel('Mean impact [PHP]')
+            plt.ylabel('Disaster losses [PhP per capita]')
             #ax1.annotate('1% of assets',              xy=( 6,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
             ax1.annotate('Asset loss',                xy=(6,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=12,annotation_clip=False)
             #ax1.annotate('Consumption\nloss',         xy=(18,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
             ax1.annotate('Well-being loss',              xy=(12,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=12,annotation_clip=False)
             #ax1.annotate('Net cost \nof help',        xy=(30,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
-            ax1.annotate('Well-being loss\npost-support',xy=(18,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=12,annotation_clip=False)
+            #ax1.annotate('Well-being loss\npost-support',xy=(18,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=12,annotation_clip=False)
             ax1.legend(loc='best')
+
+            plt.xlim(5.5,17.5)
 
             print('Saving: histo_'+myProv+'_'+myDis+'_'+str(myRP)+'.pdf\n')
             plt.savefig('../output_plots/PH/means_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',bbox_inches='tight',format='pdf')

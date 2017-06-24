@@ -118,7 +118,7 @@ def process_input(macro,cat_info,hazard_ratios,economy,event_level,default_rp,ve
     print('all weights ',cat_info['weight'].sum())
 
     cat_info['c_spot'] = (cat_info['c']*cat_info['hhwgt']/cat_info['pcwgt']).clip(upper=100000)
-    print('should be: ',cat_info.loc[cat_info.pcinc_s <= 22302.6775,'weight'].sum())
+    #print('should be: ',cat_info.loc[cat_info.pcinc_s <= 22302.6775,'weight'].sum())
     print('pov B: ',cat_info.loc[cat_info.c_spot <= 22302.6775,'weight'].sum())
     #print('- poor: ',cat_info.loc[(cat_info.poorhh == 1) & (cat_info.c <= 22302.6775),'weight'].sum())
     #print('- rich: ',cat_info.loc[(cat_info.poorhh == 0) & (cat_info.c <= 22302.6775),'weight'].sum())
@@ -428,19 +428,16 @@ def compute_response(macro_event, cats_event_iah, event_level, default_rp, optio
         #print(macro_event['need_tot'])
         #print(cats_event_iah['k'].sum(level=event_level))
         #print(cats_event_iah[['help_fee','weight']].prod(axis=1).sum(level=event_level))
-
-        cats_event_iah.reset_index().loc[(cats_event_iah.reset_index().province == 'Abra') & (cats_event_iah.reset_index().hazard == 'earthquake') ].to_csv('~/Desktop/my_file.csv',encoding='utf-8', header=True)
-
         #assert(False)
 
     elif optionFee=='insurance_premium':
         print(optionFee)
-        cats_event_iah = cats_event_iah.reset_index().set_index(['province','hazard','helped_cat',  'affected_cat',     'hhid','rp']) 
+        cats_event_iah = cats_event_iah.reset_index().set_index([economy,'hazard','helped_cat',  'affected_cat',     'hhid','rp']) 
 
 #        cats_event_iah = cats_event_iah.reset_index().set_index(['province','hazard','helped_cat',  'affected_cat',     'hhid','has_received_help_from_PDS_cat','rp'])
         averaged,proba_serie = average_over_rp(cats_event_iah['help_received'],default_rp,cats_event_iah['protection'].squeeze())
 #        proba_serie = proba_serie.reset_index().set_index(['province','hazard','helped_cat',  'affected_cat',     'hhid','has_received_help_from_PDS_cat','rp']) 
-        proba_serie = proba_serie.reset_index().set_index(['province','hazard','helped_cat',  'affected_cat',     'hhid','rp']) 
+        proba_serie = proba_serie.reset_index().set_index([economy,'hazard','helped_cat',  'affected_cat',     'hhid','rp']) 
         cats_event_iah['help_received'] = broadcast_simple(averaged,cats_event_iah.index)
 #        cats_event_iah.help_received = cats_event_iah.help_received/proba_serie.prob
         cats_event_iah = cats_event_iah.reset_index().set_index(event_level)
@@ -522,7 +519,7 @@ def process_output(out,macro_event,economy,default_rp,return_iah=True,is_local_w
     macro_event[dkdw_h.columns]=dkdw_h
 
     #computes socio economic capacity and risk at economy level
-    macro = calc_risk_and_resilience_from_k_w(macro_event,cats_event_iah, is_local_welfare)
+    macro = calc_risk_and_resilience_from_k_w(macro_event,cats_event_iah,economy, is_local_welfare)
 
     ###OUTPUTS
     if return_iah:
@@ -695,7 +692,7 @@ def average_over_rp1(df,default_rp,protection=None):
     averaged = df.mul(proba_serie,axis=0)#.sum(level=idxlevels) # frequency times each variables in the columns including rp.
     return averaged.drop('rp',axis=1) #here drop rp.
 
-def calc_risk_and_resilience_from_k_w(df, cats_event_iah, is_local_welfare=True): 
+def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfare=True): 
     """Computes risk and resilience from dk, dw and protection. Line by line: multiple return periods or hazard is transparent to this function"""
     df=df.copy()    
     ############################
@@ -717,7 +714,7 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah, is_local_welfare=True)
     df['wprime'] = wprime
     df['dWref'] = dWref
     df['dWpc_currency'] = df['delta_W']/wprime 
-    df['dWtot_currency']=df['dWpc_currency']*cats_event_iah['hhwgt'].sum(level=['province','hazard','rp'])#*df['pop']
+    df['dWtot_currency']=df['dWpc_currency']*cats_event_iah['hhwgt'].sum(level=[economy,'hazard','rp'])#*df['pop']
     
     #Risk to welfare as percentage of local GDP
     df['risk']= df['dWpc_currency']/(df['gdp_pc_pp_prov'])

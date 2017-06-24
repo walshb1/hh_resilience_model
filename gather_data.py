@@ -8,6 +8,7 @@ get_ipython().magic('load_ext autoreload')
 get_ipython().magic('autoreload 2')
 
 # Import packages for data analysis
+from lib_country_dir import *
 from lib_gather_data import *
 from replace_with_warning import *
 import matplotlib.pyplot as plt
@@ -24,137 +25,152 @@ if len(sys.argv) < 2:
     assert(False)
 else: myCountry = sys.argv[1]
 
-# Define directories
-model         = os.getcwd()                             # get current directory
-inputs        = model+'/../inputs/'+myCountry+'/'       # get inputs data directory
-intermediate  = model+'/../intermediate/'+myCountry+'/' # get outputs data directory
+# Set up directories/tell code where to look for inputs & where to save outputs
+intermediate = set_directories(myCountry)
 
-# If the depository directories don't exist, create one:
-if not os.path.exists(inputs): 
-    print('You need to put the country survey files in a directory titled ','/inputs/'+myCountry+'/')
-    assert(False)
-if not os.path.exists(intermediate):
-    os.makedirs(intermediate)
+# Options and parameters
+economy       = get_economic_unit(myCountry)
 
-#Options and parameters
-economy       = 'province'
-event_level   = [economy, 'hazard', 'rp']                            # levels of index at which one event happens
-affected_cats = pd.Index(['a', 'na'], name='affected_cat')	     # categories for social protection
-helped_cats   = pd.Index(['helped','not_helped'], name='helped_cat')
-#hazard_cats  = pd.Index(['flooding','storm_surge'], name='hazard')
-
-reconstruction_time = 3.00 #time needed for reconstruction
-reduction_vul       = 0.20 # how much early warning reduces vulnerability
-inc_elast           = 1.50 # income elasticity
-discount_rate       = 0.06 # discount rate
-asset_loss_covered  = 0.80 # becomes 'shareable' 
-max_support         = 0.05 # fraction of GDP
-
-# GDP per cap info:
-# should be national, or provincial?
-# --> gdp_pc_pp = 8900 #GDP per capita in USD
-# --> fx = 127.3 #foreign exchange ratio
-PSA = pd.read_excel(inputs+'PSA_compiled.xlsx',skiprows=1)[['province','gdp_pc_pp','pop','shewp','shewr']].set_index('province')
-PSA['gdp'] = PSA['gdp_pc_pp']*PSA['pop']
+# Levels of index at which one event happens
+event_level   = [economy, 'hazard', 'rp']
 
 #Country dictionaries
 #STATE/PROVINCE NAMES
-df = pd.read_excel(inputs+'population_2015.xlsx',sheetname='population').set_index(economy)
-prov_code = pd.read_excel(inputs+'FIES_provinces.xlsx')[['province_code','province_AIR']].set_index('province_code').squeeze() 
+# --> should be a 
+df = get_places(myCountry,economy)
+prov_code = get_places_dict(myCountry)
 
 ###Define parameters
 df['pi']                     = reduction_vul       # how much early warning reduces vulnerability
 df['rho']                    = discount_rate       # discount rate
-df['psa_pop']                = df['population']    # Provincial population
 df['shareable']              = asset_loss_covered  # target of asset losses to be covered by scale up
 df['protection']             = 1                   # Protected from events with RP < 'protection'
 df['avg_prod_k']             = 0.337960802589002   # average productivity of capital, value from the global resilience model
 df['T_rebuild_K']            = reconstruction_time # Reconstruction time
 df['income_elast']           = inc_elast           # income elasticity
 df['max_increased_spending'] = max_support         # 5% of GDP in post-disaster support maximum, if everything is ready
-df.drop(['population'],axis=1,inplace=True)
 
-#df['gdp_pc_pp']   = PSA['gdp']/df['psa_pop'] #in Pesos
-df['avg_hh_size'] = df['psa_pop']/PSA['pop'] # nPeople/nHH
+# Secondary dataframe, if necessary
+# For PH: this is GDP per cap info:
+df2 = get_df2(myCountry)
+
+if myCountry == 'PH': 
+    df['psa_pop']      = df['population']    # Provincial population
+    df.drop(['population'],axis=1,inplace=True)
+
+    df2['gdp']         = df2['gdp_pc_pp']*df2['pop']
+    #df['gdp_pc_pp']   = df2['gdp']/df['psa_pop'] #in Pesos
+    df['avg_hh_size']  = df['psa_pop']/df2['pop'] # nPeople/nHH
+
 
 #ft2015 = 14832.0962
 #pv2015 = 21240.2924
 
-cat_info = pd.read_csv(inputs+'fies2015.csv',usecols=['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn','walls','roof','totex','cash_abroad','cash_domestic','regft','hhwgt','fsize','poorhh','totdis','tothrec','pcinc_s','pcinc_ppp11','pcwgt'])
+cat_info = load_survey_data(myCountry)
 
 print('Survey popualation:',cat_info.pcwgt.sum())
 
-get_hhid_FIES(cat_info)
+if myCountry == 'PH':
+    get_hhid_FIES(cat_info)
+    cat_info = cat_info.rename(columns={'w_prov':'province'})
+    cat_info = cat_info.reset_index().set_index([cat_info.province.replace(prov_code)]) #replace district code with its name
+    cat_info = cat_info.drop('province',axis=1)
 
-cat_info = cat_info.rename(columns={'w_prov':'province'})
-cat_info = cat_info.reset_index().set_index([cat_info.province.replace(prov_code)]) #replace district code with its name
-cat_info = cat_info.drop('province',axis=1)
+    df['gdp_pc_pp_prov'] = cat_info[['pcinc_s','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['hhwgt'].sum(level=economy)
+    df['gdp_pc_pp_nat'] = cat_info[['pcinc_s','pcwgt']].prod(axis=1).sum()/cat_info['hhwgt'].sum()
+    # ^ this is per capita income*population/number of households
 
-df['pop'] = cat_info.pcwgt.sum(level='province')
-df['gdp_pc_pp_prov'] = cat_info[['pcinc_s','pcwgt']].prod(axis=1).sum(level='province')/cat_info['hhwgt'].sum(level='province')
-df['gdp_pc_pp_nat'] = cat_info[['pcinc_s','pcwgt']].prod(axis=1).sum()/cat_info['hhwgt'].sum()
-# ^ this is per capita income*population/number of households
+if myCountry == 'FJ':        
+    df['gdp_pc_pp_prov'] = cat_info[['New Total','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['Weight'].sum(level=economy)
+    df['gdp_pc_pp_nat'] = cat_info[['New Total','pcwgt']].prod(axis=1).sum()/cat_info['Weight'].sum()
 
-df['pct_diff'] = 100.*(df['psa_pop']-df['pop'])/df['pop']
+df['pop'] = cat_info.pcwgt.sum(level=economy)
 
-# --> trying to get rid of provinces 97 & 98 here
-# ^ doesn't matter; they go later
-#cat_info = cat_info.ix[cat_info.index.drop(['97','98'],level='province',errors='ignore')]
+if myCountry == 'PH':
+    df['pct_diff'] = 100.*(df['psa_pop']-df['pop'])/df['pop']
 
 #Vulnerability
-vul_curve = pd.read_excel(inputs+'vulnerability_curves_FIES.xlsx',sheetname='wall')[['desc','v']]
+vul_curve = get_vul_curve(myCountry,'wall')
 for thecat in vul_curve.desc.unique():
-    cat_info.ix[cat_info.walls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
+    if myCountry == 'PH': cat_info.ix[cat_info.walls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
+    if myCountry == 'FJ': cat_info.ix[cat_info.Constructionofouterwalls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
+    # Fiji doesn't have info on roofing, but it does have info on the condition of outer walls. Include that as a multiplier?
 
-vul_curve = pd.read_excel(inputs+'vulnerability_curves_FIES.xlsx',sheetname='roof')[['desc','v']]
-for thecat in vul_curve.desc.unique():
-    cat_info.ix[cat_info.roof.values == thecat,'v'] += vul_curve.loc[vul_curve.desc.values == thecat].v.values
-cat_info.v = cat_info.v/2
+# Get roofing data (but Fiji doesn't have this info)
+if myCountry != 'FJ':
+    vul_curve = get_vul_curve(myCountry,'roof')
+    for thecat in vul_curve.desc.unique():
+        cat_info.ix[cat_info.roof.values == thecat,'v'] += vul_curve.loc[vul_curve.desc.values == thecat].v.values
+    cat_info.v = cat_info.v/2
 
-cat_info.ix[cat_info.v==0.1,'v'] *= np.random.uniform(.8,2,30187)
-cat_info.ix[cat_info.v==0.25,'v'] *= np.random.uniform(.8,1.2,5895)  
-cat_info.ix[(10*(cat_info.v-.4)).round()==0,'v'] *= np.random.uniform(.8,1.2,5130)
-cat_info.ix[cat_info.v==0.55,'v'] *= np.random.uniform(.8,1.2,153)
-cat_info.ix[cat_info.v==0.70,'v'] *= np.random.uniform(.8,1.2,179) 
-cat_info.drop(['walls','roof'],axis=1,inplace=True)
+if myCountry == 'PH':
+    cat_info.ix[cat_info.v==0.1,'v'] *= np.random.uniform(.8,2,30187)
+    cat_info.ix[cat_info.v==0.25,'v'] *= np.random.uniform(.8,1.2,5895)  
+    cat_info.ix[(10*(cat_info.v-.4)).round()==0,'v'] *= np.random.uniform(.8,1.2,5130)
+    cat_info.ix[cat_info.v==0.55,'v'] *= np.random.uniform(.8,1.2,153)
+    cat_info.ix[cat_info.v==0.70,'v'] *= np.random.uniform(.8,1.2,179) 
+    cat_info.drop(['walls','roof'],axis=1,inplace=True)
+
+if myCountry == 'FJ':
+    cat_info.to_csv('~/Desktop/my_fiji.csv')
+    cat_info.ix[cat_info.v==0.1,'v'] *= np.random.uniform(.8,2,2391)
+    cat_info.ix[cat_info.v==0.4,'v'] *= np.random.uniform(.8,1.2,3549)
+    cat_info.ix[cat_info.v==0.7,'v'] *= np.random.uniform(.8,1.2,80) 
+    cat_info.drop(['Constructionofouterwalls','Conditionofouterwalls'],axis=1,inplace=True)
 
 # Calculate income per household
-# --> What's the difference between income & consumption/disbursements?
-# --> totdis = 'total family disbursements'
-# --> totex = 'total family expenditures'
-# --> pcinc_s seems to be what they use to calculate poverty...
-# --> can be converted to pcinc_ppp11 by dividing by (365*21.1782)
-cat_info['c'] = (cat_info[['pcinc_s','pcwgt']].prod(axis=1)/cat_info['hhwgt'])
+if myCountry == 'PH':
+    # --> What's the difference between income & consumption/disbursements?
+    # --> totdis = 'total family disbursements'
+    # --> totex = 'total family expenditures'
+    # --> pcinc_s seems to be what they use to calculate poverty...
+    # --> can be converted to pcinc_ppp11 by dividing by (365*21.1782)
+    cat_info['c'] = (cat_info[['pcinc_s','pcwgt']].prod(axis=1)/cat_info['hhwgt'])
+
+elif myCountry == 'FJ':
+    cat_info['c'] = cat_info['New Total']   
 
 # --> (SL model) cat_info['c'] = cat_info[['emp','agri','other_agri','non_agri','other_inc','income_local']].sum(1)
 
 # Cash receipts, abroad & domestic, other gifts
 # --> Excluding international remittances ('cash_abroad')
 # --> what about 'net_receipt'?
-cat_info['social'] = cat_info[['tothrec']].sum(axis=1)/cat_info['c']
+if myCountry == 'PH': 
+    cat_info['social'] = cat_info['tothrec']/cat_info['c']
+    cat_info.drop(['cash_domestic','regft'],axis=1,inplace=True)
+if myCountry == 'FJ':
+    cat_info['social'] = cat_info['TOTALTRANSFER']/cat_info['c']
+
 cat_info.ix[cat_info.social>=1,'social'] = 0.99
-cat_info.drop(['cash_domestic','regft'],axis=1,inplace=True)
 
 # per cap weight = household_weight * family_size (?)
 #cat_info['weight'] = cat_info[['hhwgt','fsize']].prod(axis=1)
-cat_info['weight'] = cat_info['pcwgt']
+if myCountry == 'FJ':
+    cat_info['hhwgt'] = cat_info['Weight']
+    cat_info.drop(['Weight'],axis=1,inplace=True)
 
-pov_line = 22302.6775
+cat_info['weight'] = cat_info['pcwgt']
+# ^ don't get these twisted!
+
+if myCountry == 'PH':    pov_line = cat_info.loc[(cat_info.poorhh == 1),'pcinc_s'].max() # <-- Individual
+elif myCountry == 'FJ':  pov_line = cat_info.loc[(cat_info.Poor == 1),'c'].max() # <-- Household
+print('Poverty line = ',pov_line)
+
 print('Total population:',cat_info.weight.sum())
 print('Total n households:',cat_info.hhwgt.sum())
-print('Poor in poverty:',    cat_info.loc[(cat_info.pcinc_s <= pov_line),'weight'].sum())
-print('Families in poverty:',cat_info.loc[(cat_info.pcinc_s <= pov_line), 'hhwgt'].sum())
+#print('Poor in poverty:',    cat_info.loc[(cat_info.pcinc_s <= pov_line),'weight'].sum())
+#print('Families in poverty:',cat_info.loc[(cat_info.pcinc_s <= pov_line), 'hhwgt'].sum())
 
 # Change the name: district to code, and create an multi-level index 
-cat_info = cat_info.rename(columns={'district':'code'})
+cat_info = cat_info.rename(columns={'district':'code','HHID':'hhid'})
 
 # Assing weighted household consumption to quintiles within each province
 listofquintiles=np.arange(0.20, 1.01, 0.20) 
-cat_info = cat_info.reset_index().groupby('province',sort=True).apply(lambda x:match_quintiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.weight),listofquintiles)))
+cat_info = cat_info.reset_index().groupby(economy,sort=True).apply(lambda x:match_quintiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.weight),listofquintiles)))
 
 # 'c_5' is the upper consumption limit for the lowest quintile
-cat_info_c_5 = cat_info.reset_index().groupby('province',sort=True).apply(lambda x:x.ix[x.quintile==1,'c'].max())
-cat_info = cat_info.reset_index().set_index(['province','hhid']) #change the name: district to code, and create an multi-level index 
+cat_info_c_5 = cat_info.reset_index().groupby(economy,sort=True).apply(lambda x:x.ix[x.quintile==1,'c'].max())
+cat_info = cat_info.reset_index().set_index([economy,'hhid']) #change the name: district to code, and create an multi-level index 
 cat_info['c_5'] = broadcast_simple(cat_info_c_5,cat_info.index)
 
 # Population of household as fraction of population of provinces
@@ -179,82 +195,108 @@ cat_info.drop('n_national',axis=1,inplace=True)
 cat_info['k'] = (1-cat_info['social'])*cat_info['c']/((1-df['tau_tax'])*df['avg_prod_k']) #calculate the capital
 cat_info.ix[cat_info.k<0,'k'] = 0.0
 
+if myCountry == 'FJ':
+    #replace division codes with names
+    df = df.reset_index()
+    df = df.set_index([df.Division.replace(prov_code)])
+
+    cat_info = cat_info.reset_index()
+    cat_info = cat_info.set_index([cat_info.Division.replace(prov_code)]) #replace division code with its name
+    cat_info.drop(['Division'],axis=1,inplace=True)
+
 # Getting rid of Prov_code 98, 99 here
 cat_info.dropna(inplace=True)
 
 # Assign access to early warning based on 'poorhh' flag
-# --> doesn't seem to match up with the quintiles we assigned
-cat_info['shew'] = broadcast_simple(PSA['shewr'],cat_info.index)
-cat_info.ix[cat_info.poorhh == 1,'shew'] = broadcast_simple(PSA['shewp'],cat_info.index)
+if myCountry == 'PH':
+    # --> doesn't seem to match up with the quintiles we assigned
+    cat_info['shew'] = broadcast_simple(df2['shewr'],cat_info.index)
+    cat_info.ix[cat_info.poorhh == 1,'shew'] = broadcast_simple(df2['shewp'],cat_info.index)
+elif myCountry == 'FJ': 
+    cat_info['shew'] = 0
+    # can't find relevant info for Fiji
 
 # Exposure
 cat_info['fa'] = 0
 cat_info.fillna(0,inplace=True)
 
 # Cleanup dfs for writing out
-cat_info = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in ['province','hhid','weight','code','np','score','v','c','social','c_5','n','gamma_SP','k','shew','fa','quintile','hhwgt','cash_abroad','poorhh','totdis','pcinc_s','pcinc_ppp11','pcwgt']],axis=1)
-cat_info_index = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in ['province','hhid']],axis=1)
+cat_info = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in [economy,'hhid','weight','code','np','score','v','c','social','c_5','n','gamma_SP','k','shew','fa','quintile','hhwgt','cash_abroad','poorhh','Poor','totdis','pcinc_s','pcinc_ppp11','pcwgt']],axis=1)
+cat_info_index = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in [economy,'hhid']],axis=1)
 
 #########################
 # HAZARD INFO
 #
 # This is the GAR
-#hazard_ratios = pd.read_csv(inputs+'/PHL_frac_value_destroyed_gar_completed_edit.csv').set_index(['province', 'hazard', 'rp'])
+#hazard_ratios = pd.read_csv(inputs+'/PHL_frac_value_destroyed_gar_completed_edit.csv').set_index([economy, 'hazard', 'rp'])
 
+# PHILIPPINES:
 # This is the AIR dataset:
-# df_AIR is already in pesos
+# df_haz is already in pesos
 # --> Need to think about public assets
-#df_AIR = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','all','Agg')
-df_AIR = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','Private','Agg').reset_index()
-df_AIR.columns = ['province','hazard','rp','value_destroyed']
+#df_haz = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','all','Agg')
+
+df_haz = get_hazard_df(myCountry,economy)
 
 # Edit & Shuffle provinces
-AIR_prov_rename = {'Shariff Kabunsuan':'Maguindanao',
-                   'Davao Oriental':'Davao',
-                   'Davao del Norte':'Davao',
-                   'Metropolitan Manila':'Manila',
-                   'Dinagat Islands':'Surigao del Norte'}
-df_AIR['province'].replace(AIR_prov_rename,inplace=True) 
+if myCountry == 'PH':
+    AIR_prov_rename = {'Shariff Kabunsuan':'Maguindanao',
+                       'Davao Oriental':'Davao',
+                       'Davao del Norte':'Davao',
+                       'Metropolitan Manila':'Manila',
+                       'Dinagat Islands':'Surigao del Norte'}
+    df_haz['province'].replace(AIR_prov_rename,inplace=True) 
 
-# Add NCR 2-4 to AIR dataset
-df_NCR = pd.DataFrame(df_AIR.loc[(df_AIR.province == 'Manila')])
-df_NCR['province'] = 'NCR-2nd Dist.'
-df_AIR = df_AIR.append(df_NCR)
+    # Add NCR 2-4 to AIR dataset
+    df_NCR = pd.DataFrame(df_haz.loc[(df_haz.province == 'Manila')])
+    df_NCR['province'] = 'NCR-2nd Dist.'
+    df_haz = df_haz.append(df_NCR)
 
-df_NCR['province'] = 'NCR-3rd Dist.'
-df_AIR = df_AIR.append(df_NCR)
+    df_NCR['province'] = 'NCR-3rd Dist.'
+    df_haz = df_haz.append(df_NCR)
+    
+    df_NCR['province'] = 'NCR-4th Dist.'
+    df_haz = df_haz.append(df_NCR)
 
-df_NCR['province'] = 'NCR-4th Dist.'
-df_AIR = df_AIR.append(df_NCR)
+    # In AIR, we only have 'Metropolitan Manila'
+    # Distribute losses among Manila & NCR 2-4 according to assets
+    cat_info = cat_info.reset_index()
+    k_NCR = cat_info.loc[((cat_info.province == 'Manila') | (cat_info.province == 'NCR-2nd Dist.') 
+                          | (cat_info.province == 'NCR-3rd Dist.') | (cat_info.province == 'NCR-4th Dist.')), ['k','hhwgt']].prod(axis=1).sum()
 
-# In AIR, we only have 'Metropolitan Manila'
-# Distribute losses among Manila & NCR 2-4 according to assets
-cat_info = cat_info.reset_index()
-k_NCR = cat_info.loc[((cat_info.province == 'Manila') | (cat_info.province == 'NCR-2nd Dist.') 
-                      | (cat_info.province == 'NCR-3rd Dist.') | (cat_info.province == 'NCR-4th Dist.')), ['k','hhwgt']].prod(axis=1).sum()
+    df_haz.loc[df_haz.province ==        'Manila','value_destroyed'] *= cat_info.loc[cat_info.province ==        'Manila', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
+    df_haz.loc[df_haz.province == 'NCR-2nd Dist.','value_destroyed'] *= cat_info.loc[cat_info.province == 'NCR-2nd Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
+    df_haz.loc[df_haz.province == 'NCR-3rd Dist.','value_destroyed'] *= cat_info.loc[cat_info.province == 'NCR-3rd Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
+    df_haz.loc[df_haz.province == 'NCR-4th Dist.','value_destroyed'] *= cat_info.loc[cat_info.province == 'NCR-4th Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
 
-df_AIR.loc[df_AIR.province ==        'Manila','value_destroyed'] *= cat_info.loc[cat_info.province ==        'Manila', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
-df_AIR.loc[df_AIR.province == 'NCR-2nd Dist.','value_destroyed'] *= cat_info.loc[cat_info.province == 'NCR-2nd Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
-df_AIR.loc[df_AIR.province == 'NCR-3rd Dist.','value_destroyed'] *= cat_info.loc[cat_info.province == 'NCR-3rd Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
-df_AIR.loc[df_AIR.province == 'NCR-4th Dist.','value_destroyed'] *= cat_info.loc[cat_info.province == 'NCR-4th Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
-
-# Sum over the provinces that we're merging
-# Losses are absolute value, so they are additive
-df_AIR = df_AIR.reset_index().set_index(['province','hazard','rp']).sum(level=['province','hazard','rp']).drop(['index'],axis=1)
+    # Sum over the provinces that we're merging
+    # Losses are absolute value, so they are additive
+    df_haz = df_haz.reset_index().set_index([economy,'hazard','rp']).sum(level=[economy,'hazard','rp']).drop(['index'],axis=1)
+    
+elif myCountry == 'FJ':
+    pass
 
 # Turn losses into fraction
-cat_info = cat_info.reset_index().set_index(['province'])
+cat_info = cat_info.reset_index().set_index([economy])
 
-hazard_ratios = cat_info[['k','hhwgt']].prod(axis=1).sum(level='province').to_frame(name='provincial_capital')
-hazard_ratios = hazard_ratios.join(df_AIR,how='outer')
+hazard_ratios = cat_info[['k','hhwgt']].prod(axis=1).sum(level=economy).to_frame(name='provincial_capital')
+print(cat_info[['k','hhwgt']])
+hazard_ratios = hazard_ratios.join(df_haz,how='outer').drop(['Division'],axis=1)
 
-hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['provincial_capital']
-hazard_ratios = hazard_ratios.drop(['provincial_capital','value_destroyed'],axis=1)
+if myCountry == 'PH':
+    hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['provincial_capital']
+    hazard_ratios = hazard_ratios.drop(['provincial_capital','value_destroyed'],axis=1)
+elif myCountry == 'FJ':
+    hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['total_value']
+    hazard_ratios['hazard'] = 'AAL'
+    hazard_ratios['rp'] = '1'
+    hazard_ratios = hazard_ratios.drop(['provincial_capital','value_destroyed','total_value'],axis=1)
 
 # Have frac destroyed, need fa...
 # Frac value destroyed = SUM_i(k*v*fa)
 
-hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on='province',how='outer').set_index(event_level+['hhid'])[['frac_destroyed','v']]
+hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on=economy,how='outer').set_index(event_level+['hhid'])[['frac_destroyed','v']]
+print(hazard_ratios)
 
 # Transfer fa in excess of 95% to vulnerability
 fa_threshold = 0.95
@@ -263,12 +305,12 @@ hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v']).filln
 hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold
 hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=0.0000001,upper=fa_threshold)
 
-cat_info = cat_info.reset_index().set_index(['province','hhid'])
-cat_info['v'] = hazard_ratios.reset_index().set_index(['province','hhid'])['v'].mean(level=['province','hhid']).clip(upper=0.99)
+cat_info = cat_info.reset_index().set_index([economy,'hhid'])
+cat_info['v'] = hazard_ratios.reset_index().set_index([economy,'hhid'])['v'].mean(level=[economy,'hhid']).clip(upper=0.99)
 
 df.to_csv(intermediate+'/macro.csv',encoding='utf-8', header=True,index=True)
 
-cat_info = cat_info.drop(['index'],axis=1)
+if 'index' in cat_info.columns: cat_info = cat_info.drop(['index'],axis=1)
 cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index=True)
 
 hazard_ratios= hazard_ratios.drop(['frac_destroyed','v'],axis=1)

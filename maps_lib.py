@@ -91,6 +91,7 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
 
     #names of regions to lower case without space   
     for p in soup.findAll("path"):
+        
         p["class"]=p["class"].lower().replace(" ","_").replace("-","_").replace(".","_").replace("(","_").replace(")","_")
         #Update the title (tooltip) of each region with the numerical value (ignores missing values)
         try:
@@ -119,8 +120,8 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
     display(HTML("<a target='_blank' href='"+target_name+".svg"+"'>SVG "+new_title+"</a>"))  #Linking to SVG instead of showing SVG directly works around a bug in the notebook where style-based colouring colors all the maps in the NB with a single color scale (due to CSS)
     
     
-    #reports missing data        
-    if verbose:        
+    #reports missing data
+    if verbose:
         places_in_soup = [p["class"] for p in soup.findAll("path")]        
         data_missing_in_svg = series_in[~series_in.index.isin(places_in_soup)].index.tolist()
         data_missing_in_series = [p for p in places_in_soup if (p not in series_in.index.tolist())]

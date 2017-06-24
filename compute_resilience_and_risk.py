@@ -3,24 +3,25 @@ get_ipython().magic('reset -f')
 get_ipython().magic('load_ext autoreload')
 get_ipython().magic('autoreload 2')
 
-from lib_compute_resilience_and_risk import *
-from replace_with_warning import *
+import gc
+import sys
 import os, time
 import warnings
-warnings.filterwarnings('always',category=UserWarning)
 import numpy as np
 import pandas as pd
-import sys
 
-import gc
+from lib_country_dir import *
+from lib_compute_resilience_and_risk import *
+from replace_with_warning import *
+
+warnings.filterwarnings('always',category=UserWarning)
 
 if len(sys.argv) < 2:
-    print('Need to list country. Try PH')
+    print('Need to list country. Try PH or FJ')
     assert(False)
 else: myCountry = sys.argv[1]
 
 # Setup directories
-model        = os.getcwd() 
 output       = model+'/../output_country/'+myCountry+'/'
 intermediate = model+'/../intermediate/'+myCountry+'/'
 if not os.path.exists(output):
@@ -58,7 +59,8 @@ print('optionFee =',optionFee, 'optionPDS =', optionPDS, 'optionB =', optionB, '
 
 #Options and parameters
 nat_economy   = 'national'
-economy       = 'province'
+global economy
+economy       = get_economic_unit(myCountry)
 event_level   = [economy, 'hazard', 'rp']                            #levels of index at which one event happens
 default_rp    = 'default_rp'                                         #return period to use when no rp is provided (mind that this works with protection)
 income_cats   = 'hhid'                                               #categories of households
