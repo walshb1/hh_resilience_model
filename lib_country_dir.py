@@ -5,7 +5,6 @@ from lib_gather_data import *
 global model
 model = os.getcwd()
 
-
 # People/hh will be affected or not_affected, and helped or not_helped
 affected_cats = pd.Index(['a', 'na'], name='affected_cat')	     # categories for social protection
 helped_cats   = pd.Index(['helped','not_helped'], name='helped_cat')

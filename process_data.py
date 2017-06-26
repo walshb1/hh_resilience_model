@@ -18,6 +18,7 @@ import numpy as np
 import os, time
 import sys
 
+from lib_country_dir import *
 from lib_compute_resilience_and_risk import *
 
 #Aesthetics
@@ -44,15 +45,16 @@ else: myCountry = sys.argv[1]
 model  = os.getcwd() #get current directory
 output = model+'/../output_country/'+myCountry+'/'
 
-event_level = ['province', 'hazard', 'rp']
+economy = get_economic_unit(myCountry)
+event_level = [economy, 'hazard', 'rp']
 
 # Load output files
-res_base = pd.read_csv(output+'results_tax_no_.csv', index_col=['province','hazard','rp'])
-res_unif_poor = pd.read_csv(output+'results_tax_unif_poor_.csv', index_col=['province','hazard','rp'])
-df = pd.read_csv(output+'results_tax_no_.csv', index_col=['province','hazard','rp'])
+res_base = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
+res_unif_poor = pd.read_csv(output+'results_tax_unif_poor_.csv', index_col=[economy,'hazard','rp'])
+df = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
 
-iah = pd.read_csv(output+'iah_tax_no_.csv', index_col=['province','hazard','rp'])
-iah_pds = pd.read_csv(output+'iah_tax_unif_poor_.csv', index_col=['province','hazard','rp'])
+iah = pd.read_csv(output+'iah_tax_no_.csv', index_col=[economy,'hazard','rp'])
+iah_pds = pd.read_csv(output+'iah_tax_unif_poor_.csv', index_col=[economy,'hazard','rp'])
 
 def format_delta_p(delta_p):
     delta_p_int = int(delta_p)
@@ -64,7 +66,7 @@ def format_delta_p(delta_p):
         delta_p = str(delta_p)[:-3]+','+str(delta_p)[-3:]
     return(str(delta_p))
         
-#cats = pd.read_csv(output+'cats_tax_no_.csv', index_col=['province','hazard','rp'])
+#cats = pd.read_csv(output+'cats_tax_no_.csv', index_col=[economy,'hazard','rp'])
 
 # Transform dw:
 wprime = df.wprime.mean()
@@ -112,7 +114,7 @@ pov_line = 22302.6775#21240.2924
 iah = iah.reset_index()
 for myDis in ['flood','earthquake','surge','wind']:
 
-    cut_rps = iah.loc[(iah.hazard == myDis)].set_index(['province','hazard','rp']).fillna(0)
+    cut_rps = iah.loc[(iah.hazard == myDis)].set_index([economy,'hazard','rp']).fillna(0)
     if (cut_rps['weight'].sum() == 0 or cut_rps.shape[0] == 0): continue
 
     cut_rps['c_initial'] = cut_rps['c']#cut_rps['k']*df['avg_prod_k'].mean()
@@ -144,14 +146,14 @@ for myDis in ['flood','earthquake','surge','wind']:
     cut_rps.loc[(cut_rps.c_final <= pov_line) & (cut_rps.c_initial > pov_line), 'disaster_n_pov'] = cut_rps.loc[(cut_rps.c_final <= pov_line) & (cut_rps.c_initial > pov_line), 'weight']
     cut_rps.loc[(cut_rps.c_final <= sub_line) & (cut_rps.c_initial > sub_line), 'disaster_n_sub'] = cut_rps.loc[(cut_rps.c_final <= sub_line) & (cut_rps.c_initial > sub_line), 'weight']
 
-    n_pov = pd.DataFrame(cut_rps[['disaster_n_pov','disaster_n_sub']].sum(level=['province','rp']).reset_index(),
-                         columns=['province','rp','disaster_n_pov','disaster_n_sub']).set_index(['province','rp'])
-    n_pov['disaster_n_pov_pct'] = (n_pov['disaster_n_pov']/cut_rps.weight.sum(level=['province','rp']).reset_index().set_index(['province','rp']).T).T
-    n_pov['disaster_n_sub_pct'] = (n_pov['disaster_n_sub']/cut_rps.weight.sum(level=['province','rp']).reset_index().set_index(['province','rp']).T).T
+    n_pov = pd.DataFrame(cut_rps[['disaster_n_pov','disaster_n_sub']].sum(level=[economy,'rp']).reset_index(),
+                         columns=[economy,'rp','disaster_n_pov','disaster_n_sub']).set_index([economy,'rp'])
+    n_pov['disaster_n_pov_pct'] = (n_pov['disaster_n_pov']/cut_rps.weight.sum(level=[economy,'rp']).reset_index().set_index([economy,'rp']).T).T
+    n_pov['disaster_n_sub_pct'] = (n_pov['disaster_n_sub']/cut_rps.weight.sum(level=[economy,'rp']).reset_index().set_index([economy,'rp']).T).T
     
     n_pov.disaster_n_pov/=100.
     n_pov.disaster_n_sub/=100.
-    n_pov = n_pov.reset_index().set_index(['province','rp'])
+    n_pov = n_pov.reset_index().set_index([economy,'rp'])
 
     n_pov = sum_with_rp(n_pov[['disaster_n_pov','disaster_n_pov_pct','disaster_n_sub','disaster_n_sub_pct']],
                         ['disaster_n_pov','disaster_n_pov_pct','disaster_n_sub','disaster_n_sub_pct'],sum_provinces=False)
@@ -201,8 +203,8 @@ for myDis in ['flood','earthquake','surge','wind']:
     
     for myRP in [1,10,25,50,100,200,250,500,1000]:
         
-        cutA = iah.loc[(iah.hazard == myDis) & (iah.rp == myRP)].set_index(['province','hazard','rp']).fillna(0)
-        #cutA = iah.loc[(iah.hazard == myDis) & (iah.rp == myRP) & (iah.helped_cat == 'helped')].set_index(['province','hazard','rp']).fillna(0)
+        cutA = iah.loc[(iah.hazard == myDis) & (iah.rp == myRP)].set_index([economy,'hazard','rp']).fillna(0)
+        #cutA = iah.loc[(iah.hazard == myDis) & (iah.rp == myRP) & (iah.helped_cat == 'helped')].set_index([economy,'hazard','rp']).fillna(0)
         if (cutA['weight'].sum() == 0 or cutA.shape[0] == 0): continue
 
         # look at instantaneous dk
@@ -220,13 +222,13 @@ for myDis in ['flood','earthquake','surge','wind']:
         cutA.loc[(cutA.c_final <= pov_line) & (cutA.c_initial > pov_line), 'disaster_n_pov'] = cutA.loc[(cutA.c_final <= pov_line) & (cutA.c_initial > pov_line), 'weight']
         cutA.loc[(cutA.c_final <= sub_line) & (cutA.c_initial > sub_line), 'disaster_n_sub'] = cutA.loc[(cutA.c_final <= sub_line) & (cutA.c_initial > sub_line), 'weight']
 
-        disaster_n_pov = pd.DataFrame(cutA[['disaster_n_pov','disaster_n_sub']].sum(level=event_level).reset_index(),columns=['province','disaster_n_pov','disaster_n_sub']).set_index('province')
-        disaster_n_pov['disaster_n_pov_pct'] = (disaster_n_pov['disaster_n_pov']/cutA.weight.sum(level='province').reset_index().set_index('province').T).T
-        disaster_n_pov['disaster_n_sub_pct'] = (disaster_n_pov['disaster_n_sub']/cutA.weight.sum(level='province').reset_index().set_index('province').T).T
+        disaster_n_pov = pd.DataFrame(cutA[['disaster_n_pov','disaster_n_sub']].sum(level=event_level).reset_index(),columns=[economy,'disaster_n_pov','disaster_n_sub']).set_index(economy)
+        disaster_n_pov['disaster_n_pov_pct'] = (disaster_n_pov['disaster_n_pov']/cutA.weight.sum(level=economy).reset_index().set_index(economy).T).T
+        disaster_n_pov['disaster_n_sub_pct'] = (disaster_n_pov['disaster_n_sub']/cutA.weight.sum(level=economy).reset_index().set_index(economy).T).T
 
         disaster_n_pov.disaster_n_pov/=100.
         disaster_n_pov.disaster_n_sub/=100.
-        disaster_n_pov = disaster_n_pov.reset_index().set_index('province')
+        disaster_n_pov = disaster_n_pov.reset_index().set_index(economy)
 
         ci_heights, ci_bins = np.histogram(cutA['c_initial'],       bins=50, weights=cutA['weight'])
         cf_heights, cf_bins = np.histogram(cutA['c_final'],    bins=ci_bins, weights=cutA['weight'])
@@ -413,7 +415,7 @@ for myRP in myHaz[2]:
     for myProv in myHaz[0]:
         for myDis in myHaz[1]:
 
-            cut = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped')))  & (iah.province == myProv) & (iah.hazard == myDis) & (iah.rp == myRP)].set_index(['province','hazard','rp'])
+            cut = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped')))  & (iah.province == myProv) & (iah.hazard == myDis) & (iah.rp == myRP)].set_index([economy,'hazard','rp'])
 
             if cut.shape[0] == 0: continue
         
