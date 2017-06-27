@@ -21,7 +21,7 @@ import sys
 warnings.filterwarnings('always',category=UserWarning)
 
 if len(sys.argv) < 2:
-    print('Need to list country. Try PH')
+    print('Need to list country. Try PH or FJ')
     assert(False)
 else: myCountry = sys.argv[1]
 
@@ -44,11 +44,15 @@ prov_code = get_places_dict(myCountry)
 df['pi']                     = reduction_vul       # how much early warning reduces vulnerability
 df['rho']                    = discount_rate       # discount rate
 df['shareable']              = asset_loss_covered  # target of asset losses to be covered by scale up
-df['protection']             = 1                   # Protected from events with RP < 'protection'
 df['avg_prod_k']             = 0.337960802589002   # average productivity of capital, value from the global resilience model
 df['T_rebuild_K']            = reconstruction_time # Reconstruction time
 df['income_elast']           = inc_elast           # income elasticity
 df['max_increased_spending'] = max_support         # 5% of GDP in post-disaster support maximum, if everything is ready
+
+# Protected from events with RP < 'protection'
+if myCountry == 'PH':  df['protection'] = 1
+if myCountry == 'FJ':  df['protection'] = 1
+
 
 # Secondary dataframe, if necessary
 # For PH: this is GDP per cap info:
@@ -68,7 +72,7 @@ if myCountry == 'PH':
 
 cat_info = load_survey_data(myCountry)
 
-print('Survey popualation:',cat_info.pcwgt.sum())
+print('Survey population:',cat_info.pcwgt.sum())
 
 if myCountry == 'PH':
     get_hhid_FIES(cat_info)
@@ -80,9 +84,10 @@ if myCountry == 'PH':
     df['gdp_pc_pp_nat'] = cat_info[['pcinc_s','pcwgt']].prod(axis=1).sum()/cat_info['hhwgt'].sum()
     # ^ this is per capita income*population/number of households
 
-if myCountry == 'FJ':        
-    df['gdp_pc_pp_prov'] = cat_info[['New Total','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['Weight'].sum(level=economy)
-    df['gdp_pc_pp_nat'] = cat_info[['New Total','pcwgt']].prod(axis=1).sum()/cat_info['Weight'].sum()
+if myCountry == 'FJ':
+    cat_info = cat_info.rename(columns={'Poor':'poorhh'})  
+    df['gdp_pc_pp_prov'] = cat_info[['New Total','Weight']].prod(axis=1).sum(level=economy)/cat_info['Weight'].sum(level=economy)
+    df['gdp_pc_pp_nat'] = cat_info[['New Total','Weight']].prod(axis=1).sum()/cat_info['Weight'].sum()
 
 df['pop'] = cat_info.pcwgt.sum(level=economy)
 
@@ -112,7 +117,6 @@ if myCountry == 'PH':
     cat_info.drop(['walls','roof'],axis=1,inplace=True)
 
 if myCountry == 'FJ':
-    cat_info.to_csv('~/Desktop/my_fiji.csv')
     cat_info.ix[cat_info.v==0.1,'v'] *= np.random.uniform(.8,2,2391)
     cat_info.ix[cat_info.v==0.4,'v'] *= np.random.uniform(.8,1.2,3549)
     cat_info.ix[cat_info.v==0.7,'v'] *= np.random.uniform(.8,1.2,80) 
@@ -153,8 +157,13 @@ cat_info['weight'] = cat_info['pcwgt']
 # ^ don't get these twisted!
 
 if myCountry == 'PH':    pov_line = cat_info.loc[(cat_info.poorhh == 1),'pcinc_s'].max() # <-- Individual
-elif myCountry == 'FJ':  pov_line = cat_info.loc[(cat_info.Poor == 1),'c'].max() # <-- Household
-print('Poverty line = ',pov_line)
+elif myCountry == 'FJ':
+    print(cat_info)
+    cat_info['HHsize_eff'] = (0.5*cat_info['Nchildren']+cat_info['Nadult'])
+    cat_info['pov_line'] = 0.
+    cat_info.loc[cat_info.Sector=='Rural','pov_line'] = 49.50*52*cat_info.loc[cat_info.Sector=='Rural','HHsize_eff']
+    cat_info.loc[cat_info.Sector=='Urban','pov_line'] = 55.12*52*cat_info.loc[cat_info.Sector=='Urban','HHsize_eff']
+    cat_info.loc[(cat_info.poorhh == 1)].to_csv('~/Desktop/my_poor_FJ.csv')
 
 print('Total population:',cat_info.weight.sum())
 print('Total n households:',cat_info.hhwgt.sum())
@@ -280,7 +289,6 @@ elif myCountry == 'FJ':
 cat_info = cat_info.reset_index().set_index([economy])
 
 hazard_ratios = cat_info[['k','hhwgt']].prod(axis=1).sum(level=economy).to_frame(name='provincial_capital')
-print(cat_info[['k','hhwgt']])
 hazard_ratios = hazard_ratios.join(df_haz,how='outer').drop(['Division'],axis=1)
 
 if myCountry == 'PH':
@@ -296,7 +304,6 @@ elif myCountry == 'FJ':
 # Frac value destroyed = SUM_i(k*v*fa)
 
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on=economy,how='outer').set_index(event_level+['hhid'])[['frac_destroyed','v']]
-print(hazard_ratios)
 
 # Transfer fa in excess of 95% to vulnerability
 fa_threshold = 0.95

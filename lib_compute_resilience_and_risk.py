@@ -6,6 +6,8 @@ from pandas_helper import get_list_of_index_names, broadcast_simple, concat_cate
 from scipy.interpolate import interp1d
 from lib_gather_data import social_to_tx_and_gsp
 
+from lib_country_dir import *
+
 import seaborn as sns
 
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
@@ -50,15 +52,15 @@ def get_weighted_median(q1,q2,q3,q4,q5,key):
     return [median_q1,median_q2,median_q3,median_q4,median_q5]
 
 
-def compute_with_hazard_ratios(fname,macro,cat_info,economy,event_level,income_cats,default_rp,verbose_replace=True):
+def compute_with_hazard_ratios(myCountry,fname,macro,cat_info,economy,event_level,income_cats,default_rp,verbose_replace=True):
 
     #cat_info = cat_info[cat_info.c>0]
     hazard_ratios = pd.read_csv(fname, index_col=event_level+[income_cats])
     
     #compute
-    return process_input(macro,cat_info,hazard_ratios,economy,event_level,default_rp,verbose_replace=True)
+    return process_input(myCountry,macro,cat_info,hazard_ratios,economy,event_level,default_rp,verbose_replace=True)
 
-def process_input(macro,cat_info,hazard_ratios,economy,event_level,default_rp,verbose_replace=True):
+def process_input(myCountry,macro,cat_info,hazard_ratios,economy,event_level,default_rp,verbose_replace=True):
     flag1=False
     flag2=False
 
@@ -98,10 +100,8 @@ def process_input(macro,cat_info,hazard_ratios,economy,event_level,default_rp,ve
         hazard_ratios_event = interpolate_rps(hazard_ratios, macro.protection,option=default_rp)
 
     # PSA input: original value of c
-    avg_c = round(np.average(macro['gdp_pc_pp_prov'],weights=macro['pop'])/50.,2)
-    print('\nMean consumption (PSA): ',avg_c,' USD.\nMean GDP pc ',round(np.average(macro['gdp_pc_pp_prov'],weights=macro['pop'])/50.,2),' USD.\n')
-
-    
+    avg_c = round(np.average(macro['gdp_pc_pp_prov'],weights=macro['pop'])/get_to_USD(myCountry),2)
+    print('\nMean consumption (PSA): ',avg_c,' USD.\nMean GDP pc ',round(np.average(macro['gdp_pc_pp_prov'],weights=macro['pop'])/get_to_USD(myCountry),2),' USD.\n')
 
     cat_info['protection']=broadcast_simple(macro['protection'],cat_info.index)	
 
@@ -117,22 +117,13 @@ def process_input(macro,cat_info,hazard_ratios,economy,event_level,default_rp,ve
 
     print('all weights ',cat_info['weight'].sum())
 
-    cat_info['c_spot'] = (cat_info['c']*cat_info['hhwgt']/cat_info['pcwgt']).clip(upper=100000)
-    #print('should be: ',cat_info.loc[cat_info.pcinc_s <= 22302.6775,'weight'].sum())
-    print('pov B: ',cat_info.loc[cat_info.c_spot <= 22302.6775,'weight'].sum())
-    #print('- poor: ',cat_info.loc[(cat_info.poorhh == 1) & (cat_info.c <= 22302.6775),'weight'].sum())
-    #print('- rich: ',cat_info.loc[(cat_info.poorhh == 0) & (cat_info.c <= 22302.6775),'weight'].sum())
-    #cat_info = cat_info.dropna()
-
-    #print(cat_info.loc[(cat_info.poorhh == 0) & (cat_info.c <= 22302.6775),['c','k','weight','pcwgt','social']].head(10))
-
-    #plt.cla()
-    #ax = plt.gca()
-    #ci_heights, ci_bins = np.histogram(cat_info.c,bins=50, weights=cat_info.pcwgt)
-    #ax.bar(ci_bins[:-1], ci_heights, width=ci_bins[1], facecolor=q_colors[1], label='C2',alpha=0.4)
-    #plt.legend()
-    #fig = ax.get_figure()
-    #fig.savefig('./my_B.png',format='png')#+'.pdf',format='pdf')
+    plt.cla()
+    ax = plt.gca()
+    ci_heights, ci_bins = np.histogram(cat_info.c.clip(upper=50000),bins=50, weights=cat_info.pcwgt)
+    ax.bar(ci_bins[:-1], ci_heights, width=ci_bins[1]-ci_bins[0], facecolor=q_colors[1], label='C2',alpha=0.4)
+    plt.legend()
+    fig = ax.get_figure()
+    fig.savefig('./my_B.png',format='png')#+'.pdf',format='pdf')
 
     print('Re-recalc mean cons (pc)',round(np.average((cat_info['c']*cat_info['hhwgt']).sum(level=economy)/macro['pop'],weights=macro['pop'])/50.,2),'USD.\n')    
 
@@ -145,10 +136,10 @@ def process_input(macro,cat_info,hazard_ratios,economy,event_level,default_rp,ve
     ####FORMATTING
     #gets the event level index
     event_level_index = hazard_ratios_event.reset_index().set_index(event_level).index #index composed on countries, hazards and rps.
-    
+
     #Broadcast macro to event level 
-    macro_event = broadcast_simple(macro,event_level_index)
-	
+    macro_event = broadcast_simple(macro,event_level_index)	
+
     #updates columns in macro with columns in hazard_ratios_event
     cols = [c for c in macro_event if c in hazard_ratios_event] #columns that are both in macro_event and hazard_ratios_event
     if not cols==[]:
@@ -174,6 +165,7 @@ def process_input(macro,cat_info,hazard_ratios,economy,event_level,default_rp,ve
     return macro_event, cats_event, hazard_ratios_event 
 
 def compute_dK(macro_event, cats_event,event_level,affected_cats):
+
     cats_event_ia=concat_categories(cats_event,cats_event,index= affected_cats)
     
     #counts affected and non affected
@@ -190,8 +182,9 @@ def compute_dK(macro_event, cats_event,event_level,affected_cats):
 
     print('From here: \'weight\' = nAffected and nNotAffected: individuals') 
     naf = cats_event['weight']*cats_event.fa
-    nna = cats_event['weight']*(1-cats_event.fa)
+    nna = cats_event['weight']*(1-cats_event.fa)    
     cats_event_ia['weight'] = concat_categories(naf,nna, index= affected_cats)
+
     print(cats_event_ia['weight'].shape[0])
     print(cats_event_ia['weight'].dropna().shape[0])
     
@@ -199,8 +192,12 @@ def compute_dK(macro_event, cats_event,event_level,affected_cats):
     cats_event_ia = cats_event_ia.reset_index(['hhid', 'affected_cat']).sort_index()
     
     #actual vulnerability
+    print('Reducing vulnerability of the poorest quintiles by 5%!')
+    cats_event_ia.loc[cats_event_ia.quintile<=2,'v']*=0.95 
+    #print(cats_event_ia['v'],cats_event_ia['shew'])
+
     cats_event_ia['v_shew']=cats_event_ia['v']*(1-macro_event['pi']*cats_event_ia['shew']) 
-    
+
     #capital losses and total capital losses
     cats_event_ia['dk']  = cats_event_ia[['k','v_shew']].prod(axis=1, skipna=False) #capital potentially be damaged 
 

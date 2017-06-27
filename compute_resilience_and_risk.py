@@ -77,21 +77,16 @@ cat_info = pd.read_csv(intermediate+'cat_info.csv',  index_col=[economy, income_
 #  - macro has province-level info
 #  - cat_info has household-level info
 #  - hazard_ratios has fa for each household (which varies not by hh, but by province, hazard, & RP) 
-macro_event, cats_event, hazard_ratios_event = compute_with_hazard_ratios(intermediate+'hazard_ratios.csv',macro,cat_info,economy,event_level,income_cats,default_rp,verbose_replace=True)
+macro_event, cats_event, hazard_ratios_event = compute_with_hazard_ratios(myCountry,intermediate+'hazard_ratios.csv',macro,cat_info,economy,event_level,income_cats,default_rp,verbose_replace=True)
 
 gc.collect()
 print('A')
-
 #verbose_replace=True by default, replace common columns in macro_event and cats_event with those in hazard_ratios_event
 
 # compute_dK does the following:
 # -- adds dk_event column to macro_event
 # -- adds affected/na categories to cats_event
 macro_event, cats_event_ia = compute_dK(macro_event, cats_event,event_level,affected_cats) #calculate the actual vulnerability, the potential damange to capital, and consumption
-
-macro_event.to_csv(output+'B_macro_event_'+optionFee+'_'+optionPDS+'_'+option_CB_name+'.csv',encoding='utf-8', header=True)
-#flag
-
 print('B\n\n')
 
 macro_event, cats_event_iah = calculate_response(macro_event,cats_event_ia,event_level,helped_cats,default_rp,option_CB,optionFee=optionFee,optionT=optionT, optionPDS=optionPDS, optionB=optionB,loss_measure='dk',fraction_inside=1, share_insured=.25)

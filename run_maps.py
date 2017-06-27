@@ -18,17 +18,20 @@ font = {'family' : 'sans serif',
 plt.rc('font', **font)
 mpl.rcParams['xtick.labelsize'] = 20
 
-myCountry = 'PH'
+myCountry = 'FJ'
 model  = os.getcwd() #get current directory
 output = model+'/../output_country/'+myCountry+'/'
 
-event_level = ['province', 'hazard', 'rp']
+if myCountry == 'PH': economy = 'province'
+elif myCountry == 'FJ': economy = 'Division'
 
-df = pd.read_csv(output+'results_tax_no_.csv', index_col=['province','hazard','rp'])
+event_level = [economy, 'hazard', 'rp']
+
+df = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
 
 # Sum with RPs
-df_prov_mh = sum_with_rp(df[['risk','risk_to_assets']],['risk','risk_to_assets'],sum_provinces=False)
-df_prov_mh['resilience'] = df['resilience'].mean(level='province')
+df_prov_mh = sum_with_rp(myCountry,df[['risk','risk_to_assets']],['risk','risk_to_assets'],sum_provinces=False)
+df_prov_mh['resilience'] = df['resilience'].mean(level=economy)
 
 #df_prov_mh['risk_to_assets'] = df_prov_mh['risk_to_assets'].clip(upper=0.04)
 #df_prov_mh['risk'] = df_prov_mh['risk'].clip(upper=0.045)
@@ -44,7 +47,7 @@ make_map_from_svg(
         color_maper=plt.cm.get_cmap('Blues'), #color scheme (from matplotlib. Chose them from http://colorbrewer2.org/)
         label='Annual asset losses (% of GDP)',
         new_title='Map of asset risk in the Philippines',  #title for the colored SVG
-        do_qualitative=True,
+        do_qualitative=False,
         res=inp_res)
 
 make_map_from_svg(
@@ -54,7 +57,7 @@ make_map_from_svg(
         color_maper=plt.cm.get_cmap('RdYlGn'), 
         label='Socio-economic capacity (%)',
         new_title='Map of socio-economic resilience in the Philippines',
-        do_qualitative=True,
+        do_qualitative=False,
         res=inp_res)
 
 make_map_from_svg(
@@ -64,5 +67,5 @@ make_map_from_svg(
         color_maper=plt.cm.get_cmap('Purples'), 
         label='Annual well-being losses (% of GDP)',
         new_title='Map of welfare risk in the Philippines',
-        do_qualitative=True,
+        do_qualitative=False,
         res=inp_res)

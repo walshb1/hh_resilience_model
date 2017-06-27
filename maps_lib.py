@@ -13,7 +13,13 @@ from IPython.display import Image, display, HTML, SVG
 import os, shutil
 from subprocess import Popen, PIPE, call 
 
-def sum_with_rp(df,columns,sum_provinces):
+def sum_with_rp(myC,df,columns,sum_provinces):
+
+    if myC == 'FJ':
+        if sum_provinces == False:
+            return df.sum(level='Division')
+        else:
+            return df.sum()
 
     df = df.sum(level=['province','rp']).fillna(0)
     df = df.reset_index().set_index('province')
@@ -91,8 +97,11 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
 
     #names of regions to lower case without space   
     for p in soup.findAll("path"):
-        
-        p["class"]=p["class"].lower().replace(" ","_").replace("-","_").replace(".","_").replace("(","_").replace(")","_")
+
+        try:
+            p["class"]=p["class"].lower().replace(" ","_").replace("-","_").replace(".","_").replace("(","_").replace(")","_")
+        except:
+            pass
         #Update the title (tooltip) of each region with the numerical value (ignores missing values)
         try:
             p.title.string += "{val:.3%}".format(val=series_in[p["class"]])
@@ -122,16 +131,20 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
     
     #reports missing data
     if verbose:
-        places_in_soup = [p["class"] for p in soup.findAll("path")]        
-        data_missing_in_svg = series_in[~series_in.index.isin(places_in_soup)].index.tolist()
-        data_missing_in_series = [p for p in places_in_soup if (p not in series_in.index.tolist())]
-        
-        back_to_title = lambda x: x.replace("_"," ").title()
+        try:
+            places_in_soup = [p["class"] for p in soup.findAll("path")]        
+            data_missing_in_svg = series_in[~series_in.index.isin(places_in_soup)].index.tolist()
+            data_missing_in_series = [p for p in places_in_soup if (p not in series_in.index.tolist())]
+
+            back_to_title = lambda x: x.replace("_"," ").title()
     
-        if data_missing_in_svg:
-            print("Missing in SVG: "+"; ".join(map(back_to_title,data_missing_in_svg)))
-        if data_missing_in_series:
-            print("Missing in series: "+"; ".join(map(back_to_title,data_missing_in_series)))
+            if data_missing_in_svg:
+                print("Missing in SVG: "+"; ".join(map(back_to_title,data_missing_in_svg)))
+            if data_missing_in_series:
+                print("Missing in series: "+"; ".join(map(back_to_title,data_missing_in_series)))
+
+        except:
+            pass
 
     if shutil.which("inkscape") is None:
         print("cannot convert SVG to PNG. Install Inkscape to do so.")

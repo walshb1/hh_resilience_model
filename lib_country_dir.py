@@ -39,6 +39,12 @@ def get_economic_unit(myC):
     
     else: return None
 
+def get_currency(myC):
+    
+    if myC == 'PH': return 'PhP'
+    if myC == 'FJ': return 'FJD'
+    else: return 'XXX'
+
 def get_places(myC,economy):
     # This df should have just province code/name and population
 
@@ -69,8 +75,9 @@ def load_survey_data(myC):
         return pd.read_csv(inputs+'fies2015.csv',usecols=['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn','walls','roof','totex','cash_abroad','cash_domestic','regft','hhwgt','fsize','poorhh','totdis','tothrec','pcinc_s','pcinc_ppp11','pcwgt'])
 
     elif myC == 'FJ':
-        df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',usecols=['HHID','Division','HHsize','Sector','Weight','TOTALTRANSFER','TotalIncome','New Total']).set_index('HHID')
+        df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',usecols=['HHID','Division','Nchildren','Nadult','HHsize','Sector','Weight','TOTALTRANSFER','TotalIncome','New Total']).set_index('HHID')
         df['pcwgt'] = df[['HHsize','Weight']].prod(axis=1)
+        df['pcinc'] = df['New Total']/df['HHsize']
 
         df_housing = pd.read_excel(inputs+'HIES 2013-14 Housing Data.xlsx',sheetname='Sheet1').set_index('HHID').dropna(how='all')[['Constructionofouterwalls','Conditionofouterwalls']]
         
@@ -115,3 +122,35 @@ def get_hazard_df(myC,economy):
         return df
 
     else: return None
+
+def get_poverty_line(myC):
+    
+    if myC == 'PH':
+        return 22302.6775#21240.2924
+
+    if myC == 'FJ':
+        # 55.12 per week for an urban adult
+        # 49.50 per week for a rural adult
+        # children under age 14 are counted as half an adult
+        return 55.12*52. #this is for an urban adult
+    
+
+def get_subsistence_line(myC):
+    
+    if myC == 'PH':
+        return 14832.0962*(22302.6775/21240.2924)
+    
+    else: return None
+
+def get_to_USD(myC):
+
+    if myC == 'PH': return 50.0
+    elif myC == 'FJ': return 0.48
+    else: return 0.
+
+def get_scale_fac(myC):
+    
+    if myC == 'PH': return [1.E6,' [Millions]']
+    elif myC == 'FJ': return [1.E3,' [Thousands]']
+    else: return [1,'']
+
