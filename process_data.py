@@ -243,8 +243,6 @@ for myDis in allDis:
         disaster_n_pov.disaster_n_sub/=100.
         disaster_n_pov = disaster_n_pov.reset_index().set_index(economy)
 
-        print(cutA['c_initial'])
-
         ci_heights, ci_bins = np.histogram(cutA['c_initial'],       bins=50, weights=cutA['weight'])
         cf_heights, cf_bins = np.histogram(cutA['c_final'],    bins=ci_bins, weights=cutA['weight'])
 
@@ -384,6 +382,11 @@ for myRP in myHaz[2]:
                   & (iah.rp == myRP),['dk','weight']].prod(axis=1).sum())
     print('RP = ',myRP,'dw =',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
                   & (iah.rp == myRP),['dw','weight']].prod(axis=1).sum())          
+
+    print('RP = ',myRP,'dk (Q1&2) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+                  & (iah.rp == myRP) & (iah.quintile <= 2),['dk','weight']].prod(axis=1).sum())
+    print('RP = ',myRP,'dw (Q1&2) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+                  & (iah.rp == myRP) & (iah.quintile <= 2),['dw','weight']].prod(axis=1).sum())        
 
     rp_all.append(myRP)
     dk_all.append(iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
@@ -565,7 +568,7 @@ for myRP in myHaz[2]:
             plt.savefig('../output_plots/'+myCountry+'/png/means_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',bbox_inches='tight',format='pdf')
             plt.cla()
 
-df_out.to_csv('~/Desktop/my_means.csv')
-df_out_sum.to_csv('~/Desktop/my_means_ntl.csv')
+df_out.to_csv('~/Desktop/my_means_'+myCountry+'.csv')
+df_out_sum.to_csv('~/Desktop/my_means_ntl_'+myCountry+'.csv')
 
 print(rp_all,'\n',dk_all,'\n',dw_all,'\n',dk_q1,'\n',dw_q1)

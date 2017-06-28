@@ -127,7 +127,7 @@ def process_input(myCountry,macro,cat_info,hazard_ratios,economy,event_level,def
 
     print('Re-recalc mean cons (pc)',round(np.average((cat_info['c']*cat_info['hhwgt']).sum(level=economy)/macro['pop'],weights=macro['pop'])/50.,2),'USD.\n')    
 
-    #rebuilding exponentially to 95% of initial stock in reconst_duration
+    #rebuilding exponentially to 9% of initial stock in reconst_duration
     recons_rate = np.log(1/0.05) / macro['T_rebuild_K']  
     
     #Calculation of macroeconomic resilience
@@ -192,8 +192,8 @@ def compute_dK(macro_event, cats_event,event_level,affected_cats):
     cats_event_ia = cats_event_ia.reset_index(['hhid', 'affected_cat']).sort_index()
     
     #actual vulnerability
-    print('Reducing vulnerability of the poorest quintiles by 5%!')
-    cats_event_ia.loc[cats_event_ia.quintile<=2,'v']*=0.95 
+    #print('Reducing vulnerability of the poorest quintiles by 5%!')
+    #cats_event_ia.loc[cats_event_ia.quintile<=2,'v']*=0.95 
     #print(cats_event_ia['v'],cats_event_ia['shew'])
 
     cats_event_ia['v_shew']=cats_event_ia['v']*(1-macro_event['pi']*cats_event_ia['shew']) 
@@ -218,7 +218,7 @@ def compute_dK(macro_event, cats_event,event_level,affected_cats):
     # NPV consumption losses accounting for reconstruction and productivity of capital (pre-response)
     cats_event_ia['dc_npv_pre'] = cats_event_ia['dc']*macro_event['macro_multiplier']
     return 	macro_event, cats_event_ia
-	
+
 
 def calculate_response(macro_event,cats_event_ia,event_level,helped_cats,default_rp,option_CB,optionFee='tax',optionT='data', optionPDS='unif_poor', optionB='data',loss_measure='dk',fraction_inside=1, share_insured=.25):
 
@@ -464,7 +464,14 @@ def compute_dW(macro_event,cats_event_iah,event_level,option_CB,return_stats=Tru
     # check that each of thess is per hh:
     cats_event_iah['dc_npv_post'] = cats_event_iah['dc_npv_pre'] -  cats_event_iah['help_received']  + cats_event_iah['help_fee']*option_CB 
     cats_event_iah['dw'] = calc_delta_welfare(cats_event_iah, macro_event) 
-  
+
+    print(np.average(cats_event_iah.loc[cats_event_iah.quintile == 1,'dw'],weights=cats_event_iah.loc[cats_event_iah.quintile == 1,'pcwgt']))
+    print(np.average(cats_event_iah.loc[cats_event_iah.quintile == 2,'dw'],weights=cats_event_iah.loc[cats_event_iah.quintile == 2,'pcwgt']))
+    print(np.average(cats_event_iah.loc[cats_event_iah.quintile == 3,'dw'],weights=cats_event_iah.loc[cats_event_iah.quintile == 3,'pcwgt']))
+    print(np.average(cats_event_iah.loc[cats_event_iah.quintile == 4,'dw'],weights=cats_event_iah.loc[cats_event_iah.quintile == 4,'pcwgt']))
+    print(np.average(cats_event_iah.loc[cats_event_iah.quintile == 5,'dw'],weights=cats_event_iah.loc[cats_event_iah.quintile == 5,'pcwgt']))
+    
+
     #aggregates dK and delta_W at df level
     # --> dK, dW are averages per household
     dK      = cats_event_iah[['dk','hhwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah['hhwgt'].sum(level=event_level)
@@ -598,8 +605,9 @@ def calc_delta_welfare(micro, macro):
     """welfare cost from consumption before (c) 
     an after (dc_npv_post) event. Line by line"""
     #computes welfare losses per category        
-    dw = welf1(micro['c']/macro['rho'], macro['income_elast'], micro['c_5']/macro['rho']) - welf1(micro['c']/macro['rho']-(micro['dc_npv_post']), macro['income_elast'],micro['c_5']/macro['rho'])
-         
+    dw = (welf1(micro['c']/macro['rho'], macro['income_elast'], micro['c_5']/macro['rho'])
+          - welf1(micro['c']/macro['rho']-micro['dc_npv_post'], macro['income_elast'],micro['c_5']/macro['rho']))
+
     return dw
 	
 def welf1(c,elast,comp):
