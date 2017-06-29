@@ -49,11 +49,12 @@ economy = get_economic_unit(myCountry)
 event_level = [economy, 'hazard', 'rp']
 
 # Load output files
-res_base = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
-res_unif_poor = pd.read_csv(output+'results_tax_unif_poor_.csv', index_col=[economy,'hazard','rp'])
-df = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
+pol_str = ''#could be {'_v95'}
+#res_base = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
+df = pd.read_csv(output+'results_tax_no_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+iah = pd.read_csv(output+'iah_tax_no_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 
-iah = pd.read_csv(output+'iah_tax_no_.csv', index_col=[economy,'hazard','rp'])
+res_unif_poor = pd.read_csv(output+'results_tax_unif_poor_.csv', index_col=[economy,'hazard','rp'])
 iah_pds = pd.read_csv(output+'iah_tax_unif_poor_.csv', index_col=[economy,'hazard','rp'])
 
 def format_delta_p(delta_p):
@@ -80,24 +81,23 @@ iah['pds_help_fee'] = iah_pds['help_fee']
 iah['pds_help_received'] = iah_pds['help_received']
 
 iah['hhwgt'] = iah['hhwgt'].fillna(0)
-iah['weight'] = iah['weight'].fillna(0)
+iah['pcwgt'] = iah['pcwgt'].fillna(0)
 
 # Convert all these hh variables to per cap
-iah['c']  = iah[['c','hhwgt']].prod(axis=1)/iah['weight']
-iah['k']  = iah[['k','hhwgt']].prod(axis=1)/iah['weight']
-iah['dk'] = iah[['dk','hhwgt']].prod(axis=1)/iah['weight']
-iah['dc'] = iah[['dc','hhwgt']].prod(axis=1)/iah['weight']
-iah['dc_npv_pre'] = iah[['dc_npv_pre','hhwgt']].prod(axis=1)/iah['weight']
+#iah['c']  = iah[['c','hhwgt']].prod(axis=1)/iah['weight']
+#iah['k']  = iah[['k','hhwgt']].prod(axis=1)/iah['weight']
+#iah['dk'] = iah[['dk','hhwgt']].prod(axis=1)/iah['weight']
+#iah['dc'] = iah[['dc','hhwgt']].prod(axis=1)/iah['weight']
+#iah['dc_npv_pre'] = iah[['dc_npv_pre','hhwgt']].prod(axis=1)/iah['weight']
 
-iah['dw'] = iah[['dw','hhwgt']].prod(axis=1)/iah['weight']
-iah['pds_dw'] = iah[['pds_dw','hhwgt']].prod(axis=1)/iah['weight']
+#iah['dw'] = iah[['dw','hhwgt']].prod(axis=1)/iah['weight']
+#iah['pds_dw'] = iah[['pds_dw','hhwgt']].prod(axis=1)/iah['weight']
 
-iah['pds_nrh'] = iah[['pds_nrh','hhwgt']].prod(axis=1)/iah['weight']
-iah['pds_help_fee'] = iah[['pds_help_fee','hhwgt']].prod(axis=1)/iah['weight']
-iah['pds_help_received'] = iah[['pds_help_received','hhwgt']].prod(axis=1)/iah['weight']
+#iah['pds_nrh'] = iah[['pds_nrh','hhwgt']].prod(axis=1)/iah['weight']
+#iah['pds_help_fee'] = iah[['pds_help_fee','hhwgt']].prod(axis=1)/iah['weight']
+#iah['pds_help_received'] = iah[['pds_help_received','hhwgt']].prod(axis=1)/iah['weight']
 
-cf_ppp = 17.889
-avg_hhsize = iah['weight'].sum(level=event_level).mean(skipna=True)/iah['hhwgt'].sum(level=event_level).mean(skipna=True) # weight is head count
+#cf_ppp = 17.889
 
 q_labels = ['Poorest quintile','Q2','Q3','Q4','Wealthiest quintile']
 q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
@@ -124,7 +124,7 @@ if myCountry == 'FJ':
 for myDis in allDis:
 
     cut_rps = iah.loc[(iah.hazard == myDis)].set_index([economy,'hazard','rp']).fillna(0)
-    if (cut_rps['weight'].sum() == 0 or cut_rps.shape[0] == 0): continue
+    if (cut_rps['pcwgt'].sum() == 0 or cut_rps.shape[0] == 0): continue
 
     cut_rps['c_initial'] = cut_rps['c']#cut_rps['k']*df['avg_prod_k'].mean()
     cut_rps['delta_c']   = cut_rps['dk']*(df['avg_prod_k'].mean()+1/df['T_rebuild_K'].mean())
@@ -135,34 +135,34 @@ for myDis in allDis:
 
     cut_rps['pre_dis_n_pov'] = 0
     cut_rps['pre_dis_n_sub'] = 0
-    cut_rps.loc[(cut_rps.c_initial <= pov_line), 'pre_dis_n_pov'] = cut_rps.loc[(cut_rps.c_initial <= pov_line), 'weight']
+    cut_rps.loc[(cut_rps.c_initial <= pov_line), 'pre_dis_n_pov'] = cut_rps.loc[(cut_rps.c_initial <= pov_line), 'pcwgt']
     if sub_line:
-        cut_rps.loc[(cut_rps.c_initial <= sub_line), 'pre_dis_n_sub'] = cut_rps.loc[(cut_rps.c_initial <= sub_line), 'weight']
+        cut_rps.loc[(cut_rps.c_initial <= sub_line), 'pre_dis_n_sub'] = cut_rps.loc[(cut_rps.c_initial <= sub_line), 'pcwgt']
     print('\n\nPop below pov line before disaster:',cut_rps['pre_dis_n_pov'].sum(level=['hazard','rp']).mean(),'\n')
     print('\n\nPop below sub line before disaster:',cut_rps['pre_dis_n_sub'].sum(level=['hazard','rp']).mean(),'\n')
 
-    print('poor, below pov',cut_rps.loc[(cut_rps.poorhh == 1) & (cut_rps.c_initial <= pov_line), 'weight'].sum(level=['hazard','rp']).mean())
-    print('poor, above pov',cut_rps.loc[(cut_rps.poorhh == 1) & (cut_rps.c_initial > pov_line), 'weight'].sum(level=['hazard','rp']).mean())
-    print('rich, below pov',cut_rps.loc[(cut_rps.poorhh == 0) & (cut_rps.c_initial <= pov_line), 'weight'].sum(level=['hazard','rp']).mean())
-    print('rich, above pov',cut_rps.loc[(cut_rps.poorhh == 0) & (cut_rps.c_initial > pov_line), 'weight'].sum(level=['hazard','rp']).mean())
+    print('poor, below pov',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c_initial <= pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+    print('poor, above pov',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c_initial > pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+    print('rich, below pov',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c_initial <= pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+    print('rich, above pov',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c_initial > pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
         
     if sub_line:
-        print('poor, below sub',cut_rps.loc[(cut_rps.poorhh == 1) & (cut_rps.c_initial <= sub_line), 'weight'].sum(level=['hazard','rp']).mean())
-        print('poor, above sub',cut_rps.loc[(cut_rps.poorhh == 1) & (cut_rps.c_initial > sub_line), 'weight'].sum(level=['hazard','rp']).mean())
-        print('rich, below sub',cut_rps.loc[(cut_rps.poorhh == 0) & (cut_rps.c_initial <= sub_line), 'weight'].sum(level=['hazard','rp']).mean())
-        print('rich, above sub',cut_rps.loc[(cut_rps.poorhh == 0) & (cut_rps.c_initial > sub_line), 'weight'].sum(level=['hazard','rp']).mean())
+        print('poor, below sub',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c_initial <= sub_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+        print('poor, above sub',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c_initial > sub_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+        print('rich, below sub',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c_initial <= sub_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+        print('rich, above sub',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c_initial > sub_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
 
     cut_rps['disaster_n_pov'] = 0
     cut_rps['disaster_n_sub'] = 0
-    cut_rps.loc[(cut_rps.c_final <= pov_line) & (cut_rps.c_initial > pov_line), 'disaster_n_pov'] = cut_rps.loc[(cut_rps.c_final <= pov_line) & (cut_rps.c_initial > pov_line), 'weight']
+    cut_rps.loc[(cut_rps.c_final <= pov_line) & (cut_rps.c_initial > pov_line), 'disaster_n_pov'] = cut_rps.loc[(cut_rps.c_final <= pov_line) & (cut_rps.c_initial > pov_line), 'pcwgt']
     
     if sub_line:
-        cut_rps.loc[(cut_rps.c_final <= sub_line) & (cut_rps.c_initial > sub_line), 'disaster_n_sub'] = cut_rps.loc[(cut_rps.c_final <= sub_line) & (cut_rps.c_initial > sub_line), 'weight']
+        cut_rps.loc[(cut_rps.c_final <= sub_line) & (cut_rps.c_initial > sub_line), 'disaster_n_sub'] = cut_rps.loc[(cut_rps.c_final <= sub_line) & (cut_rps.c_initial > sub_line), 'pcwgt']
 
     n_pov = pd.DataFrame(cut_rps[['disaster_n_pov','disaster_n_sub']].sum(level=[economy,'rp']).reset_index(),
                          columns=[economy,'rp','disaster_n_pov','disaster_n_sub']).set_index([economy,'rp'])
-    n_pov['disaster_n_pov_pct'] = (n_pov['disaster_n_pov']/cut_rps.weight.sum(level=[economy,'rp']).reset_index().set_index([economy,'rp']).T).T
-    n_pov['disaster_n_sub_pct'] = (n_pov['disaster_n_sub']/cut_rps.weight.sum(level=[economy,'rp']).reset_index().set_index([economy,'rp']).T).T
+    n_pov['disaster_n_pov_pct'] = (n_pov['disaster_n_pov']/cut_rps.pcwgt.sum(level=[economy,'rp']).reset_index().set_index([economy,'rp']).T).T
+    n_pov['disaster_n_sub_pct'] = (n_pov['disaster_n_sub']/cut_rps.pcwgt.sum(level=[economy,'rp']).reset_index().set_index([economy,'rp']).T).T
     
     n_pov.disaster_n_pov/=100.
     n_pov.disaster_n_sub/=100.
@@ -171,7 +171,8 @@ for myDis in allDis:
     n_pov = sum_with_rp(myCountry,n_pov[['disaster_n_pov','disaster_n_pov_pct','disaster_n_sub','disaster_n_sub_pct']],
                         ['disaster_n_pov','disaster_n_pov_pct','disaster_n_sub','disaster_n_sub_pct'],sum_provinces=False)
     my_n_pov = n_pov.copy()
-    if myCountry == 'PH': my_n_pov = n_pov.copy().drop(['Batanes'],axis=0)        
+
+    if myCountry == 'PH': my_n_pov = n_pov.copy()#.drop(['Batanes'],axis=0)
 
     make_map_from_svg(
         my_n_pov.disaster_n_pov, 
@@ -217,7 +218,7 @@ for myDis in allDis:
         
         cutA = iah.loc[(iah.hazard == myDis) & (iah.rp == myRP)].set_index([economy,'hazard','rp']).fillna(0)
         #cutA = iah.loc[(iah.hazard == myDis) & (iah.rp == myRP) & (iah.helped_cat == 'helped')].set_index([economy,'hazard','rp']).fillna(0)
-        if (cutA['weight'].sum() == 0 or cutA.shape[0] == 0): continue
+        if (cutA['pcwgt'].sum() == 0 or cutA.shape[0] == 0): continue
 
         # look at instantaneous dk
         ax=plt.gca()
@@ -231,49 +232,49 @@ for myDis in allDis:
 
         cutA['disaster_n_pov'] = 0
         cutA['disaster_n_sub'] = 0
-        cutA.loc[(cutA.c_final <= pov_line) & (cutA.c_initial > pov_line), 'disaster_n_pov'] = cutA.loc[(cutA.c_final <= pov_line) & (cutA.c_initial > pov_line), 'weight']
+        cutA.loc[(cutA.c_final <= pov_line) & (cutA.c_initial > pov_line), 'disaster_n_pov'] = cutA.loc[(cutA.c_final <= pov_line) & (cutA.c_initial > pov_line), 'pcwgt']
         if sub_line:
-            cutA.loc[(cutA.c_final <= sub_line) & (cutA.c_initial > sub_line), 'disaster_n_sub'] = cutA.loc[(cutA.c_final <= sub_line) & (cutA.c_initial > sub_line), 'weight']
+            cutA.loc[(cutA.c_final <= sub_line) & (cutA.c_initial > sub_line), 'disaster_n_sub'] = cutA.loc[(cutA.c_final <= sub_line) & (cutA.c_initial > sub_line), 'pcwgt']
 
         disaster_n_pov = pd.DataFrame(cutA[['disaster_n_pov','disaster_n_sub']].sum(level=event_level).reset_index(),columns=[economy,'disaster_n_pov','disaster_n_sub']).set_index(economy)
-        disaster_n_pov['disaster_n_pov_pct'] = (disaster_n_pov['disaster_n_pov']/cutA.weight.sum(level=economy).reset_index().set_index(economy).T).T
-        disaster_n_pov['disaster_n_sub_pct'] = (disaster_n_pov['disaster_n_sub']/cutA.weight.sum(level=economy).reset_index().set_index(economy).T).T
+        disaster_n_pov['disaster_n_pov_pct'] = (disaster_n_pov['disaster_n_pov']/cutA.pcwgt.sum(level=economy).reset_index().set_index(economy).T).T
+        disaster_n_pov['disaster_n_sub_pct'] = (disaster_n_pov['disaster_n_sub']/cutA.pcwgt.sum(level=economy).reset_index().set_index(economy).T).T
 
         disaster_n_pov.disaster_n_pov/=100.
         disaster_n_pov.disaster_n_sub/=100.
         disaster_n_pov = disaster_n_pov.reset_index().set_index(economy)
 
-        ci_heights, ci_bins = np.histogram(cutA['c_initial'],       bins=50, weights=cutA['weight'])
-        cf_heights, cf_bins = np.histogram(cutA['c_final'],    bins=ci_bins, weights=cutA['weight'])
+        ci_heights, ci_bins = np.histogram(cutA['c_initial'],       bins=50, weights=cutA['pcwgt'])
+        cf_heights, cf_bins = np.histogram(cutA['c_final'],    bins=ci_bins, weights=cutA['pcwgt'])
 
         ci_heights /= get_scale_fac(myCountry)[0]
         cf_heights /= get_scale_fac(myCountry)[0]
 
-        ax.bar(ci_bins[:-1], ci_heights, width=ci_bins[1], label='Initial Consumption', facecolor=q_colors[0],alpha=0.4)
-        ax.bar(cf_bins[:-1], cf_heights, width=ci_bins[1], label='Post-disaster Consumption', facecolor=q_colors[1],alpha=0.4)
+        ax.bar(ci_bins[:-1], ci_heights, width=(ci_bins[1]-ci_bins[0]), label='Initial Consumption', facecolor=q_colors[0],alpha=0.4)
+        ax.bar(cf_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-disaster Consumption', facecolor=q_colors[1],alpha=0.4)
 
         ##### Experiment
-        #print('rich, below pov',cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial <= pov_line), 'weight'].sum(level=['hazard','rp']).mean())
-        #crb_heights, crb_bins = np.histogram(cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial <= pov_line),'c_initial'].fillna(0),    
-        #                                     bins=ci_bins, weights=cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial <= pov_line),'weight'].fillna(0))
+        #print('rich, below pov',cutA.loc[(cutA.ispoor == 0) & (cutA.c_initial <= pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+        #crb_heights, crb_bins = np.histogram(cutA.loc[(cutA.ispoor == 0) & (cutA.c_initial <= pov_line),'c_initial'].fillna(0),    
+        #                                     bins=ci_bins, weights=cutA.loc[(cutA.ispoor == 0) & (cutA.c_initial <= pov_line),'pcwgt'].fillna(0))
         
         
-        #print('rich, above pov',cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial > pov_line), 'weight'].sum(level=['hazard','rp']).mean())
-        #cra_heights, cra_bins = np.histogram(cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial > pov_line),'c_initial'].fillna(0),    
-        #                                     bins=ci_bins, weights=cutA.loc[(cutA.poorhh == 0) & (cutA.c_initial > pov_line),'weight'].fillna(0))
+        #print('rich, above pov',cutA.loc[(cutA.ispoor == 0) & (cutA.c_initial > pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+        #cra_heights, cra_bins = np.histogram(cutA.loc[(cutA.ispoor == 0) & (cutA.c_initial > pov_line),'c_initial'].fillna(0),    
+        #                                     bins=ci_bins, weights=cutA.loc[(cutA.ispoor == 0) & (cutA.c_initial > pov_line),'pcwgt'].fillna(0))
         
         #cra_heights /= 1.E6
         #crb_heights /= 1.E6
 
-        #ax.bar(crb_bins[:-1], crb_heights, width=ci_bins[1], label='Initial Consumption, Rich', facecolor=q_colors[2],alpha=0.8)
-        #ax.bar(cra_bins[:-1], cra_heights, width=ci_bins[1], label='Initial Consumption, Rich', facecolor=q_colors[3],alpha=0.8)
+        #ax.bar(crb_bins[:-1], crb_heights, width=(ci_bins[1]-ci_bins[0]), label='Initial Consumption, Rich', facecolor=q_colors[2],alpha=0.8)
+        #ax.bar(cra_bins[:-1], cra_heights, width=(ci_bins[1]-ci_bins[0]), label='Initial Consumption, Rich', facecolor=q_colors[3],alpha=0.8)
         
         ###############
 
         # Change in poverty incidence
-        delta_p = cutA.loc[(cutA.c_initial > pov_line) & (cutA.c_final <= pov_line),'weight'].sum()
+        delta_p = cutA.loc[(cutA.c_initial > pov_line) & (cutA.c_final <= pov_line),'pcwgt'].sum()
         p_str = format_delta_p(delta_p)
-        p_pct = ' ('+str(round((delta_p/cutA['weight'].sum())*100.,2))+'% of population)'
+        p_pct = ' ('+str(round((delta_p/cutA['pcwgt'].sum())*100.,2))+'% of population)'
 
         plt.plot([pov_line,pov_line],[0,1.25*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
         ax.annotate('Poverty line',xy=(1.1*pov_line,1.25*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
@@ -281,9 +282,9 @@ for myDis in allDis:
 
         # Change in subsistence incidence
         if sub_line:
-            delta_s = cutA.loc[(cutA.c_initial > sub_line) & (cutA.c_final <= sub_line),'weight'].sum()
+            delta_s = cutA.loc[(cutA.c_initial > sub_line) & (cutA.c_final <= sub_line),'pcwgt'].sum()
             s_str = format_delta_p(delta_s)
-            s_pct = ' ('+str(round((delta_s/cutA['weight'].sum())*100.,2))+'% of population)'
+            s_pct = ' ('+str(round((delta_s/cutA['pcwgt'].sum())*100.,2))+'% of population)'
 
             plt.plot([sub_line,sub_line],[0,1.6*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
             ax.annotate('Subsistence line',xy=(1.1*sub_line,1.60*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
@@ -304,19 +305,19 @@ for myDis in allDis:
         # Same as above, for affected people
         ax=plt.gca()
 
-        ci_heights, ci_bins = np.histogram(cutA.loc[(cutA.affected_cat =='a'),'c_initial'],       bins=50, weights=cutA.loc[(cutA.affected_cat =='a'),'weight'])
-        cf_heights, cf_bins = np.histogram(cutA.loc[(cutA.affected_cat =='a'),'c_final'],    bins=ci_bins, weights=cutA.loc[(cutA.affected_cat =='a'),'weight'])
+        ci_heights, ci_bins = np.histogram(cutA.loc[(cutA.affected_cat =='a'),'c_initial'],       bins=50, weights=cutA.loc[(cutA.affected_cat =='a'),'pcwgt'])
+        cf_heights, cf_bins = np.histogram(cutA.loc[(cutA.affected_cat =='a'),'c_final'],    bins=ci_bins, weights=cutA.loc[(cutA.affected_cat =='a'),'pcwgt'])
 
-        ax.bar(ci_bins[:-1], ci_heights, width=ci_bins[1], label='Initial Consumption', facecolor=q_colors[0],alpha=0.4)
-        ax.bar(cf_bins[:-1], cf_heights, width=ci_bins[1], label='Post-disaster Consumption', facecolor=q_colors[1],alpha=0.4)
+        ax.bar(ci_bins[:-1], ci_heights, width=(ci_bins[1]-ci_bins[0]), label='Initial Consumption', facecolor=q_colors[0],alpha=0.4)
+        ax.bar(cf_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-disaster Consumption', facecolor=q_colors[1],alpha=0.4)
 
-        print('All people: ',cutA['weight'].sum())
-        print('Affected people: ',cutA.loc[(cutA.affected_cat =='a'),'weight'].sum())
+        print('All people: ',cutA['pcwgt'].sum())
+        print('Affected people: ',cutA.loc[(cutA.affected_cat =='a'),'pcwgt'].sum())
 
-        delta_p = cutA.loc[(cutA.affected_cat =='a') & (cutA.c_final <= pov_line),'weight'].sum() 
-        delta_p -= cutA.loc[(cutA.affected_cat =='a') & (cutA.c_initial <= pov_line),'weight'].sum()
+        delta_p = cutA.loc[(cutA.affected_cat =='a') & (cutA.c_final <= pov_line),'pcwgt'].sum() 
+        delta_p -= cutA.loc[(cutA.affected_cat =='a') & (cutA.c_initial <= pov_line),'pcwgt'].sum()
         p_str = format_delta_p(delta_p)
-        p_pct = ' ('+str(round((delta_p/cutA['weight'].sum())*100.,2))+'% of population)'
+        p_pct = ' ('+str(round((delta_p/cutA['pcwgt'].sum())*100.,2))+'% of population)'
 
         plt.plot([pov_line,pov_line],[0,1.2*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
         ax.annotate('Poverty line',xy=(1.1*pov_line,1.20*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
@@ -379,25 +380,25 @@ for myRP in myHaz[2]:
                      & (iah.quintile == 5) & (iah.rp == myRP)]
 
     print('RP = ',myRP,'dk =',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                  & (iah.rp == myRP),['dk','weight']].prod(axis=1).sum())
+                  & (iah.rp == myRP),['dk','pcwgt']].prod(axis=1).sum())
     print('RP = ',myRP,'dw =',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                  & (iah.rp == myRP),['dw','weight']].prod(axis=1).sum())          
+                  & (iah.rp == myRP),['dw','pcwgt']].prod(axis=1).sum())          
 
     print('RP = ',myRP,'dk (Q1&2) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                  & (iah.rp == myRP) & (iah.quintile <= 2),['dk','weight']].prod(axis=1).sum())
+                  & (iah.rp == myRP) & (iah.quintile <= 2),['dk','pcwgt']].prod(axis=1).sum())
     print('RP = ',myRP,'dw (Q1&2) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                  & (iah.rp == myRP) & (iah.quintile <= 2),['dw','weight']].prod(axis=1).sum())        
+                  & (iah.rp == myRP) & (iah.quintile <= 2),['dw','pcwgt']].prod(axis=1).sum())        
 
     rp_all.append(myRP)
     dk_all.append(iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                          & (iah.rp == myRP),['dk','weight']].prod(axis=1).sum())
+                          & (iah.rp == myRP),['dk','pcwgt']].prod(axis=1).sum())
     dw_all.append(iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                          & (iah.rp == myRP),['dw','weight']].prod(axis=1).sum())
+                          & (iah.rp == myRP),['dw','pcwgt']].prod(axis=1).sum())
 
     dk_q1.append(iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                         & (iah.rp == myRP) & (iah.quintile == 1),['dk','weight']].prod(axis=1).sum())
+                         & (iah.rp == myRP) & (iah.quintile == 1),['dk','pcwgt']].prod(axis=1).sum())
     dw_q1.append(iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                         & (iah.rp == myRP) & (iah.quintile == 1),['dw','weight']].prod(axis=1).sum())
+                         & (iah.rp == myRP) & (iah.quintile == 1),['dw','pcwgt']].prod(axis=1).sum())
 
     k_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'k')
     dk_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'dk')
@@ -481,11 +482,11 @@ for myRP in myHaz[2]:
             else: df_out = df_out.append(df_this)
 
             # histograms
-            df_wgt = pd.DataFrame({'q1_w': q1.loc[(q1.affected_cat=='a') & (q1.c <= 100000),'weight'],
-                                   'q2_w': q2.loc[(q2.affected_cat=='a') & (q2.c <= 100000),'weight'],
-                                   'q3_w': q3.loc[(q3.affected_cat=='a') & (q3.c <= 100000),'weight'],
-                                   'q4_w': q4.loc[(q4.affected_cat=='a') & (q4.c <= 100000),'weight'],
-                                   'q5_w': q5.loc[(q5.affected_cat=='a') & (q5.c <= 100000),'weight']}, 
+            df_wgt = pd.DataFrame({'q1_w': q1.loc[(q1.affected_cat=='a') & (q1.c <= 100000),'pcwgt'],
+                                   'q2_w': q2.loc[(q2.affected_cat=='a') & (q2.c <= 100000),'pcwgt'],
+                                   'q3_w': q3.loc[(q3.affected_cat=='a') & (q3.c <= 100000),'pcwgt'],
+                                   'q4_w': q4.loc[(q4.affected_cat=='a') & (q4.c <= 100000),'pcwgt'],
+                                   'q5_w': q5.loc[(q5.affected_cat=='a') & (q5.c <= 100000),'pcwgt']}, 
                                   columns=['q1_w', 'q2_w', 'q3_w', 'q4_w', 'q5_w']).fillna(0)
 
             #df_wgt.to_csv('~/Desktop/weights.csv')
@@ -568,7 +569,7 @@ for myRP in myHaz[2]:
             plt.savefig('../output_plots/'+myCountry+'/png/means_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',bbox_inches='tight',format='pdf')
             plt.cla()
 
-df_out.to_csv('~/Desktop/my_means_'+myCountry+'.csv')
-df_out_sum.to_csv('~/Desktop/my_means_ntl_'+myCountry+'.csv')
+df_out.to_csv('~/Desktop/my_plots/my_means_'+myCountry+pol_str+'.csv')
+df_out_sum.to_csv('~/Desktop/my_plots/my_means_ntl_'+myCountry+pol_str+'.csv')
 
 print(rp_all,'\n',dk_all,'\n',dw_all,'\n',dk_q1,'\n',dw_q1)

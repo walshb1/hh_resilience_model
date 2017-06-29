@@ -50,6 +50,8 @@ def get_places(myC,economy):
 
     if myC == 'PH': 
         df = pd.read_excel(inputs+'population_2015.xlsx',sheetname='population').set_index(economy)
+        df['psa_pop']      = df['population']    # Provincial population
+        df.drop(['population'],axis=1,inplace=True)
         return df
 
     if myC == 'FJ':
@@ -70,21 +72,53 @@ def get_places_dict(myC):
     else: return None
 
 def load_survey_data(myC):
+    
+    #Each survey/country should have the following:
+    # -> hhid
+    # -> hhinc
+    # -> pcinc
+    # -> hhwgt
+    # -> pcwgt
+    # -> hhsize
+    # -> hhsize_eff
+    # -> hhsoc
+    # -> pcsoc
+    # -> ispoor
 
     if myC == 'PH':
-        return pd.read_csv(inputs+'fies2015.csv',usecols=['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn','walls','roof','totex','cash_abroad','cash_domestic','regft','hhwgt','fsize','poorhh','totdis','tothrec','pcinc_s','pcinc_ppp11','pcwgt'])
+        df = pd.read_csv(inputs+'fies2015.csv',usecols=['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn','walls','roof','totex','cash_abroad',
+                                                          'cash_domestic','regft','hhwgt','fsize','poorhh','totdis','tothrec','pcinc_s','pcinc_ppp11','pcwgt'])
+        df = df.rename(columns={'tothrec':'hhsoc','pcinc_s':'pcinc','poorhh':'ispoor'})
+        
+        df['hhsize']     = df['pcwgt']/df['hhwgt']
+        df['hhsize_eff'] = df['pcwgt']/df['hhwgt']        
+
+        df['hhinc'] = df[['pcinc','hhsize']].prod(axis=1)
+        df['pcsoc'] = df['hhsoc']/df['hhsize']
+
+        return df
 
     elif myC == 'FJ':
-        df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',usecols=['HHID','Division','Nchildren','Nadult','HHsize','Sector','Weight','TOTALTRANSFER','TotalIncome','New Total']).set_index('HHID')
-        df['pcwgt'] = df[['HHsize','Weight']].prod(axis=1)
-        df['pcinc'] = df['New Total']/df['HHsize']
+        df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',usecols=['HHID','Division','Nchildren','Nadult','HHsize',
+                                                                           'Sector','Weight','TOTALTRANSFER','TotalIncome','New Total']).set_index('HHID')
+        df = df.rename(columns={'HHID':'hhid','New Total':'hhinc','HHsize':'hhsize','Weight':'hhwgt','TOTALTRANSFER':'hhsoc'})
 
-        df_housing = pd.read_excel(inputs+'HIES 2013-14 Housing Data.xlsx',sheetname='Sheet1').set_index('HHID').dropna(how='all')[['Constructionofouterwalls','Conditionofouterwalls']]
+        df['hhsize_eff'] = 0.5*df['Nchildren']+df['Nadult']
+
+        df['pcwgt'] = df[['hhsize','hhwgt']].prod(axis=1)
+        df['pcinc'] = df['hhinc']/df['hhsize']
+        df['pcinc_eff'] = df['hhinc']/df['hhsize_eff']
+        df['pcsoc'] = df['hhsoc']/df['hhsize']
+
+        df_housing = pd.read_excel(inputs+'HIES 2013-14 Housing Data.xlsx',sheetname='Sheet1').set_index('HHID').dropna(how='all')[['Constructionofouterwalls',
+                                                                                                                                    'Conditionofouterwalls']]
         
         df_poor = pd.read_excel(inputs+'HIES 2013-14 Demographic Data.xlsx',sheetname='Sheet1').set_index('HHID').dropna(how='all')['Poor']
         df_poor = df_poor[~df_poor.index.duplicated(keep='first')]
 
         df = pd.concat([df,df_housing,df_poor],axis=1).reset_index().set_index('Division')
+
+        df = df.rename(columns={'Poor':'ispoor'})
         return df
 
     else: return None
@@ -93,7 +127,9 @@ def load_survey_data(myC):
 def get_df2(myC):
 
     if myC == 'PH':
-        return pd.read_excel(inputs+'PSA_compiled.xlsx',skiprows=1)[['province','gdp_pc_pp','pop','shewp','shewr']].set_index('province')
+        df2 = pd.read_excel(inputs+'PSA_compiled.xlsx',skiprows=1)[['province','gdp_pc_pp','pop','shewp','shewr']].set_index('province')
+        df2['gdp'] = df2['gdp_pc_pp']*df2['pop']
+        return df2
 
     else: return None
 
@@ -154,3 +190,7 @@ def get_scale_fac(myC):
     elif myC == 'FJ': return [1.E3,' [Thousands]']
     else: return [1,'']
 
+def get_avg_prod(myC):
+    
+    if myC == 'PH': return 0.337960802589002
+    elif myC == 'FJ': return 0.336139019412

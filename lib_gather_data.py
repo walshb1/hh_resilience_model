@@ -70,11 +70,11 @@ def perc_with_spline(data, wt, percentiles):
 	f = interp1d(np.append([0],w),np.append([0],sd))
 	return f(percentiles)	 
 	
-def match_quintiles(hhdataframe,quintiles):
-    hhdataframe.loc[hhdataframe['c']<=quintiles[0],'quintile']=1
+def match_percentiles(hhdataframe,quintiles,col_label):
+    hhdataframe.loc[hhdataframe['c']<=quintiles[0],col_label]=1
 
     for j in np.arange(1,len(quintiles)):
-        hhdataframe.loc[(hhdataframe['c']<=quintiles[j])&(hhdataframe['c']>quintiles[j-1]),'quintile']=j+1
+        hhdataframe.loc[(hhdataframe['c']<=quintiles[j])&(hhdataframe['c']>quintiles[j-1]),col_label]=j+1
         
     return hhdataframe
 	

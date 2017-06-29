@@ -18,29 +18,30 @@ font = {'family' : 'sans serif',
 plt.rc('font', **font)
 mpl.rcParams['xtick.labelsize'] = 20
 
-myCountry = 'FJ'
-model  = os.getcwd() #get current directory
-output = model+'/../output_country/'+myCountry+'/'
+for myCountry in ['PH','FJ']:
 
-if myCountry == 'PH': economy = 'province'
-elif myCountry == 'FJ': economy = 'Division'
+    model  = os.getcwd() #get current directory
+    output = model+'/../output_country/'+myCountry+'/'
 
-event_level = [economy, 'hazard', 'rp']
+    if myCountry == 'PH': economy = 'province'
+    elif myCountry == 'FJ': economy = 'Division'
 
-df = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
+    event_level = [economy, 'hazard', 'rp']
 
-# Sum with RPs
-df_prov_mh = sum_with_rp(myCountry,df[['risk','risk_to_assets']],['risk','risk_to_assets'],sum_provinces=False)
-df_prov_mh['resilience'] = df['resilience'].mean(level=economy)
+    df = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
 
-#df_prov_mh['risk_to_assets'] = df_prov_mh['risk_to_assets'].clip(upper=0.04)
-#df_prov_mh['risk'] = df_prov_mh['risk'].clip(upper=0.045)
+    # Sum with RPs
+    df_prov_mh = sum_with_rp(myCountry,df[['risk','risk_to_assets']],['risk','risk_to_assets'],sum_provinces=False)
+    df_prov_mh['resilience'] = df['resilience'].mean(level=economy)
 
-# path to the blank map 
-svg_file_path = '../map_files/'+myCountry+'/BlankSimpleMap.svg'
-inp_res = 800
+    #df_prov_mh['risk_to_assets'] = df_prov_mh['risk_to_assets'].clip(upper=0.04)
+    #df_prov_mh['risk'] = df_prov_mh['risk'].clip(upper=0.045)
 
-make_map_from_svg(
+    # path to the blank map 
+    svg_file_path = '../map_files/'+myCountry+'/BlankSimpleMap.svg'
+    inp_res = 800
+
+    make_map_from_svg(
         df_prov_mh.risk_to_assets, #data 
         svg_file_path,                  #path to blank map
         outname='asset_risk_',  #base name for output  (will create img/map_of_asset_risk.png, img/legend_of_asset_risk.png, etc.)
@@ -49,8 +50,8 @@ make_map_from_svg(
         new_title='Map of asset risk in the Philippines',  #title for the colored SVG
         do_qualitative=False,
         res=inp_res)
-
-make_map_from_svg(
+    
+    make_map_from_svg(
         df_prov_mh.resilience, 
         svg_file_path,
         outname='se_resilience_',
@@ -60,7 +61,7 @@ make_map_from_svg(
         do_qualitative=False,
         res=inp_res)
 
-make_map_from_svg(
+    make_map_from_svg(
         df_prov_mh.risk, 
         svg_file_path,
         outname='welfare_risk_',
