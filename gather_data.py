@@ -91,11 +91,11 @@ if myCountry != 'FJ':
     cat_info.v = cat_info.v/2
 
 if myCountry == 'PH':
-    cat_info.ix[cat_info.v==0.1,'v'] *= np.random.uniform(.8,2,30187)
-    cat_info.ix[cat_info.v==0.25,'v'] *= np.random.uniform(.8,1.2,5895)  
-    cat_info.ix[(10*(cat_info.v-.4)).round()==0,'v'] *= np.random.uniform(.8,1.2,5130)
-    cat_info.ix[cat_info.v==0.55,'v'] *= np.random.uniform(.8,1.2,153)
-    cat_info.ix[cat_info.v==0.70,'v'] *= np.random.uniform(.8,1.2,179) 
+    cat_info.ix[cat_info.v==0.1,'v'] *= np.random.uniform(.8,2,cat_info.ix[cat_info.v==0.1].shape[0])
+    cat_info.ix[cat_info.v==0.25,'v'] *= np.random.uniform(.8,1.2,cat_info.ix[cat_info.v==0.25].shape[0])  
+    cat_info.ix[(10*(cat_info.v-.4)).round()==0,'v'] *= np.random.uniform(.8,1.2,cat_info.ix[(10*(cat_info.v-.4)).round()==0].shape[0])
+    cat_info.ix[cat_info.v==0.55,'v'] *= np.random.uniform(.8,1.2,cat_info.ix[cat_info.v==0.55].shape[0])
+    cat_info.ix[cat_info.v==0.70,'v'] *= np.random.uniform(.8,1.2,cat_info.ix[cat_info.v==0.70].shape[0]) 
     cat_info.drop(['walls','roof'],axis=1,inplace=True)
 
 if myCountry == 'FJ':
