@@ -80,7 +80,7 @@ def load_survey_data(myC):
     # -> hhwgt
     # -> pcwgt
     # -> hhsize
-    # -> hhsize_eff
+    # -> hhsize_ae
     # -> hhsoc
     # -> pcsoc
     # -> ispoor
@@ -90,8 +90,11 @@ def load_survey_data(myC):
                                                           'cash_domestic','regft','hhwgt','fsize','poorhh','totdis','tothrec','pcinc_s','pcinc_ppp11','pcwgt'])
         df = df.rename(columns={'tothrec':'hhsoc','pcinc_s':'pcinc','poorhh':'ispoor'})
         
+        df['pcinc_ae']   = df['pcinc']
+        df['pcwgt_ae']   = df['pcwgt']
+
         df['hhsize']     = df['pcwgt']/df['hhwgt']
-        df['hhsize_eff'] = df['pcwgt']/df['hhwgt']        
+        df['hhsize_ae']  = df['pcwgt']/df['hhwgt']        
 
         df['hhinc'] = df[['pcinc','hhsize']].prod(axis=1)
         df['pcsoc'] = df['hhsoc']/df['hhsize']
@@ -99,15 +102,18 @@ def load_survey_data(myC):
         return df
 
     elif myC == 'FJ':
-        df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',usecols=['HHID','Division','Nchildren','Nadult','HHsize',
+        df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',usecols=['HHID','Division','Nchildren','Nadult','AE','HHsize',
                                                                            'Sector','Weight','TOTALTRANSFER','TotalIncome','New Total']).set_index('HHID')
-        df = df.rename(columns={'HHID':'hhid','New Total':'hhinc','HHsize':'hhsize','Weight':'hhwgt','TOTALTRANSFER':'hhsoc'})
+        df = df.rename(columns={'HHID':'hhid','TotalIncome':'hhinc','HHsize':'hhsize','Weight':'hhwgt','TOTALTRANSFER':'hhsoc'})
 
-        df['hhsize_eff'] = 0.5*df['Nchildren']+df['Nadult']
+        #df['hhsize_ae'] = df['Nadult'] # assuming this is 'Adult Equivalents'
+        df['hhsize_ae'] = df['AE'] # assuming this is 'Adult Equivalents'
+        # Should be equivalent to 0.5*df['Nchildren']+df['Nadult']
 
         df['pcwgt'] = df[['hhsize','hhwgt']].prod(axis=1)
+        df['pcwgt_ae'] = df[['AE','hhwgt']].prod(axis=1)
         df['pcinc'] = df['hhinc']/df['hhsize']
-        df['pcinc_eff'] = df['hhinc']/df['hhsize_eff']
+        df['pcinc_ae'] = df['hhinc']/df['hhsize_ae']
         df['pcsoc'] = df['hhsoc']/df['hhsize']
 
         df_housing = pd.read_excel(inputs+'HIES 2013-14 Housing Data.xlsx',sheetname='Sheet1').set_index('HHID').dropna(how='all')[['Constructionofouterwalls',
@@ -119,6 +125,7 @@ def load_survey_data(myC):
         df = pd.concat([df,df_housing,df_poor],axis=1).reset_index().set_index('Division')
 
         df = df.rename(columns={'Poor':'ispoor'})
+
         return df
 
     else: return None
@@ -194,3 +201,8 @@ def get_avg_prod(myC):
     
     if myC == 'PH': return 0.337960802589002
     elif myC == 'FJ': return 0.336139019412
+
+def get_demonym(myC):
+    
+    if myC == 'PH': return 'Filipinos'
+    elif myC == 'FJ': return 'Fijians'

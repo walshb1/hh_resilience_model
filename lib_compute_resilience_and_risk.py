@@ -112,7 +112,7 @@ def process_input(myCountry,macro,cat_info,hazard_ratios,economy,event_level,def
     macro['tau_tax'], cat_info['gamma_SP'] = social_to_tx_and_gsp(economy,cat_info)
             
     #RECompute consumption from k and new gamma_SP and tau_tax
-    cat_info['c']= macro['avg_prod_k']*(1-macro['tau_tax'])*cat_info['k']/(1-cat_info['social'])
+    cat_info['c']= macro['avg_prod_k']*(1.-macro['tau_tax'])*cat_info['k']/(1.-cat_info['social'])
     # ^ this is per hh
 
     print('all weights ',cat_info['pcwgt'].sum())
@@ -162,6 +162,7 @@ def process_input(myCountry,macro,cat_info,hazard_ratios,economy,event_level,def
             print('Replaced in cats: '+', '.join(cols_c))
     if (flag1 and flag2):
         print('Replaced in both: '+', '.join(np.intersect1d(cols,cols_c)))
+
     return macro_event, cats_event, hazard_ratios_event 
 
 def compute_dK(macro_event, cats_event,event_level,affected_cats,pol_str):
@@ -174,19 +175,11 @@ def compute_dK(macro_event, cats_event,event_level,affected_cats,pol_str):
 
     cats_event['fa'] = cats_event.fa.fillna(1E-8)
 
-    hh_naf = cats_event['hhwgt']*cats_event.fa
-    hh_nna = cats_event['hhwgt']*(1-cats_event.fa)
-    cats_event_ia['hhwgt'] = concat_categories(hh_naf,hh_nna, index= affected_cats)    
-    print(cats_event_ia['hhwgt'].shape[0])
-    print(cats_event_ia['hhwgt'].dropna().shape[0])
-
-    print('From here: \'weight\' = nAffected and nNotAffected: individuals') 
-    naf = cats_event['pcwgt']*cats_event.fa
-    nna = cats_event['pcwgt']*(1-cats_event.fa)    
-    cats_event_ia['pcwgt'] = concat_categories(naf,nna, index= affected_cats)
-
-    print(cats_event_ia['pcwgt'].shape[0])
-    print(cats_event_ia['pcwgt'].dropna().shape[0])
+    for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
+        myNaf = cats_event[aWGT]*cats_event.fa
+        myNna = cats_event[aWGT]*(1-cats_event.fa)
+        cats_event_ia[aWGT] = concat_categories(myNaf,myNna, index= affected_cats)    
+        print('From here: \'weight\' = nAffected and nNotAffected: individuals') 
     
     #de_index so can access cats as columns and index is still event
     cats_event_ia = cats_event_ia.reset_index(['hhid', 'affected_cat']).sort_index()
@@ -280,15 +273,11 @@ def compute_response(macro_event, cats_event_iah, event_level, default_rp, optio
         return None
     
     #counting (mind self multiplication of n)
-    cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,'hhwgt']*=(1-macro_event['error_excl'])
-    cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='a') ,'hhwgt']*=(  macro_event['error_excl'])
-    cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),'hhwgt']*=(  macro_event['error_incl'])  
-    cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='na'),'hhwgt']*=(1-macro_event['error_incl'])
-
-    cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,'pcwgt']*=(1-macro_event['error_excl'])
-    cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='a') ,'pcwgt']*=(  macro_event['error_excl'])
-    cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),'pcwgt']*=(  macro_event['error_incl'])  
-    cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='na'),'pcwgt']*=(1-macro_event['error_incl'])
+    for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
+        cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,aWGT]*=(1-macro_event['error_excl'])
+        cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='a') ,aWGT]*=(  macro_event['error_excl'])
+        cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),aWGT]*=(  macro_event['error_incl'])  
+        cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='na'),aWGT]*=(1-macro_event['error_incl'])
     ###!!!! n is one again from here.
     #print(cats_event_iah.pcwgt.sum(level=event_level))
 	
@@ -362,7 +351,7 @@ def compute_response(macro_event, cats_event_iah, event_level, default_rp, optio
 
         # See discussion above. This is the cost 
         print('No upper limit on help_received coded at this point...if we did exceed 5% of GDP, the help_fee would just be capped')
-        macro_event['my_help_fee'] = macro_event['need'].clip(upper=macro_event['max_aid'])#flag
+        macro_event['my_help_fee'] = macro_event['need'].clip(upper=macro_event['max_aid'])
 
     else:
         assert(False)
@@ -651,7 +640,7 @@ def average_over_rp(df,default_rp,protection=None):
 
     #just drops rp index if df contains default_rp
     if default_rp in df.index.get_level_values('rp'):
-        print('default_rp detected, droping rp')
+        print('default_rp detected, dropping rp')
         return (df.T/protection).T.reset_index('rp',drop=True)
            
     df=df.copy().reset_index('rp')
@@ -690,7 +679,7 @@ def average_over_rp1(df,default_rp,protection=None):
 
     #just drops rp index if df contains default_rp
     if default_rp in df.index.get_level_values('rp'):
-        print('default_rp detected, droping rp')
+        print('default_rp detected, dropping rp')
         return (df.T/protection).T.reset_index('rp',drop=True)
            
     df=df.copy().reset_index('rp')

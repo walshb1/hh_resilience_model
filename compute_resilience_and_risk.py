@@ -45,8 +45,8 @@ else:
 # How much is disbursed?
 # --> 'unif_poor' = uniform disbursement based of average asset losses of poor
 # --> 'unif' = uniform disbursement based of average losses
-optionPDS = 'no'#'unif_poor'#'no'
-pol_str = '_v95'
+optionPDS = 'unif_poor'#'no'
+pol_str = ''#'_v95'
 
 # Cap on benefits (bool)
 option_CB = 1 #0 is for calculation of benefits only; 1 by default

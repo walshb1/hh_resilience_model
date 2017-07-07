@@ -105,10 +105,10 @@ if myCountry == 'FJ':
     cat_info.drop(['Constructionofouterwalls','Conditionofouterwalls'],axis=1,inplace=True)
 
 # c = income per individual
-if myCountry == 'PH':
-    cat_info['c'] = cat_info['pcinc']
-elif myCountry == 'FJ':
-    cat_info['c'] = cat_info['pcinc_eff']    
+#if myCountry == 'PH':
+#    cat_info['c'] = cat_info['pcinc']
+#elif myCountry == 'FJ':
+cat_info['c'] = cat_info['pcinc']    
 # --> What's the difference between income & consumption/disbursements?
 # --> totdis = 'total family disbursements'    
 # --> totex = 'total family expenditures'
@@ -121,18 +121,27 @@ cat_info.ix[cat_info.social>=1,'social'] = 0.99
 # --> All of this is selected & defined in lib_country_dir
 # --> Excluding international remittances ('cash_abroad')
 
+scale_fac = 1.#0.82065
+
 if myCountry == 'PH':    
     cat_info['pov_line'] = cat_info.loc[(cat_info.ispoor == 1),'pcinc'].max() # <-- Individual
 elif myCountry == 'FJ':
     cat_info['pov_line'] = -1.
-    cat_info.loc[cat_info.Sector=='Rural','pov_line'] = 49.50*52
-    cat_info.loc[cat_info.Sector=='Urban','pov_line'] = 55.12*52
+    cat_info.loc[cat_info.Sector=='Rural','pov_line'] = 49.50*52#cat_info.loc[(cat_info.Sector=='Rural') & (cat_info.ispoor == 1),'pcinc_ae'].max()
+    cat_info.loc[cat_info.Sector=='Urban','pov_line'] = 55.12*52#cat_info.loc[(cat_info.Sector=='Urban') & (cat_info.ispoor == 1),'pcinc_ae'].max()
     assert(cat_info.loc[(cat_info.pov_line < 0)].shape[0] == 0)
+    #cat_info.to_csv('~/Desktop/my_file.csv')
 
 print('Total population:',cat_info.pcwgt.sum())
 print('Total n households:',cat_info.hhwgt.sum())
-print('--> Individuals in poverty:', cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),'pcwgt'].sum())
-print('-----> Families in poverty:', cat_info.loc[(cat_info.pcinc <= cat_info.pov_line), 'hhwgt'].sum())
+print('--> Individuals in poverty:', cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line),'pcwgt'].sum())
+print('-----> Families in poverty:', cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line), 'hhwgt'].sum())
+
+if myCountry == 'FJ':
+    print('-----------> Rural poverty:', cat_info.loc[(cat_info.Sector=='Rural')&(cat_info.pcinc_ae <= cat_info.pov_line),'pcwgt'].sum()/cat_info.loc[cat_info.Sector=='Rural','pcwgt'].sum())
+    print('-----------> Urban poverty:', cat_info.loc[(cat_info.Sector=='Urban')&(cat_info.pcinc_ae <= cat_info.pov_line),'pcwgt'].sum()/cat_info.loc[cat_info.Sector=='Urban','pcwgt'].sum())
+    print('-----> Rural pov (flagged):',round(100.*cat_info.loc[(cat_info.Sector=='Rural')&(cat_info.ispoor==1),'pcwgt'].sum()/cat_info.loc[cat_info.Sector=='Rural','pcwgt'].sum(),1),'%')
+    print('-----> Urban pov (flagged):',round(100.*cat_info.loc[(cat_info.Sector=='Urban')&(cat_info.ispoor==1),'pcwgt'].sum()/cat_info.loc[cat_info.Sector=='Urban','pcwgt'].sum(),1),'%')
 
 # Change the name: district to code, and create an multi-level index 
 cat_info = cat_info.rename(columns={'district':'code','HHID':'hhid'})
@@ -191,7 +200,9 @@ if myCountry == 'FJ':
     cat_info.drop(['Division'],axis=1,inplace=True)
 
 # Getting rid of Prov_code 98, 99 here
-cat_info.dropna(inplace=True)
+print('Check total population (1/2):',cat_info.pcwgt.sum())
+cat_info.dropna(inplace=True,how='all')
+print('Check total population (2/2):',cat_info.pcwgt.sum())
 
 # Assign access to early warning based on 'ispoor' flag
 if myCountry == 'PH':
@@ -207,7 +218,7 @@ cat_info['fa'] = 0
 cat_info.fillna(0,inplace=True)
 
 # Cleanup dfs for writing out
-cat_info = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in [economy,'hhid','pcwgt','hhwgt','code','np','score','v','c','social','c_5','n','hhsize','hhsize_eff','gamma_SP','k','shew','fa','quintile','ispoor','pcinc']],axis=1)
+cat_info = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in [economy,'hhid','pcwgt','pcwgt_ae','hhwgt','code','np','score','v','c','social','c_5','n','hhsize','hhsize_ae','gamma_SP','k','shew','fa','quintile','ispoor','pcinc','pcinc_ae','pov_line']],axis=1)
 cat_info_index = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in [economy,'hhid']],axis=1)
 
 #########################
