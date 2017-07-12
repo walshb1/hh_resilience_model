@@ -1,0 +1,11 @@
+from multiprocessing import Pool
+from compute_resilience_and_risk import *
+
+def launch_compute_resilience_and_risk_thread(pol_str):
+    
+    
+
+if __name__ == '__main__':
+   pool = Pool(processes=1)
+   
+   pool.map(convert_vid, [VIDEO_SET_1, VIDEO_SET_2, VIDEO_SET_3, VIDEO_SET_4]) 

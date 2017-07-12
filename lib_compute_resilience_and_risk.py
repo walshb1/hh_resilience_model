@@ -1,4 +1,7 @@
 #modified version from lib_compute_resilience_and_risk_financing.py
+import matplotlib
+matplotlib.use('AGG')
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -51,16 +54,74 @@ def get_weighted_median(q1,q2,q3,q4,q5,key):
 
     return [median_q1,median_q2,median_q3,median_q4,median_q5]
 
+def apply_policies(pol_str,macro,cat_info,hazard_ratios):
+    
+    print('CAT_INFO columns:\n',cat_info.columns)
+    print('MACRO columns:\n',macro.columns)
+    print('HAZARD_RATIOS columns:\n',hazard_ratios.columns)
+    
+    if pol_str == '_exp095':
+        print('--> POLICY('+pol_str+'): Reducing vulnerability of the poor by 5%!')
 
-def compute_with_hazard_ratios(myCountry,fname,macro,cat_info,economy,event_level,income_cats,default_rp,verbose_replace=True):
+        cat_info.loc[cat_info.ispoor==1,'v']*=0.95 
+    
+    elif pol_str == '_exr095':
+        print('--> POLICY('+pol_str+'): Reducing vulnerability of the rich by 5%!')
+
+        cat_info.loc[cat_info.ispoor==0,'v']*=0.95 
+
+    elif pol_str == '_pcinc_p_110':
+        print('--> POLICY('+pol_str+'): Increase income of the poor by 10%')
+        
+        cat_info.loc[cat_info.ispoor==1,'c'] *= 1.10
+        cat_info.loc[cat_info.ispoor==1,'pcinc'] *= 1.10
+        cat_info.loc[cat_info.ispoor==1,'pcinc_ae'] *= 1.10
+
+        cat_info['social'] = cat_info['social']/cat_info['pcinc']
+
+    elif pol_str == '_soc133':
+        print('--> POLICY('+pol_str+'): Increase social transfers to poor BY one third')
+
+        # Cost of this policy = sum(social_topup), per person
+        cat_info['social_topup'] = 0
+        cat_info.loc[cat_info.ispoor==1,'social_topup'] = 0.333*cat_info.loc[cat_info.ispoor==1,['social','c']].prod(axis=1)
+
+        cat_info.loc[cat_info.ispoor==1,'c']*=(1.0+0.333*cat_info.loc[cat_info.ispoor==1,'social'])
+        cat_info.loc[cat_info.ispoor==1,'pcinc']*=(1.0+0.333*cat_info.loc[cat_info.ispoor==1,'social'])
+        cat_info.loc[cat_info.ispoor==1,'pcinc_ae']*=(1.0+0.333*cat_info.loc[cat_info.ispoor==1,'social'])
+
+        cat_info['social'] = (cat_info['social_topup']+cat_info['pcsoc'])/cat_info['pcinc']
+
+    elif pol_str == '_rec067':
+        print('--> POLICY('+pol_str+'): Decrease reconstruction time by 1/3')
+        macro['T_rebuild_K'] *= 0.666667
+
+    elif pol_str == '_ew100':
+        print('--> POLICY('+pol_str+'): Increase access to early warnings to 100%')
+        cat_info['shew'] = 1.0
+
+    elif pol_str == '_vul070':
+        print('--> POLICY('+pol_str+'): Decrease vulnerability of poor by 30%')
+        
+        cat_info.loc[cat_info.ispoor==1,'v']*=0.70
+
+    elif pol_str != '': 
+        print('What is this? --> ',pol_str)
+        assert(False)
+
+    return macro,cat_info,hazard_ratios
+
+def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,event_level,income_cats,default_rp,verbose_replace=True):
 
     #cat_info = cat_info[cat_info.c>0]
     hazard_ratios = pd.read_csv(fname, index_col=event_level+[income_cats])
     
-    #compute
-    return process_input(myCountry,macro,cat_info,hazard_ratios,economy,event_level,default_rp,verbose_replace=True)
+    macro,cat_info,hazard_ratios = apply_policies(pol_str,macro,cat_info,hazard_ratios)
 
-def process_input(myCountry,macro,cat_info,hazard_ratios,economy,event_level,default_rp,verbose_replace=True):
+    #compute
+    return process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_level,default_rp,verbose_replace=True)
+
+def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_level,default_rp,verbose_replace=True):
     flag1=False
     flag2=False
 
@@ -113,17 +174,17 @@ def process_input(myCountry,macro,cat_info,hazard_ratios,economy,event_level,def
             
     #RECompute consumption from k and new gamma_SP and tau_tax
     cat_info['c']= macro['avg_prod_k']*(1.-macro['tau_tax'])*cat_info['k']/(1.-cat_info['social'])
-    # ^ this is per hh
+    # ^ this is per individual
 
     print('all weights ',cat_info['pcwgt'].sum())
 
     plt.cla()
     ax = plt.gca()
     ci_heights, ci_bins = np.histogram(cat_info.c.clip(upper=50000),bins=50, weights=cat_info.pcwgt)
-    ax.bar(ci_bins[:-1], ci_heights, width=ci_bins[1]-ci_bins[0], facecolor=q_colors[1], label='C2',alpha=0.4)
+    plt.gca().bar(ci_bins[:-1], ci_heights, width=ci_bins[1]-ci_bins[0], facecolor=q_colors[1], label='C2',alpha=0.4)
     plt.legend()
     fig = ax.get_figure()
-    fig.savefig('./my_B.png',format='png')#+'.pdf',format='pdf')
+    fig.savefig('/Users/brian/Desktop/my_plots/'+myCountry+pol_str+'_consumption_init.pdf',format='pdf')
 
     print('Re-recalc mean cons (pc)',round(np.average((cat_info['c']*cat_info['pcwgt']).sum(level=economy)/macro['pop'],weights=macro['pop']),2),'(local curr).\n')    
 
@@ -165,7 +226,7 @@ def process_input(myCountry,macro,cat_info,hazard_ratios,economy,event_level,def
 
     return macro_event, cats_event, hazard_ratios_event 
 
-def compute_dK(macro_event, cats_event,event_level,affected_cats,pol_str):
+def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
 
     cats_event_ia=concat_categories(cats_event,cats_event,index= affected_cats)
     
@@ -185,10 +246,6 @@ def compute_dK(macro_event, cats_event,event_level,affected_cats,pol_str):
     cats_event_ia = cats_event_ia.reset_index(['hhid', 'affected_cat']).sort_index()
     
     #actual vulnerability
-    if pol_str == '_v95':
-        cats_event_ia.loc[cats_event_ia.quintile<=2,'v']*=0.95 
-        print('Reducing vulnerability of the poorest quintiles by 5%!')
-
     cats_event_ia['v_shew']=cats_event_ia['v']*(1-macro_event['pi']*cats_event_ia['shew']) 
 
     #capital losses and total capital losses
@@ -213,7 +270,7 @@ def compute_dK(macro_event, cats_event,event_level,affected_cats,pol_str):
     return 	macro_event, cats_event_ia
 
 
-def calculate_response(macro_event,cats_event_ia,event_level,helped_cats,default_rp,option_CB,optionFee='tax',optionT='data', optionPDS='unif_poor', optionB='data',loss_measure='dk',fraction_inside=1, share_insured=.25):
+def calculate_response(pol_str,macro_event,cats_event_ia,event_level,helped_cats,default_rp,option_CB,optionFee='tax',optionT='data', optionPDS='unif_poor', optionB='data',loss_measure='dk',fraction_inside=1, share_insured=.25):
 
     cats_event_iah = concat_categories(cats_event_ia,cats_event_ia, index= helped_cats).reset_index(helped_cats.name).sort_index()
 
@@ -221,13 +278,13 @@ def calculate_response(macro_event,cats_event_ia,event_level,helped_cats,default
     cats_event_iah['help_received'] = 0
     cats_event_iah['help_fee'] =0
 
-    macro_event, cats_event_iah = compute_response(macro_event, cats_event_iah, event_level,default_rp,option_CB, optionT=optionT, optionPDS=optionPDS, optionB=optionB, optionFee=optionFee, fraction_inside=fraction_inside, loss_measure = loss_measure)
+    macro_event, cats_event_iah = compute_response(pol_str,macro_event, cats_event_iah, event_level,default_rp,option_CB, optionT=optionT, optionPDS=optionPDS, optionB=optionB, optionFee=optionFee, fraction_inside=fraction_inside, loss_measure = loss_measure)
         
     cats_event_iah.drop('protection',axis=1, inplace=True)	      
 
     return macro_event, cats_event_iah
 	
-def compute_response(macro_event, cats_event_iah, event_level, default_rp, option_CB,optionT='data', optionPDS='unif_poor', optionB='data', optionFee='tax', fraction_inside=1, loss_measure='dk'):    
+def compute_response(pol_str, macro_event, cats_event_iah, event_level, default_rp, option_CB,optionT='data', optionPDS='unif_poor', optionB='data', optionFee='tax', fraction_inside=1, loss_measure='dk'):    
 
     print('NB: when summing over cats_event_iah, be aware that each hh appears 4X in the file: {a,na}x{helped,not_helped}')
     
@@ -448,7 +505,7 @@ def compute_response(macro_event, cats_event_iah, event_level, default_rp, optio
     return macro_event, cats_event_iah
 
 
-def compute_dW(myCountry,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True):
+def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True):
 
     # check that each of thess is per individual:
     cats_event_iah['dc_npv_post'] = cats_event_iah['dc_npv_pre'] -  cats_event_iah['help_received']  + cats_event_iah['help_fee']*option_CB 
@@ -465,7 +522,6 @@ def compute_dW(myCountry,macro_event,cats_event_iah,event_level,option_CB,return
         
         ci_heights, ci_bins = np.histogram(cats_event_iah.loc[(cats_event_iah.affected_cat == 'a') & (cats_event_iah.quintile == aQuint),'dw'].clip(upper=0.0005),bins=50, 
                                            weights=cats_event_iah.loc[(cats_event_iah.affected_cat == 'a') & (cats_event_iah.quintile == aQuint),'pcwgt'])
-
         if c0_bins == None: c0_bins = ci_bins
         if cum_heights == None: cum_heights = [0. for aBin in ci_heights]
 
@@ -476,7 +532,7 @@ def compute_dW(myCountry,macro_event,cats_event_iah,event_level,option_CB,return
     plt.ylabel('Population')
     plt.xlabel('dw')
     fig = ax.get_figure()
-    fig.savefig('/Users/brian/Desktop/my_plots/'+myCountry+'_dw.pdf',format='pdf')
+    fig.savefig('/Users/brian/Desktop/my_plots/'+myCountry+pol_str+'_dw.pdf',format='pdf')
     
 
     #aggregates dK and delta_W at df level
@@ -512,7 +568,7 @@ def compute_dW(myCountry,macro_event,cats_event_iah,event_level,option_CB,return
         return df_out
     
 	
-def process_output(out,macro_event,economy,default_rp,return_iah=True,is_local_welfare=True):
+def process_output(pol_str,out,macro_event,economy,default_rp,return_iah=True,is_local_welfare=True):
 
     #unpacks if needed
     if return_iah:

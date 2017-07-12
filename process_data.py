@@ -6,7 +6,9 @@ get_ipython().magic('autoreload 2')
 
 #Import packages for data analysis
 from replace_with_warning import *
+from lib_country_dir import *
 from lib_gather_data import *
+from lib_compute_resilience_and_risk import *
 from maps_lib import *
 
 from scipy.stats import norm
@@ -17,9 +19,6 @@ import pandas as pd
 import numpy as np
 import os, time
 import sys
-
-from lib_country_dir import *
-from lib_compute_resilience_and_risk import *
 
 #Aesthetics
 import seaborn as sns
@@ -50,7 +49,8 @@ event_level = [economy, 'hazard', 'rp']
 dem = get_demonym(myCountry)
 
 # Load output files
-pol_str = ''#could be {'_v95'}
+pol_str = '_v95'#could be {'_v95'}
+
 #res_base = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
 df = pd.read_csv(output+'results_tax_no_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 iah = pd.read_csv(output+'iah_tax_no_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
@@ -134,7 +134,10 @@ for myDis in allDis:
     cut_rps['pov_line'] *= cut_rps['c_initial']/cut_rps['pcinc_ae']
 
     cut_rps.loc[cut_rps.pcwgt_ae != 0.,'delta_c']   = (cut_rps.loc[(cut_rps.pcwgt_ae != 0.), ['dk','pcwgt']].prod(axis=1)/cut_rps.loc[(cut_rps.pcwgt_ae != 0.),'pcwgt_ae'])*(df['avg_prod_k'].mean()+1/df['T_rebuild_K'].mean())
+
     cut_rps['c_final']   = (cut_rps['c_initial'] - cut_rps['delta_c']).clip(upper=upper_clip)
+    cut_rps['c_final_pds']   = (cut_rps['c_initial'] - cut_rps['delta_c'] - cut_rps['pds_nrh']).clip(upper=upper_clip)
+
     cut_rps['c_initial'] = cut_rps['c_initial'].clip(upper=upper_clip)
 
     cut_rps['pre_dis_n_pov'] = 0
@@ -158,8 +161,14 @@ for myDis in allDis:
         print('rich, above sub',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c_initial > sub_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
 
     cut_rps['disaster_n_pov'] = 0
+    cut_rps['disaster_pds_n_pov'] = 0
     cut_rps['disaster_n_sub'] = 0
+
     cut_rps.loc[(cut_rps.c_final <= cut_rps.pov_line) & (cut_rps.c_initial > cut_rps.pov_line), 'disaster_n_pov'] = cut_rps.loc[(cut_rps.c_final <= cut_rps.pov_line) & (cut_rps.c_initial > cut_rps.pov_line), 'pcwgt']
+    cut_rps.loc[(cut_rps.c_final_pds <= cut_rps.pov_line) & (cut_rps.c_initial > cut_rps.pov_line), 'disaster_pds_n_pov'] = cut_rps.loc[(cut_rps.c_final_pds <= cut_rps.pov_line) & (cut_rps.c_initial > cut_rps.pov_line), 'pcwgt']
+
+    print('Pop pushed below pov line by disaster:',cut_rps['disaster_n_pov'].sum(level=['hazard','rp']).mean())
+    print('Pop pushed below pov line by disaster & after PDS:',cut_rps['disaster_pds_n_pov'].sum(level=['hazard','rp']).mean(),'\n')
     
     if sub_line:
         cut_rps.loc[(cut_rps.c_final <= sub_line) & (cut_rps.c_initial > sub_line), 'disaster_n_sub'] = cut_rps.loc[(cut_rps.c_final <= sub_line) & (cut_rps.c_initial > sub_line), 'pcwgt']
@@ -578,7 +587,7 @@ for myRP in myHaz[2]:
             ax1.legend(loc='best')
 
             plt.xlim(5.5,41.5)
-            plt.ylim(-50,250)
+            #plt.ylim(-50,250)
 
             print('Saving: histo_'+myProv+'_'+myDis+'_'+str(myRP)+'.pdf\n')
             plt.savefig('../output_plots/'+myCountry+'/means_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.pdf',bbox_inches='tight',format='pdf')

@@ -97,7 +97,8 @@ def load_survey_data(myC):
         df['hhsize_ae']  = df['pcwgt']/df['hhwgt']        
 
         df['hhinc'] = df[['pcinc','hhsize']].prod(axis=1)
-        df['pcsoc'] = df['hhsoc']/df['hhsize']
+
+        df['pcsoc']  = df['hhsoc']/df['hhsize']
 
         return df
 
