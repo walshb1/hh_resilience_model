@@ -295,7 +295,7 @@ def compute_response(pol_str, macro_event, cats_event_iah, event_level, default_
 
     macro_event['fa'] = (cats_event_iah.loc[(cats_event_iah.affected_cat=='a'),'pcwgt'].sum(level=event_level)/(cats_event_iah['pcwgt'].sum(level=event_level))).fillna(1E-8)
 
-    print('Check fa: ',macro_event['fa'].sum(level=event_level))
+    #print('Check fa: ',macro_event['fa'].sum(level=event_level))
     # Need to check whether everything is right here:
     #print(cats_event_iah['pcwgt'].sum(level=event_level))
     #print(cats_event_iah['hhwgt'].sum(level=event_level))

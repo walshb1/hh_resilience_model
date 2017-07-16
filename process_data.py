@@ -49,14 +49,16 @@ event_level = [economy, 'hazard', 'rp']
 dem = get_demonym(myCountry)
 
 # Load output files
-pol_str = '_v95'#could be {'_v95'}
+pol_str = ''#'_v95'#could be {'_v95'}
 
 #res_base = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
 df = pd.read_csv(output+'results_tax_no_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 iah = pd.read_csv(output+'iah_tax_no_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 
-res_unif_poor = pd.read_csv(output+'results_tax_unif_poor_.csv', index_col=[economy,'hazard','rp'])
-iah_pds = pd.read_csv(output+'iah_tax_unif_poor_.csv', index_col=[economy,'hazard','rp'])
+print(output+'results_tax_unif_poor_'+pol_str+'.csv')
+print(output+'iah_tax_unif_poor_'+pol_str+'.csv')
+res_unif_poor = pd.read_csv(output+'results_tax_unif_poor_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+iah_pds = pd.read_csv(output+'iah_tax_unif_poor_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 
 def format_delta_p(delta_p):
     delta_p_int = int(delta_p)

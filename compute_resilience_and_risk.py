@@ -17,7 +17,7 @@ from replace_with_warning import *
 from multiprocessing import Pool
 from itertools import repeat
 
-def launch_compute_resilience_and_risk_thread(myCountry,pol_str,optionPDS='no'):
+def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no'):
 
     warnings.filterwarnings('always',category=UserWarning)
 
@@ -54,7 +54,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str,optionPDS='no'):
     # How much is disbursed?
     # --> 'unif_poor' = uniform disbursement based of average asset losses of poor
     # --> 'unif' = uniform disbursement based of average losses
-    optionPDS = 'no'#'unif_poor'#'no'
+    #optionPDS = 'no'#'unif_poor'#'no'
     if pol_str != '': optionPDS = 'no'   
 
     # Cap on benefits (bool)
@@ -133,23 +133,33 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str,optionPDS='no'):
 
 if __name__ == '__main__':
 
-    myCountry = 'FJ'
-    pol_str = ['',
-               '_exp095',      # reduce exposure of poor by 5% (of total exposure!)
-               '_exr095',      # reduce exposure of rich by 5% (of total exposure!)
-               '_pcinc_p_110', # increase per capita income of poor people by 10%
-               '_soc133',      # increase social transfers to poor by 33%
-               '_rec067',      # decrease reconstruction time by 33%
-               '_ew100',       # universal access to early warnings 
-               '_vul070']      # decrease vulnerability of poor by 30%
-    # Other policies:
-    # --> develop market insurance for rich
-    # --> universal access to finance
-    # --> 
+    myCountry = 'PH'
 
-    with Pool() as pool:
-        pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), pol_str))
+    if myCountry == 'FJ':
+        pds_str = 'no'
+        pol_str = ['',
+                   '_exp095',      # reduce exposure of poor by 5% (of total exposure!)
+                   '_exr095',      # reduce exposure of rich by 5% (of total exposure!)
+                   '_pcinc_p_110', # increase per capita income of poor people by 10%
+                   '_soc133',      # increase social transfers to poor by 33%
+                   '_rec067',      # decrease reconstruction time by 33%
+                   '_ew100',       # universal access to early warnings 
+                   '_vul070']      # decrease vulnerability of poor by 30%
+        # Other policies:
+        # --> develop market insurance for rich
+        # --> universal access to finance
+        # --> 
+        
+        with Pool() as pool:
+            pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), pol_str,repeat(pds_str)))
+    
+    if myCountry == 'PH':
+        pds_str = ['no','unif_poor']
+        pol_str = ''
 
+        with Pool() as pool:
+            pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str),pds_str))
+            
 
     #my_pool = Pool(processes=1)
     #my_pool.map(launch_compute_resilience_and_risk_thread, ['']) 
