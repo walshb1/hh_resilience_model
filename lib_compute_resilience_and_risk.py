@@ -60,16 +60,19 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
     print('MACRO columns:\n',macro.columns)
     print('HAZARD_RATIOS columns:\n',hazard_ratios.columns)
     
+    # POLICY: Reduce vulnerability of the poor by 5% of their current exposure
     if pol_str == '_exp095':
         print('--> POLICY('+pol_str+'): Reducing vulnerability of the poor by 5%!')
 
         cat_info.loc[cat_info.ispoor==1,'v']*=0.95 
     
+    # POLICY: Reduce vulnerability of the rich by 5% of their current exposure    
     elif pol_str == '_exr095':
         print('--> POLICY('+pol_str+'): Reducing vulnerability of the rich by 5%!')
 
         cat_info.loc[cat_info.ispoor==0,'v']*=0.95 
-
+        
+    # POLICY: Increase income of the poor by 10%
     elif pol_str == '_pcinc_p_110':
         print('--> POLICY('+pol_str+'): Increase income of the poor by 10%')
         
@@ -79,6 +82,7 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
 
         cat_info['social'] = cat_info['social']/cat_info['pcinc']
 
+    # POLICY: Increase social transfers to poor BY one third
     elif pol_str == '_soc133':
         print('--> POLICY('+pol_str+'): Increase social transfers to poor BY one third')
 
@@ -92,14 +96,18 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
 
         cat_info['social'] = (cat_info['social_topup']+cat_info['pcsoc'])/cat_info['pcinc']
 
+    # POLICY: Decrease reconstruction time by 1/3
     elif pol_str == '_rec067':
         print('--> POLICY('+pol_str+'): Decrease reconstruction time by 1/3')
         macro['T_rebuild_K'] *= 0.666667
 
+
+    # POLICY: Increase access to early warnings to 100%
     elif pol_str == '_ew100':
         print('--> POLICY('+pol_str+'): Increase access to early warnings to 100%')
         cat_info['shew'] = 1.0
 
+    # POLICY: Decrease vulnerability of poor by 30%
     elif pol_str == '_vul070':
         print('--> POLICY('+pol_str+'): Decrease vulnerability of poor by 30%')
         
