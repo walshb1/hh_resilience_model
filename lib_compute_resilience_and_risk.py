@@ -111,11 +111,13 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
     elif pol_str == '_vul070':
         print('--> POLICY('+pol_str+'): Decrease vulnerability of poor by 30%')
 
+        cat_info.loc[cat_info.ispoor==1,'v']*=0.70
+
     # POLICY: Decrease vulnerability of rich by 30%
     elif pol_str == '_vul070r':
         print('--> POLICY('+pol_str+'): Decrease vulnerability of poor by 30%')
         
-        cat_info.loc[cat_info.ispoor==1,'v']*=0.70
+        cat_info.loc[cat_info.ispoor==0,'v']*=0.70
 
     elif pol_str != '': 
         print('What is this? --> ',pol_str)

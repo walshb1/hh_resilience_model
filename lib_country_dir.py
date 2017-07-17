@@ -36,13 +36,14 @@ def get_economic_unit(myC):
     
     if myC == 'PH': return 'province'
     elif myC == 'FJ': return 'Division'#'tikina'
-    
+    elif myC == 'SL': return 'district'#'tikina'
     else: return None
 
 def get_currency(myC):
     
     if myC == 'PH': return 'PhP'
-    if myC == 'FJ': return 'FJD'
+    elif myC == 'FJ': return 'FJD'
+    elif myC == 'SL': return 'LKR'
     else: return 'XXX'
 
 def get_places(myC,economy):
@@ -56,6 +57,11 @@ def get_places(myC,economy):
 
     if myC == 'FJ':
         df = pd.read_excel(inputs+'HIES 2013-14 Housing Data.xlsx',sheetname='Sheet1').set_index('Division').dropna(how='all')[['HHsize','Weight']].prod(axis=1).sum(level='Division').to_frame()
+        df.columns = ['population']
+        return df
+
+    if myC == 'SL':
+        df = pd.read_csv(inputs+'/Sri_Lanka/dataframe/finalhhdataframes/finalhhframe.csv').set_index('district').dropna(how='all')[['weight','np']].prod(axis=1).sum(level='district').to_frame()
         df.columns = ['population']
         return df
 
