@@ -79,9 +79,11 @@ if myCountry == 'PH':
 #Vulnerability
 vul_curve = get_vul_curve(myCountry,'wall')
 for thecat in vul_curve.desc.unique():
+
     if myCountry == 'PH': cat_info.ix[cat_info.walls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
     if myCountry == 'FJ': cat_info.ix[cat_info.Constructionofouterwalls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
     # Fiji doesn't have info on roofing, but it does have info on the condition of outer walls. Include that as a multiplier?
+    if myCountry == 'SL': cat_info.ix[cat_info.walls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
 
 # Get roofing data (but Fiji doesn't have this info)
 if myCountry != 'FJ':
@@ -131,6 +133,9 @@ elif myCountry == 'FJ':
     cat_info.loc[cat_info.Sector=='Urban','pov_line'] = 55.12*52#cat_info.loc[(cat_info.Sector=='Urban') & (cat_info.ispoor == 1),'pcinc_ae'].max()
     assert(cat_info.loc[(cat_info.pov_line < 0)].shape[0] == 0)
     #cat_info.to_csv('~/Desktop/my_file.csv')
+elif myCountry == 'SL':
+    print('Need SL poverty info!!')
+    cat_info['pov_line'] = 100000.
 
 print('Total population:',cat_info.pcwgt.sum())
 print('Total n households:',cat_info.hhwgt.sum())
@@ -287,6 +292,8 @@ elif myCountry == 'FJ':
     hazard_ratios['hazard'] = 'AAL'
     hazard_ratios['rp'] = '1'
     hazard_ratios = hazard_ratios.drop(['Division','provincial_capital','value_destroyed','total_value'],axis=1)
+elif myCountry == 'SL':
+    hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
 
 # Have frac destroyed, need fa...
 # Frac value destroyed = SUM_i(k*v*fa)

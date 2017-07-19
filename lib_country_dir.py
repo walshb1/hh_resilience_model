@@ -61,7 +61,7 @@ def get_places(myC,economy):
         return df
 
     if myC == 'SL':
-        df = pd.read_csv(inputs+'/Sri_Lanka/dataframe/finalhhdataframes/finalhhframe.csv').set_index('district').dropna(how='all')[['weight','np']].prod(axis=1).sum(level='district').to_frame()
+        df = pd.read_csv(inputs+'/finalhhframe.csv').set_index('district').dropna(how='all')[['weight','np']].prod(axis=1).sum(level='district').to_frame()
         df.columns = ['population']
         return df
 
@@ -74,6 +74,9 @@ def get_places_dict(myC):
 
     if myC == 'FJ':
         return pd.read_excel(inputs+'Fiji_provinces.xlsx')[['code','name']].set_index('code').squeeze() 
+
+    elif myC == 'SL':
+        return pd.read_excel(inputs+'Admin_level_3__Districts.xls')[['DISTRICT_C','DISTRICT_N']].set_index('DISTRICT_C').squeeze()
 
     else: return None
 
@@ -135,6 +138,24 @@ def load_survey_data(myC):
 
         return df
 
+    elif myC == 'SL':
+        
+        df = pd.read_csv(inputs+'finalhhframe.csv').set_index('hhid')
+        pmt = pd.read_csv(inputs+"pmt_2012_hh_model1_score.csv").set_index('hhid')
+
+        df[['score','rpccons']] = pmt[['score','rpccons']]
+        df = df.rename(columns={'rpccons':'pcinc','weight':'hhwgt'})
+
+        df['pcinc'] *= 12.
+
+        df['pcinc_ae'] = df['pcinc']
+        df['pcwgt'] = df[['hhwgt','np']].prod(axis=1)
+
+        df['pcsoc'] = df[['other_inc','income_local']].sum(axis=1)
+        
+        df = df.reset_index().set_index('district')
+        return df
+
     else: return None
 
 
@@ -150,12 +171,20 @@ def get_df2(myC):
 def get_vul_curve(myC,struct):
 
     if myC == 'PH':
-        return pd.read_excel(inputs+'vulnerability_curves_FIES.xlsx',sheetname=struct)[['desc','v']]
+        df = pd.read_excel(inputs+'vulnerability_curves_FIES.xlsx',sheetname=struct)[['desc','v']]
+        return df
 
     if myC == 'FJ':
         df = pd.read_excel(inputs+'vulnerability_curves_Fiji.xlsx',sheetname=struct)[['desc','v']]
         return df
 
+    if myC == 'SL':
+        df = pd.read_excel(inputs+'vulnerability_curves.xlsx',sheetname=struct)[['key','v']]
+        df = df.rename(columns={'key':'desc'})
+
+        print(df)
+        return df        
+        
     else: return None
 
 def get_hazard_df(myC,economy):
@@ -165,10 +194,14 @@ def get_hazard_df(myC,economy):
         df.columns = [economy,'hazard','rp','value_destroyed']
         return df
     
-    if myC == 'FJ':
+    elif myC == 'FJ':
         df = pd.read_csv(inputs+'fj_tikina_aal.csv')[['TIKINA','PROVINCE','TID','Total_AAL','Total_Valu']].set_index(['TIKINA','PROVINCE','TID']).sum(level='PROVINCE').reset_index()
         df.columns = [economy,'value_destroyed','total_value']
         df = df.set_index([df.Division.replace({'Nadroga':'Nadroga-Navosa'})])        
+        return df
+
+    elif myC == 'SL':
+        df = pd.read_excel(inputs+'hazards_data.xlsx',sheetname='hazard').set_index(['district','hazard','rp'])
         return df
 
     else: return None
@@ -194,8 +227,9 @@ def get_subsistence_line(myC):
 
 def get_to_USD(myC):
 
-    if myC == 'PH': return 50.0
-    elif myC == 'FJ': return 0.48
+    if myC == 'PH': return 50.70
+    elif myC == 'FJ': return 2.01
+    elif myC == 'SL': return 153.76
     else: return 0.
 
 def get_scale_fac(myC):
@@ -208,8 +242,10 @@ def get_avg_prod(myC):
     
     if myC == 'PH': return 0.337960802589002
     elif myC == 'FJ': return 0.336139019412
+    elif myC == 'SL': return 0.337960802589002
 
 def get_demonym(myC):
     
     if myC == 'PH': return 'Filipinos'
     elif myC == 'FJ': return 'Fijians'
+    elif myC == 'SL': return 'Sri Lankans'
