@@ -129,7 +129,7 @@ def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,ev
 
     #cat_info = cat_info[cat_info.c>0]
     hazard_ratios = pd.read_csv(fname, index_col=event_level+[income_cats])
-    
+
     macro,cat_info,hazard_ratios = apply_policies(pol_str,macro,cat_info,hazard_ratios)
 
     #compute
@@ -139,11 +139,19 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     flag1=False
     flag2=False
 
+    #assert(False)
     if type(hazard_ratios)==pd.DataFrame:
+        
+        hazard_ratios = hazard_ratios.reset_index().set_index(economy)
+        
         #These lines remove countries in macro not in cat_info
-        hazard_ratios = hazard_ratios.fillna(0)
+        if myCountry == 'SL': hazard_ratios = hazard_ratios.dropna()
+        else: hazard_ratios = hazard_ratios.fillna(0)
+            
         common_places = [c for c in macro.index if c in cat_info.index and c in hazard_ratios.index]
         print(common_places)
+
+        hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])
 
         # This drops 1 province from macro
         macro = macro.ix[common_places]
@@ -245,7 +253,6 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
     cats_event_ia=concat_categories(cats_event,cats_event,index= affected_cats)
     
     #counts affected and non affected
-
     print('From here: \'hhwgt\' = nAffected and nNotAffected: households') 
 
     cats_event['fa'] = cats_event.fa.fillna(1E-8)
@@ -255,10 +262,10 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
         myNna = cats_event[aWGT]*(1-cats_event.fa)
         cats_event_ia[aWGT] = concat_categories(myNaf,myNna, index= affected_cats)    
         print('From here: \'weight\' = nAffected and nNotAffected: individuals') 
-    
+        
     #de_index so can access cats as columns and index is still event
     cats_event_ia = cats_event_ia.reset_index(['hhid', 'affected_cat']).sort_index()
-    
+
     #actual vulnerability
     cats_event_ia['v_shew']=cats_event_ia['v']*(1-macro_event['pi']*cats_event_ia['shew']) 
 
@@ -272,7 +279,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
     
     #immediate consumption losses: direct capital losses plus losses through event-scale depression of transfers
     cats_event_ia['dc'] = (1-macro_event['tau_tax'])*cats_event_ia['dk']  +  cats_event_ia['gamma_SP']*macro_event['tau_tax'] *macro_event['dk_event'] 
-    
+
     # This term is the impact on income from labor
     # cats_event_ia['dc_1'] = (1-macro_event['tau_tax'])*cats_event_ia['dk']
 
@@ -281,18 +288,20 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
 
     # NPV consumption losses accounting for reconstruction and productivity of capital (pre-response)
     cats_event_ia['dc_npv_pre'] = cats_event_ia['dc']*macro_event['macro_multiplier']
+
     return 	macro_event, cats_event_ia
 
 
 def calculate_response(pol_str,macro_event,cats_event_ia,event_level,helped_cats,default_rp,option_CB,optionFee='tax',optionT='data', optionPDS='unif_poor', optionB='data',loss_measure='dk',fraction_inside=1, share_insured=.25):
 
-    cats_event_iah = concat_categories(cats_event_ia,cats_event_ia, index= helped_cats).reset_index(helped_cats.name).sort_index()
+    cats_event_iah = concat_categories(cats_event_ia,cats_event_ia, index= helped_cats).reset_index(helped_cats.name).sort_index().dropna()
 
     # Baseline case (no insurance):
     cats_event_iah['help_received'] = 0
     cats_event_iah['help_fee'] =0
 
-    macro_event, cats_event_iah = compute_response(pol_str,macro_event, cats_event_iah, event_level,default_rp,option_CB, optionT=optionT, optionPDS=optionPDS, optionB=optionB, optionFee=optionFee, fraction_inside=fraction_inside, loss_measure = loss_measure)
+    macro_event, cats_event_iah = compute_response(pol_str,macro_event, cats_event_iah, event_level,default_rp,option_CB,optionT=optionT, 
+                                                   optionPDS=optionPDS, optionB=optionB, optionFee=optionFee, fraction_inside=fraction_inside, loss_measure = loss_measure)
         
     cats_event_iah.drop('protection',axis=1, inplace=True)	      
 
@@ -521,9 +530,10 @@ def compute_response(pol_str, macro_event, cats_event_iah, event_level, default_
 
 def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True):
 
-    # check that each of thess is per individual:
+    # check that each of these is per individual:
     cats_event_iah['dc_npv_post'] = cats_event_iah['dc_npv_pre'] -  cats_event_iah['help_received']  + cats_event_iah['help_fee']*option_CB 
     cats_event_iah['dw'] = calc_delta_welfare(cats_event_iah, macro_event) 
+    #cats_event_iah.to_csv('~/Desktop/my_iah.csv')
 
     plt.cla()
     ax = plt.gca()
@@ -533,6 +543,7 @@ def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_C
     for aQuint in range(1,6):
         mean = np.average(cats_event_iah.loc[(cats_event_iah.affected_cat == 'a') & (cats_event_iah.quintile == aQuint),'dw'],
                           weights=cats_event_iah.loc[(cats_event_iah.affected_cat == 'a') & (cats_event_iah.quintile == aQuint),'pcwgt'])
+        print(aQuint,mean)
         
         ci_heights, ci_bins = np.histogram(cats_event_iah.loc[(cats_event_iah.affected_cat == 'a') & (cats_event_iah.quintile == aQuint),'dw'].clip(upper=0.0005),bins=50, 
                                            weights=cats_event_iah.loc[(cats_event_iah.affected_cat == 'a') & (cats_event_iah.quintile == aQuint),'pcwgt'])

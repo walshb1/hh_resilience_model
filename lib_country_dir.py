@@ -141,15 +141,23 @@ def load_survey_data(myC):
     elif myC == 'SL':
         
         df = pd.read_csv(inputs+'finalhhframe.csv').set_index('hhid')
-        pmt = pd.read_csv(inputs+"pmt_2012_hh_model1_score.csv").set_index('hhid')
+        pmt = pd.read_csv(inputs+'pmt_2012_hh_model1_score.csv').set_index('hhid')
+        df2 = pd.read_csv(inputs+'hhdata_samurdhi.csv').set_index('hhid')
 
         df[['score','rpccons']] = pmt[['score','rpccons']]
-        df = df.rename(columns={'rpccons':'pcinc','weight':'hhwgt'})
+
+        df['ispoor'] = df2['poor']
+        df['pov_line'] = df2['pov_line']        
+
+        df = df.rename(columns={'rpccons':'pcinc','weight':'hhwgt','np':'hhsize'})
 
         df['pcinc'] *= 12.
 
         df['pcinc_ae'] = df['pcinc']
-        df['pcwgt'] = df[['hhwgt','np']].prod(axis=1)
+        df['pcwgt'] = df[['hhwgt','hhsize']].prod(axis=1)
+
+        df['hhsize_ae'] = df['hhsize']
+        df['pcwgt_ae'] = df['pcwgt']
 
         df['pcsoc'] = df[['other_inc','income_local']].sum(axis=1)
         
@@ -181,8 +189,6 @@ def get_vul_curve(myC,struct):
     if myC == 'SL':
         df = pd.read_excel(inputs+'vulnerability_curves.xlsx',sheetname=struct)[['key','v']]
         df = df.rename(columns={'key':'desc'})
-
-        print(df)
         return df        
         
     else: return None
@@ -197,11 +203,36 @@ def get_hazard_df(myC,economy):
     elif myC == 'FJ':
         df = pd.read_csv(inputs+'fj_tikina_aal.csv')[['TIKINA','PROVINCE','TID','Total_AAL','Total_Valu']].set_index(['TIKINA','PROVINCE','TID']).sum(level='PROVINCE').reset_index()
         df.columns = [economy,'value_destroyed','total_value']
-        df = df.set_index([df.Division.replace({'Nadroga':'Nadroga-Navosa'})])        
-        return df
+        df = df.set_index([df.Division.replace({'Nadroga':'Nadroga-Navosa'})])
+
+        df_rp = pd.read_excel(inputs+'Fiji_exceedance.xlsx',sheetname='Fiji').set_index(['hazard']).drop(['EP','Population Affected'],axis=1)
+        df_rp = df_rp.rename(columns={'Return Period':'rp'})
+
+
+        #df_aal = df_rp.loc[df_rp['Return Period']=='1']
+
+        df_rp = df_rp.reset_index().set_index(['hazard','rp'])
+        df_rp = df_rp.drop(['S.D.'],level='rp')
+        df_rp = df_rp.drop(['all perils'],level='hazard')
+
+        df['fa'] = df['value_destroyed']/df['total_value']
+        df['fa_frac'] = df['fa']/df['fa'].sum()
+
+        df_haz = broadcast_simple(df['fa_frac'],df_rp.index).to_frame()
+
+        df_haz = pd.merge(df_haz.reset_index(),df_rp.reset_index(),on=['hazard','rp'],how='outer').set_index(['Division','hazard','rp'])
+
+        df_haz['Ground Up Loss'] *= df_haz['fa_frac']
+        df_haz['Emergency Loss'] *= df_haz['fa_frac']
+        df_haz['Building'] *= df_haz['fa_frac']
+        df_haz['Agriculture'] *= df_haz['fa_frac']
+        df_haz['Infrastructure'] *= df_haz['fa_frac']
+
+        df_haz = df_haz.drop(['fa_frac'],axis=1)
+        return df_haz
 
     elif myC == 'SL':
-        df = pd.read_excel(inputs+'hazards_data.xlsx',sheetname='hazard').set_index(['district','hazard','rp'])
+        df = pd.read_excel(inputs+'hazards_data.xlsx',sheetname='hazard').dropna(how='any').set_index(['district','hazard','rp'])
         return df
 
     else: return None

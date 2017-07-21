@@ -133,7 +133,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
 
 if __name__ == '__main__':
 
-    myCountry = 'PH'
+    myCountry = 'SL'
 
     if myCountry == 'FJ':
         pds_str = 'no'
@@ -153,13 +153,9 @@ if __name__ == '__main__':
         with Pool() as pool:
             pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), pol_str,repeat(pds_str)))
     
-    if myCountry == 'PH':
+    if myCountry == 'PH' or myCountry == 'SL':
         pds_str = ['no','unif_poor']
         pol_str = ''
 
         with Pool() as pool:
             pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str),pds_str))
-            
-
-    #my_pool = Pool(processes=1)
-    #my_pool.map(launch_compute_resilience_and_risk_thread, ['']) 

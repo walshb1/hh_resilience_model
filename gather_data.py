@@ -51,6 +51,7 @@ df['max_increased_spending'] = max_support             # 5% of GDP in post-disas
 # Protected from events with RP < 'protection'
 if myCountry == 'PH':  df['protection'] = 1
 if myCountry == 'FJ':  df['protection'] = 1
+if myCountry == 'SL':  df['protection'] = 1
 
 # Secondary dataframe, if necessary
 # For PH: this is GDP per cap info:
@@ -65,7 +66,12 @@ if myCountry == 'PH':
     cat_info = cat_info.rename(columns={'w_prov':'province'})
     cat_info = cat_info.reset_index().set_index([cat_info.province.replace(prov_code)]) #replace district code with its name
     cat_info = cat_info.drop('province',axis=1)
-
+if myCountry == 'SL':
+    df = df.reset_index()
+    df = df.set_index([df.district.replace(prov_code)])
+    cat_info = cat_info.reset_index()
+    cat_info = cat_info.set_index([cat_info.district.replace(prov_code)]) #replace district code with its name
+    
 # Define per capita income (in local currency)
 df['gdp_pc_pp_prov'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
 df['gdp_pc_pp_nat'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info['pcwgt'].sum()
@@ -133,9 +139,10 @@ elif myCountry == 'FJ':
     cat_info.loc[cat_info.Sector=='Urban','pov_line'] = 55.12*52#cat_info.loc[(cat_info.Sector=='Urban') & (cat_info.ispoor == 1),'pcinc_ae'].max()
     assert(cat_info.loc[(cat_info.pov_line < 0)].shape[0] == 0)
     #cat_info.to_csv('~/Desktop/my_file.csv')
-elif myCountry == 'SL':
-    print('Need SL poverty info!!')
-    cat_info['pov_line'] = 100000.
+#elif myCountry == 'SL':
+#    print(cat_info.pov_line)
+#    print('Need SL poverty info!!')
+#    cat_info['pov_line'] = 100000.
 
 print('Total population:',cat_info.pcwgt.sum())
 print('Total n households:',cat_info.hhwgt.sum())
@@ -205,18 +212,18 @@ if myCountry == 'FJ':
     cat_info.drop(['Division'],axis=1,inplace=True)
 
 # Getting rid of Prov_code 98, 99 here
-print('Check total population (1/2):',cat_info.pcwgt.sum())
+print('Check total population:',cat_info.pcwgt.sum())
 cat_info.dropna(inplace=True,how='all')
-print('Check total population (2/2):',cat_info.pcwgt.sum())
+print('Check total population (after dropna):',cat_info.pcwgt.sum())
 
 # Assign access to early warning based on 'ispoor' flag
 if myCountry == 'PH':
     # --> doesn't seem to match up with the quintiles we assigned
     cat_info['shew'] = broadcast_simple(df2['shewr'],cat_info.index)
     cat_info.ix[cat_info.ispoor == 1,'shew'] = broadcast_simple(df2['shewp'],cat_info.index)
-elif myCountry == 'FJ': 
+elif myCountry == 'FJ' or myCountry == 'SL': 
     cat_info['shew'] = 0
-    # can't find relevant info for Fiji
+    # can't find relevant info for Fiji and Sri Lanka
 
 # Exposure
 cat_info['fa'] = 0
@@ -288,17 +295,20 @@ if myCountry == 'PH':
     hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['provincial_capital']
     hazard_ratios = hazard_ratios.drop(['provincial_capital','value_destroyed'],axis=1)
 elif myCountry == 'FJ':
-    hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['total_value']
-    hazard_ratios['hazard'] = 'AAL'
-    hazard_ratios['rp'] = '1'
-    hazard_ratios = hazard_ratios.drop(['Division','provincial_capital','value_destroyed','total_value'],axis=1)
+    hazard_ratios['frac_destroyed'] = hazard_ratios['Ground Up Loss']/hazard_ratios['provincial_capital']
+    #hazard_ratios = hazard_ratios.drop(['Division','value_destroyed','provincial_capital','total_value'],axis=1)
 elif myCountry == 'SL':
     hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
 
 # Have frac destroyed, need fa...
 # Frac value destroyed = SUM_i(k*v*fa)
 
-hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on=economy,how='outer').set_index(event_level+['hhid'])[['frac_destroyed','v']]
+print(hazard_ratios.head(2))
+print(cat_info.head(2))
+
+hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on=economy,how='outer')
+print(hazard_ratios)
+hazard_ratios = hazard_ratios.set_index(event_level+['hhid'])[['frac_destroyed','v']]
 
 # Transfer fa in excess of 95% to vulnerability
 fa_threshold = 0.95

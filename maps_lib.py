@@ -21,36 +21,68 @@ def sum_with_rp(myC,df,columns,sum_provinces):
         else:
             return df.sum()
 
-    df = df.sum(level=['province','rp']).fillna(0)
-    df = df.reset_index().set_index('province')
+    if myC == 'PH':
+        df = df.sum(level=['province','rp']).fillna(0)
+        df = df.reset_index().set_index('province')
 
-    freq = {'1'   :float(  1./1  -   1./10),
-            '10'  :float( 1./10  -   1./25),
-            '25'  :float( 1./25  -   1./30),
-            '30'  :float( 1./30  -   1./50),
-            '50'  :float( 1./50  -  1./100),
-            '100' :float(1./100  -  1./200),
-            '200' :float(1./200  -  1./250),
-            '250' :float(1./250  -  1./500),
-            '500' :float(1./500  - 1./1000),
-            '1000':float(1./1000)}
+        freq = {'1'   :float(  1./1  -   1./10),
+                '10'  :float( 1./10  -   1./25),
+                '25'  :float( 1./25  -   1./30),
+                '30'  :float( 1./30  -   1./50),
+                '50'  :float( 1./50  -  1./100),
+                '100' :float(1./100  -  1./200),
+                '200' :float(1./200  -  1./250),
+                '250' :float(1./250  -  1./500),
+                '500' :float(1./500  - 1./1000),
+                '1000':float(1./1000)}
 
-    for aCol in columns:
-        df.loc[(df.rp ==    1),aCol] *= freq[   '1']        
-        df.loc[(df.rp ==   10),aCol] *= freq[  '10'] 
-        df.loc[(df.rp ==   25),aCol] *= freq[  '25'] 
-        df.loc[(df.rp ==   30),aCol] *= freq[  '30']
-        df.loc[(df.rp ==   50),aCol] *= freq[  '50'] 
-        df.loc[(df.rp ==  100),aCol] *= freq[ '100'] 
-        df.loc[(df.rp ==  200),aCol] *= freq[ '200'] 
-        df.loc[(df.rp ==  250),aCol] *= freq[ '250'] 
-        df.loc[(df.rp ==  500),aCol] *= freq[ '500'] 
-        df.loc[(df.rp == 1000),aCol] *= freq['1000']
+        for aCol in columns:
+            df.loc[(df.rp ==    1),aCol] *= freq[   '1']        
+            df.loc[(df.rp ==   10),aCol] *= freq[  '10'] 
+            df.loc[(df.rp ==   25),aCol] *= freq[  '25'] 
+            df.loc[(df.rp ==   30),aCol] *= freq[  '30']
+            df.loc[(df.rp ==   50),aCol] *= freq[  '50'] 
+            df.loc[(df.rp ==  100),aCol] *= freq[ '100'] 
+            df.loc[(df.rp ==  200),aCol] *= freq[ '200'] 
+            df.loc[(df.rp ==  250),aCol] *= freq[ '250'] 
+            df.loc[(df.rp ==  500),aCol] *= freq[ '500'] 
+            df.loc[(df.rp == 1000),aCol] *= freq['1000']
 
-    if sum_provinces == False:
-        return df.sum(level='province')
-    else:
-        return df.sum()
+        if sum_provinces == False:
+            return df.sum(level='province')
+        else:
+            return df.sum()
+
+    if myC == 'SL':
+        
+        df = df.sum(level=['district','rp']).fillna(0)
+        df = df.reset_index().set_index('district')
+
+        freq = {'1'   :float(  1./1  -    1./5),
+                '5'   :float(  1./5  -   1./10),
+                '10'  :float( 1./10  -   1./25),
+                '25'  :float( 1./25  -   1./50),
+                '50'  :float( 1./50  -  1./100),
+                '100' :float(1./100  -  1./250),
+                '250' :float(1./250  -  1./500),
+                '500' :float(1./500  - 1./1000),
+                '1000':float(1./1000)}
+
+        for aCol in columns:
+            df.loc[(df.rp ==    1),aCol] *= freq[   '1']
+            df.loc[(df.rp ==    5),aCol] *= freq[   '5']
+            df.loc[(df.rp ==   10),aCol] *= freq[  '10']
+            df.loc[(df.rp ==   25),aCol] *= freq[  '25']
+            df.loc[(df.rp ==   50),aCol] *= freq[  '50']
+            df.loc[(df.rp ==  100),aCol] *= freq[ '100']
+            df.loc[(df.rp ==  250),aCol] *= freq[ '250']
+            df.loc[(df.rp ==  500),aCol] *= freq[ '500']
+            df.loc[(df.rp == 1000),aCol] *= freq['1000']
+
+        if sum_provinces == False:
+            return df.sum(level='district')
+        else:
+            return df.sum()
 
 def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_cmap("Blues"), label = "", outfolder ="img/" , new_title=None, do_qualitative=False, res=1000, verbose=True):
     """Makes a cloropleth map and a legend from a panda series and a blank svg map. 
