@@ -13,9 +13,37 @@ from IPython.display import Image, display, HTML, SVG
 import os, shutil
 from subprocess import Popen, PIPE, call 
 
-def sum_with_rp(myC,df,columns,sum_provinces):
+def sum_with_rp(myC,df,columns,sum_provinces,national=False):
 
     if myC == 'FJ':
+
+        if national == True: df = df.reset_index()
+        else:
+            df = df.sum(level=['Division','rp']).fillna(0)
+            df = df.reset_index().set_index('Division')
+
+
+        freq = {'1'   :float(  1./1  -   1./10),
+                '10'  :float( 1./10  -   1./20),
+                '20'  :float( 1./20  -   1./50),
+                '50'  :float( 1./50  -  1./100),
+                '100' :float(1./100  -  1./250),
+                '250' :float(1./250  -  1./500),
+                '500' :float(1./500  - 1./1000),
+                '1000':float(1./1000)}
+
+        for aCol in columns:
+            df.loc[(df.rp ==    1),aCol] *= freq[   '1']        
+            df.loc[(df.rp ==   10),aCol] *= freq[  '10'] 
+            df.loc[(df.rp ==   20),aCol] *= freq[  '20']
+            df.loc[(df.rp ==   50),aCol] *= freq[  '50'] 
+            df.loc[(df.rp ==  100),aCol] *= freq[ '100'] 
+            df.loc[(df.rp ==  250),aCol] *= freq[ '250'] 
+            df.loc[(df.rp ==  500),aCol] *= freq[ '500'] 
+            df.loc[(df.rp == 1000),aCol] *= freq['1000']
+
+        if national == True: 
+            return df.sum()
         if sum_provinces == False:
             return df.sum(level='Division')
         else:

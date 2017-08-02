@@ -12,7 +12,7 @@
     }
     .ba
     {  
-       fill: #B4D3E8;
+       fill: #B5D3E9;
        stroke:#000000;
        stroke-width:2;
     }
@@ -36,7 +36,7 @@
     }
 .lau
     {  
-       fill: #08316C;
+       fill: #08306B;
        stroke:#000000;
        stroke-width:2;
     }

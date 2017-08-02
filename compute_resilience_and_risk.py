@@ -133,18 +133,18 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
 
 if __name__ == '__main__':
 
-    myCountry = 'SL'
+    myCountry = 'FJ'
 
     if myCountry == 'FJ':
         pds_str = 'no'
-        pol_str = ['',
-                   '_exp095',      # reduce exposure of poor by 5% (of total exposure!)
-                   '_exr095',      # reduce exposure of rich by 5% (of total exposure!)
-                   '_pcinc_p_110', # increase per capita income of poor people by 10%
-                   '_soc133',      # increase social transfers to poor by 33%
-                   '_rec067',      # decrease reconstruction time by 33%
-                   '_ew100',       # universal access to early warnings 
-                   '_vul070']      # decrease vulnerability of poor by 30%
+        pol_str = ['']#,
+                   #'_exp095',      # reduce exposure of poor by 5% (of total exposure!)
+                   #'_exr095',      # reduce exposure of rich by 5% (of total exposure!)
+                   #'_pcinc_p_110', # increase per capita income of poor people by 10%
+                   #'_soc133',      # increase social transfers to poor by 33%
+                   #'_rec067',      # decrease reconstruction time by 33%
+                   #'_ew100',       # universal access to early warnings 
+                   #'_vul070']      # decrease vulnerability of poor by 30%
         # Other policies:
         # --> develop market insurance for rich
         # --> universal access to finance

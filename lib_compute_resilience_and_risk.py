@@ -256,6 +256,13 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
     print('From here: \'hhwgt\' = nAffected and nNotAffected: households') 
 
     cats_event['fa'] = cats_event.fa.fillna(1E-8)
+    
+    # Instead, clipping in maps file
+    #cats_event = cats_event.reset_index().set_index('hhid')
+    #cats_event.loc[(cats_event.Division == 'Rotuma') & (cats_event.hazard == 'typhoon'),'fa'] *= 0.01
+    #cats_event = cats_event.reset_index().set_index(['Division','hazard','rp','hhid'])
+
+    print(cats_event)
 
     for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
         myNaf = cats_event[aWGT]*cats_event.fa
@@ -275,8 +282,9 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
     cats_event_ia.ix[(cats_event_ia.affected_cat=='na'), 'dk']=0
 
     #'provincial' losses
-    macro_event['dk_event'] =  cats_event_ia[['dk','pcwgt']].prod(axis=1,skipna=False).sum(level=event_level).fillna(0)
-    
+    # dk_event is WHEN the event happens--doesn't yet include RP/probability
+    macro_event['dk_event']   =  cats_event_ia[['dk','pcwgt']].prod(axis=1,skipna=False).sum(level=event_level)
+ 
     #immediate consumption losses: direct capital losses plus losses through event-scale depression of transfers
     cats_event_ia['dc'] = (1-macro_event['tau_tax'])*cats_event_ia['dk']  +  cats_event_ia['gamma_SP']*macro_event['tau_tax'] *macro_event['dk_event'] 
 
@@ -568,9 +576,11 @@ def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_C
     ###########
     #OUTPUT
     df_out = pd.DataFrame(index=macro_event.index)
-    
+
+    # dktot is already summed with RP -- just add them normally to get losses
     df_out['dK'] = dK
     df_out['dKtot']=dK*cats_event_iah['pcwgt'].sum(level=event_level)#macro_event['pop']
+
     df_out['delta_W']    =delta_W
     df_out['delta_W_tot']=delta_W*cats_event_iah['pcwgt'].sum(level=event_level)#macro_event['pop'] 
 

@@ -213,22 +213,32 @@ def get_hazard_df(myC,economy):
 
         df_rp = df_rp.reset_index().set_index(['hazard','rp'])
         df_rp = df_rp.drop(['S.D.'],level='rp')
-        df_rp = df_rp.drop(['all perils'],level='hazard')
+        df_rp = df_rp.drop(['all perils','earthquake'],level='hazard')
 
+        print(df_rp)
+        
+        # what fraction of all losses does this province sustain?
+        df['f_losses'] = df['value_destroyed']/df['value_destroyed'].sum()
+        
+        # what fraction of all assets are in this province?
+        df['f_value'] = df['total_value']/df['total_value'].sum()
+    
+        # what fraction of assets in the province are destroyed?
         df['fa'] = df['value_destroyed']/df['total_value']
-        df['fa_frac'] = df['fa']/df['fa'].sum()
 
-        df_haz = broadcast_simple(df['fa_frac'],df_rp.index).to_frame()
+        print(df)
+        print('Asset loss:',df.value_destroyed.sum()/df.total_value.sum())
+
+        df_haz = broadcast_simple(df[['fa','f_losses','f_value','value_destroyed','total_value']],df_rp.index)
 
         df_haz = pd.merge(df_haz.reset_index(),df_rp.reset_index(),on=['hazard','rp'],how='outer').set_index(['Division','hazard','rp'])
 
-        df_haz['Ground Up Loss'] *= df_haz['fa_frac']
-        df_haz['Emergency Loss'] *= df_haz['fa_frac']
-        df_haz['Building'] *= df_haz['fa_frac']
-        df_haz['Agriculture'] *= df_haz['fa_frac']
-        df_haz['Infrastructure'] *= df_haz['fa_frac']
+        for aCol in ['Ground Up Loss','Emergency Loss','Building','Agriculture','Infrastructure']:
+            df_haz[aCol] = df_haz[aCol]*(df_haz['f_losses']/df_haz['total_value'])
 
-        df_haz = df_haz.drop(['fa_frac'],axis=1)
+        df_haz.to_csv('~/Desktop/my_out.csv')
+        assert(False)
+            
         return df_haz
 
     elif myC == 'SL':

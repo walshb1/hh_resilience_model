@@ -35,8 +35,8 @@ for myCountry in [['FJ','Fiji','Fijians'],
     df_prov_mh = sum_with_rp(myCountry[0],df[['risk','risk_to_assets']],['risk','risk_to_assets'],sum_provinces=False)
     df_prov_mh['resilience'] = df['resilience'].mean(level=economy)
 
-    #df_prov_mh['risk_to_assets'] = df_prov_mh['risk_to_assets'].clip(upper=0.04)
-    #df_prov_mh['risk'] = df_prov_mh['risk'].clip(upper=0.045)
+    #df_prov_mh['risk_to_assets'] = df_prov_mh['risk_to_assets'].clip(upper=0.06)
+    #df_prov_mh['risk'] = df_prov_mh['risk'].clip(upper=0.12)
 
     # path to the blank map 
     svg_file_path = '../map_files/'+myCountry[0]+'/BlankSimpleMap.svg'

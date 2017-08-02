@@ -37,7 +37,7 @@ import warnings
 warnings.filterwarnings('always',category=UserWarning)
 
 if len(sys.argv) < 2:
-    print('Need to list country. Try PH')
+    print('Need to list country.')
     assert(False)
 else: myCountry = sys.argv[1]
 
@@ -54,6 +54,23 @@ pol_str = ''#'_v95'#could be {'_v95'}
 #res_base = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
 df = pd.read_csv(output+'results_tax_no_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 iah = pd.read_csv(output+'iah_tax_no_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+macro = pd.read_csv(output+'macro_tax_no_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+
+# These are equivalent
+#df_prov = sum_with_rp(myCountry,macro[['dk_event']],['dk_event'],sum_provinces=False,national=False)
+df_prov = df[['dKtot','dWtot_currency']]
+df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1)
+
+df_prov['R_asst'] = round(100.*df_prov['dKtot']/df_prov['gdp'],2)
+df_prov['R_welf'] = round(100.*df_prov['dWtot_currency']/df_prov['gdp'],2)
+df_prov = df_prov.sum(level='Division')
+df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level='Division')
+
+print(df_prov)
+print(df_prov[['dKtot','dWtot_currency','gdp']].sum())
+print('R_asset:',100.*df_prov['dKtot'].sum()/df_prov['gdp'].sum())
+print('R_welf:',100.*df_prov['dWtot_currency'].sum()/df_prov['gdp'].sum())
+df_prov.to_csv('~/Desktop/my_out.csv')
 
 print(output+'results_tax_unif_poor_'+pol_str+'.csv')
 print(output+'iah_tax_unif_poor_'+pol_str+'.csv')
@@ -109,18 +126,20 @@ q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 if myCountry == 'PH':
     myHaz = [['Manila','Mountain Province','Bukidnon','Negros Oriental','Bulacan','Northern Samar','Cebu'],['flood','wind'],[1,10,25,30,50,100,250,500,1000]]
 elif myCountry == 'FJ':
-    myHaz = [['Ba','Bua','Cakaudrove','Lau','Lomaiviti','Rewa','Macuata'],['AAL'],[1]]
+    myHaz = [['Lau','Rewa','Macuata'],['earthquake','tsunami','typhoon'],[1,10,20,50,100,250,500,1000]]
+    #myHaz = [['Lau'],['earthquake'],[1,10,20,50,100,250,500,1000]]
 
 pov_line = get_poverty_line(myCountry)
 sub_line = get_subsistence_line(myCountry)
 
 iah = iah.reset_index()
 
+# PH and SL hazards
 allDis = ['flood','earthquake','surge','wind']
 upper_clip = 100000
 
 if myCountry == 'FJ': 
-    allDis = ['AAL']
+    allDis = ['typhoon','earthquake','tsunami']
     upper_clip = 20000
 
 for myDis in allDis:
@@ -231,7 +250,7 @@ for myDis in allDis:
             do_qualitative=False,
             res=800)
     
-    for myRP in [1,10,25,50,100,200,250,500,1000]:
+    for myRP in myHaz[2]:
         
         cutA = iah.loc[(iah.hazard == myDis) & (iah.rp == myRP)].set_index([economy,'hazard','rp']).fillna(0)
         #cutA = iah.loc[(iah.hazard == myDis) & (iah.rp == myRP) & (iah.helped_cat == 'helped')].set_index([economy,'hazard','rp']).fillna(0)
@@ -599,4 +618,24 @@ for myRP in myHaz[2]:
 df_out.to_csv('~/Desktop/my_plots/my_means_'+myCountry+pol_str+'.csv')
 df_out_sum.to_csv('~/Desktop/my_plots/my_means_ntl_'+myCountry+pol_str+'.csv')
 
-print(rp_all,'\n',dk_all,'\n',dw_all,'\n',dk_q1,'\n',dw_q1)
+print('rp:',rp_all,'\ndk:',dk_all,'\ndw:',dw_all,'\ndk_q1:',dk_q1,'\ndw_q1:',dw_q1)
+
+#natl_df = pd.DataFrame([np.array(rp_all).T,dk_all.T,dw_all.T,dk_q1.T,dw_q1.T],columns=['rp_all','dk_all','dw_all','dk_q1','dw_q1'])
+natl_df = pd.DataFrame(np.array(dk_all).T,index=rp_all,columns=['dk_all'])
+natl_df.index.name = 'rp'
+natl_df['dw_all'] = np.array(dw_all).T
+natl_df['dk_q1'] = np.array(dk_q1).T
+natl_df['dw_q1'] = np.array(dw_q1).T
+
+summed = sum_with_rp('FJ',natl_df,['dk_all','dw_all','dk_q1','dw_q1'],sum_provinces=True,national=True)
+
+df = df.reset_index()
+#print('Prov pop = ',df.loc[(df.rp==1)&(df.hazard=='typhoon'),'pop'])
+#print('Prov GDP pc = ',df.loc[(df.rp==1)&(df.hazard=='typhoon'),'gdp_pc_pp_prov'])
+#print('Prov GDP = ',df.loc[(df.rp==1)&(df.hazard=='typhoon'),['gdp_pc_pp_prov','pop']].prod(axis=1))
+natl_gdp = df.loc[(df.rp==1)&(df.hazard=='typhoon'),['gdp_pc_pp_prov','pop']].prod(axis=1).sum()
+
+print(summed)
+print(natl_gdp)
+print('Asset Risk:',round(100.*summed['dk_all']/natl_gdp,2),'% of natl GDP per year')
+print('Well-being Risk:',round(100.*summed['dw_all']/natl_gdp,2),'% of natl GDP per year')

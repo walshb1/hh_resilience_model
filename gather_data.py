@@ -295,7 +295,8 @@ if myCountry == 'PH':
     hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['provincial_capital']
     hazard_ratios = hazard_ratios.drop(['provincial_capital','value_destroyed'],axis=1)
 elif myCountry == 'FJ':
-    hazard_ratios['frac_destroyed'] = hazard_ratios['Ground Up Loss']/hazard_ratios['provincial_capital']
+    hazard_ratios['frac_destroyed'] = hazard_ratios['Ground Up Loss']#'Building']
+    #hazard_ratios['frac_destroyed'] = hazard_ratios['Building']/hazard_ratios['provincial_capital']
     #hazard_ratios = hazard_ratios.drop(['Division','value_destroyed','provincial_capital','total_value'],axis=1)
 elif myCountry == 'SL':
     hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
