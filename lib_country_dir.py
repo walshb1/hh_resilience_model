@@ -246,6 +246,12 @@ def get_hazard_df(myC,economy):
         return df
 
     else: return None
+    
+def get_infra_stocks_data(myC):
+    if myC == 'FJ':
+        infra_stocks = pd.read_csv(inputs+'infra_stocks.csv',index_col='sector')
+        return infra_stocks
+    else:return None
 
 def get_poverty_line(myC):
     
@@ -282,7 +288,8 @@ def get_scale_fac(myC):
 def get_avg_prod(myC):
     
     if myC == 'PH': return 0.337960802589002
-    elif myC == 'FJ': return 0.336139019412
+    # elif myC == 'FJ': return 0.336139019412
+    elif myC == 'FJ': return 0.348104 ##Julie: for Fiji I have 0.348104 (I have used the latest value from the penn tables)
     elif myC == 'SL': return 0.337960802589002
 
 def get_demonym(myC):
