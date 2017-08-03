@@ -57,6 +57,9 @@ if myCountry == 'SL':  df['protection'] = 1
 # For PH: this is GDP per cap info:
 df2 = get_df2(myCountry)
 
+#Julie
+infra_stocks = get_infra_stocks_data(myC)
+
 cat_info = load_survey_data(myCountry)
 
 print('Survey population:',cat_info.pcwgt.sum())
@@ -72,10 +75,13 @@ if myCountry == 'SL':
     cat_info = cat_info.reset_index()
     cat_info = cat_info.set_index([cat_info.district.replace(prov_code)]) #replace district code with its name
     
+# Julie: broadcast_simple infra_stocks on df.index to calculate the macro_multiplier at economy level
+infra_stocks = broadcast_simple(infra_stocks,df.index)
+
 # Define per capita income (in local currency)
 df['gdp_pc_pp_prov'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
 df['gdp_pc_pp_nat'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info['pcwgt'].sum()
-# ^ this is per capita income
+# this is per capita income
 
 df['pop'] = cat_info.pcwgt.sum(level=economy)
 
@@ -224,6 +230,7 @@ if myCountry == 'PH':
 elif myCountry == 'FJ' or myCountry == 'SL': 
     cat_info['shew'] = 0
     # can't find relevant info for Fiji and Sri Lanka
+    # Julie: there are early warning systems in Fiji but not necessarily efficient
 
 # Exposure
 cat_info['fa'] = 0
@@ -322,6 +329,8 @@ cat_info = cat_info.reset_index().set_index([economy,'hhid'])
 cat_info['v'] = hazard_ratios.reset_index().set_index([economy,'hhid'])['v'].mean(level=[economy,'hhid']).clip(upper=0.99)
 
 df.to_csv(intermediate+'/macro.csv',encoding='utf-8', header=True,index=True)
+
+infra_stocks.to_csv(intermediate+'/infra_stocks.csv',encoding='utf-8', header=True,index=True)
 
 if 'index' in cat_info.columns: cat_info = cat_info.drop(['index'],axis=1)
 cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index=True)

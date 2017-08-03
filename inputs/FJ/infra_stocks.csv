@@ -1,6 +1,7 @@
-sector,value
-transport,3000000000
-water,960000000
-energy,515000000
-building_residential,4093521135
-building_non_residential,2411268610
+sector,value,v_serv,v_k,e
+transport,3000000000,,,
+water,960000000,,,
+energy,515000000,,,
+building_residential,4093521135,,,
+building_non_residential,2411268610,,,
+other_k,,,,0
