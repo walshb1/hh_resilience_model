@@ -283,11 +283,11 @@ def compute_dK(infra_stocks,pol_str,macro_event, cats_event,event_level,affected
     cats_event_ia['v_shew']=cats_event_ia['v']*(1-macro_event['pi']*cats_event_ia['shew']) 
 
     #capital losses and total capital losses
-    #Julie XXX here I need to desagregate losses using infra_cats. how to deal with people affected and non affected?
+    #Julie XXX here I need to desagregate losses using infra_stocks. how to deal with people affected and non affected?
     #should we try to have a macro_multiplier per event (maybe later?)
     #remove the hard coding on the sector names
-    share_hh_k = infra_cats.share.unstack('sector')[["other_k","building_residential","building_non_residential"]].sum(level=economy)
-    share_v_infra = infra_cats[["share","v_k"]].prod(axis=1, skipna=True).unstack('sector').drop(["other_k","building_residential","building_non_residential"],axis=1).sum(level=economy)
+    share_hh_k = infra_stocks.share.unstack('sector')[["other_k","building_residential","building_non_residential"]].sum(level=economy)
+    share_v_infra = infra_stocks[["share","v_k"]].prod(axis=1, skipna=True).drop(["other_k","building_residential","building_non_residential"],level='sector').sum(level=economy)
     cats_event_ia['dk']  = broadcast_simple(share_hh_k,cats_event_ia.index)*cats_event_ia[['k','v_shew']].prod(axis=1, skipna=False)+ broadcast_simple(share_v_infra,cats_event_ia.index)*cats_event_ia['k'] 
 
     cats_event_ia.ix[(cats_event_ia.affected_cat=='na'), 'dk']=0
