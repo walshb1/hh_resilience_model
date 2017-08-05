@@ -347,6 +347,15 @@ hazard_ratios_infra['v_k'] = hazard_ratios_infra['frac_destroyed']/hazard_ratios
 infra_stocks = broadcast_simple(infra_stocks,df.index)
 averaged_dk,proba_serie1 = average_over_rp(hazard_ratios_infra['frac_destroyed'],'default_rp')
 infra_stocks['dk'] = averaged_dk.mean(level=['sector',economy]).clip(upper=0.99)
+
+##adds the hh_share column in cat_info. this is the share of household's capital that belongs to the household and will be multiplied by the vulnerability of the household (and fa)
+share_hh_k = infra_stocks.share.unstack('sector')[["other_k","building_residential"]].sum(level=economy) #share of total assets that have the hh vulnerability
+cat_info['hh_share'] = broadcast_simple(share_hh_k,cat_info.index)
+
+##adds the public_loss variable in hazard_ratios. this is the share of households's capital that is destroyed and does not directly belongs to the household (fa is missing but it's the same for all capital)
+share_v_infra = hazard_ratios_infra[["share","v_k"]].prod(axis=1, skipna=True).drop(["other_k","building_residential"],level='sector').sum(level=event_level+['hhid']) #asset loss summed over the different infrastructure sectors
+hazard_ratios['public_loss'] = share_v_infra
+
 infra_stocks.to_csv(intermediate+'/infra_stocks.csv',encoding='utf-8', header=True,index=True)
 
 df.to_csv(intermediate+'/macro.csv',encoding='utf-8', header=True,index=True)

@@ -240,6 +240,7 @@ def process_input(myCountry,pol_str,macro,cat_info,infra_stocks,hazard_ratios,ec
     
     #Broadcast categories to event level
     cats_event = broadcast_simple(cat_info,  event_level_index )
+    cats_event['public_loss'] = hazard_ratios_event.public_loss
 
     #updates columns in cats with columns in hazard_ratios_event	
     # applies mh ratios to relevant columns
