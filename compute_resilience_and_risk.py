@@ -68,19 +68,19 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     print('optionFee =',optionFee, 'optionPDS =', optionPDS, 'optionB =', optionB, 'optionT =', optionT, 'option_CB =', option_CB_name)
 
     #Options and parameters
-    nat_economy   = 'national'
+    nat_economy        = 'national'
     global economy
-    economy       = get_economic_unit(myCountry)
-    event_level   = [economy, 'hazard', 'rp']                            #levels of index at which one event happens
-    default_rp    = 'default_rp'                                         #return period to use when no rp is provided (mind that this works with protection)
-    income_cats   = 'hhid'                                               #categories of households
-    sectors       = 'sector'                                             #categories capital
-    affected_cats = pd.Index(['a', 'na'], name='affected_cat')           #categories for social protection
-    helped_cats   = pd.Index(['helped','not_helped'], name='helped_cat')
+    economy            = get_economic_unit(myCountry)
+    event_level        = [economy, 'hazard', 'rp']                            #levels of index at which one event happens
+    sector_event_level = ['sector', economy, 'hazard', 'rp']                  #levels of index at which one event happens in each sector
+    default_rp         = 'default_rp'                                         #return period to use when no rp is provided (mind that this works with protection)
+    income_cats        = 'hhid'                                               #categories of households
+    affected_cats      = pd.Index(['a', 'na'], name='affected_cat')           #categories for social protection
+    helped_cats        = pd.Index(['helped','not_helped'], name='helped_cat')
     
     #read data
     macro = pd.read_csv(intermediate+'macro.csv', index_col = economy)
-    infra_stocks = pd.read_csv(intermediate+'infra_stocks.csv', index_col=[economy, sectors])
+    infra_stocks = pd.read_csv(intermediate+'infra_stocks.csv', index_col=['sector',economy])
     cat_info = pd.read_csv(intermediate+'cat_info.csv',  index_col=[economy, income_cats])
 
     # First function: compute_with_hazard_ratios 
@@ -89,7 +89,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     #  - macro has province-level info
     #  - cat_info has household-level info
     #  - hazard_ratios has fa for each household (which varies not by hh, but by province, hazard, & RP) 
-    macro_event, cats_event, hazard_ratios_event = compute_with_hazard_ratios(myCountry,pol_str,intermediate+'hazard_ratios.csv',macro,cat_info,infra_stocks,economy,event_level,income_cats,default_rp,verbose_replace=True)
+    macro_event, cats_event, hazard_ratios_event, hazard_ratios_infra = compute_with_hazard_ratios(myCountry,pol_str,intermediate+'hazard_ratios.csv',intermediate+'hazard_ratios_infra.csv',macro,cat_info,infra_stocks,economy,event_level,income_cats,default_rp,verbose_replace=True)
 
     gc.collect()
     print('A')
@@ -98,7 +98,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     # compute_dK does the following:
     # -- adds dk_event column to macro_event
     # -- adds affected/na categories to cats_event
-    macro_event, cats_event_ia = compute_dK(infra_stocks,pol_str,macro_event,cats_event,event_level,affected_cats) #calculate the actual vulnerability, the potential damange to capital, and consumption
+    macro_event, cats_event_ia = compute_dK(infra_stocks,pol_str,macro_event,cats_event,event_level,affected_cats, hazard_ratios_infra) #calculate the actual vulnerability, the potential damange to capital, and consumption
     print('B\n\n')
     
     macro_event, cats_event_iah = calculate_response(pol_str,macro_event,cats_event_ia,event_level,helped_cats,default_rp,option_CB,optionFee=optionFee,optionT=optionT, optionPDS=optionPDS, optionB=optionB,loss_measure='dk',fraction_inside=1, share_insured=.25)
