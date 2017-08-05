@@ -1,7 +1,7 @@
 sector,value_k,v_serv,e
-transport,3000000000,,
-water,960000000,,
-energy,515000000,,
-building_residential,4093521135,,
-building_non_residential,2411268610,,
-other_k,,,0
+transport,3000000000,0.5,0.25
+water,960000000,0.5,0.25
+energy,515000000,0.5,0.25
+building_residential,4093521135,0.5,0.25
+building_non_residential,2411268610,0.5,0
+other_k,,0.5,0
