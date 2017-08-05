@@ -10,6 +10,7 @@ get_ipython().magic('autoreload 2')
 # Import packages for data analysis
 from lib_country_dir import *
 from lib_gather_data import *
+from lib_compute_resilience_and_risk import average_over_rp
 from replace_with_warning import *
 import matplotlib.pyplot as plt
 import numpy as np
@@ -33,17 +34,22 @@ economy       = get_economic_unit(myCountry)
 
 # Levels of index at which one event happens
 event_level   = [economy, 'hazard', 'rp']
+sector_event_level = ['sector', economy, 'hazard', 'rp']
+
 
 #Country dictionaries
 #STATE/PROVINCE NAMES
 df = get_places(myCountry,economy)
 prov_code = get_places_dict(myCountry)
 
+#loads wb data and avg_prod_k from Penn tables
+wb = get_wb_or_penn_data(myCountry)
+
 ###Define parameters
 df['pi']                     = reduction_vul           # how much early warning reduces vulnerability
 df['rho']                    = discount_rate           # discount rate
 df['shareable']              = asset_loss_covered      # target of asset losses to be covered by scale up
-df['avg_prod_k']             = get_avg_prod(myCountry) # average productivity of capital, value from the global resilience model
+df['avg_prod_k']             = wb.avg_prod_k           # average productivity of capital, value from the global resilience model
 df['T_rebuild_K']            = reconstruction_time     # Reconstruction time
 df['income_elast']           = inc_elast               # income elasticity
 df['max_increased_spending'] = max_support             # 5% of GDP in post-disaster support maximum, if everything is ready
@@ -57,8 +63,11 @@ if myCountry == 'SL':  df['protection'] = 1
 # For PH: this is GDP per cap info:
 df2 = get_df2(myCountry)
 
-#Julie
-infra_stocks = get_infra_stocks_data(myC)
+#Julie.
+infra_stocks = get_infra_stocks_data(myCountry)
+infra_stocks.loc['other_k','value_k'] = wb.Ktot-infra_stocks.drop(['other_k'],axis=0).value_k.sum()
+infra_stocks['share'] = infra_stocks.value_k/wb.Ktot
+infra_stocks = infra_stocks.drop('value_k',axis=1)
 
 cat_info = load_survey_data(myCountry)
 
@@ -75,9 +84,6 @@ if myCountry == 'SL':
     cat_info = cat_info.reset_index()
     cat_info = cat_info.set_index([cat_info.district.replace(prov_code)]) #replace district code with its name
     
-# Julie: broadcast_simple infra_stocks on df.index to calculate the macro_multiplier at economy level
-infra_stocks = broadcast_simple(infra_stocks,df.index)
-
 # Define per capita income (in local currency)
 df['gdp_pc_pp_prov'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
 df['gdp_pc_pp_nat'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info['pcwgt'].sum()
@@ -206,6 +212,8 @@ cat_info.drop('n_national',axis=1,inplace=True)
 
 # Intl remittances: subtract from 'c'
 cat_info['k'] = (1-cat_info['social'])*cat_info['c']/((1-df['tau_tax'])*df['avg_prod_k']) #calculate the capital
+# Julie: scale up capital so that the total equals what is in wb
+cat_info['k'] = cat_info['k']*wb.Ktot/cat_info[['k','pcwgt']].prod(axis=1).sum()
 cat_info.ix[cat_info.k<0,'k'] = 0.0
 
 if myCountry == 'FJ':
@@ -295,7 +303,7 @@ elif myCountry == 'FJ':
 # Turn losses into fraction
 cat_info = cat_info.reset_index().set_index([economy])
 
-hazard_ratios = cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy).to_frame(name='provincial_capital')
+hazard_ratios = cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy).to_frame(name='provincial_capital') #total capital by economy level
 hazard_ratios = hazard_ratios.join(df_haz,how='outer')
 
 if myCountry == 'PH':
@@ -328,12 +336,27 @@ hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=0.0000001,upper=fa_threshol
 cat_info = cat_info.reset_index().set_index([economy,'hhid'])
 cat_info['v'] = hazard_ratios.reset_index().set_index([economy,'hhid'])['v'].mean(level=[economy,'hhid']).clip(upper=0.99)
 
+###########Julie: load frac_destroyed for the other sectors and calculates v_k #############
+#make sure hazard_ratios_infra has the same hazards and rp as hazard_ratios.
+hazard_ratios_infra = get_infra_destroyed(myCountry)
+hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),hazard_ratios['fa'].reset_index(),on=[economy,'hazard','rp'],how='outer')
+hazard_ratios_infra = hazard_ratios_infra.set_index(sector_event_level+['hhid'])
+hazard_ratios_infra['v_k'] = hazard_ratios_infra['frac_destroyed']/hazard_ratios_infra['fa']
+
+###Julie dk in infra_stocks is an average over rp of frac_destroyed in hazard_ratios_infra
+infra_stocks = broadcast_simple(infra_stocks,df.index)
+averaged_dk,proba_serie1 = average_over_rp(hazard_ratios_infra['frac_destroyed'],'default_rp')
+infra_stocks['dk'] = averaged_dk.mean(level=['sector',economy]).clip(upper=0.99)
+infra_stocks.to_csv(intermediate+'/infra_stocks.csv',encoding='utf-8', header=True,index=True)
+
 df.to_csv(intermediate+'/macro.csv',encoding='utf-8', header=True,index=True)
 
-infra_stocks.to_csv(intermediate+'/infra_stocks.csv',encoding='utf-8', header=True,index=True)
 
 if 'index' in cat_info.columns: cat_info = cat_info.drop(['index'],axis=1)
 cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index=True)
 
 hazard_ratios= hazard_ratios.drop(['frac_destroyed','v'],axis=1)
 hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
+
+hazard_ratios_infra= hazard_ratios_infra.drop(['frac_destroyed'],axis=1)
+hazard_ratios_infra.to_csv(intermediate+'/hazard_ratios_infra.csv',encoding='utf-8', header=True)

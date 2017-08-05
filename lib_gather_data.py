@@ -19,6 +19,7 @@ def get_hhid_FIES(df):
     df['hhid'] += df['w_shsn'].astype('str')   
     df['hhid'] += df['w_hcn'].astype('str')   
 
+
 #weighted average		
 def wavg(data,weights): 
     df_matched =pd.DataFrame({'data':data,'weights':weights}).dropna()
