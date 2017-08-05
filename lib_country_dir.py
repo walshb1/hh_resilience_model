@@ -202,18 +202,65 @@ def get_hazard_df(myC,economy):
     
     elif myC == 'FJ':
 
-        df = pd.read_csv(inputs+'map_tikinas.csv').set_index('Tikina').drop('Country_ID',axis=1)
-        df['hazard'] = 'All Hazards'
+        df_all_ah = pd.read_csv(inputs+'map_tikinas.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_all_ah['hazard'] = 'All Hazards'
+        df_all_ah['asset_class'] = 'all'
+        df_all_ah['asset_subclass'] = 'all'
 
-        df['Division'] = (df['Tikina_ID']/100).astype('int')
-        prov_code = get_places_dict(myC)
-        df = df.reset_index().set_index([df.Division.replace(prov_code)]).drop('Division',axis=1) #replace district code with its name
+        # Hazard = tropical cyclone
+        df_bld_tc = pd.read_csv(inputs+'fiji_tc_buildings_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_bld_tc['hazard'] = 'TC'
+        df_bld_tc['asset_class'] = 'bld'
+        df_bld_tc['asset_subclass'] = 'all'
+        df_bld_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])  
+
+        df_inf_tc = pd.read_csv(inputs+'fiji_tc_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_inf_tc['hazard'] = 'TC'
+        df_inf_tc['asset_class'] = 'inf'
+        df_inf_tc['asset_subclass'] = 'all' 
+        df_inf_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])       
+
+        df_agr_tc = pd.read_csv(inputs+'fiji_tc_crops_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_agr_tc['hazard'] = 'TC'
+        df_agr_tc['asset_class'] = 'agr'
+        df_agr_tc['asset_subclass'] = 'all'
+        df_agr_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])
+
+        #df_bld_res_tc = pd.read_csv(inputs+'fiji_tc_buildings_res_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        #df_bld_res_tc['hazard'] = 'TC'
+        #df_bld_res_tc['asset_class'] = 'bld'
+        #df_bld_res_tc['asset_subclass'] = 'res'
+
+        #df_bld_pub_tc = pd.read_csv(inputs+'fiji_tc_buildings_pub_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        #df_bld_pub_tc['hazard'] = 'TC'
+        #df_bld_pub_tc['asset_class'] = 'bld'
+        #df_bld_pub_tc['asset_subclass'] = 'pub'
+      
+        df = pd.concat([df_bld_tc,df_inf_tc,df_agr_tc])
+        df = df.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])
 
         df = df.rename(columns={'exceed_2':2475,'exceed_5':975,'exceed_10':475,
                                 'exceed_20':224,'exceed_40':100,'exceed_50':72,
                                 'exceed_65':50,'exceed_90':22,'exceed_99':10,'AAL':1})
+        df.columns.name = 'rp'
+        df = df.stack().to_frame()
 
-        df = df.reset_index().set_index(['Division','Tikina','Tikina_ID','hazard','Exp_Value'])
+        df = df.reset_index().set_index(['Tikina','Tikina_ID','hazard','rp','asset_class','asset_subclass'])
+        df = df.rename(columns={0:'losses'})
+
+        df = df.reset_index()
+        df['Division'] = (df['Tikina_ID']/100).astype('int')
+        prov_code = get_places_dict(myC)
+        df = df.reset_index().set_index([df.Division.replace(prov_code)]).drop(['index','Division'],axis=1) #replace district code with its name
+
+        df = df.reset_index().set_index(['Division','Tikina','Tikina_ID','hazard','rp','asset_class','asset_subclass'])
+
+        df['fa'] = df['losses']/df['Exp_Value']
+
+        print(df.ix['Ba'])
+        assert(False)
+
+
         df.columns.name = 'rp'
 
         df = df.stack().to_frame()
