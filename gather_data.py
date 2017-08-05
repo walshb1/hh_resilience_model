@@ -339,10 +339,10 @@ cat_info['v'] = hazard_ratios.reset_index().set_index([economy,'hhid'])['v'].mea
 ###########Julie: load frac_destroyed for the other sectors and calculates v_k #############
 #make sure hazard_ratios_infra has the same hazards and rp as hazard_ratios.
 hazard_ratios_infra = get_infra_destroyed(myCountry)
+hazard_ratios_infra['share'] = broadcast_simple(infra_stocks.share,hazard_ratios_infra.index)
 hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),hazard_ratios['fa'].reset_index(),on=[economy,'hazard','rp'],how='outer')
 hazard_ratios_infra = hazard_ratios_infra.set_index(sector_event_level+['hhid'])
 hazard_ratios_infra['v_k'] = hazard_ratios_infra['frac_destroyed']/hazard_ratios_infra['fa']
-hazard_ratios_infra['share'] = broadcast_simple(infra_stocks.share,hazard_ratios_infra.index)
 
 ###Julie dk in infra_stocks is an average over rp of frac_destroyed in hazard_ratios_infra
 infra_stocks = broadcast_simple(infra_stocks,df.index)
