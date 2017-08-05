@@ -342,6 +342,7 @@ hazard_ratios_infra = get_infra_destroyed(myCountry)
 hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),hazard_ratios['fa'].reset_index(),on=[economy,'hazard','rp'],how='outer')
 hazard_ratios_infra = hazard_ratios_infra.set_index(sector_event_level+['hhid'])
 hazard_ratios_infra['v_k'] = hazard_ratios_infra['frac_destroyed']/hazard_ratios_infra['fa']
+hazard_ratios_infra['share'] = broadcast_simple(infra_stocks.share,hazard_ratios_infra.index)
 
 ###Julie dk in infra_stocks is an average over rp of frac_destroyed in hazard_ratios_infra
 infra_stocks = broadcast_simple(infra_stocks,df.index)
@@ -349,12 +350,10 @@ averaged_dk,proba_serie1 = average_over_rp(hazard_ratios_infra['frac_destroyed']
 infra_stocks['dk'] = averaged_dk.mean(level=['sector',economy]).clip(upper=0.99)
 
 ##adds the hh_share column in cat_info. this is the share of household's capital that belongs to the household and will be multiplied by the vulnerability of the household (and fa)
-share_hh_k = infra_stocks.share.unstack('sector')[["other_k","building_residential"]].sum(level=economy) #share of total assets that have the hh vulnerability
-cat_info['hh_share'] = broadcast_simple(share_hh_k,cat_info.index)
+cat_info['hh_share'] = broadcast_simple(infra_stocks.share.unstack('sector')[["other_k","building_residential"]].sum(axis=1).sum(level=economy),cat_info.index)
 
 ##adds the public_loss variable in hazard_ratios. this is the share of households's capital that is destroyed and does not directly belongs to the household (fa is missing but it's the same for all capital)
-share_v_infra = hazard_ratios_infra[["share","v_k"]].prod(axis=1, skipna=True).drop(["other_k","building_residential"],level='sector').sum(level=event_level+['hhid']) #asset loss summed over the different infrastructure sectors
-hazard_ratios['public_loss'] = share_v_infra
+hazard_ratios['public_loss'] = hazard_ratios_infra[["share","v_k"]].prod(axis=1, skipna=True).drop(["other_k","building_residential"],level='sector').sum(level=event_level+['hhid'])
 
 infra_stocks.to_csv(intermediate+'/infra_stocks.csv',encoding='utf-8', header=True,index=True)
 
@@ -366,6 +365,3 @@ cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index
 
 hazard_ratios= hazard_ratios.drop(['frac_destroyed','v'],axis=1)
 hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
-
-hazard_ratios_infra= hazard_ratios_infra.drop(['frac_destroyed'],axis=1)
-hazard_ratios_infra.to_csv(intermediate+'/hazard_ratios_infra.csv',encoding='utf-8', header=True)
