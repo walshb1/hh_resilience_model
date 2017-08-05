@@ -201,45 +201,66 @@ def get_hazard_df(myC,economy):
         return df
     
     elif myC == 'FJ':
-        df = pd.read_csv(inputs+'fj_tikina_aal.csv')[['TIKINA','PROVINCE','TID','Total_AAL','Total_Valu']].set_index(['TIKINA','PROVINCE','TID']).sum(level='PROVINCE').reset_index()
-        df.columns = [economy,'value_destroyed','total_value']
-        df = df.set_index([df.Division.replace({'Nadroga':'Nadroga-Navosa'})])
 
-        df_rp = pd.read_excel(inputs+'Fiji_exceedance.xlsx',sheetname='Fiji').set_index(['hazard']).drop(['EP','Population Affected'],axis=1)
-        df_rp = df_rp.rename(columns={'Return Period':'rp'})
+        df = pd.read_csv(inputs+'map_tikinas.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df['hazard'] = 'All Hazards'
 
+        df['Division'] = (df['Tikina_ID']/100).astype('int')
+        prov_code = get_places_dict(myC)
+        df = df.reset_index().set_index([df.Division.replace(prov_code)]).drop('Division',axis=1) #replace district code with its name
 
-        #df_aal = df_rp.loc[df_rp['Return Period']=='1']
+        df = df.rename(columns={'exceed_2':2475,'exceed_5':975,'exceed_10':475,
+                                'exceed_20':224,'exceed_40':100,'exceed_50':72,
+                                'exceed_65':50,'exceed_90':22,'exceed_99':10,'AAL':1})
 
-        df_rp = df_rp.reset_index().set_index(['hazard','rp'])
-        df_rp = df_rp.drop(['S.D.'],level='rp')
-        df_rp = df_rp.drop(['all perils','earthquake'],level='hazard')
+        df = df.reset_index().set_index(['Division','Tikina','Tikina_ID','hazard','Exp_Value'])
+        df.columns.name = 'rp'
 
-        print(df_rp)
+        df = df.stack().to_frame()
+        df = df.rename(columns={0:'value_destroyed'})
+
+        df = df.reset_index().set_index(['Division','Tikina','Tikina_ID','hazard','rp'])
+        df = df.sum(level=['Division','hazard','rp'])
+
+        df['fa'] = df['value_destroyed']/df['Exp_Value']
+
+        #df = pd.read_csv(inputs+'fj_tikina_aal.csv')[['TIKINA','PROVINCE','TID','Total_AAL','Total_Valu']].set_index(['TIKINA','PROVINCE','TID']).sum(level='PROVINCE').reset_index()
+        #df.columns = [economy,'value_destroyed','total_value']
+        #df = df.set_index([df.Division.replace({'Nadroga':'Nadroga-Navosa'})])
+
+        #df_rp = pd.read_excel(inputs+'Fiji_exceedance.xlsx',sheetname='Fiji').set_index(['hazard']).drop(['EP','Population Affected'],axis=1)
+        #df_rp = df_rp.rename(columns={'Return Period':'rp'})
+
+        ##df_aal = df_rp.loc[df_rp['Return Period']=='1']
+
+        #df_rp = df_rp.reset_index().set_index(['hazard','rp'])
+        #df_rp = df_rp.drop(['S.D.'],level='rp')
+        #df_rp = df_rp.drop(['all perils','earthquake'],level='hazard')
         
-        # what fraction of all losses does this province sustain?
-        df['f_losses'] = df['value_destroyed']/df['value_destroyed'].sum()
+        ## what fraction of all losses does this province sustain?
+        #df['f_losses'] = df['value_destroyed']/df['value_destroyed'].sum()
         
-        # what fraction of all assets are in this province?
-        df['f_value'] = df['total_value']/df['total_value'].sum()
+        ## what fraction of all assets are in this province?
+        #df['f_value'] = df['total_value']/df['total_value'].sum()
     
-        # what fraction of assets in the province are destroyed?
-        df['fa'] = df['value_destroyed']/df['total_value']
+        ## what fraction of assets in the province are destroyed?
+        #df['fa'] = df['value_destroyed']/df['total_value']
 
-        print(df)
-        print('Asset loss:',df.value_destroyed.sum()/df.total_value.sum())
+        #print('Asset loss:',df.value_destroyed.sum()/df.total_value.sum())
 
-        df_haz = broadcast_simple(df[['fa','f_losses','f_value','value_destroyed','total_value']],df_rp.index)
+        #df_haz = broadcast_simple(df[['fa','f_losses','f_value','value_destroyed','total_value']],df_rp.index)
 
-        df_haz = pd.merge(df_haz.reset_index(),df_rp.reset_index(),on=['hazard','rp'],how='outer').set_index(['Division','hazard','rp'])
+        #df_haz = pd.merge(df_haz.reset_index(),df_rp.reset_index(),on=['hazard','rp'],how='outer').set_index(['Division','hazard','rp'])
 
-        for aCol in ['Ground Up Loss','Emergency Loss','Building','Agriculture','Infrastructure']:
-            df_haz[aCol] = df_haz[aCol]*(df_haz['f_losses']/df_haz['total_value'])
+        #for aCol in ['Ground Up Loss','Emergency Loss','Building','Agriculture','Infrastructure']:
+        #    df_haz[aCol] = df_haz[aCol]*(df_haz['f_losses']/df_haz['total_value'])
 
-        df_haz.to_csv('~/Desktop/my_out.csv')
-        assert(False)
-            
-        return df_haz
+        #df_haz.to_csv('~/Desktop/my_out.csv')
+        #assert(False)
+
+        df.to_csv('~/Desktop/my_out_2.csv')
+
+        return df
 
     elif myC == 'SL':
         df = pd.read_excel(inputs+'hazards_data.xlsx',sheetname='hazard').dropna(how='any').set_index(['district','hazard','rp'])

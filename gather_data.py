@@ -295,7 +295,7 @@ if myCountry == 'PH':
     hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['provincial_capital']
     hazard_ratios = hazard_ratios.drop(['provincial_capital','value_destroyed'],axis=1)
 elif myCountry == 'FJ':
-    hazard_ratios['frac_destroyed'] = hazard_ratios['Ground Up Loss']#'Building']
+    hazard_ratios['frac_destroyed'] = hazard_ratios['fa']#'Ground Up Loss']#'Building']
     #hazard_ratios['frac_destroyed'] = hazard_ratios['Building']/hazard_ratios['provincial_capital']
     #hazard_ratios = hazard_ratios.drop(['Division','value_destroyed','provincial_capital','total_value'],axis=1)
 elif myCountry == 'SL':
@@ -304,11 +304,7 @@ elif myCountry == 'SL':
 # Have frac destroyed, need fa...
 # Frac value destroyed = SUM_i(k*v*fa)
 
-print(hazard_ratios.head(2))
-print(cat_info.head(2))
-
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on=economy,how='outer')
-print(hazard_ratios)
 hazard_ratios = hazard_ratios.set_index(event_level+['hhid'])[['frac_destroyed','v']]
 
 # Transfer fa in excess of 95% to vulnerability
@@ -328,3 +324,31 @@ cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index
 
 hazard_ratios= hazard_ratios.drop(['frac_destroyed','v'],axis=1)
 hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
+
+# Compare assets from survey to assets from AIR-PCRAFI
+
+my_df = ((df[['gdp_pc_pp_prov','pop']].prod(axis=1))/df['avg_prod_k']).to_frame(name='HIES')
+my_df['PCRAFI'] = df_haz.reset_index().ix[df_haz.reset_index().rp==1,['Division','Exp_Value']].set_index('Division')
+
+my_df['HIES']/=1.E9
+my_df['PCRAFI']/=1.E9
+
+ax = my_df.plot.scatter('PCRAFI','HIES')
+fit_line = np.polyfit(my_df['PCRAFI'],my_df['HIES'],1)
+ax.plot()
+
+plt.xlim(0.,8.)
+plt.ylim(0.,5.)
+
+my_linspace_x = np.array(np.linspace(plt.gca().get_xlim()[0],plt.gca().get_xlim()[1],10))
+my_linspace_y = fit_line[0]*my_linspace_x+fit_line[1]
+
+plt.plot(my_linspace_x,my_linspace_y)
+plt.annotate(str(round(100.*my_linspace_x[1]/my_linspace_y[1],1))+'%',[1.,4.])
+
+# 147 km main distribution line
+# 7000 km tranmission
+
+fig = plt.gcf()
+fig.savefig('/Users/brian/Desktop/my_plots/HIES_vs_PCRAFI_assets.pdf',format='pdf')
+

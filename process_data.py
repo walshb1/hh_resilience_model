@@ -126,8 +126,8 @@ q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 if myCountry == 'PH':
     myHaz = [['Manila','Mountain Province','Bukidnon','Negros Oriental','Bulacan','Northern Samar','Cebu'],['flood','wind'],[1,10,25,30,50,100,250,500,1000]]
 elif myCountry == 'FJ':
-    myHaz = [['Lau','Rewa','Macuata'],['earthquake','tsunami','typhoon'],[1,10,20,50,100,250,500,1000]]
-    #myHaz = [['Lau'],['earthquake'],[1,10,20,50,100,250,500,1000]]
+    myHaz = [['Lau','Rewa','Macuata'],['All Hazards'],[1,10,22,50,72,100,224,475,975,2475]]
+    #myHaz = [['Lau'],['earthquake','tsunami','typhoon'],[1,10,20,50,100,250,500,1000]]
 
 pov_line = get_poverty_line(myCountry)
 sub_line = get_subsistence_line(myCountry)
@@ -633,7 +633,7 @@ df = df.reset_index()
 #print('Prov pop = ',df.loc[(df.rp==1)&(df.hazard=='typhoon'),'pop'])
 #print('Prov GDP pc = ',df.loc[(df.rp==1)&(df.hazard=='typhoon'),'gdp_pc_pp_prov'])
 #print('Prov GDP = ',df.loc[(df.rp==1)&(df.hazard=='typhoon'),['gdp_pc_pp_prov','pop']].prod(axis=1))
-natl_gdp = df.loc[(df.rp==1)&(df.hazard=='typhoon'),['gdp_pc_pp_prov','pop']].prod(axis=1).sum()
+natl_gdp = df.loc[(df.rp==1)&(df.hazard==myHaz[1][0]),['gdp_pc_pp_prov','pop']].prod(axis=1).sum()
 
 print(summed)
 print(natl_gdp)

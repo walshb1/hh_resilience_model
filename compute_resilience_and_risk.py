@@ -136,7 +136,7 @@ if __name__ == '__main__':
     myCountry = 'FJ'
 
     if myCountry == 'FJ':
-        pds_str = 'no'
+        pds_str = 'unif_poor'#'no'
         pol_str = ['']#,
                    #'_exp095',      # reduce exposure of poor by 5% (of total exposure!)
                    #'_exr095',      # reduce exposure of rich by 5% (of total exposure!)
