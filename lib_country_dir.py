@@ -262,6 +262,15 @@ def get_infra_destroyed(myC):
         a.name = 'frac_destroyed'
         return pd.DataFrame(a)
     else:return None
+    
+def get_service_loss(myC):
+    if myC == 'FJ':
+        service_loss = pd.read_csv(inputs+'service_loss.csv').set_index(['hazard','rp'])
+        service_loss.columns.name='sector'
+        a = service_loss.stack()
+        a.name = 'cost_increase'
+        return pd.DataFrame(a)
+    else:return None
 
     
 def get_wb_or_penn_data(myC):

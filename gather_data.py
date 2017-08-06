@@ -10,7 +10,6 @@ get_ipython().magic('autoreload 2')
 # Import packages for data analysis
 from lib_country_dir import *
 from lib_gather_data import *
-from lib_compute_resilience_and_risk import average_over_rp
 from replace_with_warning import *
 import matplotlib.pyplot as plt
 import numpy as np
@@ -346,8 +345,6 @@ hazard_ratios_infra['v_k'] = hazard_ratios_infra['frac_destroyed']/hazard_ratios
 
 ###Julie dk in infra_stocks is an average over rp of frac_destroyed in hazard_ratios_infra
 infra_stocks = broadcast_simple(infra_stocks,df.index)
-averaged_dk,proba_serie1 = average_over_rp(hazard_ratios_infra['frac_destroyed'],'default_rp')
-infra_stocks['dk'] = averaged_dk.mean(level=['sector',economy]).clip(upper=0.99)
 
 ##adds the hh_share column in cat_info. this is the share of household's capital that belongs to the household and will be multiplied by the vulnerability of the household (and fa)
 cat_info['hh_share'] = broadcast_simple(infra_stocks.share.unstack('sector')[["other_k","building_residential"]].sum(axis=1).sum(level=economy),cat_info.index)
@@ -355,13 +352,21 @@ cat_info['hh_share'] = broadcast_simple(infra_stocks.share.unstack('sector')[["o
 ##adds the public_loss variable in hazard_ratios. this is the share of households's capital that is destroyed and does not directly belongs to the household (fa is missing but it's the same for all capital)
 hazard_ratios['public_loss'] = hazard_ratios_infra[["share","v_k"]].prod(axis=1, skipna=True).drop(["other_k","building_residential"],level='sector').sum(level=event_level+['hhid'])
 
+#Calculation of d(income) over dk for the macro_multiplier. will drop all the intermediate variables at the end
+service_loss = get_service_loss(myCountry)
+service_loss = pd.merge(service_loss.reset_index(),infra_stocks.reset_index(),on=['sector'],how='outer').set_index(['sector']+event_level)
+service_loss = broadcast_simple(service_loss,hazard_ratios.index)
+hazard_ratios['v_product'] = ((1-service_loss.cost_increase)**service_loss.e).sum(level=event_level+['hhid'])
+hazard_ratios['alpha_v_sum'] = hazard_ratios_infra[["frac_destroyed","share"]].prod(axis=1).sum(level=event_level+['hhid'])
+hazard_ratios['avg_prod_k'] = broadcast_simple(df.avg_prod_k,hazard_ratios.index)
+hazard_ratios["dy_over_dk"]  = (1-hazard_ratios['v_product'])/hazard_ratios['alpha_v_sum']*hazard_ratios["avg_prod_k"]+hazard_ratios['v_product']*hazard_ratios["avg_prod_k"]/3
+
 infra_stocks.to_csv(intermediate+'/infra_stocks.csv',encoding='utf-8', header=True,index=True)
 
 df.to_csv(intermediate+'/macro.csv',encoding='utf-8', header=True,index=True)
 
-
 if 'index' in cat_info.columns: cat_info = cat_info.drop(['index'],axis=1)
 cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index=True)
 
-hazard_ratios= hazard_ratios.drop(['frac_destroyed','v'],axis=1)
+hazard_ratios= hazard_ratios.drop(['frac_destroyed','v','v_product','alpha_v_sum','avg_prod_k'],axis=1)
 hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
