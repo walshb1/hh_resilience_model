@@ -196,7 +196,7 @@ def get_vul_curve(myC,struct):
 def get_hazard_df(myC,economy):
 
     if myC == 'PH': 
-        df = get_AIR_data(inputs+'Risk_Profile_Master_With_Population.xlsx','Loss_Results','Private','Agg').reset_index()
+        df = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','Private','Agg').reset_index()
         df.columns = [economy,'hazard','rp','value_destroyed']
         return df
     
@@ -282,22 +282,6 @@ def get_hazard_df(myC,economy):
         #print(df_sum.reset_index().set_index(['rp']).ix[1,'bldg_stock'].sum())
         df_sum['Exp_Value'] *= (1.0/0.48) # AIR-PCRAFI in USD(2009?) --> switch to FJD
         
-        # what fraction of all assets are in this province?
-        #df['f_value'] = df['total_value']/df['total_value'].sum()
-    
-        # what fraction of assets in the province are destroyed?
-        #df['fa'] = df['value_destroyed']/df['total_value']
-
-        #print(df)
-        #print('Asset loss:',df.value_destroyed.sum()/df.total_value.sum())
-
-        #df_haz = broadcast_simple(df[['fa','f_losses','f_value','value_destroyed','total_value']],df_rp.index)
-
-        #df_haz = pd.merge(df_haz.reset_index(),df_rp.reset_index(),on=['hazard','rp'],how='outer').set_index(['Division','hazard','rp'])
-
-        #for aCol in ['Ground Up Loss','Emergency Loss','Building','Agriculture','Infrastructure']:
-        #    df_haz[aCol] = df_haz[aCol]*(df_haz['f_losses']/df_haz['total_value'])
-
         return df_sum
 
     elif myC == 'SL':
@@ -305,34 +289,6 @@ def get_hazard_df(myC,economy):
         return df
 
     else: return None
-    
-def get_infra_stocks_data(myC):
-    if myC == 'FJ':
-        infra_stocks = pd.read_csv(inputs+'infra_stocks.csv',index_col='sector')
-        return infra_stocks
-    else:return None
-    
-def get_infra_destroyed(myC):
-    if myC == 'FJ':
-        hazard_ratios_infra = pd.read_csv(inputs+'frac_destroyed_infra.csv').set_index(['Division','hazard','rp'])
-        hazard_ratios_infra.columns.name='sector'
-        a = hazard_ratios_infra.stack()
-        a.name = 'frac_destroyed'
-        return pd.DataFrame(a)
-    else:return None
-
-    
-def get_wb_or_penn_data(myC):
-    #iso2 to iso3 table
-    names_to_iso2 = pd.read_csv(inputs+'names_to_iso.csv', usecols=['iso2','country']).drop_duplicates().set_index('country').squeeze()
-    K = pd.read_csv(inputs+'avg_prod_k_with_gar_for_sids.csv',index_col='Unnamed: 0')
-    wb = pd.read_csv(inputs+'wb_data.csv',index_col='country')
-    wb['Ktot'] = wb.gdp_pc_pp*wb['pop']/K.avg_prod_k
-    wb['GDP'] = wb.gdp_pc_pp*wb['pop']
-    wb['avg_prod_k'] = K.avg_prod_k
-    wb['iso2'] = names_to_iso2
-    return wb.set_index('iso2').loc[myC,['Ktot','GDP','avg_prod_k']]
-    
 
 def get_poverty_line(myC):
     
@@ -369,8 +325,7 @@ def get_scale_fac(myC):
 def get_avg_prod(myC):
     
     if myC == 'PH': return 0.337960802589002
-    # elif myC == 'FJ': return 0.336139019412
-    elif myC == 'FJ': return 0.348104 ##Julie: for Fiji I have 0.348104 (I have used the latest value from the penn tables)
+    elif myC == 'FJ': return 0.336139019412
     elif myC == 'SL': return 0.337960802589002
 
 def get_demonym(myC):

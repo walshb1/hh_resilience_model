@@ -54,7 +54,7 @@ def get_weighted_median(q1,q2,q3,q4,q5,key):
 
     return [median_q1,median_q2,median_q3,median_q4,median_q5]
 
-def apply_policies(pol_str,macro,cat_info,infra_stocks,hazard_ratios):
+def apply_policies(pol_str,macro,cat_info,hazard_ratios):
     
     print('CAT_INFO columns:\n',cat_info.columns)
     print('MACRO columns:\n',macro.columns)
@@ -125,16 +125,17 @@ def apply_policies(pol_str,macro,cat_info,infra_stocks,hazard_ratios):
 
     return macro,cat_info,hazard_ratios
 
-def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,infra_stocks,economy,event_level,income_cats,default_rp,verbose_replace=True):
+def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,event_level,income_cats,default_rp,verbose_replace=True):
 
     #cat_info = cat_info[cat_info.c>0]
-    hazard_ratios       = pd.read_csv(fname, index_col=event_level+[income_cats])
-    macro,cat_info,hazard_ratios = apply_policies(pol_str,macro,cat_info,infra_stocks,hazard_ratios)
+    hazard_ratios = pd.read_csv(fname, index_col=event_level+[income_cats])
+
+    macro,cat_info,hazard_ratios = apply_policies(pol_str,macro,cat_info,hazard_ratios)
 
     #compute
-    return process_input(myCountry,pol_str,macro,cat_info,infra_stocks,hazard_ratios,economy,event_level,default_rp,verbose_replace=True)
+    return process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_level,default_rp,verbose_replace=True)
 
-def process_input(myCountry,pol_str,macro,cat_info,infra_stocks,hazard_ratios,economy,event_level,default_rp,verbose_replace=True):
+def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_level,default_rp,verbose_replace=True):
     flag1=False
     flag2=False
 
@@ -146,7 +147,7 @@ def process_input(myCountry,pol_str,macro,cat_info,infra_stocks,hazard_ratios,ec
         #These lines remove countries in macro not in cat_info
         if myCountry == 'SL': hazard_ratios = hazard_ratios.dropna()
         else: hazard_ratios = hazard_ratios.fillna(0)
-        
+            
         common_places = [c for c in macro.index if c in cat_info.index and c in hazard_ratios.index]
         print(common_places)
 
@@ -154,11 +155,6 @@ def process_input(myCountry,pol_str,macro,cat_info,infra_stocks,hazard_ratios,ec
 
         # This drops 1 province from macro
         macro = macro.ix[common_places]
-        
-        # This drops 1 province from infra_stocks? infra_stocks has the same index as macro
-        infra_stocks = infra_stocks.reset_index().set_index(economy)
-        infra_stocks = infra_stocks.ix[common_places]
-        infra_stocks = infra_stocks.reset_index().set_index(['sector']+economy)
 
         # Nothing drops from cat_info
         cat_info = cat_info.ix[common_places]
@@ -218,14 +214,11 @@ def process_input(myCountry,pol_str,macro,cat_info,infra_stocks,hazard_ratios,ec
     recons_rate = np.log(1/0.05) / macro['T_rebuild_K']  
     
     #Calculation of macroeconomic resilience
-    macro["v_product"]        = v_product(infra_stocks, economy)
-    macro["alpha_v_sum"]      = alpha_v_sum(infra_stocks, economy)
-    macro["dy_over_dk"]       = (1-macro["v_product"])/macro["alpha_v_sum"]*macro["avg_prod_k"]+macro["v_product"]*macro["avg_prod_k"]/3
-    macro["macro_multiplier"] = (macro["dy_over_dk"] +recons_rate)/(macro["rho"]+recons_rate)  
+    macro['macro_multiplier'] =(macro['avg_prod_k']+recons_rate)/(macro['rho']+recons_rate)  #Gamma in the technical paper
 
     ####FORMATTING
     #gets the event level index
-    event_level_index        = hazard_ratios_event.reset_index().set_index(event_level).index #index composed on countries, hazards and rps.
+    event_level_index = hazard_ratios_event.reset_index().set_index(event_level).index #index composed on countries, hazards and rps.
 
     #Broadcast macro to event level 
     macro_event = broadcast_simple(macro,event_level_index)	
@@ -239,8 +232,7 @@ def process_input(myCountry,pol_str,macro,cat_info,infra_stocks,hazard_ratios,ec
             macro_event[cols] =  hazard_ratios_event[cols]
     
     #Broadcast categories to event level
-    cats_event = broadcast_simple(cat_info,  event_level_index )
-    cats_event['public_loss'] = hazard_ratios_event.public_loss
+    cats_event = broadcast_simple(cat_info,  event_level_index)
 
     #updates columns in cats with columns in hazard_ratios_event	
     # applies mh ratios to relevant columns
@@ -254,9 +246,9 @@ def process_input(myCountry,pol_str,macro,cat_info,infra_stocks,hazard_ratios,ec
     if (flag1 and flag2):
         print('Replaced in both: '+', '.join(np.intersect1d(cols,cols_c)))
 
-    return macro_event, cats_event, hazard_ratios_event
+    return macro_event, cats_event, hazard_ratios_event 
 
-def compute_dK(infra_stocks,pol_str,macro_event, cats_event,event_level,affected_cats ):
+def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
 
     cats_event_ia=concat_categories(cats_event,cats_event,index= affected_cats)
     
@@ -277,16 +269,16 @@ def compute_dK(infra_stocks,pol_str,macro_event, cats_event,event_level,affected
         myNna = cats_event[aWGT]*(1-cats_event.fa)
         cats_event_ia[aWGT] = concat_categories(myNaf,myNna, index= affected_cats)    
         print('From here: \'weight\' = nAffected and nNotAffected: individuals') 
-    
-    #de_index so can access cats as columns and index is still event.
+        
+    #de_index so can access cats as columns and index is still event
     cats_event_ia = cats_event_ia.reset_index(['hhid', 'affected_cat']).sort_index()
-    
+
     #actual vulnerability
     cats_event_ia['v_shew']=cats_event_ia['v']*(1-macro_event['pi']*cats_event_ia['shew']) 
-    
-    #capital losses and total capital losses    
-    cats_event_ia['dk']  = cats_event_ia[['hh_share','k','v_shew']].prod(axis=1, skipna=False)+ cats_event_ia[['public_loss','k']].prod(axis=1, skipna=False)
-    
+
+    #capital losses and total capital losses
+    cats_event_ia['dk']  = cats_event_ia[['k','v_shew']].prod(axis=1, skipna=False) #capital potentially be damaged 
+
     cats_event_ia.ix[(cats_event_ia.affected_cat=='na'), 'dk']=0
 
     #'provincial' losses
@@ -599,7 +591,7 @@ def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_C
             stats = np.setdiff1d(cats_event_iah.columns,event_level+['helped_cat',  'affected_cat',     'hhid'])
         else:
             stats = np.setdiff1d(cats_event_iah.columns,event_level+['helped_cat',  'affected_cat',     'hhid','has_received_help_from_PDS_cat'])		
-		#Julie: careful this could aggregate stats that shouldn't be aggregated
+		
         df_stats = agg_to_event_level(cats_event_iah, stats,event_level)
         # if verbose_replace:
         print('stats are '+','.join(stats))
@@ -731,16 +723,6 @@ def welf1(c,elast,comp):
 def welf(c,elast):
     y=(c**(1-elast)-1)/(1-elast)
     return y
-    
-def v_product(infra_stocks,economy):
-    """multiplier of the production function, using the service losses of different infrastructure sectors."""
-    p = (1-infra_stocks.v_serv)**infra_stocks.e
-    return p.sum(level=economy)
-        
-def alpha_v_sum(infra_stocks,economy):
-    """sum of the shares times annual average capital losses. """
-    return infra_stocks[["dk","share"]].prod(axis=1).sum(level=economy)
-
 	
 def average_over_rp(df,default_rp,protection=None):        
     """Aggregation of the outputs over return periods"""    
