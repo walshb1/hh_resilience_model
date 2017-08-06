@@ -137,8 +137,8 @@ if __name__ == '__main__':
     myCountry = 'FJ'
 
     if myCountry == 'FJ':
-        pds_str = 'no'
-        pol_str = ['']#,
+        pds_str = ['no','unif_poor']
+        pol_str = ''#,
                    #'_exp095',      # reduce exposure of poor by 5% (of total exposure!)
                    #'_exr095',      # reduce exposure of rich by 5% (of total exposure!)
                    #'_pcinc_p_110', # increase per capita income of poor people by 10%
@@ -152,7 +152,7 @@ if __name__ == '__main__':
         # --> 
         
         with Pool() as pool:
-            pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), pol_str,repeat(pds_str)))
+            pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str), pds_str))
     
     if myCountry == 'PH' or myCountry == 'SL':
         pds_str = ['no','unif_poor']

@@ -20,8 +20,8 @@ max_support         = 0.05 # fraction of GDP
 # Define directories
 def set_directories(myCountry):  # get current directory
     global inputs, intermediate
-    inputs        = model+'/inputs/'+myCountry+'/'       # get inputs data directory
-    intermediate  = model+'/intermediate/'+myCountry+'/' # get outputs data directory
+    inputs        = model+'/../inputs/'+myCountry+'/'       # get inputs data directory
+    intermediate  = model+'/../intermediate/'+myCountry+'/' # get outputs data directory
 
     # If the depository directories don't exist, create one:
     if not os.path.exists(inputs): 
@@ -201,46 +201,104 @@ def get_hazard_df(myC,economy):
         return df
     
     elif myC == 'FJ':
-        df = pd.read_csv(inputs+'fj_tikina_aal.csv')[['TIKINA','PROVINCE','TID','Total_AAL','Total_Valu']].set_index(['TIKINA','PROVINCE','TID']).sum(level='PROVINCE').reset_index()
-        df.columns = [economy,'value_destroyed','total_value']
-        df = df.set_index([df.Division.replace({'Nadroga':'Nadroga-Navosa'})])
 
-        df_rp = pd.read_excel(inputs+'Fiji_exceedance.xlsx',sheetname='Fiji').set_index(['hazard']).drop(['EP','Population Affected'],axis=1)
-        df_rp = df_rp.rename(columns={'Return Period':'rp'})
+        df_all_ah = pd.read_csv(inputs+'map_tikinas.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_all_ah['hazard'] = 'All Hazards'
+        df_all_ah['asset_class'] = 'all'
+        df_all_ah['asset_subclass'] = 'all'
 
+        # Hazard = tropical cyclone
+        #df_bld_tc = pd.read_csv(inputs+'fiji_tc_buildings_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        #df_bld_tc['hazard'] = 'TC'
+        #df_bld_tc['asset_class'] = 'bld'
+        #df_bld_tc['asset_subclass'] = 'all'
+        #df_bld_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])  
 
-        #df_aal = df_rp.loc[df_rp['Return Period']=='1']
+        # load all building values
+        df_bld_oth_tc = pd.read_csv(inputs+'fiji_tc_buildings_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_bld_oth_tc['hazard'] = 'TC'
+        df_bld_oth_tc['asset_class'] = 'bld_oth'
+        df_bld_oth_tc['asset_subclass'] = 'oth'
+        df_bld_oth_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])  
 
-        df_rp = df_rp.reset_index().set_index(['hazard','rp'])
-        df_rp = df_rp.drop(['S.D.'],level='rp')
-        df_rp = df_rp.drop(['all perils','earthquake'],level='hazard')
+        # load residential building values
+        df_bld_res_tc = pd.read_csv(inputs+'fiji_tc_buildings_res_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_bld_res_tc['hazard'] = 'TC'
+        df_bld_res_tc['asset_class'] = 'bld_res'
+        df_bld_res_tc['asset_subclass'] = 'res'
+        df_bld_res_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])  
 
-        print(df_rp)
+        # subtract residential from all bldg stock,
+        for ic in ['AAL','exceed_2','exceed_5','exceed_10','exceed_20','exceed_40','exceed_50','exceed_65','exceed_90','exceed_99','Exp_Value']:
+            
+            df_bld_oth_tc[ic] *= (6.505E9/df_bld_oth_tc['Exp_Value'].sum())
+            df_bld_res_tc[ic] *= (4.094E9/df_bld_res_tc['Exp_Value'].sum())
+            df_bld_oth_tc[ic] -= df_bld_res_tc[ic]
+
+        df_inf_tc = pd.read_csv(inputs+'fiji_tc_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_inf_tc['hazard'] = 'TC'
+        df_inf_tc['asset_class'] = 'inf'
+        df_inf_tc['asset_subclass'] = 'all' 
+        df_inf_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])       
+
+        df_agr_tc = pd.read_csv(inputs+'fiji_tc_crops_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_agr_tc['hazard'] = 'TC'
+        df_agr_tc['asset_class'] = 'agr'
+        df_agr_tc['asset_subclass'] = 'all'
+        df_agr_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])
+      
+        df = pd.concat([df_bld_oth_tc,df_bld_res_tc,df_inf_tc,df_agr_tc])
+        df = df.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])
+
+        df = df.rename(columns={'exceed_2':2475,'exceed_5':975,'exceed_10':475,
+                                'exceed_20':224,'exceed_40':100,'exceed_50':72,
+                                'exceed_65':50,'exceed_90':22,'exceed_99':10,'AAL':1})
+        df.columns.name = 'rp'
+        df = df.stack().to_frame()
+
+        df = df.reset_index().set_index(['Tikina','Tikina_ID','hazard','rp','asset_class','asset_subclass'])
+        df = df.rename(columns={0:'value_destroyed'})
+
+        df = df.sort_index().reset_index()
+
+        df['Division'] = (df['Tikina_ID']/100).astype('int')
+        prov_code = get_places_dict(myC)
+        df = df.reset_index().set_index([df.Division.replace(prov_code)]).drop(['index','Division','Tikina_ID','asset_subclass'],axis=1) #replace district code with its name
+        df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
+
+        df_sum = ((df['value_destroyed'].sum(level=['Division','hazard','rp']))/(df['Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
+        #df_sum = df_sum.sum(level=['Division','hazard','rp'])
         
-        # what fraction of all losses does this province sustain?
-        df['f_losses'] = df['value_destroyed']/df['value_destroyed'].sum()
+        df = df.sum(level=['Division','hazard','rp','asset_class'])
+        df = df.reset_index().set_index(['Division','hazard','rp'])
+
+        df_sum['Exp_Value'] = df['Exp_Value'].sum(level=['Division','hazard','rp'])
+        df_sum['frac_bld_res'] = df.loc[df.asset_class == 'bld_res','Exp_Value']/df['Exp_Value'].sum(level=['Division','hazard','rp'])
+        df_sum['frac_bld_oth'] = df.loc[df.asset_class == 'bld_oth','Exp_Value']/df['Exp_Value'].sum(level=['Division','hazard','rp'])
+        df_sum['frac_inf']     = df.loc[df.asset_class == 'inf','Exp_Value']/df['Exp_Value'].sum(level=['Division','hazard','rp'])
+        df_sum['frac_agr']     = df.loc[df.asset_class == 'agr','Exp_Value']/df['Exp_Value'].sum(level=['Division','hazard','rp'])
+
+        #df_sum['bldg_stock'] = df_sum[['Exp_Value','frac_bld_res']].prod(axis=1)+df_sum[['Exp_Value','frac_bld_oth']].prod(axis=1)
+        #print(df_sum.reset_index().set_index(['rp']).ix[1,'bldg_stock'].sum())
+        df_sum['Exp_Value'] *= (1.0/0.48) # AIR-PCRAFI in USD(2009?) --> switch to FJD
         
         # what fraction of all assets are in this province?
-        df['f_value'] = df['total_value']/df['total_value'].sum()
+        #df['f_value'] = df['total_value']/df['total_value'].sum()
     
         # what fraction of assets in the province are destroyed?
-        df['fa'] = df['value_destroyed']/df['total_value']
+        #df['fa'] = df['value_destroyed']/df['total_value']
 
-        print(df)
-        print('Asset loss:',df.value_destroyed.sum()/df.total_value.sum())
+        #print(df)
+        #print('Asset loss:',df.value_destroyed.sum()/df.total_value.sum())
 
-        df_haz = broadcast_simple(df[['fa','f_losses','f_value','value_destroyed','total_value']],df_rp.index)
+        #df_haz = broadcast_simple(df[['fa','f_losses','f_value','value_destroyed','total_value']],df_rp.index)
 
-        df_haz = pd.merge(df_haz.reset_index(),df_rp.reset_index(),on=['hazard','rp'],how='outer').set_index(['Division','hazard','rp'])
+        #df_haz = pd.merge(df_haz.reset_index(),df_rp.reset_index(),on=['hazard','rp'],how='outer').set_index(['Division','hazard','rp'])
 
-        for aCol in ['Ground Up Loss','Emergency Loss','Building','Agriculture','Infrastructure']:
-            df_haz[aCol] = df_haz[aCol]*(df_haz['f_losses']/df_haz['total_value'])
+        #for aCol in ['Ground Up Loss','Emergency Loss','Building','Agriculture','Infrastructure']:
+        #    df_haz[aCol] = df_haz[aCol]*(df_haz['f_losses']/df_haz['total_value'])
 
-        #Julie change this.
-        df_haz.to_csv('my_out.csv')
-        # assert(False)
-            
-        return df_haz
+        return df_sum
 
     elif myC == 'SL':
         df = pd.read_excel(inputs+'hazards_data.xlsx',sheetname='hazard').dropna(how='any').set_index(['district','hazard','rp'])
@@ -266,12 +324,12 @@ def get_infra_destroyed(myC):
     
 def get_wb_or_penn_data(myC):
     #iso2 to iso3 table
-    names_to_iso2 = pd.read_csv("inputs/names_to_iso.csv", usecols=["iso2","country"]).drop_duplicates().set_index("country").squeeze()
-    K = pd.read_csv("inputs/avg_prod_k_with_gar_for_sids.csv",index_col="Unnamed: 0")
-    wb = pd.read_csv("inputs/wb_data.csv",index_col="country")
-    wb["Ktot"] = wb.gdp_pc_pp*wb['pop']/K.avg_prod_k
-    wb["GDP"] = wb.gdp_pc_pp*wb['pop']
-    wb["avg_prod_k"] = K.avg_prod_k
+    names_to_iso2 = pd.read_csv(inputs+'names_to_iso.csv', usecols=['iso2','country']).drop_duplicates().set_index('country').squeeze()
+    K = pd.read_csv(inputs+'avg_prod_k_with_gar_for_sids.csv',index_col='Unnamed: 0')
+    wb = pd.read_csv(inputs+'wb_data.csv',index_col='country')
+    wb['Ktot'] = wb.gdp_pc_pp*wb['pop']/K.avg_prod_k
+    wb['GDP'] = wb.gdp_pc_pp*wb['pop']
+    wb['avg_prod_k'] = K.avg_prod_k
     wb['iso2'] = names_to_iso2
     return wb.set_index('iso2').loc[myC,['Ktot','GDP','avg_prod_k']]
     
