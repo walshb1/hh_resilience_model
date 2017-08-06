@@ -126,7 +126,7 @@ q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 if myCountry == 'PH':
     myHaz = [['Manila','Mountain Province','Bukidnon','Negros Oriental','Bulacan','Northern Samar','Cebu'],['flood','wind'],[1,10,25,30,50,100,250,500,1000]]
 elif myCountry == 'FJ':
-    myHaz = [['Lau','Rewa','Macuata'],['All Hazards'],[1,10,22,50,72,100,224,475,975,2475]]
+    myHaz = [['Lau','Rewa','Macuata'],['TC'],[1,10,22,50,72,100,224,475,975,2475]]
     #myHaz = [['Lau'],['earthquake','tsunami','typhoon'],[1,10,20,50,100,250,500,1000]]
 
 pov_line = get_poverty_line(myCountry)

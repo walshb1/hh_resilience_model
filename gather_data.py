@@ -295,9 +295,29 @@ if myCountry == 'PH':
     hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['provincial_capital']
     hazard_ratios = hazard_ratios.drop(['provincial_capital','value_destroyed'],axis=1)
 elif myCountry == 'FJ':
-    hazard_ratios['frac_destroyed'] = hazard_ratios['fa']#'Ground Up Loss']#'Building']
-    #hazard_ratios['frac_destroyed'] = hazard_ratios['Building']/hazard_ratios['provincial_capital']
-    #hazard_ratios = hazard_ratios.drop(['Division','value_destroyed','provincial_capital','total_value'],axis=1)
+
+    
+
+    hazard_ratios['personal_capital'] = (1/0.48)*(6.505/18.735)*(hazard_ratios[['Exp_Value','frac_bld_res']].prod(axis=1))# + hazard_ratios[['Exp_Value','frac_agr']].prod(axis=1))
+    #print(df['avg_prod_k'])
+
+    # PLOT
+
+    ax = hazard_ratios.plot.scatter('provincial_capital','personal_capital')
+    fit_line = np.polyfit(hazard_ratios['provincial_capital'],hazard_ratios['personal_capital'],1)
+    ax.plot()
+    
+    my_linspace_x = np.array(np.linspace(plt.gca().get_xlim()[0],plt.gca().get_xlim()[1],10))
+    my_linspace_y = fit_line[0]*my_linspace_x+fit_line[1]
+    
+    plt.plot(my_linspace_x,my_linspace_y)
+    plt.annotate(str(round(100.*fit_line[0],2))+'%',[0.,2.E9])
+    
+    fig = plt.gcf()
+    fig.savefig('/Users/brian/Desktop/my_plots/HIES_vs_PCRAFI_household_assets.pdf',format='pdf')
+
+    hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
+
 elif myCountry == 'SL':
     hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
 
@@ -305,6 +325,12 @@ elif myCountry == 'SL':
 # Frac value destroyed = SUM_i(k*v*fa)
 
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on=economy,how='outer')
+if myCountry == 'FJ':
+    hazard_ratios['k'] *= hazard_ratios['Exp_Value']/hazard_ratios['provincial_capital']
+    df['avg_prod_k'] *= hazard_ratios['provincial_capital'].mean()/hazard_ratios['Exp_Value'].mean()
+
+    print(df['avg_prod_k'])
+
 hazard_ratios = hazard_ratios.set_index(event_level+['hhid'])[['frac_destroyed','v']]
 
 # Transfer fa in excess of 95% to vulnerability
