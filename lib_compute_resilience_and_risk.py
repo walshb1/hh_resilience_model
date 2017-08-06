@@ -129,7 +129,7 @@ def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,infra_stoc
 
     #cat_info = cat_info[cat_info.c>0]
     hazard_ratios       = pd.read_csv(fname, index_col=event_level+[income_cats])
-    macro,cat_info,hazard_ratios = apply_policies(pol_str,macro,cat_info,hazard_ratios)
+    macro,cat_info,hazard_ratios = apply_policies(pol_str,macro,cat_info,infra_stocks,hazard_ratios)
 
     #compute
     return process_input(myCountry,pol_str,macro,cat_info,infra_stocks,hazard_ratios,economy,event_level,default_rp,verbose_replace=True)

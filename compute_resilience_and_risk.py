@@ -152,6 +152,7 @@ if __name__ == '__main__':
         # --> 
         
         with Pool() as pool:
+            print('-->',zip(repeat(myCountry), repeat(pol_str), pds_str))
             pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str), pds_str))
     
     if myCountry == 'PH' or myCountry == 'SL':
