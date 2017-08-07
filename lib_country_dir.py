@@ -227,11 +227,11 @@ def get_infra_destroyed(myC,df_haz):
     
 def get_service_loss(myC):
     if myC == 'FJ':
-        service_loss = pd.read_csv(inputs+'service_loss.csv').set_index(['hazard','rp'])
+        service_loss = pd.read_csv(inputs+'service_loss.csv').set_index(['hazard','rp'])[['transport','energy','water']]
         service_loss.columns.name='sector'
         a = service_loss.stack()
         a.name = 'cost_increase'
-        infra_stocks = get_infra_stocks_data(myC)
+        infra_stocks = get_infra_stocks_data(myC).loc[['transport','energy','water'],:]
         service_loss = pd.merge(pd.DataFrame(a).reset_index(),infra_stocks.e.reset_index(),on=['sector'],how='outer').set_index(['sector','hazard','rp'])
         return service_loss
     else:return None
