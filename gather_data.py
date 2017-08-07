@@ -342,7 +342,7 @@ cat_info['v'] = hazard_ratios.reset_index().set_index([economy,'hhid'])['v'].mea
 
 if myCountry == 'FJ':
 
-    hazard_ratios_infra = get_infra_destroyed(myCountry,economy)
+    hazard_ratios_infra = get_infra_destroyed(myCountry,df_haz)
     hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),hazard_ratios[['fa','k','pcwgt']].reset_index(),on=[economy,'hazard','rp'],how='outer')
     hazard_ratios_infra = hazard_ratios_infra.set_index(['sector']+event_level+['hhid'])
     hazard_ratios_infra['v_k'] = hazard_ratios_infra['frac_destroyed']/hazard_ratios_infra['fa']

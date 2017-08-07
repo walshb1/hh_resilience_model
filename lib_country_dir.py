@@ -211,18 +211,15 @@ def get_wb_or_penn_data(myC):
     return wb.set_index('iso2').loc[myC,['Ktot','GDP','avg_prod_k']]
     
 def get_infra_destroyed(myC,df_haz):
-        
-    #loads wb data and avg_prod_k from Penn tables
-    wb = get_wb_or_penn_data(myC)
 
-    infra_stocks = get_infra_stocks_data(myC)
-    infra_stocks.loc['other_k','value_k'] = wb.Ktot-infra_stocks.drop(['other_k'],axis=0).value_k.sum()
-    infra_stocks['share'] = infra_stocks.value_k/wb.Ktot
+    infra_stocks = get_infra_stocks_data(myC).unstack('sector')[['transport','energy','water']].stack()
+    infra_stocks['infra_share'] = infra_stocks.value_k/infra_stocks.value_k.sum()
     
-    hazard_ratios_infra = broadcast_simple(df_haz[['frac_inf','Exp_Value']].prod(axis=1),infra_stocks.index)
+    hazard_ratios_infra = broadcast_simple(df_haz['frac_inf'],infra_stocks.index)
     hazard_ratios_infra = pd.DataFrame(hazard_ratios_infra)
-    hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),infra_stocks.share.reset_index(),on='sector',how='outer').set_index(['Division','hazard','rp','sector'])
-    hazard_ratios_infra = hazard_ratios_infra.unstack('sector')[['transport','energy','water']].stack()
+    hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),infra_stocks.infra_share.reset_index(),on='sector',how='outer').set_index(['Division','hazard','rp','sector'])
+    hazard_ratios_infra['share'] = infra_stocks['infra_share']*hazard_ratios_infra['frac_inf']
+
     return hazard_ratios_infra.rename(columns={'frac_inf':'frac_destroyed'})
     
 def get_service_loss(myC):
