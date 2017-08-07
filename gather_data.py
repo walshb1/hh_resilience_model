@@ -296,7 +296,7 @@ if myCountry == 'PH':
     hazard_ratios = hazard_ratios.drop(['provincial_capital','value_destroyed'],axis=1)
 elif myCountry == 'FJ':
 
-    hazard_ratios['personal_capital'] = (1/0.48)*(6.505/18.735)*(hazard_ratios[['Exp_Value','frac_bld_res']].prod(axis=1))# + hazard_ratios[['Exp_Value','frac_agr']].prod(axis=1))
+    hazard_ratios['personal_capital'] = (hazard_ratios[['Exp_Value','frac_bld_res']].prod(axis=1))# + hazard_ratios[['Exp_Value','frac_agr']].prod(axis=1))
     #print(df['avg_prod_k'])
 
     # PLOT
