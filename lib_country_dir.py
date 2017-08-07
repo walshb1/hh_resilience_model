@@ -298,8 +298,9 @@ def get_hazard_df(myC,economy):
         df_inf['asset_subclass'] = 'all' 
         df_inf.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])       
 
-        # subtract residential from all bldg stock
+        # scale infrastructure to equal Julie's estimates
         for ic in ['AAL','exceed_2','exceed_5','exceed_10','exceed_20','exceed_40','exceed_50','exceed_65','exceed_90','exceed_99','Exp_Value']:
+            print(df_inf['Exp_Value'].sum(),'increased by factor of',(3.E09+9.6E08+5.15E08)/df_inf['Exp_Value'].sum())
             df_inf[ic] *= (3.E09+9.6E08+5.15E08)/df_inf['Exp_Value'].sum()
 
         # load agriculture values
@@ -363,6 +364,8 @@ def get_hazard_df(myC,economy):
         #df_sum['bldg_stock'] = df_sum[['Exp_Value','frac_bld_res']].prod(axis=1)+df_sum[['Exp_Value','frac_bld_oth']].prod(axis=1)
         #print(df_sum.reset_index().set_index(['rp']).ix[1,'bldg_stock'].sum())
         df_sum['Exp_Value'] *= (1.0/0.48) # AIR-PCRAFI in USD(2009?) --> switch to FJD
+        print(df_sum.sum(level=['hazard','rp']))
+        assert(False)
         
         return df_sum
 
