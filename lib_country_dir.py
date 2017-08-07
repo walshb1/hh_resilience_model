@@ -222,7 +222,7 @@ def get_infra_destroyed(myC,df_haz):
     hazard_ratios_infra = broadcast_simple(df_haz['frac_inf'],infra_stocks.index)
     hazard_ratios_infra = pd.DataFrame(hazard_ratios_infra)
     hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),infra_stocks.share.reset_index(),on='sector',how='outer').set_index(['Division','hazard','rp','sector'])
-    hazard_ratios_infra = hazard_ratios_infra.drop(['building_non_residential','building_residential','other_k'],level='sector')
+    hazard_ratios_infra = hazard_ratios_infra.drop(['agriculture','building_residential','other_k'],level='sector')
     return hazard_ratios_infra.rename(columns={'frac_inf':'frac_destroyed'})
     
 def get_service_loss(myC):

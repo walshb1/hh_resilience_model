@@ -296,8 +296,6 @@ if myCountry == 'PH':
     hazard_ratios = hazard_ratios.drop(['provincial_capital','value_destroyed'],axis=1)
 elif myCountry == 'FJ':
 
-    
-
     hazard_ratios['personal_capital'] = (1/0.48)*(6.505/18.735)*(hazard_ratios[['Exp_Value','frac_bld_res']].prod(axis=1))# + hazard_ratios[['Exp_Value','frac_agr']].prod(axis=1))
     #print(df['avg_prod_k'])
 
@@ -342,28 +340,30 @@ hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=0.0000001,upper=fa_threshol
 cat_info = cat_info.reset_index().set_index([economy,'hhid'])
 cat_info['v'] = hazard_ratios.reset_index().set_index([economy,'hhid'])['v'].mean(level=[economy,'hhid']).clip(upper=0.99)
 
-hazard_ratios_infra = get_infra_destroyed(myCountry,economy)
-hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),hazard_ratios[['fa','k','pcwgt']].reset_index(),on=[economy,'hazard','rp'],how='outer')
-hazard_ratios_infra = hazard_ratios_infra.set_index(['sector']+event_level+['hhid'])
-hazard_ratios_infra['v_k'] = hazard_ratios_infra['frac_destroyed']/hazard_ratios_infra['fa']
+if myCountry == 'FJ':
 
-##adds the hh_share column in cat_info. this is the share of household's capital that is not infrastructure
-cat_info['hh_share'] = 1-hazard_ratios_infra.share.sum(level=[economy,'hazard','rp','hhid']).mean()
+    hazard_ratios_infra = get_infra_destroyed(myCountry,economy)
+    hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),hazard_ratios[['fa','k','pcwgt']].reset_index(),on=[economy,'hazard','rp'],how='outer')
+    hazard_ratios_infra = hazard_ratios_infra.set_index(['sector']+event_level+['hhid'])
+    hazard_ratios_infra['v_k'] = hazard_ratios_infra['frac_destroyed']/hazard_ratios_infra['fa']
+    
+    ##adds the hh_share column in cat_info. this is the share of household's capital that is not infrastructure
+    cat_info['hh_share'] = 1-hazard_ratios_infra.share.sum(level=[economy,'hazard','rp','hhid']).mean()
+    
+    ##adds the public_loss variable in hazard_ratios. this is the share of households's capital that is destroyed and does not directly belongs to the household (fa is missing but it's the same for all capital)
+    hazard_ratios['public_loss'] = hazard_ratios_infra[["share","v_k"]].prod(axis=1, skipna=True).sum(level=event_level+['hhid'])
 
-##adds the public_loss variable in hazard_ratios. this is the share of households's capital that is destroyed and does not directly belongs to the household (fa is missing but it's the same for all capital)
-hazard_ratios['public_loss'] = hazard_ratios_infra[["share","v_k"]].prod(axis=1, skipna=True).sum(level=event_level+['hhid'])
+    #Calculation of d(income) over dk for the macro_multiplier. will drop all the intermediate variables at the end
 
-#Calculation of d(income) over dk for the macro_multiplier. will drop all the intermediate variables at the end
-service_loss        = get_service_loss(myCountry)
-service_loss_event  = pd.DataFrame(index=service_loss.reset_index('sector').index) #removes the sector level
-service_loss_event['v_product'] = ((1-service_loss.cost_increase)**service_loss.e).sum(level=['hazard','rp'])
-service_loss_event['alpha_v_sum'] = hazard_ratios_infra[['frac_destroyed','share','k','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])/hazard_ratios_infra[['share','k','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
-service_loss_event['avg_prod_k'] = df.avg_prod_k.mean()
-service_loss_event["dy_over_dk"]  = ((1-service_loss_event['v_product'])/service_loss_event['alpha_v_sum']*service_loss_event["avg_prod_k"]+service_loss_event['v_product']*service_loss_event["avg_prod_k"]/3)
-service_loss_event["dy_over_dk"] = service_loss_event[["dy_over_dk",'avg_prod_k']].max(axis=1)
-
-hazard_ratios = pd.merge(hazard_ratios.reset_index(),service_loss_event.dy_over_dk.reset_index(),on=['hazard','rp'],how='outer')
-
+    service_loss        = get_service_loss(myCountry)
+    service_loss_event  = pd.DataFrame(index=service_loss.reset_index('sector').index) #removes the sector level
+    service_loss_event['v_product'] = ((1-service_loss.cost_increase)**service_loss.e).sum(level=['hazard','rp'])
+    service_loss_event['alpha_v_sum'] = hazard_ratios_infra[['frac_destroyed','share','k','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])/hazard_ratios_infra[['share','k','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
+    service_loss_event['avg_prod_k'] = df.avg_prod_k.mean()
+    service_loss_event["dy_over_dk"]  = ((1-service_loss_event['v_product'])/service_loss_event['alpha_v_sum']*service_loss_event["avg_prod_k"]+service_loss_event['v_product']*service_loss_event["avg_prod_k"]/3)
+    service_loss_event["dy_over_dk"] = service_loss_event[["dy_over_dk",'avg_prod_k']].max(axis=1)
+    
+    hazard_ratios = pd.merge(hazard_ratios.reset_index(),service_loss_event.dy_over_dk.reset_index(),on=['hazard','rp'],how='outer')
 
 
 df.to_csv(intermediate+'/macro.csv',encoding='utf-8', header=True,index=True)
@@ -375,29 +375,31 @@ hazard_ratios= hazard_ratios.drop(['frac_destroyed','v','k','pcwgt'],axis=1)
 hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
 
 # Compare assets from survey to assets from AIR-PCRAFI
-df_haz = df_haz.reset_index()
-my_df = ((df[['gdp_pc_pp_prov','pop']].prod(axis=1))/df['avg_prod_k']).to_frame(name='HIES')
-my_df['PCRAFI'] = df_haz.ix[(df_haz.rp==1)&(df_haz.hazard=='TC'),['Division','Exp_Value']].set_index('Division')
 
-my_df['HIES']/=1.E9
-my_df['PCRAFI']/=1.E9
-
-ax = my_df.plot.scatter('PCRAFI','HIES')
-fit_line = np.polyfit(my_df['PCRAFI'],my_df['HIES'],1)
-ax.plot()
-
-plt.xlim(0.,8.)
-plt.ylim(0.,5.)
-
-my_linspace_x = np.array(np.linspace(plt.gca().get_xlim()[0],plt.gca().get_xlim()[1],10))
-my_linspace_y = fit_line[0]*my_linspace_x+fit_line[1]
-
-plt.plot(my_linspace_x,my_linspace_y)
-plt.annotate(str(round(100.*my_linspace_x[1]/my_linspace_y[1],1))+'%',[1.,4.])
-
-# 147 km main distribution line
-# 7000 km tranmission
-
-fig = plt.gcf()
-fig.savefig('/Users/brian/Desktop/my_plots/HIES_vs_PCRAFI_assets.pdf',format='pdf')
-
+if myCountry == 'FJ':
+    df_haz = df_haz.reset_index()
+    my_df = ((df[['gdp_pc_pp_prov','pop']].prod(axis=1))/df['avg_prod_k']).to_frame(name='HIES')
+    my_df['PCRAFI'] = df_haz.ix[(df_haz.rp==1)&(df_haz.hazard=='TC'),['Division','Exp_Value']].set_index('Division')
+    
+    my_df['HIES']/=1.E9
+    my_df['PCRAFI']/=1.E9
+    
+    ax = my_df.plot.scatter('PCRAFI','HIES')
+    fit_line = np.polyfit(my_df['PCRAFI'],my_df['HIES'],1)
+    ax.plot()
+    
+    plt.xlim(0.,8.)
+    plt.ylim(0.,5.)
+    
+    my_linspace_x = np.array(np.linspace(plt.gca().get_xlim()[0],plt.gca().get_xlim()[1],10))
+    my_linspace_y = fit_line[0]*my_linspace_x+fit_line[1]
+    
+    plt.plot(my_linspace_x,my_linspace_y)
+    plt.annotate(str(round(100.*my_linspace_x[1]/my_linspace_y[1],1))+'%',[1.,4.])
+    
+    # 147 km main distribution line
+    # 7000 km tranmission
+    
+    fig = plt.gcf()
+    fig.savefig('/Users/brian/Desktop/my_plots/HIES_vs_PCRAFI_assets.pdf',format='pdf')
+    
