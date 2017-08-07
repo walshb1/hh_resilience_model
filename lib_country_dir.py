@@ -212,7 +212,10 @@ def get_wb_or_penn_data(myC):
     
 def get_infra_destroyed(myC,df_haz):
 
-    infra_stocks = get_infra_stocks_data(myC).unstack('sector')[['transport','energy','water']].stack()
+    print(get_infra_stocks_data(myC))
+
+    infra_stocks = get_infra_stocks_data(myC).loc[['transport','energy','water'],:]
+     #.value_k.unstack('sector')[['transport','energy','water']].stack().to_frame(name='value_k')
     infra_stocks['infra_share'] = infra_stocks.value_k/infra_stocks.value_k.sum()
     
     hazard_ratios_infra = broadcast_simple(df_haz['frac_inf'],infra_stocks.index)
