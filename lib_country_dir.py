@@ -192,6 +192,49 @@ def get_vul_curve(myC,struct):
         return df        
         
     else: return None
+    
+def get_infra_stocks_data(myC):
+    if myC == 'FJ':
+        infra_stocks = pd.read_csv(inputs+'infra_stocks.csv',index_col='sector')
+        return infra_stocks
+    else:return None
+    
+def get_wb_or_penn_data(myC):
+    #iso2 to iso3 table
+    names_to_iso2 = pd.read_csv("inputs/names_to_iso.csv", usecols=["iso2","country"]).drop_duplicates().set_index("country").squeeze()
+    K = pd.read_csv("inputs/avg_prod_k_with_gar_for_sids.csv",index_col="Unnamed: 0")
+    wb = pd.read_csv("inputs/wb_data.csv",index_col="country")
+    wb["Ktot"] = wb.gdp_pc_pp*wb['pop']/K.avg_prod_k
+    wb["GDP"] = wb.gdp_pc_pp*wb['pop']
+    wb["avg_prod_k"] = K.avg_prod_k
+    wb['iso2'] = names_to_iso2
+    return wb.set_index('iso2').loc[myC,['Ktot','GDP','avg_prod_k']]
+    
+def get_infra_destroyed(myC,df_haz):
+        
+    #loads wb data and avg_prod_k from Penn tables
+    wb = get_wb_or_penn_data(myC)
+
+    infra_stocks = get_infra_stocks_data(myC)
+    infra_stocks.loc['other_k','value_k'] = wb.Ktot-infra_stocks.drop(['other_k'],axis=0).value_k.sum()
+    infra_stocks['share'] = infra_stocks.value_k/wb.Ktot
+    
+    hazard_ratios_infra = broadcast_simple(df_haz['frac_inf'],infra_stocks.index)
+    hazard_ratios_infra = pd.DataFrame(hazard_ratios_infra)
+    hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),infra_stocks.share.reset_index(),on='sector',how='outer').set_index(['Division','hazard','rp','sector'])
+    hazard_ratios_infra = hazard_ratios_infra.drop(['building_non_residential','building_residential','other_k'],level='sector')
+    return hazard_ratios_infra.rename(columns={'frac_inf':'frac_destroyed'})
+    
+def get_service_loss(myC):
+    if myC == 'FJ':
+        service_loss = pd.read_csv(inputs+'service_loss.csv').set_index(['hazard','rp'])
+        service_loss.columns.name='sector'
+        a = service_loss.stack()
+        a.name = 'cost_increase'
+        infra_stocks = get_infra_stocks_data(myC)
+        service_loss = pd.merge(pd.DataFrame(a).reset_index(),infra_stocks.e.reset_index(),on=['sector'],how='outer').set_index(['sector','hazard','rp'])
+        return service_loss
+    else:return None
 
 def get_hazard_df(myC,economy):
 
@@ -264,6 +307,12 @@ def get_hazard_df(myC,economy):
         df_agr.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])
 
         df = pd.concat([df_bld_oth,df_bld_res,df_inf,df_agr])
+
+        df_inf_tc = pd.read_csv(inputs+'fiji_tc_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_inf_tc['hazard'] = 'TC'
+        df_inf_tc['asset_class'] = 'inf'
+        df_inf_tc['asset_subclass'] = 'all' 
+        df_inf_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])      
 
         df.to_csv('~/Desktop/my_out1.csv')
 
