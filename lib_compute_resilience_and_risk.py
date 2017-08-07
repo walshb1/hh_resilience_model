@@ -188,14 +188,14 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 
     cat_info['protection']=broadcast_simple(macro['protection'],cat_info.index)	
 
-    #add finance to diversification and taxation
+    ##add finance to diversification and taxation
     cat_info['social'] = unpack_social(macro,cat_info)
 
-    #cat_info['social']+= 0.1* cat_info['axfin']
+    ##cat_info['social']+= 0.1* cat_info['axfin']
     macro['tau_tax'], cat_info['gamma_SP'] = social_to_tx_and_gsp(economy,cat_info)
             
     #RECompute consumption from k and new gamma_SP and tau_tax
-    cat_info['c']= macro['avg_prod_k']*(1.-macro['tau_tax'])*cat_info['k']/(1.-cat_info['social'])
+    cat_info['c'] = macro['avg_prod_k']*(1.-macro['tau_tax'])*cat_info['k']/(1.-cat_info['social'])
     # ^ this is per individual
 
     print('all weights ',cat_info['pcwgt'].sum())

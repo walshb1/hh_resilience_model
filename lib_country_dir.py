@@ -215,41 +215,65 @@ def get_hazard_df(myC,economy):
         #df_bld_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])  
 
         # load all building values
-        df_bld_oth_tc = pd.read_csv(inputs+'fiji_tc_buildings_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_bld_oth_tc =   pd.read_csv(inputs+'fiji_tc_buildings_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_bld_oth_et = pd.read_csv(inputs+'fiji_eqts_buildings_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
         df_bld_oth_tc['hazard'] = 'TC'
-        df_bld_oth_tc['asset_class'] = 'bld_oth'
-        df_bld_oth_tc['asset_subclass'] = 'oth'
-        df_bld_oth_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])  
+        df_bld_oth_et['hazard'] = 'EQTS'
+        df_bld_oth = pd.concat([df_bld_oth_tc,df_bld_oth_et])
+        
+        df_bld_oth['asset_class'] = 'bld_oth'
+        df_bld_oth['asset_subclass'] = 'oth'
+        df_bld_oth.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])  
 
         # load residential building values
-        df_bld_res_tc = pd.read_csv(inputs+'fiji_tc_buildings_res_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_bld_res_tc =   pd.read_csv(inputs+'fiji_tc_buildings_res_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_bld_res_et = pd.read_csv(inputs+'fiji_eqts_buildings_res_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
         df_bld_res_tc['hazard'] = 'TC'
-        df_bld_res_tc['asset_class'] = 'bld_res'
-        df_bld_res_tc['asset_subclass'] = 'res'
-        df_bld_res_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])  
+        df_bld_res_et['hazard'] = 'EQTS'
+        df_bld_res = pd.concat([df_bld_res_tc,df_bld_res_et])
+
+        df_bld_res['asset_class'] = 'bld_res'
+        df_bld_res['asset_subclass'] = 'res'
+        df_bld_res.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])  
 
         # subtract residential from all bldg stock,
         for ic in ['AAL','exceed_2','exceed_5','exceed_10','exceed_20','exceed_40','exceed_50','exceed_65','exceed_90','exceed_99','Exp_Value']:
             
-            df_bld_oth_tc[ic] *= (6.505E9/df_bld_oth_tc['Exp_Value'].sum())
-            df_bld_res_tc[ic] *= (4.094E9/df_bld_res_tc['Exp_Value'].sum())
-            df_bld_oth_tc[ic] -= df_bld_res_tc[ic]
+            df_bld_oth[ic] *= (6.505E9/df_bld_oth['Exp_Value'].sum())
+            df_bld_res[ic] *= (4.094E9/df_bld_res['Exp_Value'].sum())
+            df_bld_oth[ic] -= df_bld_res[ic]
 
-        df_inf_tc = pd.read_csv(inputs+'fiji_tc_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
-        df_inf_tc['hazard'] = 'TC'
-        df_inf_tc['asset_class'] = 'inf'
-        df_inf_tc['asset_subclass'] = 'all' 
-        df_inf_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])       
+        df_inf_tc =   pd.read_csv(inputs+'fiji_tc_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_inf_et = pd.read_csv(inputs+'fiji_eqts_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_inf_tc['hazard'] = 'TC'        
+        df_inf_et['hazard'] = 'EQTS'
+        df_inf = pd.concat([df_inf_tc,df_inf_et])
 
-        df_agr_tc = pd.read_csv(inputs+'fiji_tc_crops_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_inf['asset_class'] = 'inf'
+        df_inf['asset_subclass'] = 'all' 
+        df_inf.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])       
+
+        df_agr_tc =   pd.read_csv(inputs+'fiji_tc_crops_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        df_agr_et = pd.read_csv(inputs+'fiji_eqts_crops_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
         df_agr_tc['hazard'] = 'TC'
-        df_agr_tc['asset_class'] = 'agr'
-        df_agr_tc['asset_subclass'] = 'all'
-        df_agr_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])
-      
-        df = pd.concat([df_bld_oth_tc,df_bld_res_tc,df_inf_tc,df_agr_tc])
-        df = df.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])
+        df_agr_et['hazard'] = 'EQTS'
+        df_agr = pd.concat([df_agr_tc,df_agr_et])
+ 
+        df_agr['asset_class'] = 'agr'
+        df_agr['asset_subclass'] = 'all'
+        df_agr.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])
 
+        df = pd.concat([df_bld_oth,df_bld_res,df_inf,df_agr])
+
+        df.to_csv('~/Desktop/my_out1.csv')
+
+        #df_edu_tc = pd.read_csv(inputs+'fiji_tc_buildings_edu_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        #df_edu_tc['hazard'] = 'TC'
+        #df_edu_tc['asset_class'] = 'pub'
+        #df_edu_tc['asset_subclass'] = 'edu'
+        #df_edu_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])        
+
+        df = df.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])
         df = df.rename(columns={'exceed_2':2475,'exceed_5':975,'exceed_10':475,
                                 'exceed_20':224,'exceed_40':100,'exceed_50':72,
                                 'exceed_65':50,'exceed_90':22,'exceed_99':10,'AAL':1})
@@ -277,6 +301,10 @@ def get_hazard_df(myC,economy):
         df_sum['frac_bld_oth'] = df.loc[df.asset_class == 'bld_oth','Exp_Value']/df['Exp_Value'].sum(level=['Division','hazard','rp'])
         df_sum['frac_inf']     = df.loc[df.asset_class == 'inf','Exp_Value']/df['Exp_Value'].sum(level=['Division','hazard','rp'])
         df_sum['frac_agr']     = df.loc[df.asset_class == 'agr','Exp_Value']/df['Exp_Value'].sum(level=['Division','hazard','rp'])
+
+        print('\n')
+        print('Total INF =',df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp']).mean())
+        print('Frac INF =',(100.*df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean())
 
         #df_sum['bldg_stock'] = df_sum[['Exp_Value','frac_bld_res']].prod(axis=1)+df_sum[['Exp_Value','frac_bld_oth']].prod(axis=1)
         #print(df_sum.reset_index().set_index(['rp']).ix[1,'bldg_stock'].sum())

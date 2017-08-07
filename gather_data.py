@@ -326,9 +326,8 @@ elif myCountry == 'SL':
 
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on=economy,how='outer')
 if myCountry == 'FJ':
-    hazard_ratios['k'] *= hazard_ratios['Exp_Value']/hazard_ratios['provincial_capital']
-    df['avg_prod_k'] *= hazard_ratios['provincial_capital'].mean()/hazard_ratios['Exp_Value'].mean()
-
+    #hazard_ratios['k'] *= hazard_ratios['Exp_Value']/hazard_ratios['provincial_capital']
+    #df['avg_prod_k'] *= hazard_ratios['provincial_capital'].mean()/hazard_ratios['Exp_Value'].mean()
     print(df['avg_prod_k'])
 
 hazard_ratios = hazard_ratios.set_index(event_level+['hhid'])[['frac_destroyed','v']]
@@ -352,9 +351,9 @@ hazard_ratios= hazard_ratios.drop(['frac_destroyed','v'],axis=1)
 hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
 
 # Compare assets from survey to assets from AIR-PCRAFI
-
+df_haz = df_haz.reset_index()
 my_df = ((df[['gdp_pc_pp_prov','pop']].prod(axis=1))/df['avg_prod_k']).to_frame(name='HIES')
-my_df['PCRAFI'] = df_haz.reset_index().ix[df_haz.reset_index().rp==1,['Division','Exp_Value']].set_index('Division')
+my_df['PCRAFI'] = df_haz.ix[(df_haz.rp==1)&(df_haz.hazard=='TC'),['Division','Exp_Value']].set_index('Division')
 
 my_df['HIES']/=1.E9
 my_df['PCRAFI']/=1.E9
