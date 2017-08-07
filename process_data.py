@@ -65,6 +65,7 @@ df_prov['R_asst'] = round(100.*df_prov['dKtot']/df_prov['gdp'],2)
 df_prov['R_welf'] = round(100.*df_prov['dWtot_currency']/df_prov['gdp'],2)
 df_prov = df_prov.sum(level='Division')
 df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level='Division')
+df_prov.to_csv('~/Desktop/my_file.csv')
 
 print(df_prov)
 print(df_prov[['dKtot','dWtot_currency','gdp']].sum())
@@ -126,7 +127,7 @@ q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 if myCountry == 'PH':
     myHaz = [['Manila','Mountain Province','Bukidnon','Negros Oriental','Bulacan','Northern Samar','Cebu'],['flood','wind'],[1,10,25,30,50,100,250,500,1000]]
 elif myCountry == 'FJ':
-    myHaz = [['Lau','Rewa','Macuata'],['TC'],[1,10,22,50,72,100,224,475,975,2475]]
+    myHaz = [['Lau','Ba','Rewa'],['TC','EQTS'],[1,10,22,50,72,100,224,475,975,2475]]
     #myHaz = [['Lau'],['earthquake','tsunami','typhoon'],[1,10,20,50,100,250,500,1000]]
 
 pov_line = get_poverty_line(myCountry)
@@ -139,7 +140,7 @@ allDis = ['flood','earthquake','surge','wind']
 upper_clip = 100000
 
 if myCountry == 'FJ': 
-    allDis = ['typhoon','earthquake','tsunami']
+    allDis = myHaz[1]
     upper_clip = 20000
 
 for myDis in allDis:
@@ -290,8 +291,8 @@ for myDis in allDis:
         ci_heights /= get_scale_fac(myCountry)[0]
         cf_heights /= get_scale_fac(myCountry)[0]
 
-        ax.bar(ci_bins[:-1], ci_heights, width=(ci_bins[1]-ci_bins[0]), label='Initial Consumption', facecolor=q_colors[0],alpha=0.4)
-        ax.bar(cf_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-disaster Consumption', facecolor=q_colors[1],alpha=0.4)
+        ax.bar(ci_bins[:-1], ci_heights, width=(ci_bins[1]-ci_bins[0]), label='Initial', facecolor=q_colors[0],alpha=0.4)
+        ax.bar(cf_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-disaster', facecolor=q_colors[1],alpha=0.4)
 
         ##### Experiment
         #print('rich, below pov',cutA.loc[(cutA.ispoor == 0) & (cutA.c_initial <= cut_rps.pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
@@ -332,7 +333,7 @@ for myDis in allDis:
         
         fig = ax.get_figure()
         plt.title(str(myRP)+'-Year '+myDis[:1].upper()+myDis[1:]+' Event')
-        plt.xlabel(r'Consumption ['+get_currency(myCountry)+' yr$^{-1}$]')
+        plt.xlabel(r'Income ['+get_currency(myCountry)+' yr$^{-1}$]')
         plt.ylabel('Population'+get_scale_fac(myCountry)[1])
         plt.legend(loc='best')
         print('poverty_k_'+myDis+'_'+str(myRP)+'.pdf')
@@ -348,8 +349,8 @@ for myDis in allDis:
         ci_heights, ci_bins = np.histogram(cutA.loc[(cutA.affected_cat =='a'),'c_initial'],       bins=50, weights=cutA.loc[(cutA.affected_cat =='a'),'pcwgt'])
         cf_heights, cf_bins = np.histogram(cutA.loc[(cutA.affected_cat =='a'),'c_final'],    bins=ci_bins, weights=cutA.loc[(cutA.affected_cat =='a'),'pcwgt'])
 
-        ax.bar(ci_bins[:-1], ci_heights, width=(ci_bins[1]-ci_bins[0]), label='Initial Consumption', facecolor=q_colors[0],alpha=0.4)
-        ax.bar(cf_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-disaster Consumption', facecolor=q_colors[1],alpha=0.4)
+        ax.bar(ci_bins[:-1], ci_heights, width=(ci_bins[1]-ci_bins[0]), label='Initial', facecolor=q_colors[0],alpha=0.4)
+        ax.bar(cf_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-disaster', facecolor=q_colors[1],alpha=0.4)
 
         print('All people: ',cutA['pcwgt'].sum())
         print('Affected people: ',cutA.loc[(cutA.affected_cat =='a'),'pcwgt'].sum())
@@ -364,11 +365,11 @@ for myDis in allDis:
         ax.annotate(r'$\Delta$N$_p$ = +'+p_str+p_pct,xy=(1.1*pov_line,1.12*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
 
         fig = ax.get_figure()
-        plt.xlabel(r'Consumption ['+get_currency(myCountry)+' yr$^{-1}$]')
+        plt.xlabel(r'Income ['+get_currency(myCountry)+' yr$^{-1}$]')
         plt.ylabel('Population')
         #plt.ylim(0,400000)
         plt.legend(loc='best')
-        print('poverty_k_aff_'+myDis+'_'+str(myRP)+'.pdf')
+        print('poverty_k_aff_'+myDis+'_'+str(myRP)+'.pdf\n')
         fig.savefig('../output_plots/'+myCountry+'/poverty_k_aff_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
         fig.savefig('../output_plots/'+myCountry+'/png/poverty_k_aff_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',format='pdf')
         plt.cla()
