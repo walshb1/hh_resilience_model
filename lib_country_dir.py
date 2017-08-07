@@ -219,7 +219,7 @@ def get_infra_destroyed(myC,df_haz):
     infra_stocks.loc['other_k','value_k'] = wb.Ktot-infra_stocks.drop(['other_k'],axis=0).value_k.sum()
     infra_stocks['share'] = infra_stocks.value_k/wb.Ktot
     
-    hazard_ratios_infra = broadcast_simple(df_haz['frac_inf'],infra_stocks.index)
+    hazard_ratios_infra = broadcast_simple(df_haz[['frac_inf','Exp_Value']].prod(axis=1),infra_stocks.index)
     hazard_ratios_infra = pd.DataFrame(hazard_ratios_infra)
     hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),infra_stocks.share.reset_index(),on='sector',how='outer').set_index(['Division','hazard','rp','sector'])
     hazard_ratios_infra = hazard_ratios_infra.unstack('sector')[['transport','energy','water']].stack()
