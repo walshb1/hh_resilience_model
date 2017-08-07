@@ -218,7 +218,7 @@ def get_infra_destroyed(myC,df_haz):
     hazard_ratios_infra = broadcast_simple(df_haz['frac_inf'],infra_stocks.index)
     hazard_ratios_infra = pd.DataFrame(hazard_ratios_infra)
     hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),infra_stocks.infra_share.reset_index(),on='sector',how='outer').set_index(['Division','hazard','rp','sector'])
-    hazard_ratios_infra['share'] = infra_stocks['infra_share']*hazard_ratios_infra['frac_inf']
+    hazard_ratios_infra['share'] = hazard_ratios_infra['infra_share']*hazard_ratios_infra['frac_inf']
 
     return hazard_ratios_infra.rename(columns={'frac_inf':'frac_destroyed'})
     
