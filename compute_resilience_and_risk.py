@@ -150,8 +150,9 @@ if __name__ == '__main__':
         # --> universal access to finance
         # --> 
         
-        with Pool() as pool:
-            pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str), pds_str))
+        launch_compute_resilience_and_risk_thread(myCountry,pol_str,pds_str[0])
+        #with Pool() as pool:
+        #    pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str), pds_str))
     
     if myCountry == 'PH' or myCountry == 'SL':
         pds_str = ['no','unif_poor']

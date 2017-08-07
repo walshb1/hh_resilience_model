@@ -142,7 +142,8 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     #assert(False)
     if type(hazard_ratios)==pd.DataFrame:
         
-        hazard_ratios = hazard_ratios.reset_index().set_index(economy)
+        hazard_ratios = hazard_ratios.reset_index().set_index(economy).dropna()
+        hazard_ratios = hazard_ratios.drop('Unnamed: 0',axis=1)
         
         #These lines remove countries in macro not in cat_info
         if myCountry == 'SL': hazard_ratios = hazard_ratios.dropna()
@@ -160,6 +161,8 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
         cat_info = cat_info.ix[common_places]
 
         # Nothing drops from hazard_ratios
+        hazard_ratios.to_csv('~/Desktop/my_file.csv')
+        print(hazard_ratios)
         hazard_ratios = hazard_ratios.ix[common_places]
 
         if hazard_ratios.empty:
