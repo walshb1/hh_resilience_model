@@ -346,6 +346,7 @@ cat_info['v'] = hazard_ratios.reset_index().set_index([economy,'hhid'])['v'].mea
 if myCountry == 'FJ':
 
     hazard_ratios_infra = get_infra_destroyed(myCountry,df_haz)
+    
     hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),hazard_ratios['fa'].reset_index(),on=[economy,'hazard','rp'],how='outer')
     hazard_ratios_infra = hazard_ratios_infra.set_index(['sector']+event_level+['hhid'])
     hazard_ratios_infra['v_k'] = hazard_ratios_infra['frac_destroyed']/hazard_ratios_infra['fa']
@@ -366,7 +367,7 @@ if myCountry == 'FJ':
     service_loss_event["dy_over_dk"]  = ((1-service_loss_event['v_product'])/service_loss_event['alpha_v_sum']*service_loss_event["avg_prod_k"]+service_loss_event['v_product']*service_loss_event["avg_prod_k"]/3)
     service_loss_event["dy_over_dk"] = service_loss_event[["dy_over_dk",'avg_prod_k']].max(axis=1)
     
-    hazard_ratios = pd.merge(hazard_ratios.reset_index(),service_loss_event.dy_over_dk.reset_index(),on=['hazard','rp'],how='outer')
+    hazard_ratios = pd.merge(hazard_ratios.reset_index(),service_loss_event.dy_over_dk.reset_index(),on=['hazard','rp'],how='inner')
     hazard_ratios['dy_over_dk'] = hazard_ratios['dy_over_dk'].fillna(df.avg_prod_k.mean())
 
     hazard_ratios = hazard_ratios.drop(['k','pcwgt'],axis=1)

@@ -210,6 +210,9 @@ def get_wb_or_penn_data(myC):
     wb['iso2'] = names_to_iso2
     return wb.set_index('iso2').loc[myC,['Ktot','GDP','avg_prod_k']]
     
+def get_rp_dict(myC):
+    return pd.read_csv(inputs+"rp_dict.csv").set_index("old_rp").new_rp
+    
 def get_infra_destroyed(myC,df_haz):
 
     print(get_infra_stocks_data(myC))
@@ -217,13 +220,30 @@ def get_infra_destroyed(myC,df_haz):
     infra_stocks = get_infra_stocks_data(myC).loc[['transport','energy','water'],:]
      #.value_k.unstack('sector')[['transport','energy','water']].stack().to_frame(name='value_k')
     infra_stocks['infra_share'] = infra_stocks.value_k/infra_stocks.value_k.sum()
-    
-    hazard_ratios_infra = broadcast_simple(df_haz['frac_inf'],infra_stocks.index)
-    hazard_ratios_infra = pd.DataFrame(hazard_ratios_infra)
+        
+    hazard_ratios_infra = broadcast_simple(df_haz[['frac_inf','frac_destroyed_inf']],infra_stocks.index)
     hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),infra_stocks.infra_share.reset_index(),on='sector',how='outer').set_index(['Division','hazard','rp','sector'])
     hazard_ratios_infra['share'] = hazard_ratios_infra['infra_share']*hazard_ratios_infra['frac_inf']
+    
+    transport_losses = pd.read_csv(inputs+"frac_destroyed_transport.csv").rename(columns={"ti_name":"Tikina"})
+    transport_losses['Division'] = (transport_losses['tid']/100).astype('int')
+    prov_code = get_places_dict(myC)
+    rp_dict   = get_rp_dict(myC)
+    transport_losses['Division'] = transport_losses.Division.replace(prov_code)
+    transport_losses['rp'] = transport_losses.rp.replace(rp_dict)
+    #sums at Division level to be like df_haz
+    transport_losses = transport_losses.set_index(['Division','hazard','rp']).sum(level=['Division','hazard','rp'])
+    transport_losses["frac_destroyed"] = transport_losses.damaged_value/transport_losses.value
+    #if there is no result in transport_losses, use the PCRAFI data (from df_haz):
+    transport_losses = pd.merge(transport_losses.reset_index(),hazard_ratios_infra.frac_destroyed_inf.unstack('sector')['transport'].to_frame(name="frac_destroyed_inf").reset_index(),on=['Division','hazard','rp'],how='outer')
+    transport_losses['frac_destroyed'] = transport_losses.frac_destroyed.fillna(transport_losses.frac_destroyed_inf)
+    transport_losses = transport_losses.set_index(['Division','hazard','rp'])
+    
+    hazard_ratios_infra = hazard_ratios_infra.reset_index('sector')
+    hazard_ratios_infra.ix[hazard_ratios_infra.sector=='transport','frac_destroyed_inf'] = transport_losses["frac_destroyed"]
+    hazard_ratios_infra = hazard_ratios_infra.reset_index().set_index(['Division','hazard','rp','sector'])
 
-    return hazard_ratios_infra.rename(columns={'frac_inf':'frac_destroyed'})
+    return hazard_ratios_infra.rename(columns={'frac_destroyed_inf':'frac_destroyed'})
     
 def get_service_loss(myC):
     if myC == 'FJ':
@@ -381,7 +401,9 @@ def get_hazard_df(myC,economy):
         df_sum['frac_bld_oth'] = df.loc[df.asset_class == 'bld_oth','Exp_Value']/df['Exp_Value'].sum(level=['Division','hazard','rp'])
         df_sum['frac_inf']     = df.loc[df.asset_class == 'inf','Exp_Value']/df['Exp_Value'].sum(level=['Division','hazard','rp'])
         df_sum['frac_agr']     = df.loc[df.asset_class == 'agr','Exp_Value']/df['Exp_Value'].sum(level=['Division','hazard','rp'])
-
+        
+        df_sum['frac_destroyed_inf'] = df.loc[df.asset_class == 'inf','value_destroyed']/df.loc[df.asset_class == 'inf','Exp_Value']
+        
         print('\n')
         print('--> Total INF =',df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp']).mean())
         print('--> Frac INF =',(100.*df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean())
