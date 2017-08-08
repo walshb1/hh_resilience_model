@@ -312,7 +312,7 @@ elif myCountry == 'FJ':
     plt.annotate(str(round(100.*fit_line[0],2))+'%',[0.,2.E9])
     
     fig = plt.gcf()
-    fig.savefig('/Users/brian/Desktop/my_plots/HIES_vs_PCRAFI_household_assets.pdf',format='pdf')
+    fig.savefig('HIES_vs_PCRAFI_household_assets.pdf',format='pdf')
 
     #print(hazard_ratios.head(10))
     #assert(False)
@@ -346,7 +346,7 @@ cat_info['v'] = hazard_ratios.reset_index().set_index([economy,'hhid'])['v'].mea
 if myCountry == 'FJ':
 
     hazard_ratios_infra = get_infra_destroyed(myCountry,df_haz)
-    hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),hazard_ratios[['fa','k','pcwgt']].reset_index(),on=[economy,'hazard','rp'],how='outer')
+    hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),hazard_ratios['fa'].reset_index(),on=[economy,'hazard','rp'],how='outer')
     hazard_ratios_infra = hazard_ratios_infra.set_index(['sector']+event_level+['hhid'])
     hazard_ratios_infra['v_k'] = hazard_ratios_infra['frac_destroyed']/hazard_ratios_infra['fa']
     
@@ -361,7 +361,7 @@ if myCountry == 'FJ':
     service_loss        = get_service_loss(myCountry)
     service_loss_event  = pd.DataFrame(index=service_loss.unstack('sector').index) #removes the sector level
     service_loss_event['v_product'] = ((1-service_loss.cost_increase)**service_loss.e).sum(level=['hazard','rp'])
-    service_loss_event['alpha_v_sum'] = hazard_ratios_infra[['frac_destroyed','share','k','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])/hazard_ratios_infra[['share','k','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
+    service_loss_event['alpha_v_sum'] = hazard_ratios[['fa','v','k','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])/hazard_ratios[['k','pcwgt']].prod(axis=1).sum(level=['hazard','rp']) #fraction of assets lost at national level
     service_loss_event['avg_prod_k'] = df.avg_prod_k.mean()
     service_loss_event["dy_over_dk"]  = ((1-service_loss_event['v_product'])/service_loss_event['alpha_v_sum']*service_loss_event["avg_prod_k"]+service_loss_event['v_product']*service_loss_event["avg_prod_k"]/3)
     service_loss_event["dy_over_dk"] = service_loss_event[["dy_over_dk",'avg_prod_k']].max(axis=1)
@@ -411,5 +411,5 @@ if myCountry == 'FJ':
     # 7000 km tranmission
     
     fig = plt.gcf()
-    fig.savefig('/Users/brian/Desktop/my_plots/HIES_vs_PCRAFI_assets.pdf',format='pdf')
+    fig.savefig('HIES_vs_PCRAFI_assets.pdf',format='pdf')
     
