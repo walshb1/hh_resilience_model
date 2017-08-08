@@ -288,34 +288,47 @@ elif myCountry == 'FJ':
 # Turn losses into fraction
 cat_info = cat_info.reset_index().set_index([economy])
 
-hazard_ratios = cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy).to_frame(name='provincial_capital')
+hazard_ratios = cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy).to_frame(name='HIES_capital')
 hazard_ratios = hazard_ratios.join(df_haz,how='outer')
 
 if myCountry == 'PH':
-    hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['provincial_capital']
-    hazard_ratios = hazard_ratios.drop(['provincial_capital','value_destroyed'],axis=1)
+    hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['HIES_capital']
+    hazard_ratios = hazard_ratios.drop(['HIES_capital','value_destroyed'],axis=1)
 elif myCountry == 'FJ':
 
-    hazard_ratios['personal_capital'] = (hazard_ratios[['Exp_Value','frac_bld_res']].prod(axis=1))# + hazard_ratios[['Exp_Value','frac_agr']].prod(axis=1))
-    #print(df['avg_prod_k'])
-
     # PLOT
+    plot_df = hazard_ratios[['Exp_Value','HIES_capital','frac_bld_res','frac_agr']]
+    plot_df['RES_AGR_Exp_Value'] = hazard_ratios[['Exp_Value','frac_bld_res']].prod(axis=1) + hazard_ratios[['Exp_Value','frac_agr']].prod(axis=1)
+    plot_df['RES_Exp_Value'] = hazard_ratios[['Exp_Value','frac_bld_res']].prod(axis=1)
 
-    ax = hazard_ratios.plot.scatter('provincial_capital','personal_capital')
-    fit_line = np.polyfit(hazard_ratios['provincial_capital'],hazard_ratios['personal_capital'],1)
+    plot_df = plot_df.mean(level='Division')
+
+    ax = plot_df.plot.scatter('HIES_capital','Exp_Value')
+    fit_line_1 = np.polyfit(plot_df['HIES_capital'],plot_df['Exp_Value'],1)
+
+    plot_df.plot.scatter('HIES_capital','RES_AGR_Exp_Value',ax=ax)
+    fit_line_2 = np.polyfit(plot_df['HIES_capital'],plot_df['RES_AGR_Exp_Value'],1)
+
+    plot_df.plot.scatter('HIES_capital','RES_Exp_Value',ax=ax)
+    fit_line_3 = np.polyfit(plot_df['HIES_capital'],plot_df['RES_Exp_Value'],1)
+
     ax.plot()
     
     my_linspace_x = np.array(np.linspace(plt.gca().get_xlim()[0],plt.gca().get_xlim()[1],10))
-    my_linspace_y = fit_line[0]*my_linspace_x+fit_line[1]
+    my_linspace_y1 = fit_line_1[0]*my_linspace_x+fit_line_1[1]
+    my_linspace_y2 = fit_line_2[0]*my_linspace_x+fit_line_2[1]
+    my_linspace_y3 = fit_line_3[0]*my_linspace_x+fit_line_3[1]
     
-    plt.plot(my_linspace_x,my_linspace_y)
-    plt.annotate(str(round(100.*fit_line[0],2))+'%',[0.,2.E9])
+    plt.plot(my_linspace_x,my_linspace_y1)
+    plt.plot(my_linspace_x,my_linspace_y2)
+    plt.plot(my_linspace_x,my_linspace_y3)
+
+    plt.annotate('All Assets '+str(round(100.*fit_line_1[0],2))+'%',[0.,8.E9])
+    plt.annotate('Res+Ag Assets '+str(round(100.*fit_line_2[0],2))+'%',[0.,7.E9])
+    plt.annotate('Res Assets '+str(round(100.*fit_line_3[0],2))+'%',[0.,6.E9])
     
     fig = plt.gcf()
-    fig.savefig('HIES_vs_PCRAFI_household_assets.pdf',format='pdf')
-
-    #print(hazard_ratios.head(10))
-    #assert(False)
+    fig.savefig('new_HIES_vs_PCRAFI_household_assets.pdf',format='pdf')
 
     hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
 

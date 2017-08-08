@@ -405,8 +405,13 @@ def get_hazard_df(myC,economy):
         df_sum['frac_destroyed_inf'] = df.loc[df.asset_class == 'inf','value_destroyed']/df.loc[df.asset_class == 'inf','Exp_Value']
         
         print('\n')
+        print('--> Total BLD =',df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp']).mean())
+        print('--> Frac BLD =',round((100.*df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%')
         print('--> Total INF =',df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp']).mean())
-        print('--> Frac INF =',(100.*df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean())
+        print('--> Frac INF =',round((100.*df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%')
+
+        print('--> Total AG =',df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp']).mean())
+        print('--> Frac AG =',round((100.*df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%')
 
         #df_sum['bldg_stock'] = df_sum[['Exp_Value','frac_bld_res']].prod(axis=1)+df_sum[['Exp_Value','frac_bld_oth']].prod(axis=1)
         #print(df_sum.reset_index().set_index(['rp']).ix[1,'bldg_stock'].sum())
