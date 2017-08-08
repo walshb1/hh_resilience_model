@@ -267,7 +267,7 @@ def get_hazard_df(myC,economy):
         
         df_bld_oth['asset_class'] = 'bld_oth'
         df_bld_oth['asset_subclass'] = 'oth'
-        df_bld_oth.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])  
+        df_bld_oth = df_bld_oth.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass'])  
 
         # load residential building values
         df_bld_res_tc =   pd.read_csv(inputs+'fiji_tc_buildings_res_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
@@ -278,15 +278,33 @@ def get_hazard_df(myC,economy):
 
         df_bld_res['asset_class'] = 'bld_res'
         df_bld_res['asset_subclass'] = 'res'
-        df_bld_res.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])  
+        df_bld_res = df_bld_res.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass'])  
 
-        # subtract residential from all bldg stock
-        for ic in ['AAL','exceed_2','exceed_5','exceed_10','exceed_20','exceed_40','exceed_50','exceed_65','exceed_90','exceed_99','Exp_Value']:
-            
-            df_bld_oth[ic] *= (6.505E9/df_bld_oth['Exp_Value'].sum())
-            df_bld_res[ic] *= (4.094E9/df_bld_res['Exp_Value'].sum())
-            df_bld_oth[ic] -= df_bld_res[ic]
+        # Get PCRAFI estimate of total building stock
+        df_bld_oth_EV = df_bld_oth['Exp_Value'].sum(level=['hazard']).mean()
+        df_bld_res_EV = df_bld_res['Exp_Value'].sum(level=['hazard']).mean()
+      
+        # Stack RPs in building exposure files
+        df_bld_oth.columns.name = 'rp'
+        df_bld_res.columns.name = 'rp'
+        df_bld_oth = df_bld_oth.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value']).stack().to_frame(name='losses')
+        df_bld_res = df_bld_res.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value']).stack().to_frame(name='losses')
+                
+        df_bld_oth = df_bld_oth.reset_index().set_index(['Tikina','Tikina_ID','hazard','rp'])
+        df_bld_res = df_bld_res.reset_index().set_index(['Tikina','Tikina_ID','hazard','rp'])
 
+        # Scale building assets to Rashmin's analysis
+        df_bld_oth['Exp_Value'] *= 6.505E9/df_bld_oth_EV
+        df_bld_res['Exp_Value'] *= 4.094E9/df_bld_res_EV
+        df_bld_oth['Exp_Value'] -= df_bld_res['Exp_Value']
+
+        df_bld_oth['losses'] *= 6.505E9/df_bld_oth_EV
+        df_bld_res['losses'] *= 4.094E9/df_bld_res_EV
+        df_bld_oth['losses'] -= df_bld_res['losses']
+
+        df_bld = pd.concat([df_bld_oth,df_bld_res])
+
+        #############################
         # load infrastructure values
         df_inf_tc =   pd.read_csv(inputs+'fiji_tc_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
         df_inf_et = pd.read_csv(inputs+'fiji_eqts_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
@@ -295,13 +313,18 @@ def get_hazard_df(myC,economy):
         df_inf = pd.concat([df_inf_tc,df_inf_et])
 
         df_inf['asset_class'] = 'inf'
-        df_inf['asset_subclass'] = 'all' 
-        df_inf.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])       
+        df_inf['asset_subclass'] = 'all'
 
-        # scale infrastructure to equal Julie's estimates
-        for ic in ['AAL','exceed_2','exceed_5','exceed_10','exceed_20','exceed_40','exceed_50','exceed_65','exceed_90','exceed_99','Exp_Value']:
-            print(df_inf['Exp_Value'].sum(),'increased by factor of',(3.E09+9.6E08+5.15E08)/df_inf['Exp_Value'].sum())
-            df_inf[ic] *= (3.E09+9.6E08+5.15E08)/df_inf['Exp_Value'].sum()
+        # Get PCRAFI estimate of total infrastructure stock
+        df_inf_EV = df_inf.loc[df_inf.hazard=='TC','Exp_Value'].sum()
+
+        # Stack and scale RPs in infrastructure exposure file
+        df_inf.columns.name = 'rp'
+        df_inf = df_inf.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value']).stack().to_frame(name='losses')
+        df_inf = df_inf.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','rp'])
+
+        df_inf['losses'] *= (3.E09+9.6E08+5.15E08)/df_inf_EV
+        df_inf['Exp_Value'] *= (3.E09+9.6E08+5.15E08)/df_inf_EV
 
         # load agriculture values
         df_agr_tc =   pd.read_csv(inputs+'fiji_tc_crops_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
@@ -312,31 +335,33 @@ def get_hazard_df(myC,economy):
  
         df_agr['asset_class'] = 'agr'
         df_agr['asset_subclass'] = 'all'
-        df_agr.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])
 
-        df = pd.concat([df_bld_oth,df_bld_res,df_inf,df_agr])
+        df_agr.columns.name = 'rp'
+        df_agr = df_agr.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value']).stack().to_frame(name='losses')
+        df_agr = df_agr.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','rp'])
 
-        df_inf_tc = pd.read_csv(inputs+'fiji_tc_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
-        df_inf_tc['hazard'] = 'TC'
-        df_inf_tc['asset_class'] = 'inf'
-        df_inf_tc['asset_subclass'] = 'all' 
-        df_inf_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])      
+        ############
+        # Merge
+        df_bld = df_bld.reset_index().set_index(['Tikina'])
+        df_inf = df_inf.reset_index().set_index(['Tikina'])
+        df_agr = df_agr.reset_index().set_index(['Tikina'])
 
-        #df_edu_tc = pd.read_csv(inputs+'fiji_tc_buildings_edu_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
-        #df_edu_tc['hazard'] = 'TC'
-        #df_edu_tc['asset_class'] = 'pub'
-        #df_edu_tc['asset_subclass'] = 'edu'
-        #df_edu_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])        
+        df = pd.concat([df_bld,df_inf,df_agr])
 
-        df = df.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])
+
+        df = df.reset_index().set_index(['Tikina','Tikina_ID','asset_class','asset_subclass','Exp_Value','hazard','rp'])
+        print(df)     
+        df.to_csv('~/Desktop/my_csv.csv')
+        df = df.unstack()
+
         df = df.rename(columns={'exceed_2':2475,'exceed_5':975,'exceed_10':475,
                                 'exceed_20':224,'exceed_40':100,'exceed_50':72,
                                 'exceed_65':50,'exceed_90':22,'exceed_99':10,'AAL':1})
         df.columns.name = 'rp'
-        df = df.stack().to_frame()
+        df = df.stack()
 
-        df = df.reset_index().set_index(['Tikina','Tikina_ID','hazard','rp','asset_class','asset_subclass'])
-        df = df.rename(columns={0:'value_destroyed'})
+        df = df.reset_index().set_index(['Tikina','Tikina_ID','asset_class','asset_subclass','hazard','rp'])
+        df = df.rename(columns={'losses':'value_destroyed'})
 
         df = df.sort_index().reset_index()
 
@@ -364,9 +389,7 @@ def get_hazard_df(myC,economy):
         #df_sum['bldg_stock'] = df_sum[['Exp_Value','frac_bld_res']].prod(axis=1)+df_sum[['Exp_Value','frac_bld_oth']].prod(axis=1)
         #print(df_sum.reset_index().set_index(['rp']).ix[1,'bldg_stock'].sum())
         df_sum['Exp_Value'] *= (1.0/0.48) # AIR-PCRAFI in USD(2009?) --> switch to FJD
-        print(df_sum.sum(level=['hazard','rp']))
-        assert(False)
-        
+
         return df_sum
 
     elif myC == 'SL':

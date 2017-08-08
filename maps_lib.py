@@ -312,6 +312,7 @@ def bins_normalizer(x,n=7):
 
 def quantile_normalizer(column, nb_quantile=5):
   #bbins in quintiles
+    print(column,nb_quantile)
     return (pd.qcut(column, nb_quantile,labels=False))/(nb_quantile-1)
 
 def num_to_hex(x):

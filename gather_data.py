@@ -314,6 +314,9 @@ elif myCountry == 'FJ':
     fig = plt.gcf()
     fig.savefig('/Users/brian/Desktop/my_plots/HIES_vs_PCRAFI_household_assets.pdf',format='pdf')
 
+    #print(hazard_ratios.head(10))
+    #assert(False)
+
     hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
 
 elif myCountry == 'SL':

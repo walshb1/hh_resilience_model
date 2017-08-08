@@ -18,7 +18,8 @@ font = {'family' : 'sans serif',
 plt.rc('font', **font)
 mpl.rcParams['xtick.labelsize'] = 20
 
-for myCountry in [['FJ','Fiji','Fijians'],
+for myCountry in [['PH','the Philippines','Filipinos'],
+                  ['FJ','Fiji','Fijians'],
                   ['PH','the Philippines','Filipinos']]:
     
     model  = os.getcwd() #get current directory
@@ -49,7 +50,7 @@ for myCountry in [['FJ','Fiji','Fijians'],
         color_maper=plt.cm.get_cmap('Blues'), #color scheme (from matplotlib. Chose them from http://colorbrewer2.org/)
         label='Annual asset losses (% of GDP)',
         new_title='Map of asset risk in '+myCountry[1],  #title for the colored SVG
-        do_qualitative=False,
+        do_qualitative=True,
         res=inp_res)
     
     make_map_from_svg(
@@ -59,7 +60,7 @@ for myCountry in [['FJ','Fiji','Fijians'],
         color_maper=plt.cm.get_cmap('RdYlGn'), 
         label='Socio-economic capacity (%)',
         new_title='Map of socio-economic resilience in '+myCountry[1],
-        do_qualitative=False,
+        do_qualitative=True,
         res=inp_res)
 
     make_map_from_svg(
@@ -69,5 +70,5 @@ for myCountry in [['FJ','Fiji','Fijians'],
         color_maper=plt.cm.get_cmap('Purples'), 
         label='Annual well-being losses (% of GDP)',
         new_title='Map of welfare risk in '+myCountry[1],
-        do_qualitative=False,
+        do_qualitative=True,
         res=inp_res)

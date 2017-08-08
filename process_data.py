@@ -71,7 +71,19 @@ print(df_prov)
 print(df_prov[['dKtot','dWtot_currency','gdp']].sum())
 print('R_asset:',100.*df_prov['dKtot'].sum()/df_prov['gdp'].sum())
 print('R_welf:',100.*df_prov['dWtot_currency'].sum()/df_prov['gdp'].sum())
-df_prov.to_csv('~/Desktop/my_out.csv')
+
+# Map asset losses as fraction of natl GDP
+print('\n',df_prov.dKtot/df_prov.gdp.sum())
+print((df_prov.dKtot/df_prov.gdp.sum()).sum(),'\n')
+make_map_from_svg(
+    df_prov.dKtot/df_prov.gdp.sum(), 
+    '../map_files/'+myCountry+'/BlankSimpleMap.svg',
+    outname=myCountry+'_asset_risk_over_natl_gdp',
+    color_maper=plt.cm.get_cmap('Blues'),
+    label='Annual asset risk ',
+    new_title='Annual asset risk ',
+    do_qualitative=True,
+    res=2000)
 
 print(output+'results_tax_unif_poor_'+pol_str+'.csv')
 print(output+'iah_tax_unif_poor_'+pol_str+'.csv')
