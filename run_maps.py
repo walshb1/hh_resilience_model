@@ -50,7 +50,7 @@ for myCountry in [['PH','the Philippines','Filipinos'],
         color_maper=plt.cm.get_cmap('Blues'), #color scheme (from matplotlib. Chose them from http://colorbrewer2.org/)
         label='Annual asset losses (% of GDP)',
         new_title='Map of asset risk in '+myCountry[1],  #title for the colored SVG
-        do_qualitative=True,
+        do_qualitative=False,
         res=inp_res)
     
     make_map_from_svg(
@@ -60,7 +60,7 @@ for myCountry in [['PH','the Philippines','Filipinos'],
         color_maper=plt.cm.get_cmap('RdYlGn'), 
         label='Socio-economic capacity (%)',
         new_title='Map of socio-economic resilience in '+myCountry[1],
-        do_qualitative=True,
+        do_qualitative=False,
         res=inp_res)
 
     make_map_from_svg(
@@ -68,7 +68,7 @@ for myCountry in [['PH','the Philippines','Filipinos'],
         svg_file_path,
         outname=myCountry[0]+'_welfare_risk_',
         color_maper=plt.cm.get_cmap('Purples'), 
-        label='Annual well-being losses (% of GDP)',
+        label='Annual well-being losses [% of regional GDP]',
         new_title='Map of welfare risk in '+myCountry[1],
-        do_qualitative=True,
+        do_qualitative=False,
         res=inp_res)

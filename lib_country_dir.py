@@ -112,9 +112,13 @@ def load_survey_data(myC):
         return df
 
     elif myC == 'FJ':
-        df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',usecols=['HHID','Division','Nchildren','Nadult','AE','HHsize',
-                                                                           'Sector','Weight','TOTALTRANSFER','TotalIncome','New Total']).set_index('HHID')
-        df = df.rename(columns={'HHID':'hhid','TotalIncome':'hhinc','HHsize':'hhsize','Weight':'hhwgt','TOTALTRANSFER':'hhsoc'})
+        #df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',usecols=['HHID','Division','Nchildren','Nadult','AE','HHsize',
+        #                                                                   'Sector','Weight','TOTALTRANSFER','TotalIncome','New Total']).set_index('HHID')
+        #df = df.rename(columns={'HHID':'hhid','TotalIncome':'hhinc','HHsize':'hhsize','Weight':'hhwgt','TOTALTRANSFER':'hhsoc'})
+        
+        df_cons = pd.read_excel(inputs+'HIES 2013-14 Consumption Data.xlsx',usecols=['HHID','Weights','Grand Total'],sheetname='by_Individual items').set_index('HHID').drop('HHID').fillna(0)
+        print(df_cons[['Weights','Grand Total']].prod(axis=1).sum())
+        assert(False)
 
         #df['hhsize_ae'] = df['Nadult'] # assuming this is 'Adult Equivalents'
         df['hhsize_ae'] = df['AE'] # assuming this is 'Adult Equivalents'
@@ -125,6 +129,12 @@ def load_survey_data(myC):
         df['pcinc'] = df['hhinc']/df['hhsize']
         df['pcinc_ae'] = df['hhinc']/df['hhsize_ae']
         df['pcsoc'] = df['hhsoc']/df['hhsize']
+
+        print('Total income:',df[['pcinc','pcwgt']].prod(axis=1).sum())
+        print('Total income (new):',df[['New Total','hhwgt']].prod(axis=1).sum())
+        print(df[['hhsize','hhwgt']].prod(axis=1).sum()/df['hhwgt'].sum())
+        print(df[['hhsize_ae','hhwgt']].prod(axis=1).sum()/df['hhwgt'].sum())
+        assert(False)
 
         df_housing = pd.read_excel(inputs+'HIES 2013-14 Housing Data.xlsx',sheetname='Sheet1').set_index('HHID').dropna(how='all')[['Constructionofouterwalls',
                                                                                                                                     'Conditionofouterwalls']]
@@ -388,10 +398,13 @@ def get_hazard_df(myC,economy):
         df['Division'] = (df['Tikina_ID']/100).astype('int')
         prov_code = get_places_dict(myC)
         df = df.reset_index().set_index([df.Division.replace(prov_code)]).drop(['index','Division','Tikina_ID','asset_subclass'],axis=1) #replace district code with its name
+        
+        #df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
+        #df_sum = ((df['value_destroyed'].sum(level=['Division','hazard','rp']))/(df['Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
+        # ^ what if we run with fa from buildings?
+        df = df.reset_index().set_index(['Division','Tikina','hazard','rp'])
+        df_sum = ((df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'value_destroyed'].sum(level=['Division','hazard','rp']))/(df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
         df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
-
-        df_sum = ((df['value_destroyed'].sum(level=['Division','hazard','rp']))/(df['Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
-        #df_sum = df_sum.sum(level=['Division','hazard','rp'])
         
         df = df.sum(level=['Division','hazard','rp','asset_class'])
         df = df.reset_index().set_index(['Division','hazard','rp'])

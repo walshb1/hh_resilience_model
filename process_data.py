@@ -80,9 +80,9 @@ make_map_from_svg(
     '../map_files/'+myCountry+'/BlankSimpleMap.svg',
     outname=myCountry+'_asset_risk_over_natl_gdp',
     color_maper=plt.cm.get_cmap('Blues'),
-    label='Annual asset risk ',
-    new_title='Annual asset risk ',
-    do_qualitative=True,
+    label='Annual asset risk [% of national GDP]',
+    new_title='Annual asset risk [% of national GDP]',
+    do_qualitative=False,
     res=2000)
 
 print(output+'results_tax_unif_poor_'+pol_str+'.csv')

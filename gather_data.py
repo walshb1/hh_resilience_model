@@ -1,4 +1,4 @@
-# This script provides data input for the resilience indicator multihazard model for Philippines. 
+# This script provides data input for the resilience indicator multihazard model for the Philippines. 
 # Restructured from the global model and developed by Jinqiang Chen and Brian Walsh
 
 # Magic
@@ -330,8 +330,10 @@ elif myCountry == 'FJ':
     fig = plt.gcf()
     fig.savefig('new_HIES_vs_PCRAFI_household_assets.pdf',format='pdf')
 
-    hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
-
+    # This is *the* line
+    # --> fa is losses/exposed_value
+    hazard_ratios['frac_destroyed'] = hazard_ratios['fa'] 
+    
 elif myCountry == 'SL':
     hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
 
@@ -340,11 +342,16 @@ elif myCountry == 'SL':
 
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on=economy,how='outer')
 if myCountry == 'FJ':
-    #hazard_ratios['k'] *= hazard_ratios['Exp_Value']/hazard_ratios['provincial_capital']
-    #df['avg_prod_k'] *= hazard_ratios['provincial_capital'].mean()/hazard_ratios['Exp_Value'].mean()
-    print(df['avg_prod_k'])
+    
+    hazard_ratios = hazard_ratios.set_index(['Division','hazard','rp'])
+    
+    #print('Scaling up by factor of ',round(hazard_ratios['Exp_Value'].sum(level='Division').mean()/hazard_ratios['HIES_capital'].sum(level='Division').mean(),2))
+    #cat_info['k'] *= hazard_ratios['Exp_Value'].sum(level='Division').mean()/hazard_ratios['HIES_capital'].sum(level='Division').mean()
+    #df['avg_prod_k'] *= hazard_ratios['HIES_capital'].mean()/hazard_ratios['Exp_Value'].mean()
 
-hazard_ratios = hazard_ratios.set_index(event_level+['hhid'])[['frac_destroyed','v','k','pcwgt']]
+    print('Avg prod K:',df['avg_prod_k'].mean())
+
+hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])[['frac_destroyed','v','k','pcwgt']]
 
 # Transfer fa in excess of 95% to vulnerability
 fa_threshold = 0.95
