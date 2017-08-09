@@ -16,8 +16,8 @@ inputs        = model+'/../inputs/FJ/'       # get inputs data directory
 
 # LOAD FILES (by hazard, asset class) and merge hazards
 # load all building values
-df_bld_edu_tc =   pd.read_csv(inputs+'fiji_tc_buildings_edu_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
-df_bld_hea_tc =   pd.read_csv(inputs+'fiji_tc_buildings_health_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+#df_bld_edu_tc =   pd.read_csv(inputs+'fiji_tc_buildings_edu_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+df_bld_edu_tc =   pd.read_csv(inputs+'fiji_tc_buildings_health_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
 
 df_bld_edu_tc['Division'] = (df_bld_edu_tc['Tikina_ID']/100).astype('int')
 prov_code = pd.read_excel(inputs+'Fiji_provinces.xlsx')[['code','name']].set_index('code').squeeze() 
@@ -36,19 +36,21 @@ df_bld_edu_tc = df_bld_edu_tc.reset_index().set_index(['Division','Tikina','Exp_
 df_bld_edu_tc.index.names = ['Division','Tikina','Exp_Value','rp']
 df_bld_edu_tc = df_bld_edu_tc.reset_index().set_index(['Division','Tikina','rp'])
 
-summed = sum_with_rp('FJ',df_bld_edu_tc,['losses'],sum_provinces=False,national=False)
+summed = sum_with_rp('FJ',df_bld_edu_tc,['Exp_Value','losses'],sum_provinces=False,national=False)
+#summed['Exp_Value'] /= 10.
+print(summed)
 
-df_bld_edu_tc.sum(level=['Division','rp']).to_csv('~/Desktop/my_plots/educational_assets.csv')
-summed.to_csv('~/Desktop/my_plots/educational_assets_AAL.csv')
+df_bld_edu_tc.sum(level=['Division','rp']).to_csv('~/Desktop/my_plots/health_assets.csv')
+summed.to_csv('~/Desktop/my_plots/health_assets_AAL.csv')
 
 
 df_bld_edu_tc['Exp_Value'] /= 100. # map code multiplies by 100 for a percentage
 make_map_from_svg(
     df_bld_edu_tc['Exp_Value'].sum(level=['Division','rp']).mean(level='Division'), 
     '../map_files/FJ/BlankSimpleMap.svg',
-    outname='FJ_educational_assets',
+    outname='FJ_health_assets',
     color_maper=plt.cm.get_cmap('Blues'),
-    label='Educational assets [million USD]',
-    new_title='Educational assets [million USD]',
+    label='Health assets [million USD]',
+    new_title='Health assets [million USD]',
     do_qualitative=False,
     res=2000)
