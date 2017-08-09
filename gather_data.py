@@ -330,7 +330,7 @@ elif myCountry == 'FJ':
     plt.annotate('Res Assets '+str(round(100.*fit_line_3[0],2))+'%',[0.,6.E9])
     
     fig = plt.gcf()
-    fig.savefig('new_HIES_vs_PCRAFI_household_assets.pdf',format='pdf')
+    fig.savefig('../check_plots/new_HIES_vs_PCRAFI_household_assets.pdf',format='pdf')
 
     # This is *the* line
     # --> fa is losses/exposed_value
@@ -434,5 +434,5 @@ if myCountry == 'FJ':
     # 7000 km tranmission
     
     fig = plt.gcf()
-    fig.savefig('HIES_vs_PCRAFI_assets.pdf',format='pdf')
+    fig.savefig('../check_plots/HIES_vs_PCRAFI_assets.pdf',format='pdf')
     
