@@ -299,7 +299,7 @@ if myCountry == 'PH':
 elif myCountry == 'FJ':
 
     # PLOT
-    plot_df = hazard_ratios[['Exp_Value','HIES_capital','frac_bld_res','frac_agr']]
+    plot_df = hazard_ratios[['Exp_Value','HIES_capital','frac_bld_res','frac_agr']].dropna()
     plot_df['RES_AGR_Exp_Value'] = hazard_ratios[['Exp_Value','frac_bld_res']].prod(axis=1) + hazard_ratios[['Exp_Value','frac_agr']].prod(axis=1)
     plot_df['RES_Exp_Value'] = hazard_ratios[['Exp_Value','frac_bld_res']].prod(axis=1)
 
@@ -334,7 +334,7 @@ elif myCountry == 'FJ':
 
     # This is *the* line
     # --> fa is losses/exposed_value
-    hazard_ratios['frac_destroyed'] = hazard_ratios['fa'] 
+    # hazard_ratios['frac_destroyed'] = hazard_ratios['fa'] #It's already called frac_destroyed
     
 elif myCountry == 'SL':
     hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
