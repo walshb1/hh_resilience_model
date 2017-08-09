@@ -1,6 +1,11 @@
 import os
 import pandas as pd
 from lib_gather_data import *
+import matplotlib.pyplot as plt
+
+import seaborn as sns
+sns.set_style('darkgrid')
+sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
 
 global model
 model = os.getcwd()
@@ -115,8 +120,12 @@ def load_survey_data(myC,inc_sf=None):
         df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',usecols=['HHID','Division','Nchildren','Nadult','AE','HHsize',
                                                                            'Sector','Weight','TOTALTRANSFER','TotalIncome','New Total']).set_index('HHID')
         df = df.rename(columns={'HHID':'hhid','TotalIncome':'hhinc','HHsize':'hhsize','Weight':'hhwgt','TOTALTRANSFER':'hhsoc'})
-        
-        if inc_sf != None: df['hhinc'] = scale_hh_income_to_match_GDP(df[['hhinc','hhwgt','AE','Sector']],inc_sf)
+
+        df['pov_line'] = 0.
+        df.loc[df.Sector=='Urban','pov_line'] = 55.12*52*df.loc[df.Sector=='Urban','AE']
+        df.loc[df.Sector=='Rural','pov_line'] = 49.50*52*df.loc[df.Sector=='Rural','AE']        
+
+        if inc_sf != None: df['hhinc'] = scale_hh_income_to_match_GDP(df[['hhinc','hhwgt','hhsize','AE','Sector','pov_line']],inc_sf)
 
         #df_cons = pd.read_excel(inputs+'HIES 2013-14 Consumption Data.xlsx',usecols=['HHID','Weights','Grand Total'],sheetname='by_Individual items').set_index('HHID').drop('HHID').fillna(0)
         #print(df_cons[['Weights','Grand Total']].prod(axis=1).sum())
@@ -401,12 +410,13 @@ def get_hazard_df(myC,economy):
         prov_code = get_places_dict(myC)
         df = df.reset_index().set_index([df.Division.replace(prov_code)]).drop(['index','Division','Tikina_ID','asset_subclass'],axis=1) #replace district code with its name
         
-        #df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
-        #df_sum = ((df['value_destroyed'].sum(level=['Division','hazard','rp']))/(df['Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
-        # ^ what if we run with fa from buildings?
-        df = df.reset_index().set_index(['Division','Tikina','hazard','rp'])
-        df_sum = ((df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'value_destroyed'].sum(level=['Division','hazard','rp']))/(df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
         df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
+        df_sum = ((df['value_destroyed'].sum(level=['Division','hazard','rp']))/(df['Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
+        # ^ what if we run with fa from buildings?
+
+        #df = df.reset_index().set_index(['Division','Tikina','hazard','rp'])
+        #df_sum = ((df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'value_destroyed'].sum(level=['Division','hazard','rp']))/(df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
+        #df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
         
         df = df.sum(level=['Division','hazard','rp','asset_class'])
         df = df.reset_index().set_index(['Division','hazard','rp'])
@@ -485,6 +495,8 @@ def get_demonym(myC):
     elif myC == 'SL': return 'Sri Lankans'
 
 def scale_hh_income_to_match_GDP(df,new_total):
+
+    df = df.copy()
     
     #[['hhinc','hhwgt','AE','Sector']]
 
@@ -504,24 +516,46 @@ def scale_hh_income_to_match_GDP(df,new_total):
 
     print('New inc urb',new_inc_urb)
     print('New inc rur',new_inc_rur)
+    
+    ep_urb = 0.295#(np.log(new_inc_urb/nAE_urb)-np.log(tot_inc_urb/nAE_urb))/(np.log(tot_inc_urb/nAE_urb)-np.log(55.12*52))-1
+    ep_rur = 0.295#(np.log(new_inc_rur/nAE_rur)-np.log(tot_inc_rur/nAE_rur))/(np.log(tot_inc_rur/nAE_rur)-np.log(49.50*52))-1  
 
-    ep_urb = (np.log(new_inc_urb/nAE_urb)-np.log(tot_inc_urb/nAE_urb))/(np.log(tot_inc_urb/nAE_urb)-np.log(55.12*52))
-    ep_rur = (np.log(new_inc_rur/nAE_rur)-np.log(tot_inc_rur/nAE_rur))/(np.log(tot_inc_rur/nAE_rur)-np.log(49.50*52))    
+    #ep_urb = 0.35
+    #ep_rur = 0.
 
     #print(tot_inc)
     #print(ep_urb)
     #print(ep_rur)
 
     df['AEinc'] = df['hhinc']/df['AE']
-    df['new_AEinc'] = 0.
-    
+    df['new_AEinc'] = 0.    
     df.loc[df.Sector=='Urban','new_AEinc'] = (55.12*52)*(df.loc[df.Sector=='Urban','AEinc']/(55.12*52))**(1+ep_urb)
     df.loc[df.Sector=='Rural','new_AEinc'] = (49.50*52)*(df.loc[df.Sector=='Rural','AEinc']/(49.50*52))**(1+ep_rur)
 
-    df['div'] = df['new_AEinc']/df['AEinc']
+    df['ratio'] = df['new_AEinc']/df['AEinc']
+    
+    #print(df[['AEinc','new_AEinc','ratio']])
 
-    print(df[['AEinc','new_AEinc','div']])
-
+    print('Old sum:',df[['hhwgt','AE','AEinc']].prod(axis=1).sum())
     print('New sum:',df[['hhwgt','AE','new_AEinc']].prod(axis=1).sum())
 
-    assert(False)
+    df['new_hhinc'] = df[['AE','new_AEinc']].prod(axis=1)
+
+    ci_heights, ci_bins = np.histogram(df['AEinc'].clip(upper=20000), bins=50, weights=df[['hhwgt','hhsize']].prod(axis=1))
+    cf_heights, cf_bins = np.histogram(df['new_AEinc'].clip(upper=20000), bins=50, weights=df[['hhwgt','hhsize']].prod(axis=1))
+
+    ax = plt.gca()
+    q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
+    ax.bar(ci_bins[:-1], ci_heights, width=(ci_bins[1]-ci_bins[0]), label='Initial', facecolor=q_colors[0],alpha=0.4)
+    ax.bar(ci_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-shift', facecolor=q_colors[1],alpha=0.4)
+
+    print('in pov before shift:',df.loc[(df.hhinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1).sum())
+    print('in pov after shift:',df.loc[(df.new_hhinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1).sum())    
+
+    fig = ax.get_figure()
+    plt.xlabel(r'Income [FJD yr$^{-1}$]')
+    plt.ylabel('Population')
+    plt.legend(loc='best')
+    fig.savefig('../output_plots/FJ/income_shift.pdf',format='pdf')#+'.pdf',format='pdf')
+
+    return df['new_hhinc']
