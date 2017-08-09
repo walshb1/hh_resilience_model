@@ -349,6 +349,18 @@ def get_hazard_df(myC,economy):
         # load infrastructure values
         df_inf_tc =   pd.read_csv(inputs+'fiji_tc_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
         df_inf_et = pd.read_csv(inputs+'fiji_eqts_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        
+        ##### corrects the infrastructure values
+        df_inf_correction = pd.read_excel(inputs+"fj_infrastructure_v3.xlsx","Pivot by Tikina",skiprows=[0]).rename(columns={"Unnamed: 2":"Tikina","Tikina":"new_tikina"})
+        df_inf_correction = df_inf_correction[df_inf_correction.Region2!="Grand Total"]
+        df_inf_tc = df_inf_tc.reset_index().merge(df_inf_correction[["Tikina","Total"]],on="Tikina",how="inner")
+        df_inf_et = df_inf_et.reset_index().merge(df_inf_correction[["Tikina","Total"]],on="Tikina",how="inner")
+        df_inf_tc['Exp_Value'] = df_inf_tc.Total
+        df_inf_et['Exp_Value'] = df_inf_et.Total
+
+        df_inf_tc.reset_index("Tikina")
+        df_inf_et.reset_index("Tikina")        
+        
         df_inf_tc['hazard'] = 'TC'        
         df_inf_et['hazard'] = 'EQTS'
         df_inf = pd.concat([df_inf_tc,df_inf_et])
