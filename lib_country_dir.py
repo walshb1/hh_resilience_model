@@ -404,7 +404,7 @@ def get_hazard_df(myC,economy):
 
         df = df.reset_index().set_index(['Tikina','Tikina_ID','asset_class','asset_subclass','Exp_Value','hazard','rp'])
         print(df)     
-        df.to_csv('~/Desktop/my_csv.csv')
+        # df.to_csv('/../my_csv.csv')
         df = df.unstack()
 
         df = df.rename(columns={'exceed_2':2475,'exceed_5':975,'exceed_10':475,
@@ -420,12 +420,12 @@ def get_hazard_df(myC,economy):
 
         df['Division'] = (df['Tikina_ID']/100).astype('int')
         prov_code = get_places_dict(myC)
+         
         df = df.reset_index().set_index([df.Division.replace(prov_code)]).drop(['index','Division','Tikina_ID','asset_subclass'],axis=1) #replace district code with its name
-        
         df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
-        df_sum = ((df['value_destroyed'].sum(level=['Division','hazard','rp']))/(df['Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
-        # ^ what if we run with fa from buildings?
-
+        
+        df_sum = ((df['value_destroyed'].sum(level=['Division','hazard','rp']))/(df['Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='frac_destroyed')
+        
         #df = df.reset_index().set_index(['Division','Tikina','hazard','rp'])
         #df_sum = ((df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'value_destroyed'].sum(level=['Division','hazard','rp']))/(df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
         #df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
@@ -441,14 +441,23 @@ def get_hazard_df(myC,economy):
         
         df_sum['frac_destroyed_inf'] = df.loc[df.asset_class == 'inf','value_destroyed']/df.loc[df.asset_class == 'inf','Exp_Value']
         
+        #################
+        #adds SSBN floods
+        df_floods = pd.read_csv(inputs+"flood_fa.csv").rename(columns={"tid":"Tikina_ID","LS2012_pop":"Exp_Value"})
+        df_floods['Division'] = (df_floods['Tikina_ID']/100).astype('int')
+        df_floods_sum = (df_floods.set_index(['Division','hazard','rp'])[["frac_destroyed","Exp_Value"]].prod(axis=1).sum(level=['Division','hazard','rp'])/df_floods.set_index(['Division','hazard','rp'])["Exp_Value"].sum(level=['Division','hazard','rp'])).to_frame("frac_destroyed")
+        
+        df_sum = df_sum.append(df_floods_sum) #the floods are appended in df_sum but only the frac_destroyed column will have numbers
+
+        
         print('\n')
-        print('--> Total BLD =',df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp']).mean())
-        print('--> Frac BLD =',round((100.*df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%')
-        print('--> Total INF =',df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp']).mean())
-        print('--> Frac INF =',round((100.*df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%')
+        print('--> Total BLD =',df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp']).mean(skipna=True))
+        print('--> Frac BLD =',round((100.*df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(skipna=True),1),'%')
+        print('--> Total INF =',df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp']).mean(skipna=True))
+        print('--> Frac INF =',round((100.*df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(skipna=True),1),'%')
 
         print('--> Total AG =',df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp']).mean())
-        print('--> Frac AG =',round((100.*df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%')
+        print('--> Frac AG =',round((100.*df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(skipna=True),1),'%')
 
         #df_sum['bldg_stock'] = df_sum[['Exp_Value','frac_bld_res']].prod(axis=1)+df_sum[['Exp_Value','frac_bld_oth']].prod(axis=1)
         #print(df_sum.reset_index().set_index(['rp']).ix[1,'bldg_stock'].sum())
