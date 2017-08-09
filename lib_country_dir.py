@@ -80,7 +80,7 @@ def get_places_dict(myC):
 
     else: return None
 
-def load_survey_data(myC):
+def load_survey_data(myC,inc_sf=None):
     
     #Each survey/country should have the following:
     # -> hhid
@@ -112,13 +112,15 @@ def load_survey_data(myC):
         return df
 
     elif myC == 'FJ':
-        #df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',usecols=['HHID','Division','Nchildren','Nadult','AE','HHsize',
-        #                                                                   'Sector','Weight','TOTALTRANSFER','TotalIncome','New Total']).set_index('HHID')
-        #df = df.rename(columns={'HHID':'hhid','TotalIncome':'hhinc','HHsize':'hhsize','Weight':'hhwgt','TOTALTRANSFER':'hhsoc'})
+        df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',usecols=['HHID','Division','Nchildren','Nadult','AE','HHsize',
+                                                                           'Sector','Weight','TOTALTRANSFER','TotalIncome','New Total']).set_index('HHID')
+        df = df.rename(columns={'HHID':'hhid','TotalIncome':'hhinc','HHsize':'hhsize','Weight':'hhwgt','TOTALTRANSFER':'hhsoc'})
         
-        df_cons = pd.read_excel(inputs+'HIES 2013-14 Consumption Data.xlsx',usecols=['HHID','Weights','Grand Total'],sheetname='by_Individual items').set_index('HHID').drop('HHID').fillna(0)
-        print(df_cons[['Weights','Grand Total']].prod(axis=1).sum())
-        assert(False)
+        if inc_sf != None: df['hhinc'] = scale_hh_income_to_match_GDP(df[['hhinc','hhwgt','AE','Sector']],inc_sf)
+
+        #df_cons = pd.read_excel(inputs+'HIES 2013-14 Consumption Data.xlsx',usecols=['HHID','Weights','Grand Total'],sheetname='by_Individual items').set_index('HHID').drop('HHID').fillna(0)
+        #print(df_cons[['Weights','Grand Total']].prod(axis=1).sum())
+        #assert(False)
 
         #df['hhsize_ae'] = df['Nadult'] # assuming this is 'Adult Equivalents'
         df['hhsize_ae'] = df['AE'] # assuming this is 'Adult Equivalents'
@@ -130,12 +132,11 @@ def load_survey_data(myC):
         df['pcinc_ae'] = df['hhinc']/df['hhsize_ae']
         df['pcsoc'] = df['hhsoc']/df['hhsize']
 
-        print('Total income:',df[['pcinc','pcwgt']].prod(axis=1).sum())
-        print('Total income (new):',df[['New Total','hhwgt']].prod(axis=1).sum())
-        print(df[['hhsize','hhwgt']].prod(axis=1).sum()/df['hhwgt'].sum())
-        print(df[['hhsize_ae','hhwgt']].prod(axis=1).sum()/df['hhwgt'].sum())
-        assert(False)
-
+        #print('Total income:',df[['pcinc','pcwgt']].prod(axis=1).sum())
+        #print('Total income (new):',df[['New Total','hhwgt']].prod(axis=1).sum())
+        #print(df[['hhsize','hhwgt']].prod(axis=1).sum()/df['hhwgt'].sum())
+        #print(df[['hhsize_ae','hhwgt']].prod(axis=1).sum()/df['hhwgt'].sum())
+            
         df_housing = pd.read_excel(inputs+'HIES 2013-14 Housing Data.xlsx',sheetname='Sheet1').set_index('HHID').dropna(how='all')[['Constructionofouterwalls',
                                                                                                                                     'Conditionofouterwalls']]
         
@@ -172,6 +173,7 @@ def load_survey_data(myC):
         df['pcsoc'] = df[['other_inc','income_local']].sum(axis=1)
         
         df = df.reset_index().set_index('district')
+        
         return df
 
     else: return None
@@ -481,3 +483,45 @@ def get_demonym(myC):
     if myC == 'PH': return 'Filipinos'
     elif myC == 'FJ': return 'Fijians'
     elif myC == 'SL': return 'Sri Lankans'
+
+def scale_hh_income_to_match_GDP(df,new_total):
+    
+    #[['hhinc','hhwgt','AE','Sector']]
+
+    tot_inc = df[['hhinc','hhwgt']].prod(axis=1).sum()
+    tot_inc_urb = df.loc[df.Sector=='Urban',['hhinc','hhwgt']].prod(axis=1).sum()
+    tot_inc_rur = df.loc[df.Sector=='Rural',['hhinc','hhwgt']].prod(axis=1).sum()
+
+    nAE = df[['AE','hhwgt']].prod(axis=1).sum()
+    nAE_urb = df.loc[df.Sector=='Urban',['AE','hhwgt']].prod(axis=1).sum()
+    nAE_rur = df.loc[df.Sector=='Rural',['AE','hhwgt']].prod(axis=1).sum()
+    
+    f_inc_urb = tot_inc_urb/tot_inc
+    f_inc_rur = tot_inc_rur/tot_inc
+
+    new_inc_urb = f_inc_urb*new_total
+    new_inc_rur = f_inc_rur*new_total
+
+    print('New inc urb',new_inc_urb)
+    print('New inc rur',new_inc_rur)
+
+    ep_urb = (np.log(new_inc_urb/nAE_urb)-np.log(tot_inc_urb/nAE_urb))/(np.log(tot_inc_urb/nAE_urb)-np.log(55.12*52))
+    ep_rur = (np.log(new_inc_rur/nAE_rur)-np.log(tot_inc_rur/nAE_rur))/(np.log(tot_inc_rur/nAE_rur)-np.log(49.50*52))    
+
+    #print(tot_inc)
+    #print(ep_urb)
+    #print(ep_rur)
+
+    df['AEinc'] = df['hhinc']/df['AE']
+    df['new_AEinc'] = 0.
+    
+    df.loc[df.Sector=='Urban','new_AEinc'] = (55.12*52)*(df.loc[df.Sector=='Urban','AEinc']/(55.12*52))**(1+ep_urb)
+    df.loc[df.Sector=='Rural','new_AEinc'] = (49.50*52)*(df.loc[df.Sector=='Rural','AEinc']/(49.50*52))**(1+ep_rur)
+
+    df['div'] = df['new_AEinc']/df['AEinc']
+
+    print(df[['AEinc','new_AEinc','div']])
+
+    print('New sum:',df[['hhwgt','AE','new_AEinc']].prod(axis=1).sum())
+
+    assert(False)

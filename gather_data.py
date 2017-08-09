@@ -57,7 +57,9 @@ if myCountry == 'SL':  df['protection'] = 1
 # For PH: this is GDP per cap info:
 df2 = get_df2(myCountry)
 
-cat_info = load_survey_data(myCountry)
+inc_sf = None
+if myCountry =='FJ': inc_sf = 6.2E9 # FJD
+cat_info = load_survey_data(myCountry,inc_sf)
 
 print('Survey population:',cat_info.pcwgt.sum())
 
