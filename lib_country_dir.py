@@ -444,7 +444,8 @@ def get_hazard_df(myC,economy):
         #################
         #adds SSBN floods
         df_floods = pd.read_csv(inputs+"flood_fa.csv").rename(columns={"tid":"Tikina_ID","LS2012_pop":"Exp_Value"})
-        df_floods['Division'] = (df_floods['Tikina_ID']/100).astype('int')
+        df_floods['Division'] = (df_floods['Tikina_ID']/100).astype('int').replace(prov_code)
+        
         df_floods_sum = (df_floods.set_index(['Division','hazard','rp'])[["frac_destroyed","Exp_Value"]].prod(axis=1).sum(level=['Division','hazard','rp'])/df_floods.set_index(['Division','hazard','rp'])["Exp_Value"].sum(level=['Division','hazard','rp'])).to_frame("frac_destroyed")
         
         df_sum = df_sum.append(df_floods_sum) #the floods are appended in df_sum but only the frac_destroyed column will have numbers
