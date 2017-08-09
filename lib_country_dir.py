@@ -552,9 +552,11 @@ def scale_hh_income_to_match_GDP(df,new_total):
     print('New sum:',df[['hhwgt','AE','new_AEinc']].prod(axis=1).sum())
 
     df['new_hhinc'] = df[['AE','new_AEinc']].prod(axis=1)
+    df['new_pcinc'] = df['new_hhinc']/df['hhsize']
+    df['pcinc']     = df['hhinc']/df['hhsize']
 
-    ci_heights, ci_bins = np.histogram(df['AEinc'].clip(upper=20000), bins=50, weights=df[['hhwgt','hhsize']].prod(axis=1))
-    cf_heights, cf_bins = np.histogram(df['new_AEinc'].clip(upper=20000), bins=50, weights=df[['hhwgt','hhsize']].prod(axis=1))
+    ci_heights, ci_bins = np.histogram(df['pcinc'].clip(upper=20000), bins=50, weights=df[['hhwgt','hhsize']].prod(axis=1))
+    cf_heights, cf_bins = np.histogram(df['new_pcinc'].clip(upper=20000), bins=50, weights=df[['hhwgt','hhsize']].prod(axis=1))
 
     ax = plt.gca()
     q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
@@ -562,7 +564,15 @@ def scale_hh_income_to_match_GDP(df,new_total):
     ax.bar(ci_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-shift', facecolor=q_colors[1],alpha=0.4)
 
     print('in pov before shift:',df.loc[(df.hhinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1).sum())
-    print('in pov after shift:',df.loc[(df.new_hhinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1).sum())    
+    print('in pov after shift:',df.loc[(df.new_hhinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1).sum())
+
+    df['n_pov_old'] = 0
+    df['n_pov_new'] = 0
+    df.loc[(df.hhinc <= df.pov_line),'n_pov_old'] = df.loc[(df.hhinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1)
+    df.loc[(df.new_hhinc <= df.pov_line),'n_pov_new'] = df.loc[(df.new_hhinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1)
+    df.to_csv('~/Desktop/my_poverty.csv')
+
+    plt.plot([(df.pov_line/df.hhsize).mean(),(df.pov_line/df.hhsize).mean()],[0,1.25*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
 
     fig = ax.get_figure()
     plt.xlabel(r'Income [FJD yr$^{-1}$]')
