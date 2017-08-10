@@ -249,7 +249,9 @@ def get_infra_destroyed(myC,df_haz):
     transport_losses = pd.read_csv(inputs+"frac_destroyed_transport.csv").rename(columns={"ti_name":"Tikina"})
     transport_losses['Division'] = (transport_losses['tid']/100).astype('int')
     prov_code = get_places_dict(myC)
+    rp_dict   = get_rp_dict(myC)
     transport_losses['Division'] = transport_losses.Division.replace(prov_code)
+    transport_losses['rp'] = transport_losses.rp.replace(rp_dict)
     #sums at Division level to be like df_haz
     transport_losses = transport_losses.set_index(['Division','hazard','rp']).sum(level=['Division','hazard','rp'])
     transport_losses["frac_destroyed"] = transport_losses.damaged_value/transport_losses.value
@@ -347,18 +349,6 @@ def get_hazard_df(myC,economy):
         # load infrastructure values
         df_inf_tc =   pd.read_csv(inputs+'fiji_tc_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
         df_inf_et = pd.read_csv(inputs+'fiji_eqts_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
-        
-        ##### corrects the infrastructure values
-        df_inf_correction = pd.read_excel(inputs+"fj_infrastructure_v3.xlsx","Pivot by Tikina",skiprows=[0]).rename(columns={"Unnamed: 2":"Tikina","Tikina":"new_tikina"})
-        df_inf_correction = df_inf_correction[df_inf_correction.Region2!="Grand Total"]
-        df_inf_tc = df_inf_tc.reset_index().merge(df_inf_correction[["Tikina","Total"]],on="Tikina",how="inner")
-        df_inf_et = df_inf_et.reset_index().merge(df_inf_correction[["Tikina","Total"]],on="Tikina",how="inner")
-        df_inf_tc['Exp_Value'] = df_inf_tc.Total
-        df_inf_et['Exp_Value'] = df_inf_et.Total
-
-        df_inf_tc.reset_index("Tikina")
-        df_inf_et.reset_index("Tikina")        
-        
         df_inf_tc['hazard'] = 'TC'        
         df_inf_et['hazard'] = 'EQTS'
         df_inf = pd.concat([df_inf_tc,df_inf_et])
@@ -402,7 +392,7 @@ def get_hazard_df(myC,economy):
 
         df = df.reset_index().set_index(['Tikina','Tikina_ID','asset_class','asset_subclass','Exp_Value','hazard','rp'])
         print(df)     
-        # df.to_csv('/../my_csv.csv')
+        df.to_csv('~/Desktop/my_csv.csv')
         df = df.unstack()
 
         df = df.rename(columns={'exceed_2':2475,'exceed_5':975,'exceed_10':475,
@@ -418,15 +408,15 @@ def get_hazard_df(myC,economy):
 
         df['Division'] = (df['Tikina_ID']/100).astype('int')
         prov_code = get_places_dict(myC)
-         
         df = df.reset_index().set_index([df.Division.replace(prov_code)]).drop(['index','Division','Tikina_ID','asset_subclass'],axis=1) #replace district code with its name
-        df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
         
-        df_sum = ((df['value_destroyed'].sum(level=['Division','hazard','rp']))/(df['Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='frac_destroyed')
-        
-        #df = df.reset_index().set_index(['Division','Tikina','hazard','rp'])
-        #df_sum = ((df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'value_destroyed'].sum(level=['Division','hazard','rp']))/(df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
         #df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
+        #df_sum = ((df['value_destroyed'].sum(level=['Division','hazard','rp']))/(df['Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
+        # ^ what if we run with fa from buildings?
+
+        df = df.reset_index().set_index(['Division','Tikina','hazard','rp'])
+        df_sum = ((df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'value_destroyed'].sum(level=['Division','hazard','rp']))/(df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
+        df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
         
         df = df.sum(level=['Division','hazard','rp','asset_class'])
         df = df.reset_index().set_index(['Division','hazard','rp'])
@@ -439,24 +429,14 @@ def get_hazard_df(myC,economy):
         
         df_sum['frac_destroyed_inf'] = df.loc[df.asset_class == 'inf','value_destroyed']/df.loc[df.asset_class == 'inf','Exp_Value']
         
-        #################
-        #adds SSBN floods
-        df_floods = pd.read_csv(inputs+"flood_fa.csv").rename(columns={"tid":"Tikina_ID","LS2012_pop":"Exp_Value"})
-        df_floods['Division'] = (df_floods['Tikina_ID']/100).astype('int').replace(prov_code)
-        
-        df_floods_sum = (df_floods.set_index(['Division','hazard','rp'])[["frac_destroyed","Exp_Value"]].prod(axis=1).sum(level=['Division','hazard','rp'])/df_floods.set_index(['Division','hazard','rp'])["Exp_Value"].sum(level=['Division','hazard','rp'])).to_frame("frac_destroyed")
-        
-        df_sum = df_sum.append(df_floods_sum) #the floods are appended in df_sum but only the frac_destroyed column will have numbers
-
-        
         print('\n')
-        print('--> Total BLD =',df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp']).mean(skipna=True))
-        print('--> Frac BLD =',round((100.*df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(skipna=True),1),'%')
-        print('--> Total INF =',df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp']).mean(skipna=True))
-        print('--> Frac INF =',round((100.*df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(skipna=True),1),'%')
+        print('--> Total BLD =',df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp']).mean())
+        print('--> Frac BLD =',round((100.*df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%')
+        print('--> Total INF =',df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp']).mean())
+        print('--> Frac INF =',round((100.*df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%')
 
         print('--> Total AG =',df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp']).mean())
-        print('--> Frac AG =',round((100.*df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(skipna=True),1),'%')
+        print('--> Frac AG =',round((100.*df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%')
 
         #df_sum['bldg_stock'] = df_sum[['Exp_Value','frac_bld_res']].prod(axis=1)+df_sum[['Exp_Value','frac_bld_oth']].prod(axis=1)
         #print(df_sum.reset_index().set_index(['rp']).ix[1,'bldg_stock'].sum())
@@ -560,11 +540,9 @@ def scale_hh_income_to_match_GDP(df,new_total):
     print('New sum:',df[['hhwgt','AE','new_AEinc']].prod(axis=1).sum())
 
     df['new_hhinc'] = df[['AE','new_AEinc']].prod(axis=1)
-    df['new_pcinc'] = df['new_hhinc']/df['hhsize']
-    df['pcinc']     = df['hhinc']/df['hhsize']
 
-    ci_heights, ci_bins = np.histogram(df['pcinc'].clip(upper=20000), bins=50, weights=df[['hhwgt','hhsize']].prod(axis=1))
-    cf_heights, cf_bins = np.histogram(df['new_pcinc'].clip(upper=20000), bins=50, weights=df[['hhwgt','hhsize']].prod(axis=1))
+    ci_heights, ci_bins = np.histogram(df['AEinc'].clip(upper=20000), bins=50, weights=df[['hhwgt','hhsize']].prod(axis=1))
+    cf_heights, cf_bins = np.histogram(df['new_AEinc'].clip(upper=20000), bins=50, weights=df[['hhwgt','hhsize']].prod(axis=1))
 
     ax = plt.gca()
     q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
@@ -572,15 +550,7 @@ def scale_hh_income_to_match_GDP(df,new_total):
     ax.bar(ci_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-shift', facecolor=q_colors[1],alpha=0.4)
 
     print('in pov before shift:',df.loc[(df.hhinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1).sum())
-    print('in pov after shift:',df.loc[(df.new_hhinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1).sum())
-
-    df['n_pov_old'] = 0
-    df['n_pov_new'] = 0
-    df.loc[(df.hhinc <= df.pov_line),'n_pov_old'] = df.loc[(df.hhinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1)
-    df.loc[(df.new_hhinc <= df.pov_line),'n_pov_new'] = df.loc[(df.new_hhinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1)
-    df.to_csv('~/Desktop/my_poverty.csv')
-
-    plt.plot([(df.pov_line/df.hhsize).mean(),(df.pov_line/df.hhsize).mean()],[0,1.25*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
+    print('in pov after shift:',df.loc[(df.new_hhinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1).sum())    
 
     fig = ax.get_figure()
     plt.xlabel(r'Income [FJD yr$^{-1}$]')

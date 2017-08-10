@@ -299,7 +299,7 @@ if myCountry == 'PH':
 elif myCountry == 'FJ':
 
     # PLOT
-    plot_df = hazard_ratios[['Exp_Value','HIES_capital','frac_bld_res','frac_agr']].dropna()
+    plot_df = hazard_ratios[['Exp_Value','HIES_capital','frac_bld_res','frac_agr']]
     plot_df['RES_AGR_Exp_Value'] = hazard_ratios[['Exp_Value','frac_bld_res']].prod(axis=1) + hazard_ratios[['Exp_Value','frac_agr']].prod(axis=1)
     plot_df['RES_Exp_Value'] = hazard_ratios[['Exp_Value','frac_bld_res']].prod(axis=1)
 
@@ -330,11 +330,11 @@ elif myCountry == 'FJ':
     plt.annotate('Res Assets '+str(round(100.*fit_line_3[0],2))+'%',[0.,6.E9])
     
     fig = plt.gcf()
-    fig.savefig('../check_plots/new_HIES_vs_PCRAFI_household_assets.pdf',format='pdf')
+    fig.savefig('new_HIES_vs_PCRAFI_household_assets.pdf',format='pdf')
 
     # This is *the* line
     # --> fa is losses/exposed_value
-    # hazard_ratios['frac_destroyed'] = hazard_ratios['fa'] #It's already called frac_destroyed
+    hazard_ratios['frac_destroyed'] = hazard_ratios['fa'] 
     
 elif myCountry == 'SL':
     hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
@@ -372,8 +372,6 @@ if myCountry == 'FJ':
     hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),hazard_ratios['fa'].reset_index(),on=[economy,'hazard','rp'],how='outer')
     hazard_ratios_infra = hazard_ratios_infra.set_index(['sector']+event_level+['hhid'])
     hazard_ratios_infra['v_k'] = hazard_ratios_infra['frac_destroyed']/hazard_ratios_infra['fa']
-    
-    hazard_ratios_infra.to_csv(intermediate+"hazard_ratios_infra.csv")
     
     ##adds the hh_share column in cat_info. this is the share of household's capital that is not infrastructure
     cat_info['hh_share'] = 1-hazard_ratios_infra.share.sum(level=[economy,'hazard','rp','hhid']).mean()
@@ -436,5 +434,5 @@ if myCountry == 'FJ':
     # 7000 km tranmission
     
     fig = plt.gcf()
-    fig.savefig('../check_plots/HIES_vs_PCRAFI_assets.pdf',format='pdf')
+    fig.savefig('HIES_vs_PCRAFI_assets.pdf',format='pdf')
     
