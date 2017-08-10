@@ -349,6 +349,21 @@ def get_hazard_df(myC,economy):
         # load infrastructure values
         df_inf_tc =   pd.read_csv(inputs+'fiji_tc_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
         df_inf_et = pd.read_csv(inputs+'fiji_eqts_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
+        
+        ##### corrects the infrastructure values
+        if True:
+        #just put False here if the new infrastructure values mess up the results
+            df_inf_correction = pd.read_excel(inputs+"fj_infrastructure_v3.xlsx","Pivot by Tikina",skiprows=[0]).rename(columns={"Unnamed: 2":"Tikina","Tikina":"new_tikina"})
+            df_inf_correction = df_inf_correction[df_inf_correction.Region2!="Grand Total"]
+            df_inf_tc = df_inf_tc.reset_index().merge(df_inf_correction[["Tikina","Total"]].dropna(),on="Tikina",how="outer")
+            df_inf_et = df_inf_et.reset_index().merge(df_inf_correction[["Tikina","Total"]].dropna(),on="Tikina",how="outer")
+            df_inf_et["Total"] = df_inf_et.Total.fillna(df_inf_et.Exp_Value)
+            df_inf_tc["Total"] = df_inf_tc.Total.fillna(df_inf_tc.Exp_Value)
+            df_inf_et['Exp_Value'] = df_inf_et.Total
+            df_inf_tc['Exp_Value'] = df_inf_tc.Total     
+            df_inf_et = df_inf_et.drop(["Total"],axis=1).set_index("Tikina")
+            df_inf_tc = df_inf_tc.drop(["Total"],axis=1).set_index("Tikina")        
+        
         df_inf_tc['hazard'] = 'TC'        
         df_inf_et['hazard'] = 'EQTS'
         df_inf = pd.concat([df_inf_tc,df_inf_et])
@@ -428,6 +443,16 @@ def get_hazard_df(myC,economy):
         df_sum['frac_agr']     = df.loc[df.asset_class == 'agr','Exp_Value']/df['Exp_Value'].sum(level=['Division','hazard','rp'])
         
         df_sum['frac_destroyed_inf'] = df.loc[df.asset_class == 'inf','value_destroyed']/df.loc[df.asset_class == 'inf','Exp_Value']
+        
+        #################
+        #adds SSBN floods
+        # df_floods = pd.read_csv(inputs+"flood_fa.csv").rename(columns={"tid":"Tikina_ID","LS2012_pop":"Exp_Value"})
+        # df_floods['Division'] = (df_floods['Tikina_ID']/100).astype('int').replace(prov_code)
+
+        # df_floods_sum = (df_floods.set_index(['Division','hazard','rp'])[["frac_destroyed","Exp_Value"]].prod(axis=1).sum(level=['Division','hazard','rp'])/df_floods.set_index(['Division','hazard','rp'])["Exp_Value"].sum(level=['Division','hazard','rp'])).to_frame("frac_destroyed")
+
+        # df_sum = df_sum.append(df_floods_sum) #the floods are appended in df_sum but only the frac_destroyed column will have numbers
+
         
         print('\n')
         print('--> Total BLD =',df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp']).mean())

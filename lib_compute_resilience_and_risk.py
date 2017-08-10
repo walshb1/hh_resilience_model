@@ -1,6 +1,6 @@
 #modified version from lib_compute_resilience_and_risk_financing.py
 import matplotlib
-matplotlib.use('AGG')
+# matplotlib.use('AGG')
 
 import numpy as np
 import pandas as pd
@@ -143,7 +143,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     if type(hazard_ratios)==pd.DataFrame:
         
         hazard_ratios = hazard_ratios.reset_index().set_index(economy).dropna()
-        hazard_ratios = hazard_ratios.drop('Unnamed: 0',axis=1)
+        if 'Unnamed: 0' in hazard_ratios.columns: hazard_ratios = hazard_ratios.drop('Unnamed: 0',axis=1)
         
         #These lines remove countries in macro not in cat_info
         if myCountry == 'SL': hazard_ratios = hazard_ratios.dropna()
@@ -568,7 +568,7 @@ def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_C
     plt.ylabel('Population')
     plt.xlabel('dw')
     fig = ax.get_figure()
-    fig.savefig('/Users/brian/Desktop/my_plots/'+myCountry+pol_str+'_dw.pdf',format='pdf')
+    # fig.savefig('/../check_plots/'+myCountry+pol_str+'_dw.pdf',format='pdf')
     
 
     #aggregates dK and delta_W at df level

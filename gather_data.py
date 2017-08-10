@@ -380,17 +380,21 @@ if myCountry == 'FJ':
     hazard_ratios['public_loss'] = hazard_ratios_infra[["share","v_k"]].prod(axis=1, skipna=True).sum(level=event_level+['hhid'])
 
     #Calculation of d(income) over dk for the macro_multiplier. will drop all the intermediate variables at the end
-
-    service_loss        = get_service_loss(myCountry)
-    service_loss_event  = pd.DataFrame(index=service_loss.unstack('sector').index) #removes the sector level
-    service_loss_event['v_product'] = ((1-service_loss.cost_increase)**service_loss.e).sum(level=['hazard','rp'])
-    service_loss_event['alpha_v_sum'] = hazard_ratios[['fa','v','k','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])/hazard_ratios[['k','pcwgt']].prod(axis=1).sum(level=['hazard','rp']) #fraction of assets lost at national level
-    service_loss_event['avg_prod_k'] = df.avg_prod_k.mean()
-    service_loss_event["dy_over_dk"]  = ((1-service_loss_event['v_product'])/service_loss_event['alpha_v_sum']*service_loss_event["avg_prod_k"]+service_loss_event['v_product']*service_loss_event["avg_prod_k"]/3)
-    service_loss_event["dy_over_dk"] = service_loss_event[["dy_over_dk",'avg_prod_k']].max(axis=1)
     
-    hazard_ratios = pd.merge(hazard_ratios.reset_index(),service_loss_event.dy_over_dk.reset_index(),on=['hazard','rp'],how='inner')
-    hazard_ratios['dy_over_dk'] = hazard_ratios['dy_over_dk'].fillna(df.avg_prod_k.mean())
+    if False:
+    #no fancy macro_multiplier for now
+        service_loss        = get_service_loss(myCountry)
+        service_loss_event  = pd.DataFrame(index=service_loss.unstack('sector').index) #removes the sector level
+        service_loss_event['v_product'] = ((1-service_loss.cost_increase)**service_loss.e).sum(level=['hazard','rp'])
+        service_loss_event['alpha_v_sum'] = hazard_ratios[['fa','v','k','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])/hazard_ratios[['k','pcwgt']].prod(axis=1).sum(level=['hazard','rp']) #fraction of assets lost at national level
+        service_loss_event['avg_prod_k'] = df.avg_prod_k.mean()
+        service_loss_event["dy_over_dk"]  = ((1-service_loss_event['v_product'])/service_loss_event['alpha_v_sum']*service_loss_event["avg_prod_k"]+service_loss_event['v_product']*service_loss_event["avg_prod_k"]/3)
+        service_loss_event["dy_over_dk"] = service_loss_event[["dy_over_dk",'avg_prod_k']].max(axis=1)
+
+        hazard_ratios = pd.merge(hazard_ratios.reset_index(),service_loss_event.dy_over_dk.reset_index(),on=['hazard','rp'],how='inner')
+        hazard_ratios['dy_over_dk'] = hazard_ratios['dy_over_dk'].fillna(df.avg_prod_k.mean())
+    
+    hazard_ratios["dy_over_dk"] = get_avg_prod(myCountry)
 
     hazard_ratios = hazard_ratios.drop(['k','pcwgt'],axis=1)
 else:

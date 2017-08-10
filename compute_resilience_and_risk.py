@@ -4,7 +4,7 @@ get_ipython().magic('load_ext autoreload')
 get_ipython().magic('autoreload 2')
 
 import matplotlib
-matplotlib.use('AGG')
+# matplotlib.use('AGG')
 
 import gc
 import sys
@@ -136,6 +136,9 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
 
 if __name__ == '__main__':
 
+    debug = False
+    if len(sys.argv)>1: debug = sys.argv[1]
+
     myCountry = 'FJ'
 
     if myCountry == 'FJ':
@@ -153,6 +156,7 @@ if __name__ == '__main__':
         # --> universal access to finance
         # --> 
         
+        if debug: launch_compute_resilience_and_risk_thread('FJ','','no')
         with Pool() as pool:
             pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str), pds_str))
     
