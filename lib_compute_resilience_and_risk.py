@@ -129,7 +129,9 @@ def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,ev
 
     #cat_info = cat_info[cat_info.c>0]
     hazard_ratios = pd.read_csv(fname, index_col=event_level+[income_cats])
-
+    hazard_ratios = hazard_ratios.reset_index().set_index(['hazard']).drop('flood_pluv',axis=0)
+    hazard_ratios = hazard_ratios.reset_index().set_index(event_level+[income_cats])
+    
     macro,cat_info,hazard_ratios = apply_policies(pol_str,macro,cat_info,hazard_ratios)
 
     #compute
