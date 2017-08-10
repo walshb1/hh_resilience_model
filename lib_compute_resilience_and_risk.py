@@ -365,6 +365,7 @@ def compute_response(pol_str, macro_event, cats_event_iah, event_level, default_
     
     #counting (mind self multiplication of n)
     for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
+
         cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,aWGT]*=(1-macro_event['error_excl'])
         cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='a') ,aWGT]*=(  macro_event['error_excl'])
         cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),aWGT]*=(  macro_event['error_incl'])  

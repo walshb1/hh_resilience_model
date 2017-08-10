@@ -135,6 +135,9 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     # print(((iah1-iah.reset_index().set_index(event_level+['income_cat','affected_cat','helped_cat']))/iah1).max())
 
 if __name__ == '__main__':
+    
+    if len(sys.argv) > 1:
+        debug = sys.argv[1]
 
     myCountry = 'FJ'
 
@@ -153,8 +156,10 @@ if __name__ == '__main__':
         # --> universal access to finance
         # --> 
         
-        with Pool() as pool:
-            pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str), pds_str))
+        if(debug): launch_compute_resilience_and_risk_thread(myCountry,'','no')
+        else:
+            with Pool() as pool:
+                pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str), pds_str))
     
     if myCountry == 'PH' or myCountry == 'SL':
         pds_str = ['no','unif_poor']
