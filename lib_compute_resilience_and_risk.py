@@ -129,7 +129,9 @@ def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,ev
 
     #cat_info = cat_info[cat_info.c>0]
     hazard_ratios = pd.read_csv(fname, index_col=event_level+[income_cats])
-
+    hazard_ratios = hazard_ratios.reset_index().set_index(['hazard']).drop('flood_pluv',axis=0)
+    hazard_ratios = hazard_ratios.reset_index().set_index(event_level+[income_cats])
+    
     macro,cat_info,hazard_ratios = apply_policies(pol_str,macro,cat_info,hazard_ratios)
 
     #compute
@@ -365,6 +367,7 @@ def compute_response(pol_str, macro_event, cats_event_iah, event_level, default_
     
     #counting (mind self multiplication of n)
     for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
+
         cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,aWGT]*=(1-macro_event['error_excl'])
         cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='a') ,aWGT]*=(  macro_event['error_excl'])
         cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),aWGT]*=(  macro_event['error_incl'])  
