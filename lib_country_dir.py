@@ -251,7 +251,7 @@ def get_infra_destroyed(myC,df_haz):
     prov_code = get_places_dict(myC)
     rp_dict   = get_rp_dict(myC)
     transport_losses['Division'] = transport_losses.Division.replace(prov_code)
-    transport_losses['rp'] = transport_losses.rp.replace(rp_dict)
+    transport_losses.ix[transport_losses.hazard=="TC",'rp'] = transport_losses.ix[transport_losses.hazard=="TC",'rp'].replace(rp_dict)
     #sums at Division level to be like df_haz
     transport_losses = transport_losses.set_index(['Division','hazard','rp']).sum(level=['Division','hazard','rp'])
     transport_losses["frac_destroyed"] = transport_losses.damaged_value/transport_losses.value
@@ -405,8 +405,7 @@ def get_hazard_df(myC,economy):
         df = pd.concat([df_bld,df_inf,df_agr])
 
 
-        df = df.reset_index().set_index(['Tikina','Tikina_ID','asset_class','asset_subclass','Exp_Value','hazard','rp'])
-        print(df)     
+        df = df.reset_index().set_index(['Tikina','Tikina_ID','asset_class','asset_subclass','Exp_Value','hazard','rp'])    
         df.to_csv('~/Desktop/my_csv.csv')
         df = df.unstack()
 
@@ -430,7 +429,7 @@ def get_hazard_df(myC,economy):
         # ^ what if we run with fa from buildings?
 
         df = df.reset_index().set_index(['Division','Tikina','hazard','rp'])
-        df_sum = ((df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'value_destroyed'].sum(level=['Division','hazard','rp']))/(df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
+        df_sum = ((df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'value_destroyed'].sum(level=['Division','hazard','rp']))/(df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='frac_destroyed')
         df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
         
         df = df.sum(level=['Division','hazard','rp','asset_class'])
@@ -446,13 +445,18 @@ def get_hazard_df(myC,economy):
         
         #################
         #adds SSBN floods
-        # df_floods = pd.read_csv(inputs+"flood_fa.csv").rename(columns={"tid":"Tikina_ID","LS2012_pop":"Exp_Value"})
-        # df_floods['Division'] = (df_floods['Tikina_ID']/100).astype('int').replace(prov_code)
+        if True:
+            df_floods = pd.read_csv(inputs+"flood_fa.csv").rename(columns={"tid":"Tikina_ID","LS2012_pop":"Exp_Value"})
+            df_floods['Division'] = (df_floods['Tikina_ID']/100).astype('int').replace(prov_code)
+            
+            product = [df_sum.reset_index().Division.unique(),df_floods.reset_index().hazard.unique(),df_floods.reset_index().rp.unique()]
+            idx = pd.MultiIndex.from_product(product, names=['Tikina_ID', 'hazard','rp'])
+            df_floods_sum = pd.DataFrame(index=idx)
 
-        # df_floods_sum = (df_floods.set_index(['Division','hazard','rp'])[["frac_destroyed","Exp_Value"]].prod(axis=1).sum(level=['Division','hazard','rp'])/df_floods.set_index(['Division','hazard','rp'])["Exp_Value"].sum(level=['Division','hazard','rp'])).to_frame("frac_destroyed")
-
-        # df_sum = df_sum.append(df_floods_sum) #the floods are appended in df_sum but only the frac_destroyed column will have numbers
-
+            df_floods_sum["frac_destroyed"] = (df_floods.set_index(['Division','hazard','rp'])[["frac_destroyed","Exp_Value"]].prod(axis=1).sum(level=['Division','hazard','rp'])/df_floods.set_index(['Division','hazard','rp'])["Exp_Value"].sum(level=['Division','hazard','rp']))
+            df_floods_sum["frac_destroyed_inf"] = df_floods_sum["frac_destroyed"]
+            
+            df_sum = df_sum.append(df_floods_sum.fillna(0)) #the floods are appended in df_sum but only the frac_destroyed column will have numbers
         
         print('\n')
         print('--> Total BLD =',df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp']).mean())

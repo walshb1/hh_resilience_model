@@ -184,6 +184,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     # Interpolates data to a more granular grid for return periods that includes all protection values that are potentially not the same in hazard_ratios.
     else:
         hazard_ratios_event = interpolate_rps(hazard_ratios, macro.protection,option=default_rp)
+        hazard_ratios_event.to_csv("hazard_ratios_event.csv")
 
     # PSA input: original value of c
     avg_c = round(np.average(macro['gdp_pc_pp_prov'],weights=macro['pop'])/get_to_USD(myCountry),2)
@@ -243,6 +244,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     if not cols_c==[]:
         hrb = broadcast_simple(hazard_ratios_event[cols_c], cat_info.index).reset_index().set_index(get_list_of_index_names(cats_event)) #explicitly broadcasts hazard ratios to contain income categories
         cats_event[cols_c] = hrb
+        cats_event.to_csv("cats_event.csv")
         if verbose_replace:
             flag2=True
             print('Replaced in cats: '+', '.join(cols_c))
@@ -254,6 +256,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
 
     cats_event_ia=concat_categories(cats_event,cats_event,index= affected_cats)
+    cats_event.to_csv("cats_event.csv")
     
     #counts affected and non affected
     print('From here: \'hhwgt\' = nAffected and nNotAffected: households') 
@@ -265,7 +268,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
     #cats_event.loc[(cats_event.Division == 'Rotuma') & (cats_event.hazard == 'typhoon'),'fa'] *= 0.01
     #cats_event = cats_event.reset_index().set_index(['Division','hazard','rp','hhid'])
 
-    print(cats_event)
+    # print(cats_event)
 
     for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
         myNaf = cats_event[aWGT]*cats_event.fa
@@ -362,6 +365,8 @@ def compute_response(pol_str, macro_event, cats_event_iah, event_level, default_
     else:
         print('unrecognized targeting error option '+optionT)
         return None
+        
+    cats_event_iah.to_csv("cats_event_iah.csv")
     
     #counting (mind self multiplication of n)
     for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
@@ -674,10 +679,13 @@ def interpolate_rps(fa_ratios,protection_list,option):
     if len(fa_ratios_rps.columns)==1:
         fa_ratios_rps[0] = fa_ratios_rps.squeeze()
     else:
-        fa_ratios_rps[0]=fa_ratios_rps.iloc[:,0]- fa_ratios_rps.columns[0]*(
-        fa_ratios_rps.iloc[:,1]-fa_ratios_rps.iloc[:,0])/(
-        fa_ratios_rps.columns[1]-fa_ratios_rps.columns[0])
-    
+        fa_ratios_rps[0]=0 #the line below was creating issues when there were nans in fa_ratios_rps (ie when different hazards had different rp)
+        # fa_ratios_rps[0]=fa_ratios_rps.iloc[:,0]- fa_ratios_rps.columns[0]*(
+        # fa_ratios_rps.iloc[:,1]-fa_ratios_rps.iloc[:,0])/(
+        # fa_ratios_rps.columns[1]-fa_ratios_rps.columns[0])
+        
+    fa_ratios_rps = fa_ratios_rps.reindex_axis(sorted(fa_ratios_rps.columns), axis=1)
+    fa_ratios_rps = fa_ratios_rps.interpolate(axis=1,limit_direction="both",downcast="infer")
     
     #add new, interpolated values for fa_ratios, assuming constant exposure on the right
     x = fa_ratios_rps.columns.values

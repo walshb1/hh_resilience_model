@@ -334,7 +334,7 @@ elif myCountry == 'FJ':
 
     # This is *the* line
     # --> fa is losses/exposed_value
-    hazard_ratios['frac_destroyed'] = hazard_ratios['fa'] 
+    # hazard_ratios['frac_destroyed'] = hazard_ratios['fa'] 
     
 elif myCountry == 'SL':
     hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
@@ -374,10 +374,12 @@ if myCountry == 'FJ':
     hazard_ratios_infra['v_k'] = hazard_ratios_infra['frac_destroyed']/hazard_ratios_infra['fa']
     
     ##adds the hh_share column in cat_info. this is the share of household's capital that is not infrastructure
-    cat_info['hh_share'] = 1-hazard_ratios_infra.share.sum(level=[economy,'hazard','rp','hhid']).mean()
+    # cat_info['hh_share'] = 1-hazard_ratios_infra.share.sum(level=[economy,'hazard','rp','hhid']).mean()
+    cat_info['hh_share'] = 1
     
     ##adds the public_loss variable in hazard_ratios. this is the share of households's capital that is destroyed and does not directly belongs to the household (fa is missing but it's the same for all capital)
-    hazard_ratios['public_loss'] = hazard_ratios_infra[["share","v_k"]].prod(axis=1, skipna=True).sum(level=event_level+['hhid'])
+    # hazard_ratios['public_loss'] = hazard_ratios_infra[["share","v_k"]].prod(axis=1, skipna=True).sum(level=event_level+['hhid'])
+    hazard_ratios['public_loss'] = 0
 
     #Calculation of d(income) over dk for the macro_multiplier. will drop all the intermediate variables at the end
     
