@@ -373,6 +373,8 @@ if myCountry == 'FJ':
     hazard_ratios_infra = hazard_ratios_infra.set_index(['sector']+event_level+['hhid'])
     hazard_ratios_infra['v_k'] = hazard_ratios_infra['frac_destroyed']/hazard_ratios_infra['fa']
     
+    hazard_ratios_infra.to_csv(intermediate+"hazard_ratios_infra.csv")
+    
     ##adds the hh_share column in cat_info. this is the share of household's capital that is not infrastructure
     cat_info['hh_share'] = 1-hazard_ratios_infra.share.sum(level=[economy,'hazard','rp','hhid']).mean()
     

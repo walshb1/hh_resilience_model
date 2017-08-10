@@ -249,9 +249,7 @@ def get_infra_destroyed(myC,df_haz):
     transport_losses = pd.read_csv(inputs+"frac_destroyed_transport.csv").rename(columns={"ti_name":"Tikina"})
     transport_losses['Division'] = (transport_losses['tid']/100).astype('int')
     prov_code = get_places_dict(myC)
-    rp_dict   = get_rp_dict(myC)
     transport_losses['Division'] = transport_losses.Division.replace(prov_code)
-    transport_losses['rp'] = transport_losses.rp.replace(rp_dict)
     #sums at Division level to be like df_haz
     transport_losses = transport_losses.set_index(['Division','hazard','rp']).sum(level=['Division','hazard','rp'])
     transport_losses["frac_destroyed"] = transport_losses.damaged_value/transport_losses.value
