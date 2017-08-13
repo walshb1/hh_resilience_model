@@ -155,7 +155,12 @@ if __name__ == '__main__':
         # --> develop market insurance for rich
         # --> universal access to finance
         # --> 
-            
+
+        if debug: launch_compute_resilience_and_risk_thread('FJ','','no')
+        else:
+            with Pool() as pool:
+                pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str), pds_str))
+    
     if myCountry == 'PH' or myCountry == 'SL':
         pds_str = ['no','unif_poor']
         pol_str = ''

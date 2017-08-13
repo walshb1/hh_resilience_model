@@ -1,6 +1,6 @@
 #modified version from lib_compute_resilience_and_risk_financing.py
 import matplotlib
-# matplotlib.use('AGG')
+matplotlib.use('AGG')
 
 import numpy as np
 import pandas as pd
@@ -183,7 +183,13 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 
     # Interpolates data to a more granular grid for return periods that includes all protection values that are potentially not the same in hazard_ratios.
     else:
-        hazard_ratios_event = interpolate_rps(hazard_ratios, macro.protection,option=default_rp)
+        hazard_ratios_event = pd.DataFrame()
+        for haz in hazard_ratios.reset_index().hazard.unique():
+            hazard_ratios_event = hazard_ratios_event.append(interpolate_rps(hazard_ratios.reset_index().ix[hazard_ratios.reset_index().hazard==haz,:].set_index(hazard_ratios.index.names), macro.protection,option=default_rp))
+            
+        hazard_ratios_event = same_rps_all_hazards(hazard_ratios_event)
+            
+        # hazard_ratios_event.to_csv("hazard_ratios_event.csv") #Julie
 
     # PSA input: original value of c
     avg_c = round(np.average(macro['gdp_pc_pp_prov'],weights=macro['pop'])/get_to_USD(myCountry),2)
@@ -213,11 +219,6 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 
     print('Re-recalc mean cons (pc)',round(np.average((cat_info['c']*cat_info['pcwgt']).sum(level=economy)/macro['pop'],weights=macro['pop']),2),'(local curr).\n')    
 
-    #rebuilding exponentially to 95% of initial stock in reconst_duration
-    recons_rate = np.log(1/0.05) / macro['T_rebuild_K']  
-    
-    #Calculation of macroeconomic resilience
-    macro['macro_multiplier'] =(macro['avg_prod_k']+recons_rate)/(macro['rho']+recons_rate)  #Gamma in the technical paper
 
     ####FORMATTING
     #gets the event level index
@@ -225,7 +226,13 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 
     #Broadcast macro to event level 
     macro_event = broadcast_simple(macro,event_level_index)	
+    #rebuilding exponentially to 95% of initial stock in reconst_duration
+    recons_rate = np.log(1/0.05) / macro_event['T_rebuild_K']  
 
+    #Calculation of macroeconomic resilience
+    macro_event['macro_multiplier'] =(hazard_ratios_event['dy_over_dk'].mean(level=event_level)+recons_rate)/(macro_event['rho']+recons_rate)  #Gamma in the technical paper
+    
+    
     #updates columns in macro with columns in hazard_ratios_event
     cols = [c for c in macro_event if c in hazard_ratios_event] #columns that are both in macro_event and hazard_ratios_event
     if not cols==[]:
@@ -236,6 +243,8 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     
     #Broadcast categories to event level
     cats_event = broadcast_simple(cat_info,  event_level_index)
+    cats_event['public_loss_v'] = hazard_ratios_event.public_loss_v
+
 
     #updates columns in cats with columns in hazard_ratios_event	
     # applies mh ratios to relevant columns
@@ -243,6 +252,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     if not cols_c==[]:
         hrb = broadcast_simple(hazard_ratios_event[cols_c], cat_info.index).reset_index().set_index(get_list_of_index_names(cats_event)) #explicitly broadcasts hazard ratios to contain income categories
         cats_event[cols_c] = hrb
+        cats_event.to_csv("cats_event.csv")
         if verbose_replace:
             flag2=True
             print('Replaced in cats: '+', '.join(cols_c))
@@ -254,6 +264,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
 
     cats_event_ia=concat_categories(cats_event,cats_event,index= affected_cats)
+    cats_event.to_csv("cats_event.csv")
     
     #counts affected and non affected
     print('From here: \'hhwgt\' = nAffected and nNotAffected: households') 
@@ -265,7 +276,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
     #cats_event.loc[(cats_event.Division == 'Rotuma') & (cats_event.hazard == 'typhoon'),'fa'] *= 0.01
     #cats_event = cats_event.reset_index().set_index(['Division','hazard','rp','hhid'])
 
-    print(cats_event)
+    # print(cats_event)
 
     for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
         myNaf = cats_event[aWGT]*cats_event.fa
@@ -279,8 +290,8 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
     #actual vulnerability
     cats_event_ia['v_shew']=cats_event_ia['v']*(1-macro_event['pi']*cats_event_ia['shew']) 
 
-    #capital losses and total capital losses
-    cats_event_ia['dk']  = cats_event_ia[['k','v_shew']].prod(axis=1, skipna=False) #capital potentially be damaged 
+    #capital losses and total capital losses. Each household's capital losses is the sum of their private losses and public infrastructure losses (in proportion to their capital)
+    cats_event_ia['dk']  = cats_event_ia[['hh_share','k','v_shew']].prod(axis=1, skipna=False)+ cats_event_ia[['public_loss_v','k']].prod(axis=1, skipna=False)
 
     cats_event_ia.ix[(cats_event_ia.affected_cat=='na'), 'dk']=0
 
@@ -362,6 +373,8 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
     else:
         print('unrecognized targeting error option '+optionT)
         return None
+        
+    cats_event_iah.to_csv("cats_event_iah.csv")
     
     
     #cats_event_iah.sum(level='province').to_csv('~/Desktop/my_plots/ce_iah_prov.csv')
@@ -650,6 +663,34 @@ def unpack_social(m,cat):
     social = gs*m.gdp_pc_pp_nat*m.tau_tax/(c+1.0e-10) #gdp*tax should give the total social protection. gs=each one's social protection/(total social protection). social is defined as t(which is social protection)/c_i(consumption)
 
     return social
+    
+def same_rps_all_hazards(fa_ratios):
+    ''' inspired by interpolate_rps but made to make sure all hazards have the same return periods (not that the protection rps are included by hazard)'''
+    flag_stack= False
+    if 'rp' in get_list_of_index_names(fa_ratios):
+        fa_ratios = fa_ratios.unstack('rp')
+        flag_stack = True
+        
+    #in case of a Multicolumn dataframe, perform this function on each one of the higher level columns
+    if type(fa_ratios.columns)==pd.MultiIndex:
+        keys = fa_ratios.columns.get_level_values(0).unique()
+        return pd.concat({col:same_rps_all_hazards(fa_ratios[col]) for col in  keys}, axis=1).stack('rp')
+
+    ### ACTUAL FUNCTION    
+    #figures out all the return periods to be included
+    all_rps = fa_ratios.columns.tolist()
+    
+    fa_ratios_rps = fa_ratios.copy()
+    
+    fa_ratios_rps = fa_ratios_rps.reindex_axis(sorted(fa_ratios_rps.columns), axis=1)
+    # fa_ratios_rps = fa_ratios_rps.interpolate(axis=1,limit_direction="both",downcast="infer")
+    fa_ratios_rps = fa_ratios_rps.interpolate(axis=1,limit_direction="both")
+    if flag_stack:
+        fa_ratios_rps = fa_ratios_rps.stack('rp')
+    
+    return fa_ratios_rps    
+
+
 	
 def interpolate_rps(fa_ratios,protection_list,option):
     ###INPUT CHECKING
@@ -659,7 +700,7 @@ def interpolate_rps(fa_ratios,protection_list,option):
     
     if default_rp in fa_ratios.index:
         return fa_ratios
-    
+            
     flag_stack= False
     if 'rp' in get_list_of_index_names(fa_ratios):
         fa_ratios = fa_ratios.unstack('rp')
@@ -687,7 +728,7 @@ def interpolate_rps(fa_ratios,protection_list,option):
         fa_ratios_rps[0]=fa_ratios_rps.iloc[:,0]- fa_ratios_rps.columns[0]*(
         fa_ratios_rps.iloc[:,1]-fa_ratios_rps.iloc[:,0])/(
         fa_ratios_rps.columns[1]-fa_ratios_rps.columns[0])
-    
+        
     
     #add new, interpolated values for fa_ratios, assuming constant exposure on the right
     x = fa_ratios_rps.columns.values
