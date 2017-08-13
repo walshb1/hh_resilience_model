@@ -156,7 +156,9 @@ if __name__ == '__main__':
         # --> universal access to finance
         # --> 
         
-        if debug: launch_compute_resilience_and_risk_thread('FJ','','no')
+        if debug: 
+            launch_compute_resilience_and_risk_thread('FJ','','no')
+            launch_compute_resilience_and_risk_thread('FJ','','unif_poor')
         else:
             with Pool() as pool:
                 pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str), pds_str))
