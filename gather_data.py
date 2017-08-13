@@ -214,9 +214,9 @@ if myCountry == 'FJ':
     cat_info.drop(['Division'],axis=1,inplace=True)
 
 # Getting rid of Prov_code 98, 99 here
-print('Check total population:',cat_info.pcwgt.sum())
+#print('Check total population:',cat_info.pcwgt.sum())
 cat_info.dropna(inplace=True,how='all')
-print('Check total population (after dropna):',cat_info.pcwgt.sum())
+#print('Check total population (after dropna):',cat_info.pcwgt.sum())
 
 # Assign access to early warning based on 'ispoor' flag
 if myCountry == 'PH':
@@ -334,7 +334,7 @@ elif myCountry == 'FJ':
 
     # This is *the* line
     # --> fa is losses/exposed_value
-    hazard_ratios['frac_destroyed'] = hazard_ratios['fa'] 
+    #hazard_ratios['frac_destroyed'] = hazard_ratios['fa'] 
     
 elif myCountry == 'SL':
     hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
@@ -343,6 +343,7 @@ elif myCountry == 'SL':
 # Frac value destroyed = SUM_i(k*v*fa)
 
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on=economy,how='outer')
+
 if myCountry == 'FJ':
     
     hazard_ratios = hazard_ratios.set_index(['Division','hazard','rp'])
@@ -411,9 +412,10 @@ cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index
 hazard_ratios= hazard_ratios.drop(['frac_destroyed','v'],axis=1)
 hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
 
-# Compare assets from survey to assets from AIR-PCRAFI
-
 if myCountry == 'FJ':
+
+    # Compare assets from survey to assets from AIR-PCRAFI
+
     df_haz = df_haz.reset_index()
     my_df = ((df[['gdp_pc_pp_prov','pop']].prod(axis=1))/df['avg_prod_k']).to_frame(name='HIES')
     my_df['PCRAFI'] = df_haz.ix[(df_haz.rp==1)&(df_haz.hazard=='TC'),['Division','Exp_Value']].set_index('Division')
