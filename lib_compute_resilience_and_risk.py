@@ -314,7 +314,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
     return 	macro_event, cats_event_ia
 
 
-def calculate_response(pol_str,macro_event,cats_event_ia,event_level,helped_cats,default_rp,option_CB,optionFee='tax',optionT='data', optionPDS='unif_poor', optionB='data',loss_measure='dk',fraction_inside=1, share_insured=.25):
+def calculate_response(myCountry,pol_str,macro_event,cats_event_ia,event_level,helped_cats,default_rp,option_CB,optionFee='tax',optionT='data', optionPDS='unif_poor', optionB='data',loss_measure='dk',fraction_inside=1, share_insured=.25):
 
     cats_event_iah = concat_categories(cats_event_ia,cats_event_ia, index= helped_cats).reset_index(helped_cats.name).sort_index().dropna()
 
@@ -322,14 +322,14 @@ def calculate_response(pol_str,macro_event,cats_event_ia,event_level,helped_cats
     cats_event_iah['help_received'] = 0
     cats_event_iah['help_fee'] =0
 
-    macro_event, cats_event_iah = compute_response(pol_str,macro_event, cats_event_iah, event_level,default_rp,option_CB,optionT=optionT, 
+    macro_event, cats_event_iah = compute_response(myCountry, pol_str,macro_event, cats_event_iah, event_level,default_rp,option_CB,optionT=optionT, 
                                                    optionPDS=optionPDS, optionB=optionB, optionFee=optionFee, fraction_inside=fraction_inside, loss_measure = loss_measure)
-        
+    
     cats_event_iah.drop('protection',axis=1, inplace=True)	      
 
     return macro_event, cats_event_iah
 	
-def compute_response(pol_str, macro_event, cats_event_iah, event_level, default_rp, option_CB,optionT='data', optionPDS='unif_poor', optionB='data', optionFee='tax', fraction_inside=1, loss_measure='dk'):    
+def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_level, default_rp, option_CB,optionT='data', optionPDS='unif_poor', optionB='data', optionFee='tax', fraction_inside=1, loss_measure='dk'):    
 
     print('NB: when summing over cats_event_iah, be aware that each hh appears 4X in the file: {a,na}x{helped,not_helped}')
     
@@ -376,6 +376,16 @@ def compute_response(pol_str, macro_event, cats_event_iah, event_level, default_
         
     cats_event_iah.to_csv("cats_event_iah.csv")
     
+    
+    #cats_event_iah.sum(level='province').to_csv('~/Desktop/my_plots/ce_iah_prov.csv')
+    #cats_event_iah.sum(level='hazard').to_csv('~/Desktop/my_plots/ce_iah_haz.csv')
+    #cats_event_iah.sum(level='rp').to_csv('~/Desktop/my_plots/ce_iah_rp.csv')
+    # --> there
+    if myCountry == 'PH':
+        macro_event.to_csv('~/Desktop/my_plots/me.csv')
+        print('There are nas in macro_event! look at ~/Desktop/my_plots/me.csv to see')
+        assert(False)
+
     #counting (mind self multiplication of n)
     for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
         cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,aWGT]*=(1-macro_event['error_excl'])

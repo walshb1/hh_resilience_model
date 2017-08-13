@@ -102,7 +102,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     macro_event, cats_event_ia = compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats) #calculate the actual vulnerability, the potential damange to capital, and consumption
     print('B\n\n')
     
-    macro_event, cats_event_iah = calculate_response(pol_str,macro_event,cats_event_ia,event_level,helped_cats,default_rp,option_CB,optionFee=optionFee,optionT=optionT, optionPDS=optionPDS, optionB=optionB,loss_measure='dk',fraction_inside=1, share_insured=.25)
+    macro_event, cats_event_iah = calculate_response(myCountry,pol_str,macro_event,cats_event_ia,event_level,helped_cats,default_rp,option_CB,optionFee=optionFee,optionT=optionT, optionPDS=optionPDS, optionB=optionB,loss_measure='dk',fraction_inside=1, share_insured=.25)
     print('C\n\n')
     
     #optionFee: tax or insurance_premium  optionFee='insurance_premium',optionT='perfect', optionPDS='prop', optionB='unlimited',optionFee='tax',optionT='data', optionPDS='unif_poor', optionB='data',
@@ -136,11 +136,11 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
 
 if __name__ == '__main__':
 
-    debug = False
-    if len(sys.argv)>1: debug = sys.argv[1]
-
     myCountry = 'FJ'
-
+    debug = False
+    if len(sys.argv) >= 1: debug = sys.argv[1]
+    if len(sys.argv) >= 2: myCountry = sys.argv[2]
+    
     if myCountry == 'FJ':
         pds_str = ['no','unif_poor']
         pol_str = ''#,
@@ -155,10 +155,8 @@ if __name__ == '__main__':
         # --> develop market insurance for rich
         # --> universal access to finance
         # --> 
-        
-        if debug: 
-            launch_compute_resilience_and_risk_thread('FJ','','no')
-            launch_compute_resilience_and_risk_thread('FJ','','unif_poor')
+
+        if debug: launch_compute_resilience_and_risk_thread('FJ','','no')
         else:
             with Pool() as pool:
                 pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str), pds_str))
@@ -166,6 +164,8 @@ if __name__ == '__main__':
     if myCountry == 'PH' or myCountry == 'SL':
         pds_str = ['no','unif_poor']
         pol_str = ''
-
+            
+    if debug: launch_compute_resilience_and_risk_thread(myCountry,'','no')
+    else:
         with Pool() as pool:
-            pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str),pds_str))
+            pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str), pds_str))

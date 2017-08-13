@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from lib_gather_data import *
 import matplotlib.pyplot as plt
+from plot_hist import *
 
 import seaborn as sns
 sns.set_style('darkgrid')
@@ -118,8 +119,12 @@ def load_survey_data(myC,inc_sf=None):
 
     elif myC == 'FJ':
         df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',usecols=['HHID','Division','Nchildren','Nadult','AE','HHsize',
-                                                                           'Sector','Weight','TOTALTRANSFER','TotalIncome','New Total']).set_index('HHID')
-        df = df.rename(columns={'HHID':'hhid','TotalIncome':'hhinc','HHsize':'hhsize','Weight':'hhwgt','TOTALTRANSFER':'hhsoc'})
+                                                                           'Sector','Weight','TOTALTRANSFER','TotalIncome','New Total',
+                                                                           'CareandProtectionProgrampaymentfromSocialWelfare',
+                                                                           'FamilyAssistanceProgrampaymentfromSocialWelfare']).set_index('HHID')
+        df = df.rename(columns={'HHID':'hhid','TotalIncome':'hhinc','HHsize':'hhsize','Weight':'hhwgt','TOTALTRANSFER':'hhsoc',
+                                'CareandProtectionProgrampaymentfromSocialWelfare':'SP_CPP',
+                                'FamilyAssistanceProgrampaymentfromSocialWelfare':'SP_FAP'})
 
         df['pov_line'] = 0.
         df.loc[df.Sector=='Urban','pov_line'] = 55.12*52*df.loc[df.Sector=='Urban','AE']
@@ -155,6 +160,20 @@ def load_survey_data(myC,inc_sf=None):
         df = pd.concat([df,df_housing,df_poor],axis=1).reset_index().set_index('Division')
 
         df = df.rename(columns={'Poor':'ispoor'})
+
+        # Fiji also has social safety net-- set flag if household gets income from each program
+        # plot income from these programs
+        plot_simple_hist(df.loc[(df.SP_CPP != 0)],['SP_CPP'],['Care & Protection Program'],'../output_plots/FJ/sectoral/SP_CPP_income.pdf',uclip=1500,nBins=25)
+        plot_simple_hist(df.loc[(df.SP_FAP != 0)],['SP_FAP'],['Family Assistance Program'],'../output_plots/FJ/sectoral/SP_FAP_income.pdf',uclip=1500,nBins=25)
+        plot_simple_hist(df.loc[(df.SP_FAP != 0)|(df.SP_CPP != 0)],['SP_FAP','SP_CPP'],
+                         ['Family Assistance Program','Care & Protection Program'],'../output_plots/FJ/sectoral/SP_income.pdf',uclip=1000)
+
+        # SP_CPP = CareandProtectionProgrampaymentfromSocialWelfare
+        df.loc[df.SP_CPP != 0,'SP_CPP'] = True
+        df.loc[df.SP_CPP == 0,'SP_CPP'] = False
+        # SP_FAP = FamilyAssistanceProgrampaymentfromSocialWelfare
+        df.loc[df.SP_FAP != 0,'SP_FAP'] = True
+        df.loc[df.SP_FAP == 0,'SP_FAP'] = False
 
         return df
 
@@ -427,20 +446,30 @@ def get_hazard_df(myC,economy):
         df_sum = ((df['value_destroyed'].sum(level=['Division','hazard','rp']))/(df['Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='frac_destroyed')
         # ^ what if we run with fa from buildings?
 
-        # df = df.reset_index().set_index(['Division','Tikina','hazard','rp'])
-        # df_sum = ((df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'value_destroyed'].sum(level=['Division','hazard','rp']))/(df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='frac_destroyed')
-        # df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
+        #df = df.reset_index().set_index(['Division','Tikina','hazard','rp'])
+        #df_sum = ((df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'value_destroyed'].sum(level=['Division','hazard','rp']))/(df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
+        #df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
         
         df = df.sum(level=['Division','hazard','rp','asset_class'])
         df = df.reset_index().set_index(['Division','hazard','rp'])
 
+        # record affected assets for each asset class, hazard, rp
+        df['frac_destroyed'] = df['value_destroyed']/df['Exp_Value']
+
         df_sum['Exp_Value'] = df['Exp_Value'].sum(level=['Division','hazard','rp'])
+        #
         df_sum['frac_bld_res'] = df.loc[df.asset_class == 'bld_res','Exp_Value']/df['Exp_Value'].sum(level=['Division','hazard','rp'])
         df_sum['frac_bld_oth'] = df.loc[df.asset_class == 'bld_oth','Exp_Value']/df['Exp_Value'].sum(level=['Division','hazard','rp'])
         df_sum['frac_inf']     = df.loc[df.asset_class == 'inf','Exp_Value']/df['Exp_Value'].sum(level=['Division','hazard','rp'])
         df_sum['frac_agr']     = df.loc[df.asset_class == 'agr','Exp_Value']/df['Exp_Value'].sum(level=['Division','hazard','rp'])
-        
-        df_sum['frac_destroyed_inf'] = df.loc[df.asset_class == 'inf','value_destroyed']/df.loc[df.asset_class == 'inf','Exp_Value']
+        #
+
+        #df_sum = ((df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'value_destroyed'].sum(level=['Division','hazard','rp']))/(df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
+        #
+        df_sum['frac_destroyed_inf']     = df.loc[df.asset_class == 'inf','value_destroyed']/df.loc[df.asset_class == 'inf','Exp_Value']
+        df_sum['frac_destroyed_bld_oth'] = df.loc[df.asset_class == 'bld_oth','value_destroyed']/df.loc[df.asset_class == 'bld_oth','Exp_Value']
+        df_sum['frac_destroyed_bld_res'] = df.loc[df.asset_class == 'bld_res','value_destroyed']/df.loc[df.asset_class == 'bld_res','Exp_Value']
+        df_sum['frac_destroyed_agr']     = df.loc[df.asset_class == 'agr','value_destroyed']/df.loc[df.asset_class == 'agr','Exp_Value']
         
         #################
         #adds SSBN floods
@@ -459,14 +488,13 @@ def get_hazard_df(myC,economy):
             df_sum = df_sum.append(df_floods_sum.fillna(0)) #the floods are appended in df_sum but only the frac_destroyed and frac_inf columns will have numbers
         
         print('\n')
-        print('--> Total BLD =',df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp']).mean())
-        print('--> Frac BLD =',round((100.*df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%')
-        print('--> Total INF =',df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp']).mean())
-        print('--> Frac INF =',round((100.*df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%')
-
-        print('--> Total AG =',df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp']).mean())
-        print('--> Frac AG =',round((100.*df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%')
-
+        print('--> Total BLD =',round(df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp']).mean()/1.E6,1),'M USD (',
+              round((100.*df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%)')
+        print('--> Total INF =',round(df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp']).mean()/1.E6,1),'M USD (',
+              round((100.*df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%)')
+        print('--> Total AG =',round(df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp']).mean()/1.E6,1),'M USD (', 
+              round((100.*df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%)\n')
+        
         #df_sum['bldg_stock'] = df_sum[['Exp_Value','frac_bld_res']].prod(axis=1)+df_sum[['Exp_Value','frac_bld_oth']].prod(axis=1)
         #print(df_sum.reset_index().set_index(['rp']).ix[1,'bldg_stock'].sum())
         df_sum['Exp_Value'] *= (1.0/0.48) # AIR-PCRAFI in USD(2009?) --> switch to FJD
