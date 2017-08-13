@@ -72,6 +72,8 @@ print(df_prov[['dKtot','dWtot_currency','gdp']].sum())
 print('R_asset:',100.*df_prov['dKtot'].sum()/df_prov['gdp'].sum())
 print('R_welf:',100.*df_prov['dWtot_currency'].sum()/df_prov['gdp'].sum())
 
+print("R_asset per hazard: ",df['dKtot'].sum(level="hazard")/df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level=['Division',"hazard"]).sum(level="hazard"))
+
 # Map asset losses as fraction of natl GDP
 print('\n',df_prov.dKtot/df_prov.gdp.sum())
 print((df_prov.dKtot/df_prov.gdp.sum()).sum(),'\n')
