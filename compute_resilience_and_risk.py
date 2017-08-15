@@ -138,8 +138,8 @@ if __name__ == '__main__':
 
     myCountry = 'FJ'
     debug = False
-    if len(sys.argv) >= 1: debug = sys.argv[1]
-    if len(sys.argv) >= 2: myCountry = sys.argv[2]
+    if len(sys.argv) > 1: debug = sys.argv[1]
+    if len(sys.argv) > 2: myCountry = sys.argv[2]
     
     if myCountry == 'FJ':
         pds_str = ['no','unif_poor']
