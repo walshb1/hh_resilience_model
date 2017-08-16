@@ -161,8 +161,8 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
         cat_info = cat_info.ix[common_places]
 
         # Nothing drops from hazard_ratios
-        hazard_ratios.to_csv('~/Desktop/my_file.csv')
-        print(hazard_ratios)
+        #hazard_ratios.to_csv('~/Desktop/my_file.csv')
+        #print(hazard_ratios)
         hazard_ratios = hazard_ratios.ix[common_places]
 
         if hazard_ratios.empty:
@@ -252,7 +252,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     if not cols_c==[]:
         hrb = broadcast_simple(hazard_ratios_event[cols_c], cat_info.index).reset_index().set_index(get_list_of_index_names(cats_event)) #explicitly broadcasts hazard ratios to contain income categories
         cats_event[cols_c] = hrb
-        cats_event.to_csv("cats_event.csv")
+        #cats_event.to_csv("cats_event.csv")
         if verbose_replace:
             flag2=True
             print('Replaced in cats: '+', '.join(cols_c))
@@ -264,7 +264,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
 
     cats_event_ia=concat_categories(cats_event,cats_event,index= affected_cats)
-    cats_event.to_csv("cats_event.csv")
+    #cats_event.to_csv("cats_event.csv")
     
     #counts affected and non affected
     print('From here: \'hhwgt\' = nAffected and nNotAffected: households') 
@@ -374,17 +374,19 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
         print('unrecognized targeting error option '+optionT)
         return None
         
-    cats_event_iah.to_csv("cats_event_iah.csv")
-    
-    
+
     #cats_event_iah.sum(level='province').to_csv('~/Desktop/my_plots/ce_iah_prov.csv')
     #cats_event_iah.sum(level='hazard').to_csv('~/Desktop/my_plots/ce_iah_haz.csv')
     #cats_event_iah.sum(level='rp').to_csv('~/Desktop/my_plots/ce_iah_rp.csv')
     # --> there
     if myCountry == 'PH':
-        macro_event.to_csv('~/Desktop/my_plots/me.csv')
-        print('There are nas in macro_event! look at ~/Desktop/my_plots/me.csv to see')
-        assert(False)
+        macro_event = macro_event.fillna(0)
+        #macro_event.to_csv('~/Desktop/my_plots/me.csv')
+        #cats_event_iah.to_csv('~/Desktop/my_plots/cei.csv')
+        #cats_event_iah.sum(level='hhid').to_csv('~/Desktop/my_plots/cei_sumhh.csv')
+        debug_file = pd.concat([macro_event,cats_event_iah],axis=1) 
+        #print('There are nas in macro_event! look at ~/Desktop/my_plots/me.csv to see')
+        #assert(False)
 
     #counting (mind self multiplication of n)
     for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
@@ -409,9 +411,23 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
 	
     if optionPDS=='no':
         macro_event['aid'] = 0
-        macro_event['need']=0
+        macro_event['need'] = 0
         cats_event_iah['help_received']=0
         optionB='no'
+        
+    if optionPDS=='fiji_SPS':
+
+        print(cats_event_iah[['SP_SPS','SP_FAP','SP_CPP']])
+        print(cats_event_iah.loc[(cats_event_iah.SP_SPS==True)].shape[0])
+        print(cats_event_iah.loc[(cats_event_iah.SP_CPP==True)].shape[0])
+        print(cats_event_iah.loc[(cats_event_iah.SP_FAP==True)].shape[0])
+        assert(False)
+        
+        macro_event['aid'] = 600
+        cats_event_iah['help_received'] = 0
+        cats_event_iah.loc[cats_event_iah.SP_SPS==True,'help_received']+=600 
+        cats_event_iah.loc[cats_event_iah.SP_CPP==True,'help_received']+=300 
+        cats_event_iah.loc[cats_event_iah.SP_FAP==True,'help_received']+=300 
         
     elif optionPDS=='unif_poor':
 

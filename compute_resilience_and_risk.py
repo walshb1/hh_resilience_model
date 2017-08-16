@@ -58,7 +58,9 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     # --> 'unif_poor' = uniform disbursement based of average asset losses of poor
     # --> 'unif' = uniform disbursement based of average losses
     #optionPDS = 'no'#'unif_poor'#'no'
-    if pol_str != '': optionPDS = 'no'   
+    if myCountry == 'FJ': optionPDS = 'fiji_SPS'
+    elif pol_str != '': optionPDS = 'no'
+    
 
     # Cap on benefits (bool)
     option_CB = 1 #0 is for calculation of benefits only; 1 by default
@@ -68,6 +70,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     else:
         option_CB_name = ''
 
+    print('--> pol_str:',pol_str)
     print('optionFee =',optionFee, 'optionPDS =', optionPDS, 'optionB =', optionB, 'optionT =', optionT, 'option_CB =', option_CB_name)
 
     #Options and parameters
@@ -138,19 +141,19 @@ if __name__ == '__main__':
 
     myCountry = 'FJ'
     debug = False
-    if len(sys.argv) >= 1: debug = sys.argv[1]
-    if len(sys.argv) >= 2: myCountry = sys.argv[2]
+    if len(sys.argv) > 1: debug = sys.argv[1]
+    if len(sys.argv) > 2: myCountry = sys.argv[2]
     
     if myCountry == 'FJ':
-        pds_str = ['no','unif_poor']
-        pol_str = ''#,
-                   #'_exp095',      # reduce exposure of poor by 5% (of total exposure!)
-                   #'_exr095',      # reduce exposure of rich by 5% (of total exposure!)
-                   #'_pcinc_p_110', # increase per capita income of poor people by 10%
-                   #'_soc133',      # increase social transfers to poor by 33%
-                   #'_rec067',      # decrease reconstruction time by 33%
-                   #'_ew100',       # universal access to early warnings 
-                   #'_vul070']      # decrease vulnerability of poor by 30%
+        pds_str = 'fiji_SPS'
+        pol_str = ['',
+                   '_exp095',      # reduce exposure of poor by 5% (of total exposure!)
+                   '_exr095',      # reduce exposure of rich by 5% (of total exposure!)
+                   '_pcinc_p_110', # increase per capita income of poor people by 10%
+                   '_soc133',      # increase social transfers to poor by 33%
+                   '_rec067',      # decrease reconstruction time by 33%
+                   '_ew100',       # universal access to early warnings 
+                   '_vul070']      # decrease vulnerability of poor by 30%
         # Other policies:
         # --> develop market insurance for rich
         # --> universal access to finance
@@ -159,7 +162,8 @@ if __name__ == '__main__':
         if debug: launch_compute_resilience_and_risk_thread('FJ','','no')
         else:
             with Pool() as pool:
-                pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str), pds_str))
+                print('LAUNCHING THREADS:',list(zip(repeat(myCountry), pol_str, repeat(pds_str))))
+                pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), pol_str, repeat(pds_str)))
     
     if myCountry == 'PH' or myCountry == 'SL':
         pds_str = ['no','unif_poor']

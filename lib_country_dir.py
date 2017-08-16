@@ -121,10 +121,12 @@ def load_survey_data(myC,inc_sf=None):
         df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',usecols=['HHID','Division','Nchildren','Nadult','AE','HHsize',
                                                                            'Sector','Weight','TOTALTRANSFER','TotalIncome','New Total',
                                                                            'CareandProtectionProgrampaymentfromSocialWelfare',
-                                                                           'FamilyAssistanceProgrampaymentfromSocialWelfare']).set_index('HHID')
+                                                                           'FamilyAssistanceProgrampaymentfromSocialWelfare',
+                                                                           'SocialPensionScheme']).set_index('HHID')
         df = df.rename(columns={'HHID':'hhid','TotalIncome':'hhinc','HHsize':'hhsize','Weight':'hhwgt','TOTALTRANSFER':'hhsoc',
                                 'CareandProtectionProgrampaymentfromSocialWelfare':'SP_CPP',
-                                'FamilyAssistanceProgrampaymentfromSocialWelfare':'SP_FAP'})
+                                'FamilyAssistanceProgrampaymentfromSocialWelfare':'SP_FAP',
+                                'SocialPensionScheme':'SP_SPS'})
 
         df['pov_line'] = 0.
         df.loc[df.Sector=='Urban','pov_line'] = 55.12*52*df.loc[df.Sector=='Urban','AE']
@@ -174,6 +176,9 @@ def load_survey_data(myC,inc_sf=None):
         # SP_FAP = FamilyAssistanceProgrampaymentfromSocialWelfare
         df.loc[df.SP_FAP != 0,'SP_FAP'] = True
         df.loc[df.SP_FAP == 0,'SP_FAP'] = False
+        # SP_SPS = SocialProtectionScheme
+        df.loc[df.SP_SPS != 0,'SP_FAP'] = True
+        df.loc[df.SP_SPS == 0,'SP_FAP'] = False
 
         return df
 
@@ -419,17 +424,17 @@ def get_hazard_df(myC,economy):
         df_bld = df_bld.reset_index().set_index(['Tikina'])
         df_inf = df_inf.reset_index().set_index(['Tikina'])
         df_agr = df_agr.reset_index().set_index(['Tikina'])
-
         df = pd.concat([df_bld,df_inf,df_agr])
-
+        #df = df.loc[df.rp != 'AAL']
 
         df = df.reset_index().set_index(['Tikina','Tikina_ID','asset_class','asset_subclass','Exp_Value','hazard','rp'])    
-        df.to_csv('~/Desktop/my_csv.csv')
+        #df.to_csv('~/Desktop/my_csv.csv')
         df = df.unstack()
 
         df = df.rename(columns={'exceed_2':2475,'exceed_5':975,'exceed_10':475,
                                 'exceed_20':224,'exceed_40':100,'exceed_50':72,
                                 'exceed_65':50,'exceed_90':22,'exceed_99':10,'AAL':1})
+        
         df.columns.name = 'rp'
         df = df.stack()
 
@@ -498,6 +503,10 @@ def get_hazard_df(myC,economy):
         #df_sum['bldg_stock'] = df_sum[['Exp_Value','frac_bld_res']].prod(axis=1)+df_sum[['Exp_Value','frac_bld_oth']].prod(axis=1)
         #print(df_sum.reset_index().set_index(['rp']).ix[1,'bldg_stock'].sum())
         df_sum['Exp_Value'] *= (1.0/0.48) # AIR-PCRAFI in USD(2009?) --> switch to FJD
+
+        #print(df_sum)
+        #df_sum.to_csv('~/Desktop/df_hazard.csv')
+        #assert(False)
 
         return df_sum
 

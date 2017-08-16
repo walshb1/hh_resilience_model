@@ -48,6 +48,9 @@ economy = get_economic_unit(myCountry)
 event_level = [economy, 'hazard', 'rp']
 dem = get_demonym(myCountry)
 
+#
+drm_pov_sign = -1 # toggle subtraction or addition of dK to affected people's incomes
+
 # Load output files
 pol_str = ''#'_v95'#could be {'_v95'}
 
@@ -56,15 +59,38 @@ df = pd.read_csv(output+'results_tax_no_'+pol_str+'.csv', index_col=[economy,'ha
 iah = pd.read_csv(output+'iah_tax_no_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 macro = pd.read_csv(output+'macro_tax_no_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 
+## get frac below natl avg
+#print(iah.columns)
+#prov_mean = iah.dw.mean(level=economy)
+#prov_mean.columns = ['provincial_mean']
+#prov_mean['natl_mean'] = iah.dw.mean()
+#natl_mean = iah.dw.mean()
+#prov_mean.columns = ['dw']
+
+#(iah.loc[iah.dw > natl_mean,'weight'].sum(level=economy)/iah.weight.sum(level=economy)).to_csv('~/Desktop/my_dw.csv')
+
+#print(prov_mean)
+#prov_mean.to_csv('~/Desktop/my_dw.csv')
+
 # These are equivalent
 #df_prov = sum_with_rp(myCountry,macro[['dk_event']],['dk_event'],sum_provinces=False,national=False)
 df_prov = df[['dKtot','dWtot_currency']]
 df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1)
 
+results_df = macro.reset_index().set_index([economy,'hazard'])
+results_df = results_df.loc[results_df.rp==100,'dk_event'].sum(level='hazard')
+results_df = results_df.rename(columns={'dk_event':'dk_event_100'})
+results_df = pd.concat([results_df,df_prov.reset_index().set_index([economy,'hazard']).sum(level='hazard')['dKtot']],axis=1,join='inner')
+results_df.columns = ['dk_event_100','AAL']
+results_df.to_csv(output+'results_table.csv')
+
+print(iah.columns)
+print(iah[['dc_npv_post','hhwgt','hhsize_ae']].prod(axis=1).sum(level=['hazard','rp'])/iah[['hhwgt','hhsize_ae']].prod(axis=1).sum(level=['hazard','rp']))
+
 df_prov['R_asst'] = round(100.*df_prov['dKtot']/df_prov['gdp'],2)
 df_prov['R_welf'] = round(100.*df_prov['dWtot_currency']/df_prov['gdp'],2)
-df_prov = df_prov.sum(level='Division')
-df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level='Division')
+df_prov = df_prov.sum(level=economy)
+df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level=economy)
 df_prov.to_csv('~/Desktop/my_file.csv')
 
 print(df_prov)
@@ -72,8 +98,9 @@ print(df_prov[['dKtot','dWtot_currency','gdp']].sum())
 print('R_asset:',100.*df_prov['dKtot'].sum()/df_prov['gdp'].sum())
 print('R_welf:',100.*df_prov['dWtot_currency'].sum()/df_prov['gdp'].sum())
 
-print("R_asset per hazard: ",df['dKtot'].sum(level="hazard")/df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level=['Division',"hazard"]).sum(level="hazard"))
+print("R_asset per hazard: ",df['dKtot'].sum(level="hazard")/df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level=[economy,'hazard']).sum(level='hazard'))
 
+#assert(False)
 # Map asset losses as fraction of natl GDP
 print('\n',df_prov.dKtot/df_prov.gdp.sum())
 print((df_prov.dKtot/df_prov.gdp.sum()).sum(),'\n')
@@ -90,7 +117,7 @@ make_map_from_svg(
 print(output+'results_tax_unif_poor_'+pol_str+'.csv')
 print(output+'iah_tax_unif_poor_'+pol_str+'.csv')
 res_unif_poor = pd.read_csv(output+'results_tax_unif_poor_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
-iah_pds = pd.read_csv(output+'iah_tax_unif_poor_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+iah_pds = iah.copy()#pd.read_csv(output+'iah_tax_unif_poor_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 
 def format_delta_p(delta_p):
     delta_p_int = int(delta_p)
@@ -141,7 +168,7 @@ q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 if myCountry == 'PH':
     myHaz = [['Manila','Mountain Province','Bukidnon','Negros Oriental','Bulacan','Northern Samar','Cebu'],['flood','wind'],[1,10,25,30,50,100,250,500,1000]]
 elif myCountry == 'FJ':
-    myHaz = [['Lau','Ba','Rewa'],['TC','EQTS'],[1,10,22,50,72,100,224,475,975,2475]]
+    myHaz = [['Rewa'],['TC','EQTS'],[1,5,10,20,22,50,72,75,100,200,224,250,475,500,975,1000,2475]]
     #myHaz = [['Lau'],['earthquake','tsunami','typhoon'],[1,10,20,50,100,250,500,1000]]
 
 pov_line = get_poverty_line(myCountry)
@@ -171,7 +198,7 @@ for myDis in allDis:
 
     cut_rps.loc[cut_rps.pcwgt_ae != 0.,'delta_c']   = (cut_rps.loc[(cut_rps.pcwgt_ae != 0.), ['dk','pcwgt']].prod(axis=1)/cut_rps.loc[(cut_rps.pcwgt_ae != 0.),'pcwgt_ae'])*(df['avg_prod_k'].mean()+1/df['T_rebuild_K'].mean())
 
-    cut_rps['c_final']   = (cut_rps['c_initial'] - cut_rps['delta_c']).clip(upper=upper_clip)
+    cut_rps['c_final']   = (cut_rps['c_initial'] + drm_pov_sign*cut_rps['delta_c']).clip(upper=upper_clip)
     cut_rps['c_final_pds']   = (cut_rps['c_initial'] - cut_rps['delta_c'] - cut_rps['pds_nrh']).clip(upper=upper_clip)
 
     cut_rps['c_initial'] = cut_rps['c_initial'].clip(upper=upper_clip)
@@ -265,6 +292,7 @@ for myDis in allDis:
             do_qualitative=False,
             res=800)
     
+    myC_ylim = None
     for myRP in myHaz[2]:
         
         cutA = iah.loc[(iah.hazard == myDis) & (iah.rp == myRP)].set_index([economy,'hazard','rp']).fillna(0)
@@ -282,7 +310,7 @@ for myDis in allDis:
         cutA['pov_line'] *= cutA['c_initial']/cutA['pcinc_ae']
 
         cutA.loc[cutA.pcwgt_ae != 0,'delta_c']   = (cutA.loc[cutA.pcwgt_ae != 0,['dk','pcwgt']].prod(axis=1)/cutA.loc[cutA.pcwgt_ae != 0.,'pcwgt_ae'])*(df['avg_prod_k'].mean()+1/df['T_rebuild_K'].mean())
-        cutA['c_final']   = (cutA['c_initial'] - cutA['delta_c']).clip(upper=upper_clip)
+        cutA['c_final']   = (cutA['c_initial'] + drm_pov_sign*cutA['delta_c']).clip(upper=upper_clip)
         cutA['c_initial'] = cutA['c_initial'].clip(upper=upper_clip)
 
         cutA['disaster_n_pov'] = 0
@@ -347,6 +375,10 @@ for myDis in allDis:
         
         fig = ax.get_figure()
         plt.title(str(myRP)+'-Year '+myDis[:1].upper()+myDis[1:]+' Event')
+
+        if myC_ylim == None: myC_ylim = ax.get_ylim()
+        plt.ylim(myC_ylim[0],myC_ylim[1])
+
         plt.xlabel(r'Income ['+get_currency(myCountry)+' yr$^{-1}$]')
         plt.ylabel('Population'+get_scale_fac(myCountry)[1])
         plt.legend(loc='best')

@@ -232,7 +232,7 @@ cat_info['fa'] = 0
 cat_info.fillna(0,inplace=True)
 
 # Cleanup dfs for writing out
-cat_info = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in [economy,'hhid','pcwgt','pcwgt_ae','hhwgt','code','np','score','v','c','pcsoc','social','c_5','n','hhsize','hhsize_ae','gamma_SP','k','shew','fa','quintile','ispoor','pcinc','pcinc_ae','pov_line']],axis=1)
+cat_info = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in [economy,'hhid','pcwgt','pcwgt_ae','hhwgt','code','np','score','v','c','pcsoc','social','c_5','n','hhsize','hhsize_ae','gamma_SP','k','shew','fa','quintile','ispoor','pcinc','pcinc_ae','pov_line','SP_FAP','SP_CPP','SP_SPS']],axis=1)
 cat_info_index = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in [economy,'hhid']],axis=1)
 
 #########################
@@ -412,7 +412,6 @@ hazard_ratios= hazard_ratios.drop(['frac_destroyed','v'],axis=1).drop(["flood_fl
 hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
 
 if myCountry == 'FJ':
-
     # Compare assets from survey to assets from AIR-PCRAFI
 
     df_haz = df_haz.reset_index()

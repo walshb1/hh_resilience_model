@@ -23,27 +23,41 @@ def sum_with_rp(myC,df,columns,sum_provinces,national=False):
             df = df.reset_index().set_index('Division')
 
 
-        freq = {'1'   :float(  1./1 -   1./10),
-                '10'  :float( 1./10 -   1./22),
-                '22'  :float( 1./22 -   1./50),
-                '50'  :float( 1./50 -   1./72),
-                '72'  :float( 1./72 -  1./100),
-                '100' :float(1./100 -  1./224),
-                '224' :float(1./224 -  1./475),
-                '475' :float(1./475 -  1./975),
-                '975' :float(1./975 - 1./2475),
+        freq = {'1'   :float(  1./1  -    1./5),
+                '5'   :float(  1./5  -   1./10),
+                '10'  :float( 1./10  -   1./20),
+                '20'  :float( 1./20  -   1./22),
+                '22'  :float( 1./22  -   1./50),
+                '50'  :float( 1./50  -   1./72),
+                '72'  :float( 1./72  -   1./75),
+                '75'  :float( 1./75  -  1./100),
+                '100' :float(1./100  -  1./200),
+                '200' :float(1./200  -  1./224),
+                '224' :float(1./224  -  1./250),
+                '250' :float(1./250  -  1./475),
+                '475' :float(1./475  -  1./500),
+                '500' :float(1./500  -  1./975),
+                '975' :float(1./975  - 1./1000),
+                '1000':float(1./1000 - 1./2475),
                 '2475':float(1/2475.)}
 
         for aCol in columns:
             df.loc[(df.rp ==    1),aCol] *= freq[   '1']
+            df.loc[(df.rp ==    5),aCol] *= freq[   '5']
             df.loc[(df.rp ==   10),aCol] *= freq[  '10']
+            df.loc[(df.rp ==   20),aCol] *= freq[  '20']
             df.loc[(df.rp ==   22),aCol] *= freq[  '22']
             df.loc[(df.rp ==   50),aCol] *= freq[  '50']
             df.loc[(df.rp ==   72),aCol] *= freq[  '72']
+            df.loc[(df.rp ==   75),aCol] *= freq[  '75']
             df.loc[(df.rp ==  100),aCol] *= freq[ '100']
+            df.loc[(df.rp ==  200),aCol] *= freq[ '200']
             df.loc[(df.rp ==  224),aCol] *= freq[ '224']
+            df.loc[(df.rp ==  250),aCol] *= freq[ '250']
             df.loc[(df.rp ==  475),aCol] *= freq[ '475']
+            df.loc[(df.rp ==  500),aCol] *= freq[ '500']
             df.loc[(df.rp ==  975),aCol] *= freq[ '975']
+            df.loc[(df.rp == 1000),aCol] *= freq['1000']
             df.loc[(df.rp == 2475),aCol] *= freq['2475']
 
         if national == True: 

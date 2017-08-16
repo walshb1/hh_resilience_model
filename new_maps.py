@@ -3,18 +3,19 @@ import pandas as pd
 from lib_gather_data import *
 from lib_country_dir import *
 import matplotlib.pyplot as plt
+#import moviepy.editor as mpy 
 
 from maps_lib import *
 
 import seaborn as sns
 sns.set_style('darkgrid')
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
+greys_pal = sns.color_palette('Greys', n_colors=9)
+q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 global model
-model = os.getcwd()
-inputs        = model+'/../inputs/FJ/'       # get inputs data directory
-
-q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
+model  = os.getcwd()
+inputs = model+'/../inputs/FJ/' # get inputs data directory
 
 # Poverty definitions
 urban_pov_line = 55.12*52
@@ -22,9 +23,25 @@ rural_pov_line = 49.50*52
 
 # Agriculture (Fishing & Farming) & Tourism
 df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',
-                   usecols=['HHID','Division','AE','HHsize','Ethnicity','Weight','Sector','TotalAgri','Fishprawnscrabsetc','NWages','TotalBusiness','TotalIncome']).set_index('HHID')
+                   usecols=['HHID','Division','AE','HHsize','Ethnicity','Weight','Sector','TotalAgri',
+                            'Fishprawnscrabsetc','NWages','TotalBusiness','TotalIncome']).set_index('HHID')
+
 df_dem = pd.read_excel(inputs+'HIES 2013-14 Demographic Data.xlsx',sheetname='Income Earners',
-                       usecols=['Hhid','weight','Occupation','Comp Name Purpose']).set_index('Hhid')
+                       usecols=['Hhid','weight','Occupation','Comp Name Purpose','Person No','Gender']).set_index('Hhid')
+df_dem = df_dem.rename(columns={'Person No':'Person_No'}) 
+
+df_cons = pd.read_excel(inputs+'HIES 2013-14 Consumption Data.xlsx',sheetname='by_Division',
+                        usecols=['HHID','DIVISION 1: FOOD & NON-ALCOHOLIC BEVERAGES + Imputed Food']).set_index('HHID')
+
+df_cons = df_cons.rename(columns={'DIVISION 1: FOOD & NON-ALCOHOLIC BEVERAGES + Imputed Food':'food_cons'}) 
+df = pd.concat([df,df_cons,df_dem.loc[df_dem.Person_No == '01']],axis=1,join='inner')
+df['frac_inc_foodcons'] = 100.*df['food_cons']/df['TotalIncome']
+
+print(df)
+assert(False)
+
+#df.loc[df.frac_inc_foodcons >= 100].to_csv('~/Desktop/too_much.csv')
+#print(df.loc[df.frac_inc_foodcons >= 1])
 
 df_tourism = df_dem.loc[((df_dem['Occupation'].str.contains('TOUR'))
                          |(df_dem['Occupation'].str.contains('HOTEL'))
@@ -42,8 +59,6 @@ df_tourism = df_dem.loc[((df_dem['Occupation'].str.contains('TOUR'))
                          |(df_dem['Comp Name Purpose'].str.contains('GIFT SHOP'))
                          |(df_dem['Comp Name Purpose'].str.contains('TAXI')))].sum(level='Hhid')
 df_tourism['tourism_inc_frac'] = df_tourism['weight']/df_dem['weight'].sum(level='Hhid')
-print(df_tourism.loc[df_tourism.tourism_inc_frac==1.0,'tourism_inc_frac'].shape[0]/df_tourism.shape[0])
-
 df_tourism['tourism_income'] = 1
 df_tourism = pd.concat([df_tourism,df[['TotalIncome','AE','HHsize','Weight']]], axis=1, join='inner')
 
@@ -57,6 +72,90 @@ df.loc[(df.Sector=='Rural')&(df.inc_pAE<rural_pov_line),'ispoor'] = True
 #df['TotalAgri'] -= df['Fishprawnscrabsetc']
 df['frac_inc_agri'] = df['TotalAgri']/df['TotalIncome']
 df['frac_inc_fish'] = df['Fishprawnscrabsetc']/df['TotalIncome']
+
+###################
+# Food consumption
+frac_food_poor = round(df.loc[(df.ispoor==True),['frac_inc_foodcons','Weight']].prod(axis=1).sum()/df.loc[(df.ispoor==True),'Weight'].sum(),1)
+frac_food_rich = round(df.loc[(df.ispoor==False),['frac_inc_foodcons','Weight']].prod(axis=1).sum()/df.loc[(df.ispoor==False),'Weight'].sum(),1)
+
+print('\n\nPoor Fijian hh spend '+str(frac_food_poor)+'% of income on food (avg).')
+print('Non-por Fijian hh spend '+str(frac_food_rich)+'% of income on food (avg).\n\n')
+
+ax = df.loc[(df.ispoor==True)&(df.frac_inc_foodcons<100)&(df.TotalIncome<50000)].plot.scatter('inc_pAE','frac_inc_foodcons',color=q_colors[1],edgecolor=q_colors[0],linewidth=1,
+                                                                                       label='Households in poverty',alpha=0.15)
+df.loc[(df.ispoor==False)&(df.frac_inc_foodcons<100)&(df.TotalIncome<50000)].plot.scatter('inc_pAE','frac_inc_foodcons',color=q_colors[1],edgecolor=q_colors[2],
+                                                                                          label='Households above poverty',alpha=0.15,ax=ax)
+fig = ax.get_figure()
+
+plt.plot([0,3000],[frac_food_poor,frac_food_poor],'k-',lw=1.5,color=greys_pal[7],zorder=100,alpha=0.85)
+ax.annotate('On average, Fijian households in poverty\n  spend '+str(frac_food_poor)+'% of their incomes on food.',
+            xy=(3200,frac_food_poor),xycoords='data',ha='left',va='center',fontsize=7,annotation_clip=False,weight='bold')
+plt.plot([0,6000],[frac_food_rich,frac_food_rich],'k-',lw=1.5,color=greys_pal[7],zorder=100,alpha=0.85)
+ax.annotate('On average, non-poor Fijian households\n  spend '+str(frac_food_rich)+'% of their incomes on food.',
+            xy=(6200,frac_food_rich),xycoords='data',ha='left',va='center',fontsize=7,annotation_clip=False,weight='bold')
+
+plt.xlim(0,12000)
+plt.ylim(0,100)
+plt.xlabel(r'Household income per adult equivalent [FJD yr$^{-1}$]')
+plt.ylabel('Percentage of income spent on food')
+leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
+leg.get_frame().set_color('white')
+leg.get_frame().set_edgecolor(greys_pal[7])
+leg.get_frame().set_linewidth(0.2)
+fig.savefig('../output_plots/FJ/sectoral/food_cons_vs_income.pdf',format='pdf')
+plt.clf()
+plt.close('all')
+
+# Look at increased food costs
+my_xlim = None
+my_ylim = None
+movie_array = []
+
+df['pov_line'] = 0
+df.loc[df.Sector=='Urban','pov_line'] = urban_pov_line
+df.loc[df.Sector=='Rural','pov_line'] = rural_pov_line
+
+for nfood, dfood in enumerate(np.linspace(0.00,1.00,21)):
+
+    dfood_str = str(5*int(nfood))
+    ax = plt.gca()
+
+    df['inc_less_food'] = (df['inc_pAE']-(dfood*df['food_cons'])/df['AE']).clip(lower=0,upper=20000)
+
+    ci_heights, ci_bins = np.histogram(df['inc_pAE'].clip(lower=0,upper=20000), bins=50, range=(0,20000), weights=df[['Weight','AE']].prod(axis=1))
+    cf_heights, cf_bins = np.histogram(df['inc_less_food'], bins=50, range=(0,20000), weights=df[['Weight','AE']].prod(axis=1))
+    #ci_heights, ci_bins = np.histogram((df['inc_pAE']-df['food_cons']/df['AE']).clip(lower=0,upper=20000), bins=50, weights=df[['Weight','AE']].prod(axis=1))
+    #cf_heights, ci_bins = np.histogram((df['inc_pAE']-(1.+dfood)*df['food_cons']/df['AE']).clip(lower=0,upper=20000), bins=50, weights=df[['Weight','AE']].prod(axis=1))
+    
+    n_fp = int(df.loc[(df.inc_pAE > df.pov_line)&(df.inc_less_food <= df.pov_line),['Weight','AE']].prod(axis=1).sum())
+    if n_fp > 1000:
+        n_food_pov = str(n_fp)[:-3]+','+str(n_fp)[-3:]
+    else: n_food_pov = str(n_fp)
+
+    ax.bar(ci_bins[:-1], ci_heights, width=(ci_bins[1]-ci_bins[0]), facecolor=q_colors[1],label='Initial household consumption',alpha=0.4)
+    ax.bar(ci_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), facecolor=q_colors[0],label='Household consumption\nless food price increase',alpha=0.4)
+    fig = ax.get_figure()
+    if my_xlim == None: my_xlim = [xlim for xlim in ax.get_xlim()]
+    if my_ylim == None:  
+        my_ylim = [ylim for ylim in ax.get_ylim()]
+        my_ylim[1] *= 1.25
+    plt.xlim(my_xlim[0],my_xlim[1])
+    plt.ylim(my_ylim[0],my_ylim[1])
+    leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
+    leg.get_frame().set_color('white')
+    leg.get_frame().set_edgecolor(greys_pal[7])
+    leg.get_frame().set_linewidth(0.2)
+    ax.annotate('A '+dfood_str+'% increase in food prices would\n\nmove '+n_food_pov+' Fijians into poverty.',
+                xy=(6200,50000),xycoords='data',ha='left',va='center',fontsize=12,annotation_clip=False,color=greys_pal[7],weight='bold')
+
+    plt.plot([rural_pov_line,rural_pov_line],[my_ylim[0],my_ylim[1]],'k-',lw=1.5,color=greys_pal[7],zorder=100,alpha=0.85)
+    fig.savefig('../output_plots/FJ/sectoral/food_inc'+dfood_str+'_vs_income.png',format='png')
+    plt.clf()
+    plt.close('all')
+
+    #movie_array.append('../output_plots/FJ/sectoral/food_inc'+dfood_str+'_vs_income.png')
+
+assert(False)
 
 ##########
 # Tourism
@@ -86,7 +185,7 @@ plt.ylim(0,105000)
 plt.xlabel('Agricultural income reduction [%]')
 plt.ylabel('Fijians entering poverty [capita]')
 fig.savefig('../output_plots/FJ/sectoral/ag_inc_poverty_incidence.pdf',format='pdf')#+'.pdf',format='pdf')
-plt.cla()
+plt.clf()
 
 # Calculate numbers
 total_hh_fishermen = df.loc[df.Fishprawnscrabsetc > 0,'Weight'].sum()
@@ -127,20 +226,20 @@ cb = plt.gcf().get_axes()[1]
 #cb = fig.colorbar(c)  # colorbar for contour c
 cb.clear()
 
-plt.plot([rural_pov_line,rural_pov_line],[0.,1.],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
+plt.plot([rural_pov_line,rural_pov_line],[0.,1.],'k-',lw=1.5,color=greys_pal[7],zorder=100,alpha=0.85)
 fig = ax.get_figure()
 
 plt.xlabel(r'Total income [FJD yr$^{-1}$ per AE]')
 plt.ylabel('Fraction of income from agriculture\n(in households with agricultural income)')
 fig.savefig('../output_plots/FJ/sectoral/ag_income_frac_vs_total.pdf',format='pdf')#+'.pdf',format='pdf')
-plt.cla()
+plt.clf()
 plt.close('all')
 
 # Scatter plot of total income (all sources) vs frac of income from fisheries
 ax = df.ix[(df.TotalIncome<10000)&(df.frac_inc_fish>0)].plot.hexbin('inc_pAE','frac_inc_fish',gridsize=25,alpha=1.)
 fig = ax.get_figure()
 fig.savefig('../output_plots/FJ/sectoral/fish_income_frac_vs_total.pdf',format='pdf')#+'.pdf',format='pdf')
-plt.cla()
+plt.clf()
 plt.close('all')
 
 # Plot reduced income from agriculture
@@ -150,13 +249,13 @@ ax.bar(ci_bins[:-1], ci_heights, width=(ci_bins[1]-ci_bins[0]), facecolor=q_colo
 ax.bar(ci_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), facecolor=q_colors[0],alpha=0.4)
 # --> annotations
 fig = ax.get_figure()
-plt.plot([rural_pov_line,rural_pov_line],[0.,70000],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
+plt.plot([rural_pov_line,rural_pov_line],[0.,70000],'k-',lw=1.5,color=greys_pal[7],zorder=100,alpha=0.85)
 plt.xlabel(r'Income [FJD yr$^{-1}$]')
 plt.ylabel('Population')
 plt.ylim(0,65000)
 plt.legend(loc='best')
-fig.savefig('../output_plots/FJ/sectoral/income_ag_reductions.pdf',format='pdf')#+'.pdf',format='pdf')
-plt.cla()
+fig.savefig('../output_plots/FJ/sectoral/income_ag_reductions.pdf',format='pdf')
+plt.clf()
 
 # Plot total income from Fishprawnscrabsetc:
 ax = plt.gca()
@@ -174,7 +273,7 @@ ax.annotate(fm_str[:2]+','+fm_str[-3:]+' Fijian households gain some\nincome fro
 ax.annotate(str(round(frac_hh_fishermen_ita*100.,1))+'% i-Taukei',xy=(10000,525),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
 ax.annotate(str(round(frac_hh_fishermen_ind*100.,1))+'% Indian-Fijian',xy=(10000,475),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
 fig.savefig('../output_plots/FJ/sectoral/fisheries_income.pdf',format='pdf')#+'.pdf',format='pdf')
-plt.cla()
+plt.clf()
 
 # Plot fraction of income from Fishprawnscrabsetc:
 ax = plt.gca()
@@ -187,7 +286,7 @@ plt.xlabel(r'Fraction of income from fisheries')
 plt.ylabel('Population')
 plt.legend(loc='best')
 fig.savefig('../output_plots/FJ/sectoral/fisheries_income_frac.pdf',format='pdf')#+'.pdf',format='pdf')
-plt.cla()
+plt.clf()
 
 # Plot total income from Farming:
 ax = plt.gca()
@@ -206,7 +305,7 @@ ax.annotate(str(round(frac_hh_farmers_ita*100.,1))+'% i-Taukei',xy=(10000,2700),
 ax.annotate(str(round(frac_hh_farmers_ind*100.,1))+'% Indian-Fijian',xy=(10000,2500),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
 
 fig.savefig('../output_plots/FJ/sectoral/agri_income.pdf',format='pdf')#+'.pdf',format='pdf')
-plt.cla()
+plt.clf()
 
 # Plot fraction of income from agriculture (non-fish):
 ax = plt.gca()
@@ -219,7 +318,7 @@ plt.xlabel(r'Fraction of income from agriculture')
 plt.ylabel('Population')
 plt.legend(loc='best')
 fig.savefig('../output_plots/FJ/sectoral/agri_income_frac.pdf',format='pdf')#+'.pdf',format='pdf')
-plt.cla()
+plt.clf()
 
 # SAVE files
 df = df.reset_index()

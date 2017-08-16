@@ -29,7 +29,6 @@ for myCountry in [['PH','the Philippines','Filipinos'],
     elif myCountry[0] == 'FJ': economy = 'Division'
 
     event_level = [economy, 'hazard', 'rp']
-
     df = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
 
     # Sum with RPs
@@ -44,7 +43,7 @@ for myCountry in [['PH','the Philippines','Filipinos'],
     inp_res = 800
 
     make_map_from_svg(
-        df_prov_mh.risk_to_assets, #data 
+        df_prov_mh.risk_to_assets.clip(upper=0.035), #data 
         svg_file_path,                  #path to blank map
         outname=myCountry[0]+'_asset_risk_',  #base name for output  (will create img/map_of_asset_risk.png, img/legend_of_asset_risk.png, etc.)
         color_maper=plt.cm.get_cmap('Blues'), #color scheme (from matplotlib. Chose them from http://colorbrewer2.org/)
@@ -64,7 +63,7 @@ for myCountry in [['PH','the Philippines','Filipinos'],
         res=inp_res)
 
     make_map_from_svg(
-        df_prov_mh.risk, 
+        df_prov_mh.risk.clip(upper=0.04),
         svg_file_path,
         outname=myCountry[0]+'_welfare_risk_',
         color_maper=plt.cm.get_cmap('Purples'), 
