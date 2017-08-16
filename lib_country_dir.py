@@ -177,8 +177,8 @@ def load_survey_data(myC,inc_sf=None):
         df.loc[df.SP_FAP != 0,'SP_FAP'] = True
         df.loc[df.SP_FAP == 0,'SP_FAP'] = False
         # SP_SPS = SocialProtectionScheme
-        df.loc[df.SP_SPS != 0,'SP_FAP'] = True
-        df.loc[df.SP_SPS == 0,'SP_FAP'] = False
+        df.loc[df.SP_SPS != 0,'SP_SPS'] = True
+        df.loc[df.SP_SPS == 0,'SP_SPS'] = False
 
         return df
 

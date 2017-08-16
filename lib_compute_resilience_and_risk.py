@@ -417,17 +417,50 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
         
     if optionPDS=='fiji_SPS':
 
-        print(cats_event_iah[['SP_SPS','SP_FAP','SP_CPP']])
-        print(cats_event_iah.loc[(cats_event_iah.SP_SPS==True)].shape[0])
-        print(cats_event_iah.loc[(cats_event_iah.SP_CPP==True)].shape[0])
-        print(cats_event_iah.loc[(cats_event_iah.SP_FAP==True)].shape[0])
-        assert(False)
+        #print(cats_event_iah[['SP_SPS','SP_FAP','SP_CPP']])
+        #print(cats_event_iah.loc[(cats_event_iah.SP_SPS==True)].shape[0])
+        #print(cats_event_iah.loc[(cats_event_iah.SP_CPP==True)].shape[0])
+        #print(cats_event_iah.loc[(cats_event_iah.SP_FAP==True)].shape[0])
+        #assert(False)
+
+        #macro_event['aid'] = 600        
+        print(macro_event.columns)
+
+        sp_payout = macro_event['dk_event'].copy()
+        sp_payout = sp_payout.sum(level=['hazard','rp'])
+        sp_payout = sp_payout.reset_index().set_index(['hazard'])
+
+        sp_500yr = sp_payout.loc[sp_payout.rp==500,'dk_event']
         
-        macro_event['aid'] = 600
+        sp_payout = pd.concat([sp_payout,sp_500yr],axis=1,join='inner')
+        sp_payout.columns = ['rp','dk_event','benchmark_losses']
+
+        #print(sp_payout)
+        #assert(False)
+
+        sp_payout['f_benchmark'] = (sp_payout['dk_event']/sp_payout['benchmark_losses']).clip(lower=0.0,upper=1.0)
+        sp_payout = sp_payout.drop(['dk_event','benchmark_losses'],axis=1)
+        sp_payout = sp_payout.reset_index().set_index(['hazard','rp'])
+
+        cats_event_iah = pd.merge(cats_event_iah.reset_index(),sp_payout.reset_index(),on=['hazard','rp'])
+        cats_event_iah = cats_event_iah.reset_index().set_index(['Division','hazard','rp','hhid'])
+
+        # paying out per AE
         cats_event_iah['help_received'] = 0
-        cats_event_iah.loc[cats_event_iah.SP_SPS==True,'help_received']+=600 
-        cats_event_iah.loc[cats_event_iah.SP_CPP==True,'help_received']+=300 
-        cats_event_iah.loc[cats_event_iah.SP_FAP==True,'help_received']+=300 
+
+
+        print('SPS enrollment:',cats_event_iah.loc[(cats_event_iah.SP_SPS==True),'hhwgt'].sum(level=['hazard','rp']).mean())
+        print('CPP enrollment:',cats_event_iah.loc[(cats_event_iah.SP_CPP==True),'hhwgt'].sum(level=['hazard','rp']).mean())
+        print('FAP enrollment:',cats_event_iah.loc[(cats_event_iah.SP_FAP==True),'hhwgt'].sum(level=['hazard','rp']).mean())
+
+        print('\nMax SPS expenditure =',(cats_event_iah.loc[(cats_event_iah.SP_SPS==True),'hhwgt'].sum()*300+
+                                         cats_event_iah.loc[(cats_event_iah.SP_CPP==True),'hhwgt'].sum()*300+
+                                         cats_event_iah.loc[(cats_event_iah.SP_FAP==True),'hhwgt'].sum()*600)/(17*4),'\n')
+        
+        cats_event_iah.loc[(cats_event_iah.SP_SPS==True),'help_received']+=300*cats_event_iah.loc[(cats_event_iah.SP_SPS==True),'f_benchmark']/cats_event_iah.loc[(cats_event_iah.SP_SPS==True),'hhsize_ae']
+        cats_event_iah.loc[(cats_event_iah.SP_CPP==True),'help_received']+=300*cats_event_iah.loc[(cats_event_iah.SP_CPP==True),'f_benchmark']/cats_event_iah.loc[(cats_event_iah.SP_CPP==True),'hhsize_ae'] 
+        cats_event_iah.loc[(cats_event_iah.SP_FAP==True),'help_received']+=600*cats_event_iah.loc[(cats_event_iah.SP_FAP==True),'f_benchmark']/cats_event_iah.loc[(cats_event_iah.SP_FAP==True),'hhsize_ae']
+        cats_event_iah[['help_received','hhsize_ae','hhwgt']].prod(axis=1).sum(level=['hazard','rp']).to_csv('../output_country/FJ/SPS_expenditure.csv')
         
     elif optionPDS=='unif_poor':
 
@@ -471,18 +504,23 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
     # What is the function of need?
     # --> Defining it as the cost of disaster assistance distributed among all people in each province
     # --> 'need' is household, not per person!!
-    macro_event['need'] = cats_event_iah[['help_received','pcwgt']].prod(axis=1).sum(level=event_level)/(cats_event_iah['pcwgt'].sum(level=event_level))
-    macro_event['need_tot'] = cats_event_iah[['help_received','pcwgt']].prod(axis=1).sum(level=event_level)
+    if optionPDS != 'fiji_SPS':
+        macro_event['need'] = cats_event_iah[['help_received','pcwgt']].prod(axis=1).sum(level=event_level)/(cats_event_iah['pcwgt'].sum(level=event_level))
+        macro_event['need_tot'] = cats_event_iah[['help_received','pcwgt']].prod(axis=1).sum(level=event_level)
 
     #actual aid reduced by capacity
     if optionPDS == 'no':
         macro_event['my_help_fee'] = 0
+
+    elif optionPDS == 'fiji_SPS':
+        #macro_event['my_help_fee'] = macro_event['need']
+        pass
+
     elif optionB=='data' or optionB=='unif_poor':
 
         # See discussion above. This is the cost 
         print('No upper limit on help_received coded at this point...if we did exceed 5% of GDP, the help_fee would just be capped')
         macro_event['my_help_fee'] = macro_event['need'].clip(upper=macro_event['max_aid'])
-
     else:
         assert(False)
         
@@ -533,18 +571,23 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
         # --> If 1 hh had all the capital, its help_fee would be my_help_fee, which is the per capita value
 
         cats_event_iah['help_fee'] = 0
+        #if optionPDS == 'fiji_SPS':
+        #    cats_event_iah.loc[cats_event_iah.pcwgt != 0,'help_fee'] = (cats_event_iah.loc[cats_event_iah.pcwgt != 0,['help_received','pcwgt_ae']].prod(axis=1).sum(level=['hazard','rp']) * 
+        #                                                                # ^ total expenditure
+        #                                                                (cats_event_iah.loc[cats_event_iah.pcwgt != 0,['k','pcwgt_ae']].prod(axis=1) /
+        #                                                                 cats_event_iah.loc[cats_event_iah.pcwgt != 0,['k','pcwgt_ae']].prod(axis=1).sum(level=['hazard','rp'])) /
+        #                                                                 # ^ weighted average of capital
+        #                                                                 cats_event_iah.loc[cats_event_iah.pcwgt != 0,'pcwgt_ae'])
+        #                                                                 # ^ help_fee is per individual!            
+            
+        #else:
         cats_event_iah.loc[cats_event_iah.pcwgt != 0,'help_fee'] = (cats_event_iah.loc[cats_event_iah.pcwgt != 0,['help_received','pcwgt']].prod(axis=1).sum(level=event_level) * 
-                                                                     # ^ total expenditure
-                                                                     (cats_event_iah.loc[cats_event_iah.pcwgt != 0,['k','pcwgt']].prod(axis=1) /
-                                                                      cats_event_iah.loc[cats_event_iah.pcwgt != 0,['k','pcwgt']].prod(axis=1).sum(level=event_level)) /
-                                                                     # ^ weighted average of capital
-                                                                     cats_event_iah.loc[cats_event_iah.pcwgt != 0,'pcwgt']) 
-                                                                     # ^ help_fee is per individual!
-
-        #print(macro_event['need_tot'])
-        #print(cats_event_iah['k'].sum(level=event_level))
-        #print(cats_event_iah[['help_fee','weight']].prod(axis=1).sum(level=event_level))
-        #assert(False)
+                                                                    # ^ total expenditure
+                                                                    (cats_event_iah.loc[cats_event_iah.pcwgt != 0,['k','pcwgt']].prod(axis=1) /
+                                                                     cats_event_iah.loc[cats_event_iah.pcwgt != 0,['k','pcwgt']].prod(axis=1).sum(level=event_level)) /
+                                                                    # ^ weighted average of capital
+                                                                    cats_event_iah.loc[cats_event_iah.pcwgt != 0,'pcwgt']) 
+                                                                    # ^ help_fee is per individual!
 
     elif optionFee=='insurance_premium':
         print(optionFee)
