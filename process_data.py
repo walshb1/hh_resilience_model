@@ -5,10 +5,10 @@ get_ipython().magic('load_ext autoreload')
 get_ipython().magic('autoreload 2')
 
 #Import packages for data analysis
+from lib_compute_resilience_and_risk import *
 from replace_with_warning import *
 from lib_country_dir import *
 from lib_gather_data import *
-from lib_compute_resilience_and_risk import *
 from maps_lib import *
 
 from scipy.stats import norm
@@ -54,10 +54,13 @@ drm_pov_sign = -1 # toggle subtraction or addition of dK to affected people's in
 # Load output files
 pol_str = ''#'_v95'#could be {'_v95'}
 
+base_str = 'no'
+pds_str = 'fiji_SPS'#'no'
+
 #res_base = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
-df = pd.read_csv(output+'results_tax_no_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
-iah = pd.read_csv(output+'iah_tax_no_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
-macro = pd.read_csv(output+'macro_tax_no_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+df = pd.read_csv(output+'results_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+iah = pd.read_csv(output+'iah_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+macro = pd.read_csv(output+'macro_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 
 ## get frac below natl avg
 #print(iah.columns)
@@ -76,6 +79,8 @@ macro = pd.read_csv(output+'macro_tax_no_'+pol_str+'.csv', index_col=[economy,'h
 #df_prov = sum_with_rp(myCountry,macro[['dk_event']],['dk_event'],sum_provinces=False,national=False)
 df_prov = df[['dKtot','dWtot_currency']]
 df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1)
+# HACK
+df_prov.ix['Rotuma'].dWtot_currency = df_prov.ix['Rotuma'].dWtot_currency.clip(upper=df_prov.ix['Rotuma'].gdp.mean())
 
 results_df = macro.reset_index().set_index([economy,'hazard'])
 results_df = results_df.loc[results_df.rp==100,'dk_event'].sum(level='hazard')
@@ -84,8 +89,8 @@ results_df = pd.concat([results_df,df_prov.reset_index().set_index([economy,'haz
 results_df.columns = ['dk_event_100','AAL']
 results_df.to_csv(output+'results_table.csv')
 
-print(iah.columns)
-print(iah[['dc_npv_post','hhwgt','hhsize_ae']].prod(axis=1).sum(level=['hazard','rp'])/iah[['hhwgt','hhsize_ae']].prod(axis=1).sum(level=['hazard','rp']))
+#print(iah.columns)
+#print(iah[['dc_npv_post','hhwgt','hhsize_ae']].prod(axis=1).sum(level=['hazard','rp'])/iah[['hhwgt','hhsize_ae']].prod(axis=1).sum(level=['hazard','rp']))
 
 df_prov['R_asst'] = round(100.*df_prov['dKtot']/df_prov['gdp'],2)
 df_prov['R_welf'] = round(100.*df_prov['dWtot_currency']/df_prov['gdp'],2)
@@ -100,7 +105,6 @@ print('R_welf:',100.*df_prov['dWtot_currency'].sum()/df_prov['gdp'].sum())
 
 print("R_asset per hazard: ",df['dKtot'].sum(level="hazard")/df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level=[economy,'hazard']).sum(level='hazard'))
 
-#assert(False)
 # Map asset losses as fraction of natl GDP
 print('\n',df_prov.dKtot/df_prov.gdp.sum())
 print((df_prov.dKtot/df_prov.gdp.sum()).sum(),'\n')
@@ -114,10 +118,11 @@ make_map_from_svg(
     do_qualitative=False,
     res=2000)
 
-print(output+'results_tax_unif_poor_'+pol_str+'.csv')
-print(output+'iah_tax_unif_poor_'+pol_str+'.csv')
-res_unif_poor = pd.read_csv(output+'results_tax_unif_poor_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
-iah_pds = iah.copy()#pd.read_csv(output+'iah_tax_unif_poor_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+print(output+'results_tax_'+pds_str+'_'+pol_str+'.csv')
+print(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv')
+res_pds = pd.read_csv(output+'results_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+iah_pds = pd.read_csv(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp','hhid','helped_cat','affected_cat'])
+iah = iah.reset_index().set_index([economy,'hazard','rp','hhid','helped_cat','affected_cat'])
 
 def format_delta_p(delta_p):
     delta_p_int = int(delta_p)
@@ -455,42 +460,54 @@ for myRP in myHaz[2]:
 
     # Don't care about province or hazard, but I DO still need to separate out by RP
     # try means for all of the Philippines
-    all_q1 = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                     & (iah.quintile == 1) & (iah.rp == myRP)]
-    all_q2 = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                     & (iah.quintile == 2) & (iah.rp == myRP)]
-    all_q3 = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                     & (iah.quintile == 3) & (iah.rp == myRP)]
-    all_q4 = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                     & (iah.quintile == 4) & (iah.rp == myRP)]
-    all_q5 = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                     & (iah.quintile == 5) & (iah.rp == myRP)]
+    all_q1 = iah.loc[(iah.helped_cat == 'helped') & (iah.quintile == 1) & (iah.rp == myRP)]
+    all_q2 = iah.loc[(iah.helped_cat == 'helped') & (iah.quintile == 2) & (iah.rp == myRP)]
+    all_q3 = iah.loc[(iah.helped_cat == 'helped') & (iah.quintile == 3) & (iah.rp == myRP)]
+    all_q4 = iah.loc[(iah.helped_cat == 'helped') & (iah.quintile == 4) & (iah.rp == myRP)]
+    all_q5 = iah.loc[(iah.helped_cat == 'helped') & (iah.quintile == 5) & (iah.rp == myRP)]
+    #all_q2 = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+    #                 & (iah.quintile == 2) & (iah.rp == myRP)]
+    #all_q2 = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+    #                 & (iah.quintile == 2) & (iah.rp == myRP)]
+    #all_q3 = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+    #                 & (iah.quintile == 3) & (iah.rp == myRP)]
+    #all_q4 = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+    #                 & (iah.quintile == 4) & (iah.rp == myRP)]
+    #all_q5 = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+    #                 & (iah.quintile == 5) & (iah.rp == myRP)]
 
-    print('RP = ',myRP,'dk =',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                  & (iah.rp == myRP),['dk','pcwgt']].prod(axis=1).sum())
-    print('RP = ',myRP,'dw =',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                  & (iah.rp == myRP),['dw','pcwgt']].prod(axis=1).sum())          
 
-    print('RP = ',myRP,'dk (Q1&2) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                  & (iah.rp == myRP) & (iah.quintile <= 2),['dk','pcwgt']].prod(axis=1).sum())
-    print('RP = ',myRP,'dw (Q1&2) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                  & (iah.rp == myRP) & (iah.quintile <= 2),['dw','pcwgt']].prod(axis=1).sum())        
+    print('RP = ',myRP,'dk =',iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP),['dk','pcwgt']].prod(axis=1).sum())
+    print('RP = ',myRP,'dw =',iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP),['dw','pcwgt']].prod(axis=1).sum())
+     
 
-    print('RP = ',myRP,'dk (Q1) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                  & (iah.rp == myRP) & (iah.quintile == 1),['dk','pcwgt']].prod(axis=1).sum())
-    print('RP = ',myRP,'dw (Q1) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                  & (iah.rp == myRP) & (iah.quintile == 1),['dw','pcwgt']].prod(axis=1).sum())        
+    print('RP = ',myRP,'dk (Q1&2) = ',iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP) & (iah.quintile <= 2),['dk','pcwgt']].prod(axis=1).sum())
+    print('RP = ',myRP,'dw (Q1&2) = ',iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP) & (iah.quintile <= 2),['dw','pcwgt']].prod(axis=1).sum())        
+
+    print('RP = ',myRP,'dk (Q1) = ',iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP) & (iah.quintile == 1),['dk','pcwgt']].prod(axis=1).sum())
+    print('RP = ',myRP,'dw (Q1) = ',iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP) & (iah.quintile == 1),['dw','pcwgt']].prod(axis=1).sum())       
+
+    #print('RP = ',myRP,'dk =',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+    #              & (iah.rp == myRP),['dk','pcwgt']].prod(axis=1).sum())
+    #print('RP = ',myRP,'dw =',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+    #              & (iah.rp == myRP),['dw','pcwgt']].prod(axis=1).sum())          
+
+    #print('RP = ',myRP,'dk (Q1&2) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+    #              & (iah.rp == myRP) & (iah.quintile <= 2),['dk','pcwgt']].prod(axis=1).sum())
+    #print('RP = ',myRP,'dw (Q1&2) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+    #              & (iah.rp == myRP) & (iah.quintile <= 2),['dw','pcwgt']].prod(axis=1).sum())        
+
+    #print('RP = ',myRP,'dk (Q1) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+    #              & (iah.rp == myRP) & (iah.quintile == 1),['dk','pcwgt']].prod(axis=1).sum())
+    #print('RP = ',myRP,'dw (Q1) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
+    #              & (iah.rp == myRP) & (iah.quintile == 1),['dw','pcwgt']].prod(axis=1).sum())        
 
     rp_all.append(myRP)
-    dk_all.append(iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                          & (iah.rp == myRP),['dk','pcwgt']].prod(axis=1).sum())
-    dw_all.append(iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                          & (iah.rp == myRP),['dw','pcwgt']].prod(axis=1).sum())
+    dk_all.append(iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP),['dk','pcwgt']].prod(axis=1).sum())
+    dw_all.append(iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP),['dw','pcwgt']].prod(axis=1).sum())
 
-    dk_q1.append(iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                         & (iah.rp == myRP) & (iah.quintile == 1),['dk','pcwgt']].prod(axis=1).sum())
-    dw_q1.append(iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-                         & (iah.rp == myRP) & (iah.quintile == 1),['dw','pcwgt']].prod(axis=1).sum())
+    dk_q1.append(iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP) & (iah.quintile == 1),['dk','pcwgt']].prod(axis=1).sum())
+    dw_q1.append(iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP) & (iah.quintile == 1),['dw','pcwgt']].prod(axis=1).sum())
 
     k_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'k')
     dk_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'dk')
@@ -534,7 +551,7 @@ for myRP in myHaz[2]:
             if myCountry == 'PH':
                 cut = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped')))  & (iah.province == myProv) & (iah.hazard == myDis) & (iah.rp == myRP)].set_index([economy,'hazard','rp'])
             elif myCountry == 'FJ':
-                cut = iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped')))  & (iah.Division == myProv) & (iah.hazard == myDis) & (iah.rp == myRP)].set_index([economy,'hazard','rp'])
+                cut = iah.loc[(iah.helped_cat == 'helped') & (iah.Division == myProv) & (iah.hazard == myDis) & (iah.rp == myRP)].set_index([economy,'hazard','rp'])
 
             if cut.shape[0] == 0: 
                 print('Nothing here!')
@@ -584,7 +601,8 @@ for myRP in myHaz[2]:
             #df_wgt.to_csv('~/Desktop/weights.csv')
 
             for istr in ['dk','dc','dw']:
-
+                continue
+                
                 upper_clip = 75000
                 if istr == 'dw': upper_clip =  200000
 

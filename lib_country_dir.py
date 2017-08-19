@@ -122,10 +122,14 @@ def load_survey_data(myC,inc_sf=None):
                                                                            'Sector','Weight','TOTALTRANSFER','TotalIncome','New Total',
                                                                            'CareandProtectionProgrampaymentfromSocialWelfare',
                                                                            'FamilyAssistanceProgrampaymentfromSocialWelfare',
+                                                                           'FijiNationalProvidentFundPension',
+                                                                           'FNPFWithdrawalsEducationHousingInvestmentsetc',
                                                                            'SocialPensionScheme']).set_index('HHID')
         df = df.rename(columns={'HHID':'hhid','TotalIncome':'hhinc','HHsize':'hhsize','Weight':'hhwgt','TOTALTRANSFER':'hhsoc',
                                 'CareandProtectionProgrampaymentfromSocialWelfare':'SP_CPP',
                                 'FamilyAssistanceProgrampaymentfromSocialWelfare':'SP_FAP',
+                                'FijiNationalProvidentFundPension':'SP_FNPF',
+                                'FNPFWithdrawalsEducationHousingInvestmentsetc':'SP_FNPF2',
                                 'SocialPensionScheme':'SP_SPS'})
 
         df['pov_line'] = 0.
@@ -155,11 +159,14 @@ def load_survey_data(myC,inc_sf=None):
             
         df_housing = pd.read_excel(inputs+'HIES 2013-14 Housing Data.xlsx',sheetname='Sheet1').set_index('HHID').dropna(how='all')[['Constructionofouterwalls',
                                                                                                                                     'Conditionofouterwalls']]
-        
-        df_poor = pd.read_excel(inputs+'HIES 2013-14 Demographic Data.xlsx',sheetname='Sheet1').set_index('HHID').dropna(how='all')['Poor']
-        df_poor = df_poor[~df_poor.index.duplicated(keep='first')]
 
-        df = pd.concat([df,df_housing,df_poor],axis=1).reset_index().set_index('Division')
+        df_dems = pd.read_excel(inputs+'HIES 2013-14 Demographic Data.xlsx',sheetname='Sheet1').set_index('HHID').dropna(how='all')[['Poor','Age']]
+        df_dems['isOld'] = 0
+        df_dems.loc[df_dems.Age >=68,'isOld'] = 1
+        df_dems['nOlds'] = df_dems['isOld'].sum(level='HHID')
+        df_dems = df_dems[~df_dems.index.duplicated(keep='first')].drop(['Age','isOld'],axis=1)
+
+        df = pd.concat([df,df_housing,df_dems],axis=1).reset_index().set_index('Division')
 
         df = df.rename(columns={'Poor':'ispoor'})
 
@@ -176,10 +183,35 @@ def load_survey_data(myC,inc_sf=None):
         # SP_FAP = FamilyAssistanceProgrampaymentfromSocialWelfare
         df.loc[df.SP_FAP != 0,'SP_FAP'] = True
         df.loc[df.SP_FAP == 0,'SP_FAP'] = False
-        # SP_SPS = SocialProtectionScheme
-        df.loc[df.SP_SPS != 0,'SP_SPS'] = True
-        df.loc[df.SP_SPS == 0,'SP_SPS'] = False
+    
+        # SP_PBS = PovertyBenefitsScheme
+        df['SP_PBS'] = False
+        df.sort('pcinc',ascending=True,inplace=True)
+        hhno,hhsum = 0,0
+        while (hhno < df.shape[0]) and (hhsum < 24000):
+            hhsum = df.iloc[:hhno].hhwgt.sum()
+            hhno+=1
+        df.iloc[:hhno].SP_PBS = True
+        print(df.loc[df.SP_PBS == True,'hhwgt'].sum())
 
+        # SP_SPS = SocialProtectionScheme
+        # --> or retirees (over 65/formerly, 68) not enrolled in FNPF
+        #df.loc[df.SP_SPS != 0,'SP_SPS'] = True
+        #df.loc[df.SP_SPS == 0,'SP_SPS'] = False
+        # SP_PBS = PovertyBenefitsScheme
+        df['SP_SPS'] = False
+        df.sort('pcinc_ae',ascending=True,inplace=True)
+        hhno,sumOlds = 0,0
+        while (hhno < df.shape[0]) and (sumOlds < 15000):
+            sumOlds = (df.iloc[:hhno])[['hhwgt','nOlds']].prod(axis=1).sum()
+            hhno+=1
+        df.iloc[:hhno].SP_SPS = True
+        df.loc[df.nOlds == 0,'SP_SPS'] = False
+
+        # SP_FNPF = FijiNationalPensionFund
+        # SP_FNPF2 = FNPFWithdrawalsEducationHousingInvestmentsetc
+        df.loc[(df.SP_FNPF != 0)|(df.SP_FNPF2 != 0),'SP_FNPF'] = True
+        df.loc[df.SP_FNPF == 0,'SP_FNPF'] = False
         return df
 
     elif myC == 'SL':

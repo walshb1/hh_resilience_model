@@ -58,8 +58,8 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     # --> 'unif_poor' = uniform disbursement based of average asset losses of poor
     # --> 'unif' = uniform disbursement based of average losses
     #optionPDS = 'no'#'unif_poor'#'no'
-    if myCountry == 'FJ': optionPDS = 'fiji_SPS'
-    elif pol_str != '': optionPDS = 'no'
+    #if myCountry == 'FJ': optionPDS = 'fiji_SPS'
+    #elif pol_str != '': optionPDS = 'no'
     
 
     # Cap on benefits (bool)
@@ -71,7 +71,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
         option_CB_name = ''
 
     print('--> pol_str:',pol_str)
-    print('optionFee =',optionFee, 'optionPDS =', optionPDS, 'optionB =', optionB, 'optionT =', optionT, 'option_CB =', option_CB_name)
+    print('\noptionFee =',optionFee, '\noptionPDS =', optionPDS, '\noptionB =', optionB, '\noptionT =', optionT, '\noption_CB =', option_CB_name,'\n')
 
     #Options and parameters
     nat_economy   = 'national'
@@ -112,11 +112,12 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     #optionT(targeting errors):perfect, prop_nonpoor_lms, data, x33, incl, excl.
     #optionB:one_per_affected, one_per_helped, one, unlimited, data, unif_poor, max01, max05
     #optionPDS: unif_poor, no, 'prop', 'prop_nonpoor'
+
     macro_event.to_csv(output+'macro_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
-    print('D')
+    print('Step D: Wrote '+output+'macro_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv')
 
     cats_event_iah.to_csv(output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
-    print('E')
+    print('Step E:  Wrote '+output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv')
     
     out = compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True)
     print('F')
@@ -145,24 +146,25 @@ if __name__ == '__main__':
     if len(sys.argv) > 2: myCountry = sys.argv[2]
     
     if myCountry == 'FJ':
-        pds_str = 'fiji_SPS'
-        pol_str = ['',
-                   '_exp095',      # reduce exposure of poor by 5% (of total exposure!)
-                   '_exr095',      # reduce exposure of rich by 5% (of total exposure!)
-                   '_pcinc_p_110', # increase per capita income of poor people by 10%
-                   '_soc133',      # increase social transfers to poor by 33%
-                   '_rec067',      # decrease reconstruction time by 33%
-                   '_ew100',       # universal access to early warnings 
-                   '_vul070']      # decrease vulnerability of poor by 30%
+        pds_str = ['no','fiji_SPS']
+        pol_str = ''#['',
+                  # '_exp095',      # reduce exposure of poor by 5% (of total exposure!)
+                  # '_exr095',      # reduce exposure of rich by 5% (of total exposure!)
+                  # '_pcinc_p_110', # increase per capita income of poor people by 10%
+                  # '_soc133',      # increase social transfers to poor by 33%
+                  # '_rec067',      # decrease reconstruction time by 33%
+                  # '_ew100',       # universal access to early warnings 
+                  # '_vul070']      # decrease vulnerability of poor by 30%
         # Other policies:
         # --> develop market insurance for rich
         # --> universal access to finance
         # --> 
 
-        if debug: launch_compute_resilience_and_risk_thread('FJ','','no')
+        if debug: launch_compute_resilience_and_risk_thread('FJ','','fiji_SPS')
         else:
+            print('LAUNCHING THREADS:\n',list(zip(repeat(myCountry), repeat(pol_str), pds_str)))
             with Pool() as pool:
-                print('LAUNCHING THREADS:',list(zip(repeat(myCountry), pol_str, repeat(pds_str))))
+
                 pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), pol_str, repeat(pds_str)))
     
     if myCountry == 'PH' or myCountry == 'SL':
