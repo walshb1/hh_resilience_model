@@ -228,6 +228,9 @@ for aProv in myHaz[0]:
 #final_out,_ = average_over_rp(iah_ntl,'default_rp')
 
 iah_ntl.to_csv('~/Desktop/poverty_ntl_by_haz.csv')
+iah_ntl = iah_ntl.reset_index().set_index(['hazard','rp'])
+iah_ntl_haz,_ = average_over_rp(iah_ntl,'default_rp')
+iah_ntl_haz.sum(level='hazard').to_csv('~/Desktop/poverty_haz_sum.csv')
 
 iah_ntl = iah_ntl.reset_index().set_index('rp').sum(level='rp')
 iah_ntl.to_csv('~/Desktop/poverty_ntl.csv')
