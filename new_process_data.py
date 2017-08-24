@@ -55,14 +55,21 @@ df = pd.read_csv(output+'results_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[ec
 df_base = pd.read_csv(output+'results_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 macro = pd.read_csv(output+'macro_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 
+iah = iah.reset_index()
+iah_base = iah_base.reset_index()
+
+iah      = iah.loc[iah.hhid!=150200000117]
+iah_base = iah_base.loc[iah_base.hhid!=150200000117]
+
+iah = iah.reset_index().set_index([economy,'hazard','rp','hhid'])
+iah_base = iah_base.reset_index().set_index([economy,'hazard','rp','hhid'])
+
 # Manipulate iah
 iah['c_initial']   = (iah[['c','hhsize']].prod(axis=1)/iah['hhsize_ae']).fillna(0)# c per AE
 iah['delta_c']     = (df['avg_prod_k'].mean()+1/df['T_rebuild_K'].mean())*(iah[['dk','pcwgt']].prod(axis=1)/iah['pcwgt_ae']).fillna(0)
 iah['pds_nrh']     = iah['help_fee']-iah['help_received']
 iah['c_final']     = (iah['c_initial'] + drm_pov_sign*iah['delta_c'])
 iah['c_final_pds'] = (iah['c_initial'] - iah['delta_c'] - iah['pds_nrh'])
-
-
 
 # Clone index of iah with just one entry/hhid
 iah_res = pd.DataFrame(index=(iah.sum(level=[economy,'hazard','rp','hhid'])).index)
@@ -97,6 +104,10 @@ iah_res['dc_npv_post'] = iah[['dc_npv_post','pcwgt']].prod(axis=1).sum(level=[ec
 iah_res['dw'] = iah_base[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
 iah_res['pds_dw'] = iah[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
 
+iah_res = iah_res.reset_index()
+iah_res.loc[(iah_res.hazard=='flood_pluv')&(iah_res.rp==10)].to_csv('~/Desktop/__look.csv')
+iah_res  = iah_res.reset_index().set_index([economy,'hazard','rp','hhid'])
+
 iah_res['c_initial']   = iah[['c_initial'  ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c per AE
 iah_res['delta_c']     = iah[['delta_c'    ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # dc per AE
 iah_res['pds_nrh']     = iah[['pds_nrh'    ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # nrh per AE
@@ -105,6 +116,20 @@ iah_res['c_final_pds'] = iah[['c_final_pds','pcwgt_ae']].prod(axis=1).sum(level=
 
 iah = iah.reset_index()
 iah_res  = iah_res.reset_index().set_index([economy,'hazard','rp','hhid'])
+
+# Save out iah
+iah_out = pd.DataFrame(index=iah_res.sum(level=['hazard','rp']).index)
+iah_out['dk'] = iah_res[['dk','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
+iah_out['dw'] = iah_res[['dw','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])/df.wprime.mean()
+iah_out['pds_dw'] = iah_res[['pds_dw','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])/df.wprime.mean()
+iah_out['help_fee'] = iah_res[['help_fee','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
+
+
+
+iah_out.to_csv('~/Desktop/haz_sums.csv')
+print(iah_out.head(10))
+iah_out,_ = average_over_rp(iah_out,'default_rp')
+iah_out.to_csv('~/Desktop/sums.csv')
 
 iah_ntl['pop'] = iah_res.pcwgt.sum(level=['hazard','rp'])
 iah_ntl['pov_pc_i'] = iah_res.loc[(iah_res.pcinc_ae <= iah_res.pov_line),'pcwgt'].sum(level=['hazard','rp'])
@@ -123,6 +148,10 @@ iah_ntl['eff_pds'] = iah_ntl['pov_pc_pds_D'] - iah_ntl['pov_pc_D']
 # Print out plots for iah_res
 iah_res = iah_res.reset_index()
 iah_ntl = iah_ntl.reset_index()
+
+# Save out iah_file:
+
+
 #myHaz = [['Ba'],['TC'],[100]]
 myHaz = [['Ba','Lau','Tailevu'],['TC'],[1,100,500]]
 
