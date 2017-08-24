@@ -12,73 +12,73 @@
     }
     .ba
     {  
-       fill: #D9EF8B;
+       fill: #72C264;
        stroke:#000000;
        stroke-width:2;
     }
 .bua
     {  
-       fill: #70C164;
+       fill: #C5E67E;
        stroke:#000000;
        stroke-width:2;
     }
 .cakaudrove
     {  
-       fill: #30A255;
+       fill: #5AB760;
        stroke:#000000;
        stroke-width:2;
     }
 .kadavu
     {  
-       fill: #FEE797;
+       fill: #DEF193;
        stroke:#000000;
        stroke-width:2;
     }
 .lau
     {  
-       fill: #C41E26;
+       fill: #E54D34;
        stroke:#000000;
        stroke-width:2;
     }
 .lomaiviti
     {  
-       fill: #DAEF8D;
+       fill: #7AC565;
        stroke:#000000;
        stroke-width:2;
     }
 .macuata
     {  
-       fill: #B81226;
+       fill: #A50026;
        stroke:#000000;
        stroke-width:2;
     }
 .nadroga_navosa
     {  
-       fill: #F9FCB7;
+       fill: #81C966;
        stroke:#000000;
        stroke-width:2;
     }
 .naitasiri
     {  
-       fill: #158F4B;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .namosi
     {  
-       fill: #249D52;
+       fill: #54B45E;
        stroke:#000000;
        stroke-width:2;
     }
 .ra
     {  
-       fill: #A50026;
+       fill: #E24932;
        stroke:#000000;
        stroke-width:2;
     }
 .rewa
     {  
-       fill: #08773E;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
@@ -90,13 +90,13 @@
     }
 .serua
     {  
-       fill: #FBA25B;
+       fill: #FEEA9D;
        stroke:#000000;
        stroke-width:2;
     }
 .tailevu
     {  
-       fill: #4EB15D;
+       fill: #2A9F54;
        stroke:#000000;
        stroke-width:2;
     }

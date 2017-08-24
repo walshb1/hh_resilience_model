@@ -17,12 +17,28 @@ sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
 q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 def get_weighted_mean(q1,q2,q3,q4,q5,key,weight_key='pcwgt'):
+    
+    if q1.shape[0] > 0:
+        my_ret = [np.average(q1[key], weights=q1[weight_key])]
+    else: my_ret = [0]
+    
+    if q2.shape[0] > 0:
+        my_ret.append(np.average(q2[key], weights=q2[weight_key]))
+    else: my_ret.append(0)
 
-    return [np.average(q1[key], weights=q1[weight_key]),
-            np.average(q2[key], weights=q2[weight_key]),
-            np.average(q3[key], weights=q3[weight_key]),
-            np.average(q4[key], weights=q4[weight_key]),
-            np.average(q5[key], weights=q5[weight_key])]
+    if q3.shape[0] > 0:
+        my_ret.append(np.average(q3[key], weights=q3[weight_key]))
+    else: my_ret.append(0)
+
+    if q4.shape[0] > 0:
+        my_ret.append(np.average(q4[key], weights=q4[weight_key]))
+    else: my_ret.append(0)
+
+    if q5.shape[0] > 0:
+        my_ret.append(np.average(q5[key], weights=q5[weight_key]))
+    else: my_ret.append(0)    
+
+    return my_ret
 
 def get_weighted_median(q1,q2,q3,q4,q5,key):
     
@@ -437,7 +453,6 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
                                                                                 cats_event_iah.loc[(cats_event_iah.SP_PBS==True),'pcwgt']).fillna(0)
         cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped'),'help_received'] = 0
         cats_event_iah[['help_received','pcwgt']].prod(axis=1).sum(level=['hazard','rp']).to_csv('../output_country/FJ/SPS_expenditure.csv')
-        cats_event_iah.ix['Ba'].to_csv('../output_country/FJ/intermediate_cats.csv')
 
     elif optionPDS=='unif_poor':
 
@@ -813,7 +828,7 @@ def calc_delta_welfare(micro, macro):
     temp = pd.merge(micro.reset_index(),macro.reset_index(),on=['Division','hazard','rp']).reset_index().set_index(['Division','hazard','rp'])
 
     dw= (welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
-                 - welf1(temp['c']/temp['rho']-temp['dc_npv_post'], temp['income_elast'],temp['c_5']/temp['rho']))
+         - welf1(temp['c']/temp['rho']-temp['dc_npv_post'], temp['income_elast'],temp['c_5']/temp['rho']))
     
     return dw
 	

@@ -37,8 +37,6 @@ df_cons = df_cons.rename(columns={'DIVISION 1: FOOD & NON-ALCOHOLIC BEVERAGES + 
 df = pd.concat([df,df_cons,df_dem.loc[df_dem.Person_No == '01']],axis=1,join='inner')
 df['frac_inc_foodcons'] = 100.*df['food_cons']/df['TotalIncome']
 
-print(df)
-assert(False)
 
 #df.loc[df.frac_inc_foodcons >= 100].to_csv('~/Desktop/too_much.csv')
 #print(df.loc[df.frac_inc_foodcons >= 1])

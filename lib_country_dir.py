@@ -12,7 +12,7 @@ global model
 model = os.getcwd()
 
 # People/hh will be affected or not_affected, and helped or not_helped
-affected_cats = pd.Index(['a', 'na'], name='affected_cat')	     # categories for social protection
+affected_cats = pd.Index(['a', 'na'], name='affected_cat') # categories for social protection
 helped_cats   = pd.Index(['helped','not_helped'], name='helped_cat')
 
 # These parameters could vary by country
@@ -133,29 +133,23 @@ def load_survey_data(myC,inc_sf=None):
                                 'SocialPensionScheme':'SP_SPS'})
 
         df['pov_line'] = 0.
-        df.loc[df.Sector=='Urban','pov_line'] = 55.12*52*df.loc[df.Sector=='Urban','AE']
-        df.loc[df.Sector=='Rural','pov_line'] = 49.50*52*df.loc[df.Sector=='Rural','AE']        
+        df.loc[df.Sector=='Urban','pov_line'] = 55.12*52
+        df.loc[df.Sector=='Rural','pov_line'] = 49.50*52
 
-        if inc_sf != None: df['hhinc'] = scale_hh_income_to_match_GDP(df[['hhinc','hhwgt','hhsize','AE','Sector','pov_line']],inc_sf)
+        if inc_sf != None: df['hhinc'], df['pov_line'] = scale_hh_income_to_match_GDP(df[['hhinc','hhwgt','hhsize','AE','Sector','pov_line']],inc_sf,flat=True)
 
-        #df_cons = pd.read_excel(inputs+'HIES 2013-14 Consumption Data.xlsx',usecols=['HHID','Weights','Grand Total'],sheetname='by_Individual items').set_index('HHID').drop('HHID').fillna(0)
-        #print(df_cons[['Weights','Grand Total']].prod(axis=1).sum())
-        #assert(False)
+        df['hh_pov_line'] = df[['pov_line','AE']].prod(axis=1)
 
-        #df['hhsize_ae'] = df['Nadult'] # assuming this is 'Adult Equivalents'
-        df['hhsize_ae'] = df['AE'] # assuming this is 'Adult Equivalents'
-        # Should be equivalent to 0.5*df['Nchildren']+df['Nadult']
+        df['hhsize_ae'] = df['AE'] # This is 'Adult Equivalents'
+        # ^ Equivalent to 0.5*df['Nchildren']+df['Nadult']
 
-        df['pcwgt'] = df[['hhsize','hhwgt']].prod(axis=1)
+        df['pcwgt']    = df[['hhsize','hhwgt']].prod(axis=1)
         df['pcwgt_ae'] = df[['AE','hhwgt']].prod(axis=1)
-        df['pcinc'] = df['hhinc']/df['hhsize']
-        df['pcinc_ae'] = df['hhinc']/df['hhsize_ae']
-        df['pcsoc'] = df['hhsoc']/df['hhsize']
 
-        #print('Total income:',df[['pcinc','pcwgt']].prod(axis=1).sum())
-        #print('Total income (new):',df[['New Total','hhwgt']].prod(axis=1).sum())
-        #print(df[['hhsize','hhwgt']].prod(axis=1).sum()/df['hhwgt'].sum())
-        #print(df[['hhsize_ae','hhwgt']].prod(axis=1).sum()/df['hhwgt'].sum())
+        df['pcinc']    = df['hhinc']/df['hhsize']
+        df['pcinc_ae'] = df['hhinc']/df['hhsize_ae']
+
+        df['pcsoc']    = df['hhsoc']/df['hhsize']
             
         df_housing = pd.read_excel(inputs+'HIES 2013-14 Housing Data.xlsx',sheetname='Sheet1').set_index('HHID').dropna(how='all')[['Constructionofouterwalls',
                                                                                                                                     'Conditionofouterwalls']]
@@ -186,7 +180,7 @@ def load_survey_data(myC,inc_sf=None):
     
         # SP_PBS = PovertyBenefitsScheme
         df['SP_PBS'] = False
-        df.sort('pcinc',ascending=True,inplace=True)
+        df.sort_values(by='pcinc',ascending=True,inplace=True)
         hhno,hhsum = 0,0
         while (hhno < df.shape[0]) and (hhsum < 24000):
             hhsum = df.iloc[:hhno].hhwgt.sum()
@@ -592,13 +586,21 @@ def get_demonym(myC):
     elif myC == 'FJ': return 'Fijians'
     elif myC == 'SL': return 'Sri Lankans'
 
-def scale_hh_income_to_match_GDP(df,new_total):
+def scale_hh_income_to_match_GDP(df,new_total,flat=False):
 
     df = df.copy()
+    tot_inc = df[['hhinc','hhwgt']].prod(axis=1).sum()
+
+    if flat == True:
+
+        print('\nScaling up income and the poverty line by',round((new_total/tot_inc),3),'!!\n\n')
+        df['hhinc']*=(new_total/tot_inc)
+        df['pov_line']*=(new_total/tot_inc)
+
+        return df['hhinc'], df['pov_line']
     
     #[['hhinc','hhwgt','AE','Sector']]
 
-    tot_inc = df[['hhinc','hhwgt']].prod(axis=1).sum()
     tot_inc_urb = df.loc[df.Sector=='Urban',['hhinc','hhwgt']].prod(axis=1).sum()
     tot_inc_rur = df.loc[df.Sector=='Rural',['hhinc','hhwgt']].prod(axis=1).sum()
 
@@ -615,20 +617,20 @@ def scale_hh_income_to_match_GDP(df,new_total):
     print('New inc urb',new_inc_urb)
     print('New inc rur',new_inc_rur)
     
-    ep_urb = 0.295#(np.log(new_inc_urb/nAE_urb)-np.log(tot_inc_urb/nAE_urb))/(np.log(tot_inc_urb/nAE_urb)-np.log(55.12*52))-1
-    ep_rur = 0.295#(np.log(new_inc_rur/nAE_rur)-np.log(tot_inc_rur/nAE_rur))/(np.log(tot_inc_rur/nAE_rur)-np.log(49.50*52))-1  
+    #ep_urb = 0.295#(np.log(new_inc_urb/nAE_urb)-np.log(tot_inc_urb/nAE_urb))/(np.log(tot_inc_urb/nAE_urb)-np.log(55.12*52))-1
+    #ep_rur = 0.295#(np.log(new_inc_rur/nAE_rur)-np.log(tot_inc_rur/nAE_rur))/(np.log(tot_inc_rur/nAE_rur)-np.log(49.50*52))-1  
 
-    #ep_urb = 0.35
-    #ep_rur = 0.
+    ep_urb = 0.38
+    ep_rur = 0.38
 
     #print(tot_inc)
     #print(ep_urb)
     #print(ep_rur)
 
     df['AEinc'] = df['hhinc']/df['AE']
-    df['new_AEinc'] = 0.    
-    df.loc[df.Sector=='Urban','new_AEinc'] = (55.12*52)*(df.loc[df.Sector=='Urban','AEinc']/(55.12*52))**(1+ep_urb)
-    df.loc[df.Sector=='Rural','new_AEinc'] = (49.50*52)*(df.loc[df.Sector=='Rural','AEinc']/(49.50*52))**(1+ep_rur)
+    df['new_AEinc'] = df['AEinc']
+    df.loc[(df.Sector=='Urban')&(df.AEinc>1.5*df.pov_line),'new_AEinc'] = (55.12*52)*(df.loc[df.Sector=='Urban','AEinc']/(55.12*52))**(1+ep_urb)
+    df.loc[(df.Sector=='Rural')&(df.AEinc>1.5*df.pov_line),'new_AEinc'] = (49.50*52)*(df.loc[df.Sector=='Rural','AEinc']/(49.50*52))**(1+ep_rur)
 
     df['ratio'] = df['new_AEinc']/df['AEinc']
     
@@ -656,4 +658,4 @@ def scale_hh_income_to_match_GDP(df,new_total):
     plt.legend(loc='best')
     fig.savefig('../output_plots/FJ/income_shift.pdf',format='pdf')#+'.pdf',format='pdf')
 
-    return df['new_hhinc']
+    return df['new_hhinc'], df['pov_line']

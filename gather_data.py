@@ -131,20 +131,17 @@ cat_info.ix[cat_info.social>=1,'social'] = 0.99
 # --> All of this is selected & defined in lib_country_dir
 # --> Excluding international remittances ('cash_abroad')
 
-scale_fac = 1.#0.82065
+scale_fac = 1.
 
 if myCountry == 'PH':    
     cat_info['pov_line'] = cat_info.loc[(cat_info.ispoor == 1),'pcinc'].max() # <-- Individual
 elif myCountry == 'FJ':
-    cat_info['pov_line'] = -1.
-    cat_info.loc[cat_info.Sector=='Rural','pov_line'] = 49.50*52#cat_info.loc[(cat_info.Sector=='Rural') & (cat_info.ispoor == 1),'pcinc_ae'].max()
-    cat_info.loc[cat_info.Sector=='Urban','pov_line'] = 55.12*52#cat_info.loc[(cat_info.Sector=='Urban') & (cat_info.ispoor == 1),'pcinc_ae'].max()
-    assert(cat_info.loc[(cat_info.pov_line < 0)].shape[0] == 0)
-    #cat_info.to_csv('~/Desktop/my_file.csv')
-#elif myCountry == 'SL':
-#    print(cat_info.pov_line)
-#    print('Need SL poverty info!!')
-#    cat_info['pov_line'] = 100000.
+    pass
+    # Poverty line set (and scaled) in scale_hh function in lib_country_dir
+
+elif myCountry == 'SL':
+    print('Need SL poverty info!!')
+    cat_info['pov_line'] = 100000.
 
 print('Total population:',cat_info.pcwgt.sum())
 print('Total n households:',cat_info.hhwgt.sum())
