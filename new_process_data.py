@@ -231,5 +231,5 @@ iah_ntl.to_csv('~/Desktop/poverty_ntl_by_haz.csv')
 
 iah_ntl = iah_ntl.reset_index().set_index('rp').sum(level='rp')
 iah_ntl.to_csv('~/Desktop/poverty_ntl.csv')
-iah_sum = average_over_rp(iah_ntl,'default_rp').to_frame()
-iah_sum.to_csv('~/Desktop/poverty_sum.csv')
+iah_sum,_ = average_over_rp(iah_ntl,'default_rp')
+iah_sum.sum().to_csv('~/Desktop/poverty_sum.csv')
