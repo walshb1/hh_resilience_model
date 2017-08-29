@@ -206,6 +206,24 @@ def load_survey_data(myC,inc_sf=None):
         # SP_FNPF2 = FNPFWithdrawalsEducationHousingInvestmentsetc
         df.loc[(df.SP_FNPF != 0)|(df.SP_FNPF2 != 0),'SP_FNPF'] = True
         df.loc[df.SP_FNPF == 0,'SP_FNPF'] = False
+
+        # SPP_core = Social Protection+, core beneficiaries
+        # SPP_add  = Social Protection+, additional beneficiaries
+        df['SPP_core'] = False
+        df['SPP_add']  = False
+        df.sort_values(by='pcinc_ae',ascending=True,inplace=True)
+
+        # BELOW: these lines assume we're counting AE 
+        hhno,hhsum = 0,0
+        while (hhno < df.shape[0]) and (hhsum < 25000):
+            hhsum = df.iloc[:hhno].hhwgt.sum()
+            hhno+=1
+        df.iloc[:hhno].SPP_core = True
+        hhno_add, hhsum_add = hhno, 0
+        while (hhno_add < df.shape[0]) and (hhsum_add < 29000):
+            hhsum_add = df.iloc[hhno:hhno_add].hhwgt.sum()
+            hhno_add+=1
+        df.iloc[hhno:hhno_add].SPP_add = True
         return df
 
     elif myC == 'SL':

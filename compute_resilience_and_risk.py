@@ -19,19 +19,11 @@ from replace_with_warning import *
 
 from multiprocessing import Pool
 from itertools import repeat
+from itertools import product
 
 def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no'):
 
     warnings.filterwarnings('always',category=UserWarning)
-
-    #if len(sys.argv) < 2:
-    #    print('Need to list country. Try PH or FJ')
-    #    assert(False)
-    #else: myCountry = sys.argv[1]
-
-    #if len(sys.argv) >=3:
-    #    pol_str = sys.argv[2]
-    #else: pol_str = ''
 
     # Setup directories
     output       = model+'/../output_country/'+myCountry+'/'
@@ -52,26 +44,24 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
         optionT='perfect'
     else:
         optionB='data'
-        optionT='perfect'#'data'
-
-    # How much is disbursed?
-    # --> 'unif_poor' = uniform disbursement based of average asset losses of poor
-    # --> 'unif' = uniform disbursement based of average losses
-    #optionPDS = 'no'#'unif_poor'#'no'
-    #if myCountry == 'FJ': optionPDS = 'fiji_SPS'
-    #elif pol_str != '': optionPDS = 'no'
-    
+        optionT='perfect'#'data'    
 
     # Cap on benefits (bool)
     option_CB = 1 #0 is for calculation of benefits only; 1 by default
 
-    if option_CB==0:
-        option_CB_name = 'benefits_only'
-    else:
-        option_CB_name = ''
+    if option_CB==0: option_CB_name = 'benefits_only'
+    else: option_CB_name = ''
 
+    # Below: this is just so that social protection plus (SPP) can be passed in the starmap as a policy alternative.
+    if pol_str == 'fiji_SPP': 
+        if optionPDS == 'no':
+            optionPDS = 'fiji_SPP'
+            pol_str   = ''
+        else: return False # Just don't want to run fiji_SPP multiple times
+
+    # Show what we're running
     print('--> pol_str:',pol_str)
-    print('\noptionFee =',optionFee, '\noptionPDS =', optionPDS, '\noptionB =', optionB, '\noptionT =', optionT, '\noption_CB =', option_CB_name,'\n')
+    print('optionFee =',optionFee, '\noptionPDS =', optionPDS, '\noptionB =', optionB, '\noptionT =', optionT, '\noption_CB =', option_CB_name,'\n')
 
     #Options and parameters
     nat_economy   = 'national'
@@ -132,6 +122,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
 
     iah.to_csv(output+'iah_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('I')
+    return True
 
     # result1=pd.read_csv('output-old/results.csv', index_col=economy)
     # iah1=pd.read_csv('output-old/iah.csv', index_col=event_level+['income_cat','affected_cat','helped_cat'])
@@ -142,36 +133,36 @@ if __name__ == '__main__':
 
     myCountry = 'FJ'
     debug = False
-    if len(sys.argv) > 1: debug = sys.argv[1]
+    
+    if len(sys.argv) > 1 and (sys.argv[1] == 'true' or sys.argv[1] == 'True'): debug = True
     if len(sys.argv) > 2: myCountry = sys.argv[2]
     
     if myCountry == 'FJ':
         pds_str = ['no','fiji_SPS']
-        pol_str = ''#['',
-                  # '_exp095',      # reduce exposure of poor by 5% (of total exposure!)
-                  # '_exr095',      # reduce exposure of rich by 5% (of total exposure!)
-                  # '_pcinc_p_110', # increase per capita income of poor people by 10%
-                  # '_soc133',      # increase social transfers to poor by 33%
-                  # '_rec067',      # decrease reconstruction time by 33%
-                  # '_ew100',       # universal access to early warnings 
-                  # '_vul070']      # decrease vulnerability of poor by 30%
+        pol_str = ['',
+                   'fiji_SPP',     # Fijian social protection PLUS <-- Gets transferred to pds_str(optionPDS)!
+                   '_exp095',      # reduce exposure of poor by 5% (of total exposure!)
+                   '_exr095',      # reduce exposure of rich by 5% (of total exposure!)
+                   '_pcinc_p_110', # increase per capita income of poor people by 10%
+                   '_soc133',      # increase social transfers to poor by 33%
+                   '_rec067',      # decrease reconstruction time by 33%
+                   '_ew100',       # universal access to early warnings 
+                   '_vul070',      # decrease vulnerability of poor by 30%
+                   '_vul070r']     # decrease vulnerability of rich by 30%
         # Other policies:
         # --> develop market insurance for rich
         # --> universal access to finance
         # --> 
-
-        if debug: launch_compute_resilience_and_risk_thread('FJ','','fiji_SPS')
-        else:
-            print('LAUNCHING THREADS:\n',list(zip(repeat(myCountry), repeat(pol_str), pds_str)))
-            with Pool() as pool:
-
-                pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), pol_str, repeat(pds_str)))
     
     if myCountry == 'PH' or myCountry == 'SL':
         pds_str = ['no','unif_poor']
         pol_str = ''
             
-    if debug: launch_compute_resilience_and_risk_thread(myCountry,'','no')
+    if debug == True:
+        print('Running in debug mode!')
+        launch_compute_resilience_and_risk_thread(myCountry,'','fiji_SPP')
     else:
         with Pool() as pool:
-            pool.starmap(launch_compute_resilience_and_risk_thread, zip(repeat(myCountry), repeat(pol_str), pds_str))
+            print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))
+            pool.starmap(launch_compute_resilience_and_risk_thread, list(product([myCountry],pol_str,pds_str)))
+            

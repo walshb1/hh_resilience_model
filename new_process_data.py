@@ -45,24 +45,24 @@ dem = get_demonym(myCountry)
 # Set policy params
 base_str = 'no'
 pds_str = 'fiji_SPS'#'no'
-pol_str = ''
 drm_pov_sign = -1 # toggle subtraction or addition of dK to affected people's incomes
+all_policies = []#['_exp095','_exr095','_ew100','_vul070','_vul070r','_rec067']
 
 # Load base and PDS files
-iah_base = pd.read_csv(output+'iah_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp','hhid'])
-iah = pd.read_csv(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp','hhid'])
-df = pd.read_csv(output+'results_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
-df_base = pd.read_csv(output+'results_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
-macro = pd.read_csv(output+'macro_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+iah_base = pd.read_csv(output+'iah_tax_'+base_str+'_.csv', index_col=[economy,'hazard','rp','hhid'])
+iah = pd.read_csv(output+'iah_tax_'+pds_str+'_.csv', index_col=[economy,'hazard','rp','hhid'])
+df = pd.read_csv(output+'results_tax_'+pds_str+'_.csv', index_col=[economy,'hazard','rp'])
+df_base = pd.read_csv(output+'results_tax_'+base_str+'_.csv', index_col=[economy,'hazard','rp'])
+macro = pd.read_csv(output+'macro_tax_'+pds_str+'_.csv', index_col=[economy,'hazard','rp'])
 
-iah = iah.reset_index()
-iah_base = iah_base.reset_index()
+for iPol in all_policies:
+    iah_pol = pd.read_csv(output+'iah_tax_'+pds_str+'_'+iPol+'.csv', index_col=[economy,'hazard','rp','hhid'])
+    df_pol  = pd.read_csv(output+'results_tax_'+pds_str+'_'+iPol+'.csv', index_col=[economy,'hazard','rp'])
 
-iah      = iah.loc[iah.hhid!=150200000117]
-iah_base = iah_base.loc[iah_base.hhid!=150200000117]
-
-iah = iah.reset_index().set_index([economy,'hazard','rp','hhid'])
-iah_base = iah_base.reset_index().set_index([economy,'hazard','rp','hhid'])
+    iah['dk'+iPol] = iah_pol[['dk','pcwgt']].prod(axis=1)
+    iah['dw'+iPol] = iah_pol[['dw','pcwgt']].prod(axis=1)/df_pol.wprime.mean()
+    
+    print(iPol,'added to iah (these policies are run *with* PDS)')
 
 # Manipulate iah
 iah['c_initial']   = (iah[['c','hhsize']].prod(axis=1)/iah['hhsize_ae']).fillna(0)# c per AE
@@ -100,13 +100,16 @@ iah_res['help_fee'] = iah[['help_fee','pcwgt']].prod(axis=1).sum(level=[economy,
 iah_res['dc_npv_pre'] = iah[['dc_npv_pre','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
 iah_res['dc_npv_post'] = iah[['dc_npv_post','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
 
-# Note that we're pulling dw in from iah_base here
-iah_res['dw'] = iah_base[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
-iah_res['pds_dw'] = iah[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+# These are the other policies (scorecard)
+# ^ already weighted by pcwgt from their respective files
+for iPol in all_policies:
+    print('dk'+iPol)
+    iah_res['dk'+iPol] = iah['dk'+iPol].sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+    iah_res['dw'+iPol] = iah['dw'+iPol].sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
 
-iah_res = iah_res.reset_index()
-iah_res.loc[(iah_res.hazard=='flood_pluv')&(iah_res.rp==10)].to_csv('~/Desktop/__look.csv')
-iah_res  = iah_res.reset_index().set_index([economy,'hazard','rp','hhid'])
+# Note that we're pulling dw in from iah_base here
+iah_res['dw'] = (iah_base[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt'])/df.wprime.mean()
+iah_res['pds_dw'] = (iah[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt'])/df.wprime.mean()
 
 iah_res['c_initial']   = iah[['c_initial'  ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c per AE
 iah_res['delta_c']     = iah[['delta_c'    ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # dc per AE
@@ -119,17 +122,16 @@ iah_res  = iah_res.reset_index().set_index([economy,'hazard','rp','hhid'])
 
 # Save out iah
 iah_out = pd.DataFrame(index=iah_res.sum(level=['hazard','rp']).index)
-iah_out['dk'] = iah_res[['dk','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
-iah_out['dw'] = iah_res[['dw','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])/df.wprime.mean()
-iah_out['pds_dw'] = iah_res[['pds_dw','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])/df.wprime.mean()
+for iPol in ['']+all_policies:
+    iah_out['dk'+iPol] = iah_res[['dk'+iPol,'pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
+    iah_out['dw'+iPol] = iah_res[['dw'+iPol,'pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
+iah_out['pds_dw'] = iah_res[['pds_dw','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
 iah_out['help_fee'] = iah_res[['help_fee','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
 
-
-
-iah_out.to_csv('~/Desktop/haz_sums.csv')
+iah_out.to_csv(output+'haz_sums.csv')
 print(iah_out.head(10))
 iah_out,_ = average_over_rp(iah_out,'default_rp')
-iah_out.to_csv('~/Desktop/sums.csv')
+iah_out.to_csv(output+'sums.csv')
 
 iah_ntl['pop'] = iah_res.pcwgt.sum(level=['hazard','rp'])
 iah_ntl['pov_pc_i'] = iah_res.loc[(iah_res.pcinc_ae <= iah_res.pov_line),'pcwgt'].sum(level=['hazard','rp'])
@@ -150,7 +152,6 @@ iah_res = iah_res.reset_index()
 iah_ntl = iah_ntl.reset_index()
 
 # Save out iah_file:
-
 
 #myHaz = [['Ba'],['TC'],[100]]
 myHaz = [['Ba','Lau','Tailevu'],['TC'],[1,100,500]]
@@ -194,11 +195,12 @@ for aDis in ['TC','flood_fluv_undef','flood_pluv']:
 
         ax.annotate(r'$\Delta$N$_p$ = +'+str(new_pov)[:-3]+','+str(new_pov)[-3:]+' ('+str(new_pov_pct)+'% of population)',xy=(1.1*iah_res.pov_line.mean()/scale_fac,1.15*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
 
-        print('poverty_k_'+aDis+'_'+str(anRP)+'.pdf')
+
         fig = ax.get_figure()
         fig.savefig('../output_plots/'+myCountry+'/poverty_k_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')
-        #fig.savefig('../output_plots/'+myCountry+'/png/poverty_k_'+aDis+'_'+str(anRP)+'.png',format='png')
-        plt.cla()    
+        plt.clf()
+        plt.close('all')
+        print('poverty_k_'+aDis+'_'+str(anRP)+'.pdf')
 
 ##################################################################
 # This code generates the histograms including [k,dk,dc,dw,&pds]
@@ -222,13 +224,13 @@ for aProv in myHaz[0]:
                       iah_res.loc[(iah_res.Division==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
                 
                 dw = (iah_res.loc[(iah_res.Division==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['dw','pcwgt']].prod(axis=1).sum()/
-                      iah_res.loc[(iah_res.Division==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())/df.wprime.mean()
+                      iah_res.loc[(iah_res.Division==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
                 
                 pds_nrh = (iah_res.loc[(iah_res.Division==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['pds_nrh','pcwgt']].prod(axis=1).sum()/
                            iah_res.loc[(iah_res.Division==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
 
                 pds_dw = (iah_res.loc[(iah_res.Division==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['pds_dw','pcwgt']].prod(axis=1).sum()/
-                          iah_res.loc[(iah_res.Division==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())/df.wprime.mean()
+                          iah_res.loc[(iah_res.Division==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
                 
                 ax.bar([6*ii+myQ for ii in range(1,7)],[k,dk,dc,dw,pds_nrh,pds_dw],
                        color=q_colors[myQ-1],alpha=0.7,label=q_labels[myQ-1])
@@ -254,14 +256,12 @@ for aProv in myHaz[0]:
             plt.close('all')
                 
 
-#final_out,_ = average_over_rp(iah_ntl,'default_rp')
-
-iah_ntl.to_csv('~/Desktop/poverty_ntl_by_haz.csv')
+iah_ntl.to_csv(output+'poverty_ntl_by_haz.csv')
 iah_ntl = iah_ntl.reset_index().set_index(['hazard','rp'])
 iah_ntl_haz,_ = average_over_rp(iah_ntl,'default_rp')
-iah_ntl_haz.sum(level='hazard').to_csv('~/Desktop/poverty_haz_sum.csv')
+iah_ntl_haz.sum(level='hazard').to_csv(output+'poverty_haz_sum.csv')
 
 iah_ntl = iah_ntl.reset_index().set_index('rp').sum(level='rp')
-iah_ntl.to_csv('~/Desktop/poverty_ntl.csv')
+iah_ntl.to_csv(output+'poverty_ntl.csv')
 iah_sum,_ = average_over_rp(iah_ntl,'default_rp')
-iah_sum.sum().to_csv('~/Desktop/poverty_sum.csv')
+iah_sum.sum().to_csv(output+'poverty_sum.csv')

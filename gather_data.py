@@ -172,8 +172,10 @@ if 'level_0' in cat_info.columns:
 cat_info_c_5 = cat_info.reset_index().groupby(economy,sort=True).apply(lambda x:x.ix[x.pctle_05==1,'c'].max())
 cat_info = cat_info.reset_index().set_index([economy,'hhid']) #change the name: district to code, and create an multi-level index 
 cat_info['c_5'] = broadcast_simple(cat_info_c_5,cat_info.index)
+cat_info['c_5'] = cat_info.c_5.fillna(cat_info.c_5.mean(level='Division').min())
+# ^ this is a line to prevent c_5 from being left empty due to paucity of hh from a given province (for FJ, Rotuma)
 
-cat_info.drop(['pctle_05','pctle_05_nat'],axis=1,inplace=True)
+cat_info.drop(['level_0','index','pctle_05','pctle_05_nat'],axis=1,inplace=True)
 
 #cat_info_c_5 = cat_info.reset_index().groupby(economy,sort=True).apply(lambda x:x.ix[x.quintile==1,'c'].max())
 #cat_info = cat_info.reset_index().set_index([economy,'hhid']) #change the name: district to code, and create an multi-level index 
@@ -229,7 +231,7 @@ cat_info['fa'] = 0
 cat_info.fillna(0,inplace=True)
 
 # Cleanup dfs for writing out
-cat_info = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in [economy,'hhid','pcwgt','pcwgt_ae','hhwgt','code','np','score','v','c','pcsoc','social','c_5','n','hhsize','hhsize_ae','gamma_SP','k','shew','fa','quintile','ispoor','pcinc','pcinc_ae','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds','SP_PBS','SP_FNPF']],axis=1)
+cat_info = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in [economy,'hhid','pcwgt','pcwgt_ae','hhwgt','code','np','score','v','c','pcsoc','social','c_5','n','hhsize','hhsize_ae','gamma_SP','k','shew','fa','quintile','ispoor','pcinc','pcinc_ae','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds','SP_PBS','SP_FNPF','SPP_core','SPP_add']],axis=1)
 cat_info_index = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in [economy,'hhid']],axis=1)
 
 #########################
