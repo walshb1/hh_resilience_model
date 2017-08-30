@@ -176,7 +176,7 @@ elif myCountry == 'FJ':
     myHaz = [['Rewa','Lau'],['TC','EQTS'],[1,5,10,20,22,50,72,75,100,200,224,250,475,500,975,1000,2475]]
     #myHaz = [['Lau'],['earthquake','tsunami','typhoon'],[1,10,20,50,100,250,500,1000]]
 
-#pov_line = get_poverty_line(myCountry)
+pov_line = get_poverty_line(myCountry,'Rural')
 sub_line = get_subsistence_line(myCountry)
 
 iah = iah.reset_index()

@@ -12,7 +12,7 @@
     }
     .ba
     {  
-       fill: #8DC0DD;
+       fill: #8FC1DD;
        stroke:#000000;
        stroke-width:2;
     }
@@ -54,13 +54,13 @@
     }
 .nadroga_navosa
     {  
-       fill: #125EA6;
+       fill: #135FA7;
        stroke:#000000;
        stroke-width:2;
     }
 .naitasiri
     {  
-       fill: #3D8DC3;
+       fill: #3F8FC4;
        stroke:#000000;
        stroke-width:2;
     }
@@ -84,7 +84,7 @@
     }
 .rotuma
     {  
-       fill: #CBDEF0;
+       fill: #C9DDF0;
        stroke:#000000;
        stroke-width:2;
     }

@@ -130,7 +130,8 @@ def sum_with_rp(myC,df,columns,sum_provinces,national=False):
         else:
             return df.sum()
 
-def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_cmap("Blues"), label = "", outfolder ="img/" , new_title=None, do_qualitative=False, res=1000, verbose=True):
+def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_cmap("Blues"), label = "", outfolder ="img/" , 
+                      new_title=None, do_qualitative=False, res=1000, verbose=True, svg_handle='class'):
     """Makes a cloropleth map and a legend from a panda series and a blank svg map. 
     Assumes the index of the series matches the SVG classes
     Saves the map in SVG, and in PNG if Inkscape is installed.
@@ -139,7 +140,7 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
     
     #simplifies the index to lower case without space
     series_in.index = series_in.index.str.lower().str.replace(" ","_").str.replace("-","_").str.replace(".","_").str.replace("(","_").str.replace(")","_")
-    
+
     #compute the colors 
     color = data_to_rgb(series_in,color_maper=color_maper,do_qual=do_qualitative)
 
@@ -164,7 +165,7 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
     
     #builds the style line by line (using lower case identifiers)
     for c in series_in.index:
-        style= style       + style_base.format(depname=c,color=color[c])+ "\n"   
+        style= style       + style_base.format(depname=c,color=color[c])+ "\n"
 
     #output file name
     target_name = outfolder+"map_of_"+outname
@@ -172,17 +173,18 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
     #read input 
     with open(svg_file_path, 'r',encoding='utf8') as svgfile: #MIND UTF8
         soup=BeautifulSoup(svgfile.read(),"xml")
+        print(type(soup))
 
     #names of regions to lower case without space   
     for p in soup.findAll("path"):
 
         try:
-            p["class"]=p["class"].lower().replace(" ","_").replace("-","_").replace(".","_").replace("(","_").replace(")","_")
+            p[svg_handle]=p[svg_handle].lower().replace(" ","_").replace("-","_").replace(".","_").replace("(","_").replace(")","_")
         except:
             pass
         #Update the title (tooltip) of each region with the numerical value (ignores missing values)
         try:
-            p.title.string += "{val:.3%}".format(val=series_in[p["class"]])
+            p.title.string += "{val:.3%}".format(val=series_in.ix[p[svg_handle]])
         except:
             pass
    
@@ -191,7 +193,7 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
     
     #append style
     soup.style.string = style
-    
+
     #Maybe update the title
     if new_title is not None:
         soup.title.string = new_title
@@ -202,7 +204,6 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
     with open(target_name+".svg", 'w', encoding="utf-8") as svgfile:
         svgfile.write(soup.prettify())
         
-   
     #Link to SVG
     display(HTML("<a target='_blank' href='"+target_name+".svg"+"'>SVG "+new_title+"</a>"))  #Linking to SVG instead of showing SVG directly works around a bug in the notebook where style-based colouring colors all the maps in the NB with a single color scale (due to CSS)
     
@@ -210,7 +211,7 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
     #reports missing data
     if verbose:
         try:
-            places_in_soup = [p["class"] for p in soup.findAll("path")]        
+            places_in_soup = [p[svg_handle] for p in soup.findAll("path")]        
             data_missing_in_svg = series_in[~series_in.index.isin(places_in_soup)].index.tolist()
             data_missing_in_series = [p for p in places_in_soup if (p not in series_in.index.tolist())]
 
@@ -279,7 +280,6 @@ import matplotlib as mpl
 def make_legend(serie,cmap,label="",path=None,do_qualitative=False,res=1000):
     #todo: log flag
 
-    
     fig = plt.figure(figsize=(8,3))
     ax1 = fig.add_axes([0.05, 0.80, 0.9, 0.15])
 

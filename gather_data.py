@@ -10,6 +10,7 @@ get_ipython().magic('autoreload 2')
 # Import packages for data analysis
 from lib_country_dir import *
 from lib_gather_data import *
+from lib_sea_level_rise import *
 from replace_with_warning import *
 import matplotlib.pyplot as plt
 import numpy as np
@@ -246,7 +247,8 @@ cat_info_index = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() 
 # --> Need to think about public assets
 #df_haz = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','all','Agg')
 
-df_haz = get_hazard_df(myCountry,economy)
+df_haz,df_tikina = get_hazard_df(myCountry,economy)
+_ = get_SLR_hazard(myCountry,df_tikina)
 
 # Edit & Shuffle provinces
 if myCountry == 'PH':

@@ -106,8 +106,8 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     macro_event.to_csv(output+'macro_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('Step D: Wrote '+output+'macro_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv')
 
-    cats_event_iah.to_csv(output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
-    print('Step E:  Wrote '+output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv')
+    #cats_event_iah.to_csv(output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
+    print('Step E:  NOT writing out '+output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv')
     
     out = compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True)
     print('F')

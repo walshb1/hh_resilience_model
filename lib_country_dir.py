@@ -133,8 +133,8 @@ def load_survey_data(myC,inc_sf=None):
                                 'SocialPensionScheme':'SP_SPS'})
 
         df['pov_line'] = 0.
-        df.loc[df.Sector=='Urban','pov_line'] = 55.12*52
-        df.loc[df.Sector=='Rural','pov_line'] = 49.50*52
+        df.loc[df.Sector=='Urban','pov_line'] = get_poverty_line(myC,'Urban')
+        df.loc[df.Sector=='Rural','pov_line'] = get_poverty_line(myC,'Rural')
 
         if inc_sf != None: df['hhinc'], df['pov_line'] = scale_hh_income_to_match_GDP(df[['hhinc','hhwgt','hhsize','AE','Sector','pov_line']],inc_sf,flat=True)
 
@@ -357,13 +357,6 @@ def get_hazard_df(myC,economy):
         df_all_ah['asset_class'] = 'all'
         df_all_ah['asset_subclass'] = 'all'
 
-        # Hazard = tropical cyclone
-        #df_bld_tc = pd.read_csv(inputs+'fiji_tc_buildings_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
-        #df_bld_tc['hazard'] = 'TC'
-        #df_bld_tc['asset_class'] = 'bld'
-        #df_bld_tc['asset_subclass'] = 'all'
-        #df_bld_tc.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value'])  
-
         # LOAD FILES (by hazard, asset class) and merge hazards
         # load all building values
         df_bld_oth_tc =   pd.read_csv(inputs+'fiji_tc_buildings_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
@@ -490,14 +483,12 @@ def get_hazard_df(myC,economy):
         df['Division'] = (df['Tikina_ID']/100).astype('int')
         prov_code = get_places_dict(myC)
         df = df.reset_index().set_index([df.Division.replace(prov_code)]).drop(['index','Division','Tikina_ID','asset_subclass'],axis=1) #replace district code with its name
+        df_tikina = df.copy()
         
         df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
-        df_sum = ((df['value_destroyed'].sum(level=['Division','hazard','rp']))/(df['Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='frac_destroyed')
-        # ^ what if we run with fa from buildings?
 
-        #df = df.reset_index().set_index(['Division','Tikina','hazard','rp'])
-        #df_sum = ((df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'value_destroyed'].sum(level=['Division','hazard','rp']))/(df.loc[(df.asset_class == 'bld_res')|(df.asset_class == 'agr'),'Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='fa')
-        #df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
+        df_sum = ((df['value_destroyed'].sum(level=['Division','hazard','rp']))/(df['Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='frac_destroyed')
+        # ^ Taking fa from all asset classes
         
         df = df.sum(level=['Division','hazard','rp','asset_class'])
         df = df.reset_index().set_index(['Division','hazard','rp'])
@@ -544,15 +535,9 @@ def get_hazard_df(myC,economy):
         print('--> Total AG =',round(df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp']).mean()/1.E6,1),'M USD (', 
               round((100.*df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%)\n')
         
-        #df_sum['bldg_stock'] = df_sum[['Exp_Value','frac_bld_res']].prod(axis=1)+df_sum[['Exp_Value','frac_bld_oth']].prod(axis=1)
-        #print(df_sum.reset_index().set_index(['rp']).ix[1,'bldg_stock'].sum())
         df_sum['Exp_Value'] *= (1.0/0.48) # AIR-PCRAFI in USD(2009?) --> switch to FJD
 
-        #print(df_sum)
-        #df_sum.to_csv('~/Desktop/df_hazard.csv')
-        #assert(False)
-
-        return df_sum
+        return df_sum,df_tikina
 
     elif myC == 'SL':
         df = pd.read_excel(inputs+'hazards_data.xlsx',sheetname='hazard').dropna(how='any').set_index(['district','hazard','rp'])
@@ -560,7 +545,7 @@ def get_hazard_df(myC,economy):
 
     else: return None
 
-def get_poverty_line(myC):
+def get_poverty_line(myC,sec=None):
     
     if myC == 'PH':
         return 22302.6775#21240.2924
@@ -569,8 +554,13 @@ def get_poverty_line(myC):
         # 55.12 per week for an urban adult
         # 49.50 per week for a rural adult
         # children under age 14 are counted as half an adult
-        return 55.12*52. #this is for an urban adult
-    
+        if (sec.lower() == 'urban' or sec.lower() == 'u'):
+            return 55.12*52.
+        elif (sec.lower() == 'rural' or sec.lower() == 'r'):
+            return 49.50*52.
+        else: 
+            print('Pov line is variable for urb/rur Fijians! Need to specify which you\'re looking for!')
+            return 0.0    
 
 def get_subsistence_line(myC):
     
