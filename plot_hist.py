@@ -16,8 +16,8 @@ def plot_simple_hist(df,cols,labels,fout,nBins=50,uclip=None,lclip=None):
     bin0 = None
     for nCol, aCol in enumerate(cols):
         heights, bins = np.histogram(df[aCol].clip(upper=uclip,lower=lclip), bins=nBins, weights=df[['hhwgt']].prod(axis=1))
-
-        if bin0 == None: bin0 = bins
+  
+        if bin0 is None: bin0 = bins
         ax.bar(bin0[:-1], heights, width=(bin0[1]-bin0[0]), label=labels[nCol], facecolor=q_colors[nCol],alpha=0.4)
         
     fig = ax.get_figure()

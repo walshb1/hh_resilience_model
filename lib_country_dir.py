@@ -48,7 +48,7 @@ def get_economic_unit(myC):
 def get_currency(myC):
     
     if myC == 'PH': return 'PhP'
-    elif myC == 'FJ': return 'FJD'
+    elif myC == 'FJ': return 'F\$'
     elif myC == 'SL': return 'LKR'
     else: return 'XXX'
 
@@ -182,10 +182,12 @@ def load_survey_data(myC,inc_sf=None):
         df['SP_PBS'] = False
         df.sort_values(by='pcinc',ascending=True,inplace=True)
         hhno,hhsum = 0,0
+
         while (hhno < df.shape[0]) and (hhsum < 24000):
             hhsum = df.iloc[:hhno].hhwgt.sum()
             hhno+=1
         df.iloc[:hhno].SP_PBS = True
+        # This line generates warning about setting value on a copy..
         print(df.loc[df.SP_PBS == True,'hhwgt'].sum())
 
         # SP_SPS = SocialProtectionScheme
@@ -194,7 +196,7 @@ def load_survey_data(myC,inc_sf=None):
         #df.loc[df.SP_SPS == 0,'SP_SPS'] = False
         # SP_PBS = PovertyBenefitsScheme
         df['SP_SPS'] = False
-        df.sort('pcinc_ae',ascending=True,inplace=True)
+        df.sort_values(by='pcinc_ae',ascending=True,inplace=True)
         hhno,sumOlds = 0,0
         while (hhno < df.shape[0]) and (sumOlds < 15000):
             sumOlds = (df.iloc[:hhno])[['hhwgt','nOlds']].prod(axis=1).sum()
@@ -578,8 +580,8 @@ def get_to_USD(myC):
 
 def get_scale_fac(myC):
     
-    if myC == 'PH': return [1.E6,' [Millions]']
-    elif myC == 'FJ': return [1.E3,' [Thousands]']
+    if myC == 'PH': return [1.E6,' (Millions)']
+    elif myC == 'FJ': return [1.E3,' (Thousands)']
     else: return [1,'']
 
 def get_avg_prod(myC):
@@ -594,21 +596,19 @@ def get_demonym(myC):
     elif myC == 'FJ': return 'Fijians'
     elif myC == 'SL': return 'Sri Lankans'
 
-def scale_hh_income_to_match_GDP(df,new_total,flat=False):
+def scale_hh_income_to_match_GDP(df_o,new_total,flat=False):
 
-    df = df.copy()
-    tot_inc = df[['hhinc','hhwgt']].prod(axis=1).sum()
+    df = df_o.copy()
+    tot_inc = df.loc[:,['hhinc','hhwgt']].prod(axis=1).sum()
 
     if flat == True:
+        print('\nScaling up income and the poverty line by',round((new_total/tot_inc),3),'!!\n')
 
-        print('\nScaling up income and the poverty line by',round((new_total/tot_inc),3),'!!\n\n')
         df['hhinc']*=(new_total/tot_inc)
         df['pov_line']*=(new_total/tot_inc)
-
         return df['hhinc'], df['pov_line']
     
     #[['hhinc','hhwgt','AE','Sector']]
-
     tot_inc_urb = df.loc[df.Sector=='Urban',['hhinc','hhwgt']].prod(axis=1).sum()
     tot_inc_rur = df.loc[df.Sector=='Rural',['hhinc','hhwgt']].prod(axis=1).sum()
 
@@ -628,8 +628,8 @@ def scale_hh_income_to_match_GDP(df,new_total,flat=False):
     #ep_urb = 0.295#(np.log(new_inc_urb/nAE_urb)-np.log(tot_inc_urb/nAE_urb))/(np.log(tot_inc_urb/nAE_urb)-np.log(55.12*52))-1
     #ep_rur = 0.295#(np.log(new_inc_rur/nAE_rur)-np.log(tot_inc_rur/nAE_rur))/(np.log(tot_inc_rur/nAE_rur)-np.log(49.50*52))-1  
 
-    ep_urb = 0.38
-    ep_rur = 0.38
+    ep_urb = 0.30
+    ep_rur = 0.30
 
     #print(tot_inc)
     #print(ep_urb)
@@ -657,8 +657,8 @@ def scale_hh_income_to_match_GDP(df,new_total,flat=False):
     ax.bar(ci_bins[:-1], ci_heights, width=(ci_bins[1]-ci_bins[0]), label='Initial', facecolor=q_colors[0],alpha=0.4)
     ax.bar(ci_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-shift', facecolor=q_colors[1],alpha=0.4)
 
-    print('in pov before shift:',df.loc[(df.hhinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1).sum())
-    print('in pov after shift:',df.loc[(df.new_hhinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1).sum())    
+    print('in pov before shift:',df.loc[(df.AEinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1).sum())
+    print('in pov after shift:',df.loc[(df.new_AEinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1).sum())    
 
     fig = ax.get_figure()
     plt.xlabel(r'Income [FJD yr$^{-1}$]')

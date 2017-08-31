@@ -44,7 +44,7 @@ dem = get_demonym(myCountry)
 
 # Set policy params
 base_str = 'no'
-pds_str = 'fiji_SPS'#'no'
+pds_str = 'fiji_SPP'#'no'
 drm_pov_sign = -1 # toggle subtraction or addition of dK to affected people's incomes
 all_policies = []#['_exp095','_exr095','_ew100','_vul070','_vul070r','_rec067']
 
@@ -63,6 +63,22 @@ for iPol in all_policies:
     iah['dw'+iPol] = iah_pol[['dw','pcwgt']].prod(axis=1)/df_pol.wprime.mean()
     
     print(iPol,'added to iah (these policies are run *with* PDS)')
+
+# SAVE OUT SOME RESULTS FILES
+df_prov = df[['dKtot','dWtot_currency']]
+df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1)
+results_df = macro.reset_index().set_index([economy,'hazard'])
+
+rotuma = (results_df.reset_index()).copy()
+(rotuma.loc[rotuma.Division=='Rotuma'].set_index(['hazard','rp']).sum(level='rp')).to_csv(output+'results_rotuma_table_new.csv')
+
+
+results_df = results_df.loc[results_df.rp==100,'dk_event'].sum(level='hazard')
+results_df = results_df.rename(columns={'dk_event':'dk_event_100'})
+results_df = pd.concat([results_df,df_prov.reset_index().set_index([economy,'hazard']).sum(level='hazard')['dKtot']],axis=1,join='inner')
+results_df.columns = ['dk_event_100','AAL']
+results_df.to_csv(output+'results_table_new.csv')
+print('Writing '+output+'results_table_new.csv')
 
 # Manipulate iah
 iah['c_initial']   = (iah[['c','hhsize']].prod(axis=1)/iah['hhsize_ae']).fillna(0)# c per AE
@@ -181,7 +197,7 @@ for aDis in ['TC','flood_fluv_undef','flood_pluv']:
         plt.plot([iah_res.pov_line.mean()/scale_fac,iah_res.pov_line.mean()/scale_fac],[0,1.25*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
 
         plt.xlim(0,upper_clip)
-        plt.xlabel(r'Income ['+get_currency(myCountry)+' yr$^{-1}$]')
+        plt.xlabel(r'Income ('+get_currency(myCountry)+' yr$^{-1}$)')
         plt.ylabel('Population'+get_scale_fac(myCountry)[1])
         leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
         leg.get_frame().set_color('white')
@@ -232,11 +248,11 @@ for aProv in myHaz[0]:
                 pds_dw = (iah_res.loc[(iah_res.Division==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['pds_dw','pcwgt']].prod(axis=1).sum()/
                           iah_res.loc[(iah_res.Division==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
                 
-                ax.bar([6*ii+myQ for ii in range(1,7)],[k,dk,dc,dw,pds_nrh,pds_dw],
+                ax.bar([6*ii+myQ for ii in range(1,6)],[dk,dc,dw,pds_nrh,pds_dw],
                        color=q_colors[myQ-1],alpha=0.7,label=q_labels[myQ-1])
             
-            out_str = ['1% of assets','Asset loss','Consumption\nloss','Well-being\nloss','Net cost \nof help','Well-being loss\npost-support']
-            for ni, ii in enumerate(range(1,7)):
+            out_str = ['Asset loss','Consumption\nloss','Well-being\nloss','Net cost \nof help','Well-being loss\npost-support']
+            for ni, ii in enumerate(range(1,6)):
                 ax.annotate(out_str[ni],xy=(6*ii+1,ax.get_ylim()[0]/4.),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
 
             fig = ax.get_figure()    
@@ -248,7 +264,7 @@ for aProv in myHaz[0]:
             plt.plot([xlim for xlim in ax.get_xlim()],[0,0],'k-',lw=0.50,color=greys_pal[7],zorder=100,alpha=0.85)
 
             ax.xaxis.set_ticks([])
-            plt.ylabel('Disaster losses ['+get_currency(myCountry)+' per capita]')
+            plt.ylabel('Disaster losses ('+get_currency(myCountry)+' per capita)')
 
             print('poverty_k_'+aDis+'_'+str(anRP)+'.pdf')
             fig.savefig('../output_plots/'+myCountry+'/'+aProv+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')

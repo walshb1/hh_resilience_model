@@ -300,7 +300,7 @@ if myCountry == 'PH':
 elif myCountry == 'FJ':
 
     # PLOT
-    plot_df = hazard_ratios[['Exp_Value','HIES_capital','frac_bld_res','frac_agr']]
+    plot_df = hazard_ratios.loc[:,['Exp_Value','HIES_capital','frac_bld_res','frac_agr']]
     plot_df['RES_AGR_Exp_Value'] = hazard_ratios[['Exp_Value','frac_bld_res']].prod(axis=1) + hazard_ratios[['Exp_Value','frac_agr']].prod(axis=1)
     plot_df['RES_Exp_Value'] = hazard_ratios[['Exp_Value','frac_bld_res']].prod(axis=1)
 
@@ -331,7 +331,7 @@ elif myCountry == 'FJ':
     plt.annotate('Res Assets '+str(round(100.*fit_line_3[0],2))+'%',[0.,6.E9])
     
     fig = plt.gcf()
-    fig.savefig('new_HIES_vs_PCRAFI_household_assets.pdf',format='pdf')
+    fig.savefig(intermediate+'/new_HIES_vs_PCRAFI_household_assets.pdf',format='pdf')
 
     # This is *the* line
     # --> fa is losses/exposed_value

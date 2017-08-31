@@ -54,13 +54,13 @@ drm_pov_sign = -1 # toggle subtraction or addition of dK to affected people's in
 # Load output files
 pol_str = ''#'_v95'#could be {'_v95'}
 
-base_str = 'fiji_SPS'
-pds_str = 'fiji_SPS'#'no'
+base_str = 'no'
+pds_str = 'fiji_SPP'#'no'
 
 #res_base = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
-df = pd.read_csv(output+'results_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp']).drop('Rotuma')
-iah = pd.read_csv(output+'iah_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp']).drop('Rotuma')
-macro = pd.read_csv(output+'macro_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp']).drop('Rotuma')
+df = pd.read_csv(output+'results_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+iah = pd.read_csv(output+'iah_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+macro = pd.read_csv(output+'macro_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 
 ## get frac below natl avg
 #print(iah.columns)
@@ -87,7 +87,7 @@ results_df = results_df.loc[results_df.rp==100,'dk_event'].sum(level='hazard')
 results_df = results_df.rename(columns={'dk_event':'dk_event_100'})
 results_df = pd.concat([results_df,df_prov.reset_index().set_index([economy,'hazard']).sum(level='hazard')['dKtot']],axis=1,join='inner')
 results_df.columns = ['dk_event_100','AAL']
-results_df.to_csv(output+'results_table.csv')
+results_df.to_csv(output+'results_table_old.csv')
 
 #print(iah.columns)
 #print(iah[['dc_npv_post','hhwgt','hhsize_ae']].prod(axis=1).sum(level=['hazard','rp'])/iah[['hhwgt','hhsize_ae']].prod(axis=1).sum(level=['hazard','rp']))
@@ -96,7 +96,7 @@ df_prov['R_asst'] = round(100.*df_prov['dKtot']/df_prov['gdp'],2)
 df_prov['R_welf'] = round(100.*df_prov['dWtot_currency']/df_prov['gdp'],2)
 df_prov = df_prov.sum(level=economy)
 df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level=economy)
-df_prov.to_csv('~/Desktop/my_file.csv')
+#df_prov.to_csv('~/Desktop/my_file.csv')
 
 print(df_prov)
 print(df_prov[['dKtot','dWtot_currency','gdp']].sum())
@@ -366,7 +366,7 @@ for myDis in allDis:
         if myC_ylim == None: myC_ylim = ax.get_ylim()
         plt.ylim(myC_ylim[0],myC_ylim[1])
 
-        plt.xlabel(r'Income ['+get_currency(myCountry)+' yr$^{-1}$]')
+        plt.xlabel(r'Income ('+get_currency(myCountry)+' yr$^{-1}$)')
         plt.ylabel('Population'+get_scale_fac(myCountry)[1])
         plt.legend(loc='best')
         print('poverty_k_'+myDis+'_'+str(myRP)+'.pdf')
@@ -649,7 +649,7 @@ for myRP in myHaz[2]:
 
             ax1.xaxis.set_ticks([])
             plt.title(str(myRP)+'-Year '+myDis[:1].upper()+myDis[1:]+' Event in '+myProv)
-            plt.ylabel('Disaster losses ['+get_currency(myCountry)+' per capita]')
+            plt.ylabel('Disaster losses ('+get_currency(myCountry)+' per capita)')
             ax1.annotate('1% of assets',                 xy=( 6,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
             ax1.annotate('Asset loss',                   xy=(12,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
             ax1.annotate('Consumption\nloss',            xy=(18,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
