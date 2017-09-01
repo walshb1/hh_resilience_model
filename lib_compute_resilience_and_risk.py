@@ -465,9 +465,9 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
         sp_payout = sp_payout.sum(level=['hazard','rp'])
         sp_payout = sp_payout.reset_index().set_index(['hazard'])
 
-        sp_500yr = sp_payout.loc[sp_payout.rp==500,'dk_event']
+        sp_200yr = sp_payout.loc[sp_payout.rp==200,'dk_event']
         
-        sp_payout = pd.concat([sp_payout,sp_500yr],axis=1,join='inner')
+        sp_payout = pd.concat([sp_payout,sp_200yr],axis=1,join='inner')
         sp_payout.columns = ['rp','dk_event','benchmark_losses']
 
         sp_payout['f_benchmark'] = (sp_payout['dk_event']/sp_payout['benchmark_losses']).clip(lower=0.0,upper=1.0)

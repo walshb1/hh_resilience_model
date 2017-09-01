@@ -59,7 +59,7 @@ if myCountry == 'SL':  df['protection'] = 1
 df2 = get_df2(myCountry)
 
 inc_sf = None
-if myCountry =='FJ': inc_sf = 6.2E9 # FJD
+if myCountry =='FJ': inc_sf = (4.632E9/0.48) # USD (2016, WDI) -> FJD
 cat_info = load_survey_data(myCountry,inc_sf)
 
 print('Survey population:',cat_info.pcwgt.sum())

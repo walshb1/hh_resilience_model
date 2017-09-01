@@ -138,17 +138,17 @@ if __name__ == '__main__':
     if len(sys.argv) > 2: myCountry = sys.argv[2]
     
     if myCountry == 'FJ':
-        pds_str = ['no','fiji_SPS']
-        pol_str = ['',
-                   'fiji_SPP',     # Fijian social protection PLUS <-- Gets transferred to pds_str(optionPDS)!
-                   '_exp095',      # reduce exposure of poor by 5% (of total exposure!)
-                   '_exr095',      # reduce exposure of rich by 5% (of total exposure!)
-                   '_pcinc_p_110', # increase per capita income of poor people by 10%
-                   '_soc133',      # increase social transfers to poor by 33%
-                   '_rec067',      # decrease reconstruction time by 33%
-                   '_ew100',       # universal access to early warnings 
-                   '_vul070',      # decrease vulnerability of poor by 30%
-                   '_vul070r']     # decrease vulnerability of rich by 30%
+        pds_str = ['no','fiji_SPS','fiji_SPP']
+        pol_str = ['']#,
+                  # 'fiji_SPP',     # Fijian social protection PLUS <-- Gets transferred to pds_str(optionPDS)!
+                  # '_exp095',      # reduce exposure of poor by 5% (of total exposure!)
+                  # '_exr095',      # reduce exposure of rich by 5% (of total exposure!)
+                  # '_pcinc_p_110', # increase per capita income of poor people by 10%
+                  # '_soc133',      # increase social transfers to poor by 33%
+                  # '_rec067',      # decrease reconstruction time by 33%
+                  # '_ew100',       # universal access to early warnings 
+                  # '_vul070',      # decrease vulnerability of poor by 30%
+                  # '_vul070r']     # decrease vulnerability of rich by 30%
         # Other policies:
         # --> develop market insurance for rich
         # --> universal access to finance

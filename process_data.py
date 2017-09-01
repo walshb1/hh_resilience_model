@@ -210,17 +210,17 @@ for myDis in allDis:
 
     cut_rps['pre_dis_n_pov'] = 0
     cut_rps['pre_dis_n_sub'] = 0
-    cut_rps.loc[(cut_rps.c_initial <= (cut_rps.pov_line/cut_rps.hhsize_ae)), 'pre_dis_n_pov'] = cut_rps.loc[(cut_rps.c_initial <= (cut_rps.pov_line/cut_rps.hhsize_ae)), 'pcwgt']
+    cut_rps.loc[(cut_rps.c_initial <= cut_rps.pov_line), 'pre_dis_n_pov'] = cut_rps.loc[(cut_rps.c_initial <= cut_rps.pov_line), 'pcwgt']
     if sub_line:
         cut_rps.loc[(cut_rps.c_initial <= sub_line), 'pre_dis_n_sub'] = cut_rps.loc[(cut_rps.c_initial <= sub_line), 'pcwgt']
     print('\n\nTotal pop:',cut_rps['pcwgt'].sum(level='rp').mean())
     print('Pop below pov line before disaster:',cut_rps['pre_dis_n_pov'].sum(level=['hazard','rp']).mean())
     print('Pop below sub line before disaster:',cut_rps['pre_dis_n_sub'].sum(level=['hazard','rp']).mean(),'\n')
 
-    print('--> poor, below pov',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c_initial <= (cut_rps.pov_line/cut_rps.hhsize_ae)), 'pcwgt'].sum(level=['hazard','rp']).mean())
-    print('--> poor, above pov',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c_initial > (cut_rps.pov_line/cut_rps.hhsize_ae)), 'pcwgt'].sum(level=['hazard','rp']).mean())
-    print('--> rich, below pov',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c_initial <= (cut_rps.pov_line/cut_rps.hhsize_ae)), 'pcwgt'].sum(level=['hazard','rp']).mean())
-    print('--> rich, above pov',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c_initial > (cut_rps.pov_line/cut_rps.hhsize_ae)), 'pcwgt'].sum(level=['hazard','rp']).mean())
+    print('--> poor, below pov',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c_initial <= cut_rps.pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+    print('--> poor, above pov',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c_initial > cut_rps.pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+    print('--> rich, below pov',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c_initial <= cut_rps.pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+    print('--> rich, above pov',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c_initial > cut_rps.pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
         
     if sub_line:
         print('poor, below sub',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c_initial <= sub_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
@@ -232,8 +232,8 @@ for myDis in allDis:
     cut_rps['disaster_pds_n_pov'] = 0
     cut_rps['disaster_n_sub'] = 0
 
-    cut_rps.loc[(cut_rps.c_final <= (cut_rps.pov_line/cut_rps.hhsize_ae)) & (cut_rps.c_initial > (cut_rps.pov_line/cut_rps.hhsize_ae)), 'disaster_n_pov'] = cut_rps.loc[(cut_rps.c_final <= (cut_rps.pov_line/cut_rps.hhsize_ae)) & (cut_rps.c_initial > (cut_rps.pov_line/cut_rps.hhsize_ae)), 'pcwgt']
-    cut_rps.loc[(cut_rps.c_final_pds <= (cut_rps.pov_line/cut_rps.hhsize_ae)) & (cut_rps.c_initial > (cut_rps.pov_line/cut_rps.hhsize_ae)), 'disaster_pds_n_pov'] = cut_rps.loc[(cut_rps.c_final_pds <= (cut_rps.pov_line/cut_rps.hhsize_ae)) & (cut_rps.c_initial > (cut_rps.pov_line/cut_rps.hhsize_ae)), 'pcwgt']
+    cut_rps.loc[(cut_rps.c_final <= cut_rps.pov_line) & (cut_rps.c_initial > cut_rps.pov_line), 'disaster_n_pov'] = cut_rps.loc[(cut_rps.c_final <= cut_rps.pov_line) & (cut_rps.c_initial > cut_rps.pov_line), 'pcwgt']
+    cut_rps.loc[(cut_rps.c_final_pds <= cut_rps.pov_line) & (cut_rps.c_initial > cut_rps.pov_line), 'disaster_pds_n_pov'] = cut_rps.loc[(cut_rps.c_final_pds <= cut_rps.pov_line) & (cut_rps.c_initial > cut_rps.pov_line), 'pcwgt']
 
     print('Pop pushed below pov line by disaster:',cut_rps['disaster_n_pov'].sum(level=['hazard','rp']).mean())
     print('Pop pushed below pov line by disaster & after PDS:',cut_rps['disaster_pds_n_pov'].sum(level=['hazard','rp']).mean(),'\n')
@@ -332,8 +332,8 @@ for myDis in allDis:
         disaster_n_pov.disaster_n_sub/=100.
         disaster_n_pov = disaster_n_pov.reset_index().set_index(economy)
 
-        ci_heights, ci_bins = np.histogram((cutA['c_initial']/1.4913458221542086).clip(upper=upper_clip), bins=50, weights=cutA['pcwgt'])
-        cf_heights, cf_bins = np.histogram((cutA['c_final']/1.4913458221542086).clip(upper=upper_clip), bins=ci_bins, weights=cutA['pcwgt'])
+        ci_heights, ci_bins = np.histogram((cutA['c_initial']/2.321208).clip(upper=upper_clip), bins=50, weights=cutA['pcwgt'])
+        cf_heights, cf_bins = np.histogram((cutA['c_final']/2.321208).clip(upper=upper_clip), bins=ci_bins, weights=cutA['pcwgt'])
 
         ci_heights /= get_scale_fac(myCountry)[0]
         cf_heights /= get_scale_fac(myCountry)[0]

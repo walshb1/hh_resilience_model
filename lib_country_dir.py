@@ -602,7 +602,7 @@ def scale_hh_income_to_match_GDP(df_o,new_total,flat=False):
     tot_inc = df.loc[:,['hhinc','hhwgt']].prod(axis=1).sum()
 
     if flat == True:
-        print('\nScaling up income and the poverty line by',round((new_total/tot_inc),3),'!!\n')
+        print('\nScaling up income and the poverty line by',round((new_total/tot_inc),6),'!!\n')
 
         df['hhinc']*=(new_total/tot_inc)
         df['pov_line']*=(new_total/tot_inc)
