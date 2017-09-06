@@ -311,9 +311,8 @@ for aProv in myHaz[0]:
             plt.xlim(3,26)
             plt.plot([i for i in ax2.get_xlim()],[0,0],'k-',lw=1.5,color=greys_pal[7],zorder=100,alpha=0.85)
             plt.ylabel('Well-being losses ('+get_currency(myCountry)+' per capita)')
-            fig2.savefig('../output_plots/'+myCountry+'/pds_schemes_'+aProv+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
-            
-
+            fig2.savefig('../output_plots/'+myCountry+'/pds_schemes_'+aProv+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')
+        
             plt.clf()
             plt.close('all')
                 

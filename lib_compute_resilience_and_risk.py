@@ -137,7 +137,7 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
 
     return macro,cat_info,hazard_ratios
 
-def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,event_level,income_cats,default_rp,verbose_replace=True):
+def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,event_level,income_cats,default_rp,rm_overlap,verbose_replace=True):
 
     #cat_info = cat_info[cat_info.c>0]
     hazard_ratios = pd.read_csv(fname, index_col=event_level+[income_cats])
@@ -145,9 +145,9 @@ def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,ev
     macro,cat_info,hazard_ratios = apply_policies(pol_str,macro,cat_info,hazard_ratios)
 
     #compute
-    return process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_level,default_rp,verbose_replace=True)
+    return process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_level,default_rp,rm_overlap,verbose_replace=True)
 
-def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_level,default_rp,verbose_replace=True):
+def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_level,default_rp,rm_overlap,verbose_replace=True):
     flag1=False
     flag2=False
 
@@ -197,6 +197,17 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
             hazard_ratios_event = hazard_ratios_event.append(interpolate_rps(hazard_ratios.reset_index().ix[hazard_ratios.reset_index().hazard==haz,:].set_index(hazard_ratios.index.names), macro.protection,option=default_rp))
             
         hazard_ratios_event = same_rps_all_hazards(hazard_ratios_event)
+
+    # Now that we have the same set of return periods, remove overlap of losses between PCRAFI and SSBN
+    if myCountry == 'FJ' and rm_overlap == True:
+        hazard_ratios_event = hazard_ratios_event.reset_index().set_index(['Division','rp','hhid'])
+        hazard_ratios_event.loc[hazard_ratios_event.hazard=='flood_fluv_undef','fa'] -= 0.4*hazard_ratios_event.loc[hazard_ratios_event.hazard=='TC','fa']*(hazard_ratios_event.loc[hazard_ratios_event.hazard=='flood_fluv_undef','fa']/(hazard_ratios_event.loc[hazard_ratios_event.hazard=='flood_fluv_undef','fa']+hazard_ratios_event.loc[hazard_ratios_event.hazard=='flood_pluv','fa']))
+        hazard_ratios_event.loc[hazard_ratios_event.hazard=='flood_pluv','fa'] -= 0.4*hazard_ratios_event.loc[hazard_ratios_event.hazard=='TC','fa']*(hazard_ratios_event.loc[hazard_ratios_event.hazard=='flood_pluv','fa']/(hazard_ratios_event.loc[hazard_ratios_event.hazard=='flood_fluv_undef','fa']+hazard_ratios_event.loc[hazard_ratios_event.hazard=='flood_pluv','fa']))
+        hazard_ratios_event['fa'] = hazard_ratios_event['fa'].clip(lower=0.0)
+        
+        hazard_ratios_event = hazard_ratios_event.reset_index().set_index(['Division','hazard','rp','hhid'])
+        
+        print(hazard_ratios_event.loc[hazard_ratios_event.fa<0])
 
     # PSA input: original value of c
     avg_c = round(np.average(macro['gdp_pc_pp_prov'],weights=macro['pop'])/get_to_USD(myCountry),2)
@@ -367,19 +378,24 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
     else:
         print('unrecognized targeting error option '+optionT)
         return None
-        
-    if myCountry == 'PH':
-        macro_event = macro_event.fillna(0)
-        debug_file = pd.concat([macro_event,cats_event_iah],axis=1) 
-        #print('There are nas in macro_event! look at ~/Desktop/my_plots/me.csv to see')
+            
+    #counting (mind self multiplication of n)
+    df_index = cats_event_iah.index.names
 
-    #counting (mind self multiplication of n
+    cats_event_iah = pd.merge(cats_event_iah.reset_index(),macro_event.reset_index()[['province','hazard','rp','error_excl','error_incl']],on=['province','hazard','rp'])
+                              
+
     for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
-        cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,aWGT]*=(1-macro_event['error_excl'])
-        cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='a') ,aWGT]*=(  macro_event['error_excl'])
-        cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),aWGT]*=(  macro_event['error_incl'])  
-        cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='na'),aWGT]*=(1-macro_event['error_incl'])
-        
+        cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,aWGT]*=(1-cats_event_iah['error_excl'])
+        cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='a') ,aWGT]*=(  cats_event_iah['error_excl'])
+        cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),aWGT]*=(  cats_event_iah['error_incl'])  
+        cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='na'),aWGT]*=(1-cats_event_iah['error_incl'])
+        #cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,aWGT]*=(1-macro_event['error_excl'])
+        #cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='a') ,aWGT]*=(  macro_event['error_excl'])
+        #cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),aWGT]*=(  macro_event['error_incl'])  
+        #cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='na'),aWGT]*=(1-macro_event['error_incl'])
+
+    cats_event_iah = cats_event_iah.drop([icol for icol in ['index','error_excl','error_incl'] if icol in cats_event_iah.columns],axis=1).reset_index().set_index(df_index)
 
     # MAXIMUM NATIONAL SPENDING ON SCALE UP
     macro_event['max_increased_spending'] = 0.05
@@ -848,7 +864,14 @@ def calc_delta_welfare(micro, macro):
     #dw= (welf1(micro['c']/macro['rho'], macro['income_elast'], micro['c_5']/macro['rho'])
     #             - welf1(micro['c']/macro['rho']-micro['dc_npv_post'], macro['income_elast'],micro['c_5']/macro['rho']))
 
-    temp = pd.merge(micro.reset_index(),macro.reset_index(),on=['Division','hazard','rp']).reset_index().set_index(['Division','hazard','rp','hhid','affected_cat','helped_cat'])
+    print(micro.index.names)
+    print(macro.index.names)
+       
+
+    mac_ix = macro.index.names
+    mic_ix = micro.index.names
+
+    temp = pd.merge(micro.reset_index(),macro.reset_index(),on=[i for i in mac_ix]).reset_index().set_index([i for i in mic_ix])
 
     dw= (welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
          - welf1(temp['c']/temp['rho']-temp['dc_npv_post'], temp['income_elast'],temp['c_5']/temp['rho']))

@@ -345,12 +345,12 @@ def get_service_loss(myC):
         return service_loss
     else:return None
 
-def get_hazard_df(myC,economy):
+def get_hazard_df(myC,economy,rm_overlap=False):
 
     if myC == 'PH': 
         df = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','Private','Agg').reset_index()
         df.columns = [economy,'hazard','rp','value_destroyed']
-        return df
+        return df,df
     
     elif myC == 'FJ':
 
@@ -539,11 +539,14 @@ def get_hazard_df(myC,economy):
         
         df_sum['Exp_Value'] *= (1.0/0.48) # AIR-PCRAFI in USD(2009?) --> switch to FJD
 
+        df_sum = df_sum.reset_index().set_index(['Division'])
+        df_sum.Exp_Value = df_sum.Exp_Value.mean(level='Division',skipna=True)
+
         return df_sum,df_tikina
 
     elif myC == 'SL':
         df = pd.read_excel(inputs+'hazards_data.xlsx',sheetname='hazard').dropna(how='any').set_index(['district','hazard','rp'])
-        return df
+        return df,df
 
     else: return None
 

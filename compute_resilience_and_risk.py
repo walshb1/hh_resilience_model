@@ -83,7 +83,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     #  - macro has province-level info
     #  - cat_info has household-level info
     #  - hazard_ratios has fa for each household (which varies not by hh, but by province, hazard, & RP) 
-    macro_event, cats_event, hazard_ratios_event = compute_with_hazard_ratios(myCountry,pol_str,intermediate+'hazard_ratios.csv',macro,cat_info,economy,event_level,income_cats,default_rp,verbose_replace=True)
+    macro_event, cats_event, hazard_ratios_event = compute_with_hazard_ratios(myCountry,pol_str,intermediate+'hazard_ratios.csv',macro,cat_info,economy,event_level,income_cats,default_rp,rm_overlap=True,verbose_replace=True)
 
     gc.collect()
     print('A')
@@ -120,8 +120,10 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     results.to_csv(output+'results_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('H')
 
+    iah = iah.drop([icol for icol in ['index','social','pcsoc','v','v_shew','gamma_SP','c_5','n','shew','fa','hh_share','public_loss_v','v_shew'] if icol in iah.columns],axis=1)
     iah.to_csv(output+'iah_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
-    print('I')
+    print('Step I: wrote iah, a huge file. See anything to drop?\n',iah.columns)
+    iah.head(3).to_csv('~/Desktop/my_out.csv')
     return True
 
     # result1=pd.read_csv('output-old/results.csv', index_col=economy)
@@ -156,7 +158,7 @@ if __name__ == '__main__':
     
     if myCountry == 'PH' or myCountry == 'SL':
         pds_str = ['no','unif_poor']
-        pol_str = ''
+        pol_str = ['']
             
     if debug == True:
         print('Running in debug mode!')

@@ -55,7 +55,8 @@ drm_pov_sign = -1 # toggle subtraction or addition of dK to affected people's in
 pol_str = ''#'_v95'#could be {'_v95'}
 
 base_str = 'no'
-pds_str = 'fiji_SPP'#'no'
+pds_str = 'unif_poor'
+if myCountry == 'FJ': pds_str = 'fiji_SPP'#'no'
 
 #res_base = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
 df = pd.read_csv(output+'results_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
@@ -171,7 +172,7 @@ q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 # Look at single event:
 if myCountry == 'PH':
-    myHaz = [['Manila','Mountain Province','Bukidnon','Negros Oriental','Bulacan','Northern Samar','Cebu'],['flood','wind'],[1,10,25,30,50,100,250,500,1000]]
+    myHaz = [['Cebu'],['flood','wind'],[1,10,25,30,50,100,250,500,1000]]
 elif myCountry == 'FJ':
     myHaz = [['Rewa','Lau'],['TC','EQTS'],[1,5,10,20,22,50,72,75,100,200,224,250,475,500,975,1000,2475]]
     #myHaz = [['Lau'],['earthquake','tsunami','typhoon'],[1,10,20,50,100,250,500,1000]]
@@ -199,7 +200,11 @@ for myDis in allDis:
     cut_rps.loc[cut_rps.pcwgt_ae != 0.,'c_initial'] = cut_rps.loc[cut_rps.pcwgt_ae != 0.,['c','hhsize']].prod(axis=1)/cut_rps.loc[(cut_rps.pcwgt_ae != 0.), 'hhsize_ae']
 
     # If our calculation of consumption has changed, we need to shift the poverty line by the same amount
-    cut_rps['pov_line'] *= cut_rps['c_initial']/cut_rps['pcinc_ae']
+    #print(cut_rps['pov_line'].mean())
+    #if myCountry == 'FJ':
+    #    cut_rps['pov_line'] *= cut_rps['c_initial']/cut_rps['pcinc_ae']
+    #print(cut_rps['pov_line'].mean())
+    #assert(False)
 
     cut_rps.loc[cut_rps.pcwgt_ae != 0.,'delta_c']   = (cut_rps.loc[(cut_rps.pcwgt_ae != 0.), ['dk','pcwgt']].prod(axis=1)/cut_rps.loc[(cut_rps.pcwgt_ae != 0.),'pcwgt_ae'])*(df['avg_prod_k'].mean()+1/df['T_rebuild_K'].mean())
 
@@ -312,7 +317,7 @@ for myDis in allDis:
         cutA.loc[cutA.pcwgt_ae != 0,'c_initial'] = cutA.loc[cutA.pcwgt_ae != 0,['c','pcwgt']].prod(axis=1)/cutA.loc[cutA.pcwgt_ae != 0.,'pcwgt_ae']
 
         # If our calculation of consumption has changed, we need to shift the poverty line by the same amount
-        cutA['pov_line'] *= cutA['c_initial']/cutA['pcinc_ae']
+        #cutA['pov_line'] *= cutA['c_initial']/cutA['pcinc_ae']
 
         cutA.loc[cutA.pcwgt_ae != 0,'delta_c']   = (cutA.loc[cutA.pcwgt_ae != 0,['dk','pcwgt']].prod(axis=1)/cutA.loc[cutA.pcwgt_ae != 0.,'pcwgt_ae'])*(df['avg_prod_k'].mean()+1/df['T_rebuild_K'].mean())
         cutA['c_final']   = (cutA['c_initial'] + drm_pov_sign*cutA['delta_c'])
@@ -332,8 +337,10 @@ for myDis in allDis:
         disaster_n_pov.disaster_n_sub/=100.
         disaster_n_pov = disaster_n_pov.reset_index().set_index(economy)
 
-        ci_heights, ci_bins = np.histogram((cutA['c_initial']/2.321208).clip(upper=upper_clip), bins=50, weights=cutA['pcwgt'])
-        cf_heights, cf_bins = np.histogram((cutA['c_final']/2.321208).clip(upper=upper_clip), bins=ci_bins, weights=cutA['pcwgt'])
+        sf = 1.
+        if myCountry == 'FJ': sf = 2.321208
+        ci_heights, ci_bins = np.histogram((cutA['c_initial']/sf).clip(upper=upper_clip), bins=50, weights=cutA['pcwgt'])
+        cf_heights, cf_bins = np.histogram((cutA['c_final']/sf).clip(upper=upper_clip), bins=ci_bins, weights=cutA['pcwgt'])
 
         ci_heights /= get_scale_fac(myCountry)[0]
         cf_heights /= get_scale_fac(myCountry)[0]
@@ -346,9 +353,10 @@ for myDis in allDis:
         p_str = format_delta_p(delta_p)
         p_pct = ' ('+str(round((delta_p/cutA['pcwgt'].sum())*100.,2))+'% of population)'
 
-        plt.plot([49.50*52,49.50*52],[0,1.25*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
-        ax.annotate('Poverty line',xy=(1.1*49.50*52,1.25*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-        ax.annotate(r'$\Delta$N$_p$ = +'+p_str+p_pct,xy=(49.50*52*1.1,1.15*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
+
+        plt.plot([cutA.pov_line.mean(),cutA.pov_line.mean()],[0,1.25*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
+        ax.annotate('Poverty line',xy=(1.1*cutA.pov_line.mean(),1.25*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+        ax.annotate(r'$\Delta$N$_p$ = +'+p_str+p_pct,xy=(1.1*cutA.pov_line.mean(),1.15*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
 
         # Change in subsistence incidence
         if sub_line:
