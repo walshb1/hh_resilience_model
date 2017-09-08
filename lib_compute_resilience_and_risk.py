@@ -380,20 +380,14 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
         return None
             
     #counting (mind self multiplication of n)
-    df_index = cats_event_iah.index.names
-
-    cats_event_iah = pd.merge(cats_event_iah.reset_index(),macro_event.reset_index()[['province','hazard','rp','error_excl','error_incl']],on=['province','hazard','rp'])
+    df_index = cats_event_iah.index.names    
+    cats_event_iah = pd.merge(cats_event_iah.reset_index(),macro_event.reset_index()[[i for i in macro_event.index.names]+['error_excl','error_incl']],on=[i for i in macro_event.index.names])
                               
-
     for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
         cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,aWGT]*=(1-cats_event_iah['error_excl'])
         cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='a') ,aWGT]*=(  cats_event_iah['error_excl'])
         cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),aWGT]*=(  cats_event_iah['error_incl'])  
         cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='na'),aWGT]*=(1-cats_event_iah['error_incl'])
-        #cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,aWGT]*=(1-macro_event['error_excl'])
-        #cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='a') ,aWGT]*=(  macro_event['error_excl'])
-        #cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),aWGT]*=(  macro_event['error_incl'])  
-        #cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='na'),aWGT]*=(1-macro_event['error_incl'])
 
     cats_event_iah = cats_event_iah.drop([icol for icol in ['index','error_excl','error_incl'] if icol in cats_event_iah.columns],axis=1).reset_index().set_index(df_index)
 
@@ -470,6 +464,11 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
   
         cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped'),'help_received'] = 0
         cats_event_iah = cats_event_iah.drop(['level_0','SPP_core','SPP_add','payout','frac_core','frac_add','SP_lottery','SP_lottery_win'],axis=1)
+        
+        
+        print('Can drop more cols?:\n',cats_event_iah.columns)
+        assert(False)
+
         my_out = cats_event_iah[['help_received','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
         my_out.to_csv('../output_country/FJ/SPplus_expenditure.csv')
         my_out,_ = average_over_rp(my_out.sum(level=['rp']),default_rp)
@@ -722,9 +721,8 @@ def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_C
         else:
             stats = np.setdiff1d(cats_event_iah.columns,event_level+['helped_cat',  'affected_cat',     'hhid','has_received_help_from_PDS_cat'])		
 		
-        df_stats = agg_to_event_level(cats_event_iah, stats,event_level)
-        # if verbose_replace:
         print('stats are '+','.join(stats))
+        df_stats = agg_to_event_level(cats_event_iah,stats,event_level)
         df_out[df_stats.columns]=df_stats 
 		    
     if return_iah:

@@ -13,14 +13,14 @@ from IPython.display import Image, display, HTML, SVG
 import os, shutil
 from subprocess import Popen, PIPE, call 
 
-def sum_with_rp(myC,df,columns,sum_provinces,national=False):
+def sum_with_rp(myC,df,columns,sum_provinces,economy,national=False):
 
     if myC == 'FJ':
 
         if national == True: df = df.reset_index()
         else:
-            df = df.sum(level=['Division','rp']).fillna(0)
-            df = df.reset_index().set_index('Division')
+            df = df.sum(level=[economy,'rp']).fillna(0)
+            df = df.reset_index().set_index(economy)
 
 
         freq = {'1'   :float(  1./1  -    1./5),
@@ -63,13 +63,13 @@ def sum_with_rp(myC,df,columns,sum_provinces,national=False):
         if national == True: 
             return df.sum()
         if sum_provinces == False:
-            return df.sum(level='Division')
+            return df.sum(level=economy)
         else:
             return df.sum()
 
     if myC == 'PH':
-        df = df.sum(level=['province','rp']).fillna(0)
-        df = df.reset_index().set_index('province')
+        df = df.sum(level=[economy,'rp']).fillna(0)
+        df = df.reset_index().set_index(economy)
 
         freq = {'1'   :float(  1./1  -   1./10),
                 '10'  :float( 1./10  -   1./25),
@@ -95,14 +95,14 @@ def sum_with_rp(myC,df,columns,sum_provinces,national=False):
             df.loc[(df.rp == 1000),aCol] *= freq['1000']
 
         if sum_provinces == False:
-            return df.sum(level='province')
+            return df.sum(level=economy)
         else:
             return df.sum()
 
     if myC == 'SL':
         
-        df = df.sum(level=['district','rp']).fillna(0)
-        df = df.reset_index().set_index('district')
+        df = df.sum(level=[economy,'rp']).fillna(0)
+        df = df.reset_index().set_index(economy)
 
         freq = {'1'   :float(  1./1  -    1./5),
                 '5'   :float(  1./5  -   1./10),
@@ -126,7 +126,7 @@ def sum_with_rp(myC,df,columns,sum_provinces,national=False):
             df.loc[(df.rp == 1000),aCol] *= freq['1000']
 
         if sum_provinces == False:
-            return df.sum(level='district')
+            return df.sum(level=economy)
         else:
             return df.sum()
 

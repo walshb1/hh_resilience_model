@@ -97,7 +97,6 @@ df_prov['R_asst'] = round(100.*df_prov['dKtot']/df_prov['gdp'],2)
 df_prov['R_welf'] = round(100.*df_prov['dWtot_currency']/df_prov['gdp'],2)
 df_prov = df_prov.sum(level=economy)
 df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level=economy)
-#df_prov.to_csv('~/Desktop/my_file.csv')
 
 print(df_prov)
 print(df_prov[['dKtot','dWtot_currency','gdp']].sum())
@@ -172,7 +171,7 @@ q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 # Look at single event:
 if myCountry == 'PH':
-    myHaz = [['Cebu'],['flood','wind'],[1,10,25,30,50,100,250,500,1000]]
+    myHaz = [['NCR'],['flood','wind'],[1,10,25,30,50,100,200,250,500,1000]]
 elif myCountry == 'FJ':
     myHaz = [['Rewa','Lau'],['TC','EQTS'],[1,5,10,20,22,50,72,75,100,200,224,250,475,500,975,1000,2475]]
     #myHaz = [['Lau'],['earthquake','tsunami','typhoon'],[1,10,20,50,100,250,500,1000]]
@@ -256,7 +255,7 @@ for myDis in allDis:
     n_pov = n_pov.reset_index().set_index([economy,'rp'])
 
     n_pov = sum_with_rp(myCountry,n_pov[['disaster_n_pov','disaster_n_pov_pct','disaster_n_sub','disaster_n_sub_pct']],
-                        ['disaster_n_pov','disaster_n_pov_pct','disaster_n_sub','disaster_n_sub_pct'],sum_provinces=False)
+                        ['disaster_n_pov','disaster_n_pov_pct','disaster_n_sub','disaster_n_sub_pct'],sum_provinces=False,economy=economy)
     my_n_pov = n_pov.copy()
 
     if myCountry == 'PH': my_n_pov = n_pov.copy()#.drop(['Batanes'],axis=0)
@@ -345,8 +344,8 @@ for myDis in allDis:
         ci_heights /= get_scale_fac(myCountry)[0]
         cf_heights /= get_scale_fac(myCountry)[0]
 
-        ax.bar(ci_bins[:-1], ci_heights, width=(ci_bins[1]-ci_bins[0]), label='Initial', facecolor=q_colors[0],alpha=0.4)
-        ax.bar(cf_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-disaster', facecolor=q_colors[1],alpha=0.4)
+        ax.bar(ci_bins[:-1], ci_heights, width=(ci_bins[1]-ci_bins[0]), label='Initial', facecolor=q_colors[1],alpha=0.4)
+        ax.bar(cf_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
 
         # Change in poverty incidence
         delta_p = cutA.loc[(cutA.c_initial > cutA.pov_line) & (cutA.c_final <= cutA.pov_line),'pcwgt'].sum()
@@ -539,7 +538,7 @@ for myRP in myHaz[2]:
 
             cut = None
             if myCountry == 'PH':
-                cut = iah.loc[(((iah.affected_cat == 'a')&(iah.helped_cat == 'helped'))|((iah.affected_cat == 'na')&(iah.helped_cat == 'not_helped')))&(iah.province == myProv) & (iah.hazard == myDis) & (iah.rp == myRP)].set_index([economy,'hazard','rp'])
+                cut = iah.loc[(((iah.affected_cat == 'a')&(iah.helped_cat == 'helped'))|((iah.affected_cat == 'na')&(iah.helped_cat == 'not_helped')))&(iah[economy] == myProv) & (iah.hazard == myDis) & (iah.rp == myRP)].set_index([economy,'hazard','rp'])
             elif myCountry == 'FJ':
                 cut = iah.loc[(iah.helped_cat == 'helped') & (iah.Division == myProv) & (iah.hazard == myDis) & (iah.rp == myRP)].set_index([economy,'hazard','rp'])
 
@@ -686,7 +685,7 @@ natl_df['dw_all'] = np.array(dw_all).T
 natl_df['dk_q1'] = np.array(dk_q1).T
 natl_df['dw_q1'] = np.array(dw_q1).T
 
-summed = sum_with_rp('FJ',natl_df,['dk_all','dw_all','dk_q1','dw_q1'],sum_provinces=True,national=True)
+summed = sum_with_rp('FJ',natl_df,['dk_all','dw_all','dk_q1','dw_q1'],sum_provinces=True,economy=economy,national=True)
 
 df = df.reset_index()
 #print('Prov pop = ',df.loc[(df.rp==1)&(df.hazard=='typhoon'),'pop'])

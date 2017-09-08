@@ -40,7 +40,7 @@ def set_directories(myCountry):  # get current directory
 
 def get_economic_unit(myC):
     
-    if myC == 'PH': return 'province'
+    if myC == 'PH': return 'region'#'province'
     elif myC == 'FJ': return 'Division'#'tikina'
     elif myC == 'SL': return 'district'#'tikina'
     else: return None
@@ -55,9 +55,9 @@ def get_currency(myC):
 def get_places(myC,economy):
     # This df should have just province code/name and population
 
-    if myC == 'PH': 
-        df = pd.read_excel(inputs+'population_2015.xlsx',sheetname='population').set_index(economy)
-        df['psa_pop']      = df['population']    # Provincial population
+    if myC == 'PH':
+        df = pd.read_excel(inputs+'population_2015.xlsx',sheetname='population').set_index('province')
+        df['psa_pop']      = df['population']    # Provincial population        
         df.drop(['population'],axis=1,inplace=True)
         return df
 
@@ -74,17 +74,19 @@ def get_places(myC,economy):
     else: return None
 
 def get_places_dict(myC):
+    p_code,r_code = None,None
 
     if myC == 'PH': 
-        return pd.read_excel(inputs+'FIES_provinces.xlsx')[['province_code','province_AIR']].set_index('province_code').squeeze() 
-
+        p_code = pd.read_excel(inputs+'FIES_provinces.xlsx')[['province_code','province_AIR']].set_index('province_code').squeeze()
+        r_code = pd.read_excel(inputs+'FIES_regions.xlsx')[['region_code','region_name']].set_index('region_code').squeeze()
+        
     if myC == 'FJ':
-        return pd.read_excel(inputs+'Fiji_provinces.xlsx')[['code','name']].set_index('code').squeeze() 
+        p_code = pd.read_excel(inputs+'Fiji_provinces.xlsx')[['code','name']].set_index('code').squeeze(),None
 
     elif myC == 'SL':
-        return pd.read_excel(inputs+'Admin_level_3__Districts.xls')[['DISTRICT_C','DISTRICT_N']].set_index('DISTRICT_C').squeeze()
+        p_code = pd.read_excel(inputs+'Admin_level_3__Districts.xls')[['DISTRICT_C','DISTRICT_N']].set_index('DISTRICT_C').squeeze(),None
 
-    else: return None
+    return p_code,r_code
 
 def load_survey_data(myC,inc_sf=None):
     
@@ -317,7 +319,7 @@ def get_infra_destroyed(myC,df_haz):
         
     transport_losses = pd.read_csv(inputs+"frac_destroyed_transport.csv").rename(columns={"ti_name":"Tikina"})
     transport_losses['Division'] = (transport_losses['tid']/100).astype('int')
-    prov_code = get_places_dict(myC)
+    prov_code,_ = get_places_dict(myC)
     rp_dict   = get_rp_dict(myC)
     transport_losses['Division'] = transport_losses.Division.replace(prov_code)
     #sums at Division level to be like df_haz
@@ -349,7 +351,7 @@ def get_hazard_df(myC,economy,rm_overlap=False):
 
     if myC == 'PH': 
         df = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','Private','Agg').reset_index()
-        df.columns = [economy,'hazard','rp','value_destroyed']
+        df.columns = ['province','hazard','rp','value_destroyed']
         return df,df
     
     elif myC == 'FJ':
@@ -483,7 +485,7 @@ def get_hazard_df(myC,economy,rm_overlap=False):
         df = df.sort_index().reset_index()
 
         df['Division'] = (df['Tikina_ID']/100).astype('int')
-        prov_code = get_places_dict(myC)
+        prov_code,_ = get_places_dict(myC)
         df = df.reset_index().set_index([df.Division.replace(prov_code)]).drop(['index','Division','Tikina_ID','asset_subclass'],axis=1) #replace district code with its name
         df_tikina = df.copy()
         
@@ -548,7 +550,7 @@ def get_hazard_df(myC,economy,rm_overlap=False):
         df = pd.read_excel(inputs+'hazards_data.xlsx',sheetname='hazard').dropna(how='any').set_index(['district','hazard','rp'])
         return df,df
 
-    else: return None
+    else: return None,None
 
 def get_poverty_line(myC,sec=None):
     
@@ -670,3 +672,14 @@ def scale_hh_income_to_match_GDP(df_o,new_total,flat=False):
     fig.savefig('../output_plots/FJ/income_shift.pdf',format='pdf')#+'.pdf',format='pdf')
 
     return df['new_hhinc'], df['pov_line']
+
+def get_all_hazards(myC,df):
+    temp = (df.reset_index().set_index(['hazard'])).copy()
+    temp = temp[~temp.index.duplicated(keep='first')]
+    return [i for i in temp.index.values]
+        
+def get_all_rps(myC,df):
+    temp = (df.reset_index().set_index(['rp'])).copy()
+    temp = temp[~temp.index.duplicated(keep='first')]
+    return [int(i) for i in temp.index.values]
+        

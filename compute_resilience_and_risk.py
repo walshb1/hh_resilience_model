@@ -120,7 +120,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     results.to_csv(output+'results_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('H')
 
-    iah = iah.drop([icol for icol in ['index','social','pcsoc','v','v_shew','gamma_SP','c_5','n','shew','fa','hh_share','public_loss_v','v_shew'] if icol in iah.columns],axis=1)
+    iah = iah.drop([icol for icol in ['index','social','pcsoc','v','v_shew','gamma_SP','c_5','n','shew','fa','hh_share','public_loss_v','v_shew','SP_CPP','SP_FAP','SP_FNPF','SP_SPS','SP_PBS','SP_core','SP_add','nOlds'] if icol in iah.columns],axis=1)
     iah.to_csv(output+'iah_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('Step I: wrote iah, a huge file. See anything to drop?\n',iah.columns)
     iah.head(3).to_csv('~/Desktop/my_out.csv')
