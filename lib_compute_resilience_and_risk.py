@@ -309,7 +309,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
  
     #immediate consumption losses: direct capital losses plus losses through event-scale depression of transfers
     cats_event_ia['dc'] = (1-macro_event['tau_tax'])*cats_event_ia['dk'] + cats_event_ia['gamma_SP']*macro_event[['tau_tax','dk_event']].prod(axis=1)
- 
+
     # This term is the impact on income from labor
     # cats_event_ia['dc_1'] = (1-macro_event['tau_tax'])*cats_event_ia['dk']
 
@@ -717,9 +717,9 @@ def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_C
     
     if return_stats:
         if not 'has_received_help_from_PDS_cat' in cats_event_iah.columns:
-            stats = np.setdiff1d(cats_event_iah.columns,event_level+['helped_cat',  'affected_cat',     'hhid'])
+            stats = np.setdiff1d(cats_event_iah.columns,event_level+['helped_cat','affected_cat','hhid']+[i for i in ['province'] if i in cats_event_iah.columns])
         else:
-            stats = np.setdiff1d(cats_event_iah.columns,event_level+['helped_cat',  'affected_cat',     'hhid','has_received_help_from_PDS_cat'])		
+            stats = np.setdiff1d(cats_event_iah.columns,event_level+['helped_cat','affected_cat','hhid','has_received_help_from_PDS_cat']+[i for i in ['province'] if i in cats_event_iah.columns])
 		
         print('stats are '+','.join(stats))
         df_stats = agg_to_event_level(cats_event_iah,stats,event_level)

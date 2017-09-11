@@ -81,10 +81,10 @@ def get_places_dict(myC):
         r_code = pd.read_excel(inputs+'FIES_regions.xlsx')[['region_code','region_name']].set_index('region_code').squeeze()
         
     if myC == 'FJ':
-        p_code = pd.read_excel(inputs+'Fiji_provinces.xlsx')[['code','name']].set_index('code').squeeze(),None
+        p_code = pd.read_excel(inputs+'Fiji_provinces.xlsx')[['code','name']].set_index('code').squeeze()
 
     elif myC == 'SL':
-        p_code = pd.read_excel(inputs+'Admin_level_3__Districts.xls')[['DISTRICT_C','DISTRICT_N']].set_index('DISTRICT_C').squeeze(),None
+        p_code = pd.read_excel(inputs+'Admin_level_3__Districts.xls')[['DISTRICT_C','DISTRICT_N']].set_index('DISTRICT_C').squeeze()
 
     return p_code,r_code
 
@@ -683,3 +683,13 @@ def get_all_rps(myC,df):
     temp = temp[~temp.index.duplicated(keep='first')]
     return [int(i) for i in temp.index.values]
         
+def int_w_commas(in_int):
+    in_str = str(in_int)
+    in_list = list(in_str)
+    out_str = ''
+
+    if in_int < 1E3:  return in_str
+    if in_int < 1E6:  return in_str[:-3]+','+in_str[-3:] 
+    if in_int < 1E9:  return in_str[:-6]+','+in_str[-6:-3]+','+in_str[-3:] 
+    if in_int < 1E12: return in_str[:-9]+','+in_str[-9:-6]+','+in_str[-6:-3]+','+in_str[-3:] 
+    

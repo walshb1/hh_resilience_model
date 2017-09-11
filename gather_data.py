@@ -96,9 +96,12 @@ if myCountry == 'PH':
 
 if myCountry == 'SL':
     df = df.reset_index()
-    df = df.set_index([df.district.replace(prov_code)])
+    df['district'].replace(prov_code,inplace=True)
+    df = df.reset_index().set_index(economy).drop(['index'],axis=1)
+
     cat_info = cat_info.reset_index()
-    cat_info = cat_info.set_index([cat_info.district.replace(prov_code)]) #replace district code with its name
+    cat_info['district'].replace(prov_code,inplace=True) #replace district code with its name
+    cat_info = cat_info.reset_index().set_index(economy).drop(['index'],axis=1)
 
 # Define per capita income (in local currency)
 df['gdp_pc_pp_prov'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
@@ -136,6 +139,8 @@ if myCountry == 'PH':
     cat_info.ix[cat_info.v==0.70,'v'] *= np.random.uniform(.8,1.2,cat_info.ix[cat_info.v==0.70].shape[0]) 
     cat_info.drop(['walls','roof'],axis=1,inplace=True)
 
+    plot_simple_hist(cat_info,['v'],['Vulnerability'],'../output_plots/PH/sectoral/vulnerabilities.pdf',uclip=1,nBins=25,xlab='Vulnerability (losses when affected by disaster)')
+    
 if myCountry == 'FJ':
     cat_info.ix[cat_info.v==0.1,'v'] *= np.random.uniform(.8,2,cat_info.ix[cat_info.v==0.1].shape[0])
     cat_info.ix[cat_info.v==0.4,'v'] *= np.random.uniform(.8,1.2,cat_info.ix[cat_info.v==0.4].shape[0])
@@ -233,11 +238,12 @@ cat_info.ix[cat_info.k<0,'k'] = 0.0
 if myCountry == 'FJ':
     #replace division codes with names
     df = df.reset_index()
-    df = df.set_index([df.Division.replace(prov_code)])
+    df['Division'].replace(prov_code,inplace=True)
+    df = df.reset_index().set_index(['Division']).drop(['index'],axis=1)
 
     cat_info = cat_info.reset_index()
-    cat_info = cat_info.set_index([cat_info.Division.replace(prov_code)]) #replace division code with its name
-    cat_info.drop(['Division'],axis=1,inplace=True)
+    cat_info['Division'].replace(prov_code,inplace=True) # replace division code with its name
+    cat_info = cat_info.reset_index().set_index(['Division','hhid']).drop(['index'],axis=1)
 
 # Getting rid of Prov_code 98, 99 here
 #print('Check total population:',cat_info.pcwgt.sum())
@@ -323,8 +329,8 @@ if myCountry == 'PH':
     df_haz = df_haz.reset_index().set_index([economy,'hazard','rp']).sum(level=[economy,'hazard','rp']).drop(['index'],axis=1)
     
 elif myCountry == 'FJ':
+    df_haz = df_haz.reset_index().set_index([economy,'hazard','rp']).sum(level=[economy,'hazard','rp'])
     # All the magic happens inside get_hazard_df()
-    pass
 
 # Turn losses into fraction
 cat_info = cat_info.reset_index().set_index([economy])
@@ -445,7 +451,7 @@ else:
 df.to_csv(intermediate+'/macro.csv',encoding='utf-8', header=True,index=True)
 
 if 'index' in cat_info.columns: cat_info = cat_info.drop(['index'],axis=1)
-cat_info = cat_info.drop([i for i in ['province'] if i != economy],axis=1)
+#cat_info = cat_info.drop([i for i in ['province'] if i != economy],axis=1)
 cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index=True)
 
 hazard_ratios= hazard_ratios.drop(['frac_destroyed','v'],axis=1).drop(["flood_fluv_def"],level="hazard")
