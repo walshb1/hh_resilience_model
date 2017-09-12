@@ -22,6 +22,8 @@ sns.set_style('darkgrid')
 brew_pal = brew.get_map('Set1', 'qualitative', 8).mpl_colors
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.4)
 greys_pal = sns.color_palette('Greys', n_colors=9)
+q_labels = ['Poorest quintile','Q2','Q3','Q4','Wealthiest quintile']
+q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 font = {'family' : 'sans serif',
     'size'   : 20}
@@ -37,12 +39,11 @@ print('Running '+myCountry)
 
 model  = os.getcwd() #get current directory
 output = model+'/../output_country/'+myCountry+'/'
+output_plots = model+'/../output_plots/'+myCountry+'/'
 
 economy = get_economic_unit(myCountry)
 event_level = [economy, 'hazard', 'rp']
 dem = get_demonym(myCountry)
-
-round_dict = {'Asset risk':3,'SE capacity':1,'Well-being risk':3}
 
 # Set policy params
 base_str = 'no'
@@ -62,10 +63,13 @@ df = pd.read_csv(output+'results_tax_'+pds_str+'_.csv', index_col=[economy,'haza
 df_base = pd.read_csv(output+'results_tax_'+base_str+'_.csv', index_col=[economy,'hazard','rp'])
 macro = pd.read_csv(output+'macro_tax_'+pds_str+'_.csv', index_col=[economy,'hazard','rp'])
 
-iah_SP2, df_SP2 = None, None
-if myCountry == 'FJ':
+iah_SP2, df_SP2, iah_infra = None, None,None
+try:
     iah_SP2 = pd.read_csv(output+'iah_tax_'+pds2_str+'_.csv', index_col=[economy,'hazard','rp','hhid'])
     df_SP2  = pd.read_csv(output+'results_tax_'+pds2_str+'_.csv', index_col=[economy,'hazard','rp'])
+    iah_infra = pd.read_csv(output+'iah_tax_'+base_str+'__ip.csv', index_col=[economy,'hazard','rp','hhid'])
+    print('loaded all 3 extra files')
+except: assert(False)
 
 for iPol in all_policies:
     iah_pol = pd.read_csv(output+'iah_tax_'+pds_str+'_'+iPol+'.csv', index_col=[economy,'hazard','rp','hhid'])
@@ -126,6 +130,43 @@ iah_res['help_received'] = iah[['help_received','pcwgt']].prod(axis=1).sum(level
 iah_res['help_fee'] = iah[['help_fee','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
 iah_res['dc_npv_pre'] = iah[['dc_npv_pre','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
 iah_res['dc_npv_post'] = iah[['dc_npv_post','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+
+try:
+    iah_res['dc_inf_npv_pre'] = iah_infra[['dc_npv_pre','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+    iah_res['dc_inf_npv_post'] = iah_infra[['dc_npv_post','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+    iah_res['dc_delta'] = iah_res['dc_inf_npv_pre'] - iah_res['dc_npv_pre']
+
+    iah_res = iah_res.reset_index()
+    grab = [['TC'],[100,1000]]
+    for aHaz in grab[0]:
+        for anRP in grab[1]:
+            
+            ax = iah_res.loc[(iah_res.hazard==aHaz)&(iah_res.rp==anRP)].plot.scatter('dc_npv_pre','dc_inf_npv_pre',c='quintile')   
+            ax.plot()
+            fig = plt.gcf()
+            fig.savefig(output_plots+'experiments/infra_dc_npv_pre.pdf',format='pdf')
+            print('infra plot 1/2')
+            plt.clf()
+
+            ax = iah_res.loc[(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==1)].plot.scatter('dc_npv_pre','dc_delta',color=q_colors[0],label='Q1')
+            for iq in range(2,6): 
+                iah_res.loc[(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq)].plot.scatter('dc_npv_pre','dc_delta', color=q_colors[iq-1], label='Q'+str(iq), ax=ax)
+            ax.plot()
+            plt.xlim(0,6000)
+            plt.ylim(-5000,5000)
+            fig = plt.gcf()
+            fig.savefig(output_plots+'experiments/infra_dc_npv_pre_delta_'+aHaz+str(anRP)+'.pdf',format='pdf')#flag
+            print('infra plot 2/2')
+            plt.clf()
+            plt.close('all')
+
+    iah_res = iah_res.reset_index().set_index(event_level+['hhid']).drop(['index'],axis=1)
+
+except:
+    assert(False)
+#except: print('DID NOT load infra') 
+
+assert(False)
 
 # These are the other policies (scorecard)
 # ^ already weighted by pcwgt from their respective files
@@ -227,6 +268,7 @@ iah_ntl['pov_pc_pds_f'] = iah_res.loc[(iah_res.c_final_pds < iah_res.pov_line),'
 iah_ntl['pov_hh_pds_f'] = iah_res.loc[(iah_res.c_final_pds < iah_res.pov_line),'hhwgt'].sum(level=['hazard','rp'])
 iah_ntl['pov_pc_pds_D'] = iah_ntl['pov_pc_pds_f'] - iah_ntl['pov_pc_i']
 iah_ntl['pov_hh_pds_D'] = iah_ntl['pov_hh_pds_f'] - iah_ntl['pov_hh_i']
+print('Initial poverty incidence:',iah_ntl[['pov_pc_i','pov_hh_i']].mean())
 
 iah_ntl['eff_pds'] = iah_ntl['pov_pc_pds_D'] - iah_ntl['pov_pc_D']
 
@@ -237,9 +279,6 @@ iah_ntl = iah_ntl.reset_index()
 myHaz = None
 if myCountry == 'FJ': myHaz = [['Ba','Lau','Tailevu'],get_all_hazards(myCountry,iah_res),[1,100,500]]
 elif myCountry == 'PH': myHaz = [['NCR'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
-
-q_labels = ['Poorest quintile','Q2','Q3','Q4','Wealthiest quintile']
-q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 ##################################################################
 # This code generates the histograms showing income before & after disaster
@@ -255,7 +294,7 @@ for aReg in myHaz[0]:
         
         myC_ylim = None
         c_bins = [None,50]
-        for anRP in myHaz[2]:        
+        for anRP in myHaz[2][::-1]:        
 
             ax=plt.gca()
 
@@ -288,7 +327,7 @@ for aReg in myHaz[0]:
             new_pov = int(iah_res.loc[((iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)
                                        &(iah_res.pcinc_ae > iah_res.pov_line)&(iah_res.c_final < iah_res.pov_line)),'pcwgt'].sum())
             new_pov_pct = round(100.*float(new_pov)/float(iah_res.loc[(iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP),'pcwgt'].sum()),1)
-            plt.plot([iah_res.pov_line.mean()/scale_fac,iah_res.pov_line.mean()/scale_fac],[0,1.21*cf_heights[:-2].max()],'k-',lw=1.5,color=greys_pal[7],zorder=100,alpha=0.85)
+            plt.plot([iah_res.pov_line.mean()/scale_fac,iah_res.pov_line.mean()/scale_fac],[0,1.21*cf_heights[:-2].max()],'k-',lw=2.5,color=greys_pal[7],zorder=100,alpha=0.85)
             ax.annotate('Poverty line',xy=(1.1*iah_res.pov_line.mean()/scale_fac,1.21*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False,weight='bold')
             ax.annotate(r'$\Delta$N$_p$ = +'+int_w_commas(new_pov)+' ('+str(new_pov_pct)+'% of population)',
                         xy=(1.1*iah_res.pov_line.mean()/scale_fac,1.14*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
@@ -298,7 +337,7 @@ for aReg in myHaz[0]:
                 new_sub = int(iah_res.loc[((iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)
                                            &(iah_res.pcinc_ae > sub_line)&(iah_res.c_final < sub_line)),'pcwgt'].sum())
                 new_sub_pct = round(100.*float(new_sub)/float(iah_res.loc[(iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP),'pcwgt'].sum()),1)
-                plt.plot([sub_line,sub_line],[0,1.41*cf_heights[:-2].max()],'k-',lw=1.5,color=greys_pal[7],zorder=100,alpha=0.85)
+                plt.plot([sub_line,sub_line],[0,1.41*cf_heights[:-2].max()],'k-',lw=2.5,color=greys_pal[7],zorder=100,alpha=0.85)
                 ax.annotate('Subsistence line',xy=(1.1*sub_line,1.41*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
                 ax.annotate(r'$\Delta$N$_s$ = +'+int_w_commas(new_sub)+' ('+str(new_sub_pct)+'% of population)',
                             xy=(1.1*sub_line,1.34*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
@@ -306,7 +345,8 @@ for aReg in myHaz[0]:
             print(aReg,aDis,anRP,new_pov,'people into poverty &',new_sub,'into subsistence') 
 
             fig = ax.get_figure()
-            fig.savefig('../output_plots/'+myCountry+'/npr_poverty_k_'+aReg+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')
+            fig.savefig(output_plots+'npr_poverty_k_'+aReg+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')
+            fig.savefig(output_plots+'png/npr_poverty_k_'+aReg+'_'+aDis+'_'+str(anRP)+'.png',format='png')
             plt.clf()
             plt.close('all')
             print(aReg+'_poverty_k_'+aDis+'_'+str(anRP)+'.pdf')
@@ -380,7 +420,8 @@ for aProv in myHaz[0]:
             plt.ylabel('Disaster losses ('+get_currency(myCountry)+' per capita)')
 
             print('losses_k_'+aDis+'_'+str(anRP)+'.pdf')
-            fig.savefig('../output_plots/'+myCountry+'/npr_'+aProv+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
+            fig.savefig(output_plots+'npr_'+aProv+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
+            fig.savefig(output_plots+'png/npr_'+aProv+'_'+aDis+'_'+str(anRP)+'.png',format='png')
 
             plt.figure(2)
             fig2 = ax2.get_figure()
@@ -401,9 +442,10 @@ for aProv in myHaz[0]:
 
             ax2.xaxis.set_ticks([])
             plt.xlim(3,26)
-            plt.plot([i for i in ax2.get_xlim()],[0,0],'k-',lw=1.5,color=greys_pal[7],zorder=100,alpha=0.85)
+            plt.plot([i for i in ax2.get_xlim()],[0,0],'k-',lw=2.5,color=greys_pal[7],zorder=100,alpha=0.85)
             plt.ylabel('Well-being losses ('+get_currency(myCountry)+' per capita)')
-            fig2.savefig('../output_plots/'+myCountry+'/npr_pds_schemes_'+aProv+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')
+            fig2.savefig(output_plots+'npr_pds_schemes_'+aProv+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')
+            fig2.savefig(output_plots+'png/npr_pds_schemes_'+aProv+'_'+aDis+'_'+str(anRP)+'.png',format='png')
         
             plt.clf()
             plt.close('all')

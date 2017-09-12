@@ -206,8 +206,6 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
         hazard_ratios_event['fa'] = hazard_ratios_event['fa'].clip(lower=0.0)
         
         hazard_ratios_event = hazard_ratios_event.reset_index().set_index(['Division','hazard','rp','hhid'])
-        
-        print(hazard_ratios_event.loc[hazard_ratios_event.fa<0])
 
     # PSA input: original value of c
     avg_c = round(np.average(macro['gdp_pc_pp_prov'],weights=macro['pop'])/get_to_USD(myCountry),2)
@@ -250,7 +248,6 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     #Calculation of macroeconomic resilience
     macro_event['macro_multiplier'] =(hazard_ratios_event['dy_over_dk'].mean(level=event_level)+recons_rate)/(macro_event['rho']+recons_rate)  #Gamma in the technical paper
     
-    
     #updates columns in macro with columns in hazard_ratios_event
     cols = [c for c in macro_event if c in hazard_ratios_event] #columns that are both in macro_event and hazard_ratios_event
     if not cols==[]:
@@ -278,7 +275,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 
     return macro_event, cats_event, hazard_ratios_event 
 
-def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
+def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,infra_patch=False):
 
     cats_event_ia=concat_categories(cats_event,cats_event,index= affected_cats)
     
@@ -308,7 +305,41 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats):
     macro_event['dk_event']   =  cats_event_ia[['dk','pcwgt']].prod(axis=1,skipna=False).sum(level=event_level)
  
     #immediate consumption losses: direct capital losses plus losses through event-scale depression of transfers
-    cats_event_ia['dc'] = (1-macro_event['tau_tax'])*cats_event_ia['dk'] + cats_event_ia['gamma_SP']*macro_event[['tau_tax','dk_event']].prod(axis=1)
+    if infra_patch == False:
+        cats_event_ia['dc'] = (1-macro_event['tau_tax'])*cats_event_ia['dk'] + cats_event_ia['gamma_SP']*macro_event[['tau_tax','dk_event']].prod(axis=1)
+    else:
+        print('Uncharted waters now')
+        cats_event_ia = cats_event_ia.reset_index().set_index(event_level+['hhid','affected_cat'])
+
+        rebuild_fees = pd.DataFrame(index=cats_event_ia.index)
+        rebuild_fees['dk_public'] = cats_event_ia[['public_loss_v','k']].prod(axis=1,skipna=False) # dk per cap
+        rebuild_fees['dk_public_tot'] = cats_event_ia[['pcwgt','public_loss_v','k']].prod(axis=1,skipna=False).sum(level=event_level)
+
+        # help_fee = (cats_event_ia[['pcwgt','k']].prod(axis=1,skipna=False)/cats_event_ia[['pcwgt','k']].prod(axis=1,skipna=False).sum(level=['hazard','rp']))
+
+        rebuild_fees_tmp = pd.DataFrame(index=cats_event_ia.sum(level=['hazard','rp']).index)
+        rebuild_fees_tmp['tot_k'] = cats_event_ia[['pcwgt','k']].prod(axis=1,skipna=False).sum(level=['hazard','rp'])
+        
+        rebuild_fees = pd.merge(rebuild_fees.reset_index(),rebuild_fees_tmp.reset_index(),on=['hazard','rp']).reset_index().set_index(event_level+['hhid','affected_cat'])
+
+        rebuild_fees['frac_k'] = cats_event_ia[['pcwgt','k']].prod(axis=1,skipna=False)/rebuild_fees['tot_k']
+        rebuild_fees['pc_fee'] = rebuild_fees[['dk_public_tot','frac_k']].prod(axis=1)
+
+        cats_event_ia[['dk_public','pc_fee']] = rebuild_fees[['dk_public','pc_fee']]
+        cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
+
+        # Affected hh:
+        # -- 
+        cats_event_ia['dc'] = ((1-macro_event['tau_tax'])*(cats_event_ia['dk']-cats_event_ia['dk_public']) 
+                               + cats_event_ia['gamma_SP']*macro_event[['tau_tax','dk_event']].prod(axis=1)
+                               + cats_event_ia['pc_fee'])
+
+        # Not affected hh:
+        cats_event_ia.loc[(cats_event_ia.affected_cat=='na'),'dc'] = (cats_event_ia.loc[(cats_event_ia.affected_cat=='na'),'gamma_SP']*macro_event[['tau_tax','dk_event']].prod(axis=1) 
+                                                                      + cats_event_ia.loc[(cats_event_ia.affected_cat=='na'),'pc_fee'])
+        
+        cats_event_ia['dc_0'] = (1-macro_event['tau_tax'])*cats_event_ia['dk'] + cats_event_ia['gamma_SP']*macro_event[['tau_tax','dk_event']].prod(axis=1)
+        #cats_event_ia[['affected_cat','dk','dc','dc_0']].to_csv('~/Desktop/dc.csv')
 
     # This term is the impact on income from labor
     # cats_event_ia['dc_1'] = (1-macro_event['tau_tax'])*cats_event_ia['dk']
@@ -389,8 +420,9 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
         cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),aWGT]*=(  cats_event_iah['error_incl'])  
         cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='na'),aWGT]*=(1-cats_event_iah['error_incl'])
 
-    cats_event_iah = cats_event_iah.drop([icol for icol in ['index','error_excl','error_incl'] if icol in cats_event_iah.columns],axis=1).reset_index().set_index(df_index)
-
+    cats_event_iah = cats_event_iah.reset_index().set_index(df_index).drop([icol for icol in ['index','error_excl','error_incl'] if icol in cats_event_iah.columns],axis=1)
+    cats_event_iah = cats_event_iah.drop(['index'],axis=1)
+    
     # MAXIMUM NATIONAL SPENDING ON SCALE UP
     macro_event['max_increased_spending'] = 0.05
 
@@ -440,6 +472,7 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
  
         cats_event_iah = pd.merge(cats_event_iah.reset_index(),sp_payout[['rp','payout','frac_core','frac_add']].reset_index(),on=['rp'])
         cats_event_iah = cats_event_iah.reset_index().set_index(['Division','hazard','hhid','rp','affected_cat','helped_cat'])
+        cats_event_iah = cats_event_iah.drop([i for i in ['level_0'] if i in cats_event_iah.columns],axis=1)
 
         # Generate random numbers to determine payouts
         cats_event_iah['SP_lottery'] = np.random.uniform(0.0,1.0,cats_event_iah.shape[0])
@@ -463,11 +496,7 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
         # ^ Take helped_cat and affected_cat out of index. Need to slice on helped_cat, and the rest of the code doesn't want hhtypes in index
   
         cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped'),'help_received'] = 0
-        cats_event_iah = cats_event_iah.drop(['level_0','SPP_core','SPP_add','payout','frac_core','frac_add','SP_lottery','SP_lottery_win'],axis=1)
-        
-        
-        print('Can drop more cols?:\n',cats_event_iah.columns)
-        assert(False)
+        cats_event_iah = cats_event_iah.drop([i for i in ['level_0','SPP_core','SPP_add','payout','frac_core','frac_add','SP_lottery','SP_lottery_win']if i in cats_event_iah.columns],axis=1)
 
         my_out = cats_event_iah[['help_received','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
         my_out.to_csv('../output_country/FJ/SPplus_expenditure.csv')
@@ -628,7 +657,7 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
 
         cats_event_iah['help_fee'] = 0
         if optionPDS == 'fiji_SPS' or optionPDS == 'fiji_SPP':
-
+            
             cats_event_iah = pd.merge(cats_event_iah.reset_index(),(cats_event_iah[['help_received','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])).reset_index(),on=['hazard','rp'])
             cats_event_iah = cats_event_iah.reset_index().set_index(event_level)
             cats_event_iah = cats_event_iah.rename(columns={0:'totex'}).drop(['index','level_0'],axis=1)
@@ -860,11 +889,7 @@ def calc_delta_welfare(micro, macro):
     #dwB = -1*welf1(micro['c']/macro['rho']-micro['dc_npv_post'], macro['income_elast'],micro['c_5']/macro['rho'])
     
     #dw= (welf1(micro['c']/macro['rho'], macro['income_elast'], micro['c_5']/macro['rho'])
-    #             - welf1(micro['c']/macro['rho']-micro['dc_npv_post'], macro['income_elast'],micro['c_5']/macro['rho']))
-
-    print(micro.index.names)
-    print(macro.index.names)
-       
+    #             - welf1(micro['c']/macro['rho']-micro['dc_npv_post'], macro['income_elast'],micro['c_5']/macro['rho']))       
 
     mac_ix = macro.index.names
     mic_ix = micro.index.names
