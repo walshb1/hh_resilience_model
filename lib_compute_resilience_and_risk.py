@@ -297,7 +297,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,infra_p
     cats_event_ia['v_shew']=cats_event_ia['v']*(1-macro_event['pi']*cats_event_ia['shew']) 
 
     #capital losses and total capital losses. Each household's capital losses is the sum of their private losses and public infrastructure losses (in proportion to their capital)
-    cats_event_ia['dk'] = cats_event_ia[['hh_share','k','v_shew']].prod(axis=1, skipna=False)+cats_event_ia[['public_loss_v','k']].prod(axis=1, skipna=False)
+    cats_event_ia['dk'] = cats_event_ia[['hh_share','k','v_shew']].prod(axis=1, skipna=False)+cats_event_ia[['k','public_loss_v']].prod(axis=1, skipna=False)
     cats_event_ia.ix[(cats_event_ia.affected_cat=='na'), 'dk']=0
 
     #'provincial' losses
@@ -310,24 +310,47 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,infra_p
     else:
         print('Uncharted waters now')
         cats_event_ia = cats_event_ia.reset_index().set_index(event_level+['hhid','affected_cat'])
+        rebuild_fees = pd.DataFrame(cats_event_ia[['k','dk','pcwgt']],index=cats_event_ia.index)
 
-        rebuild_fees = pd.DataFrame(index=cats_event_ia.index)
-        rebuild_fees['dk_public'] = cats_event_ia[['public_loss_v','k']].prod(axis=1,skipna=False) # dk per cap
-        rebuild_fees['dk_public_tot'] = cats_event_ia[['pcwgt','public_loss_v','k']].prod(axis=1,skipna=False).sum(level=event_level)
+        cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
+        rebuild_fees = rebuild_fees.reset_index().set_index(event_level)
 
-        # help_fee = (cats_event_ia[['pcwgt','k']].prod(axis=1,skipna=False)/cats_event_ia[['pcwgt','k']].prod(axis=1,skipna=False).sum(level=['hazard','rp']))
+        rebuild_fees['dk_public'] = cats_event_ia[['public_loss_v','k']].prod(axis=1,skipna=False) 
+        rebuild_fees.loc[rebuild_fees.affected_cat == 'na','dk_public'] = 0.
+        # ^  public dk losses, per cap
+        
+        rebuild_fees['dk_public_hh'] = rebuild_fees[['pcwgt','dk_public']].prod(axis=1,skipna=False)
+        # ^ total dk suffered by each hh (and all the people it represents)
+ 
+        rebuild_fees['dk_public_tot'] = rebuild_fees['dk_public_hh'].sum(level=event_level)
+        # ^ dk_public_tot is the value of public asset losses, when a disaster (of type&magnitude) hits a single province
 
         rebuild_fees_tmp = pd.DataFrame(index=cats_event_ia.sum(level=['hazard','rp']).index)
         rebuild_fees_tmp['tot_k'] = cats_event_ia[['pcwgt','k']].prod(axis=1,skipna=False).sum(level=['hazard','rp'])
-        
+        # ^ tot_k is all the assets in the country
+
         rebuild_fees = pd.merge(rebuild_fees.reset_index(),rebuild_fees_tmp.reset_index(),on=['hazard','rp']).reset_index().set_index(event_level+['hhid','affected_cat'])
 
+        cats_event_ia = cats_event_ia.reset_index().set_index(event_level+['hhid','affected_cat'])
+        rebuild_fees = rebuild_fees.reset_index().set_index(event_level+['hhid','affected_cat'])
+
         rebuild_fees['frac_k'] = cats_event_ia[['pcwgt','k']].prod(axis=1,skipna=False)/rebuild_fees['tot_k']
-        rebuild_fees['pc_fee'] = rebuild_fees[['dk_public_tot','frac_k']].prod(axis=1)
+        # ^ what fraction of all capital in the country is in each hh?
+        
+        rebuild_fees['pc_fee'] = rebuild_fees[['dk_public_tot','frac_k']].prod(axis=1)/rebuild_fees['pcwgt']
+        # ^ this is the fraction of damages that each hh will pay
+        # --> this is where it goes sideways, tho...
+        # --> dk_public_tot is for a specific province/hazard/rp, and it needs to be distributed among everyone, nationally
+        # --> but it only goes to the hh in the province
+        
+        rebuild_fees['hh_fee'] = rebuild_fees[['pc_fee','pcwgt']].prod(axis=1)
 
         cats_event_ia[['dk_public','pc_fee']] = rebuild_fees[['dk_public','pc_fee']]
         cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
 
+        #print(rebuild_fees[['dk_public_hh','hh_fee','frac_k']].sum(level=event_level).head(17))
+        # ^ Check: we know this works if hh_fee = 'dk_public_hh'*'frac_k'
+        
         # Affected hh:
         # -- 
         cats_event_ia['dc'] = ((1-macro_event['tau_tax'])*(cats_event_ia['dk']-cats_event_ia['dk_public']) 
