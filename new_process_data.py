@@ -141,7 +141,7 @@ try:
     for aHaz in grab[0]:
         for anRP in grab[1]:
             
-            ax = iah_res.loc[(iah_res.hazard==aHaz)&(iah_res.rp==anRP)].plot.scatter('dc_npv_pre','dc_inf_npv_pre',c='quintile')   
+            ax = iah_res.loc[(iah_res.Division=='Ba')&(iah_res.hazard==aHaz)&(iah_res.rp==anRP)].plot.scatter('dc_npv_pre','dc_inf_npv_pre',c='quintile')   
             ax.plot()
             fig = plt.gcf()
             fig.savefig(output_plots+'experiments/infra_dc_npv_pre.pdf',format='pdf')
@@ -151,23 +151,23 @@ try:
             ax = None
             for iq in range(1,6):
                 if iq==1: 
-                    ax = iah_res.loc[(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq)].plot.scatter('dc_npv_pre','dc_delta',color=q_colors[iq-1],label='Q'+str(iq),alpha=0.4)
+                    ax = iah_res.loc[(iah_res.Division=='Ba')&(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq)].plot.scatter('dc_npv_pre','dc_delta',color=q_colors[iq-1],label='Q'+str(iq),alpha=0.4)
                     ax.annotate(r'Init.',xy=(0.18,0.95),xycoords='axes fraction',size=6,va='top',ha='left',annotation_clip=False,zorder=100,weight='bold')
                     ax.annotate(r'$\Delta$ ',xy=(0.24,0.95),xycoords='axes fraction',size=6,va='top',ha='left',annotation_clip=False,zorder=100,weight='bold')
                     ax.annotate(r'$\Delta(>)$ ',xy=(0.30,0.95),xycoords='axes fraction',size=6,va='top',ha='left',annotation_clip=False,zorder=100,weight='bold')
                     ax.annotate(r'$\Delta(<)$ ',xy=(0.36,0.95),xycoords='axes fraction',size=6,va='top',ha='left',annotation_clip=False,zorder=100,weight='bold')
 
-                else: iah_res.loc[(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq)].plot.scatter('dc_npv_pre','dc_delta', color=q_colors[iq-1],label='Q'+str(iq),ax=ax,alpha=0.4)
+                else: iah_res.loc[(iah_res.Division=='Ba')&(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq)].plot.scatter('dc_npv_pre','dc_delta', color=q_colors[iq-1],label='Q'+str(iq),ax=ax,alpha=0.4)
                 
-                mean_x = str(round(float(iah_res.loc[(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq),['pcwgt','dc_npv_pre']].prod(axis=1).sum()/
-                                         iah_res.loc[(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq),['pcwgt']].sum()),1))
-                mean_y = str(round(float(iah_res.loc[(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq),['pcwgt','dc_delta']].prod(axis=1).sum()/
-                                         iah_res.loc[(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq),['pcwgt']].sum()),1))
+                mean_x = str(round(float(iah_res.loc[(iah_res.Division=='Ba')&(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq),['pcwgt','dc_npv_pre']].prod(axis=1).sum()/
+                                         iah_res.loc[(iah_res.Division=='Ba')&(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq),['pcwgt']].sum()),1))
+                mean_y = str(round(float(iah_res.loc[(iah_res.Division=='Ba')&(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq),['pcwgt','dc_delta']].prod(axis=1).sum()/
+                                         iah_res.loc[(iah_res.Division=='Ba')&(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq),['pcwgt']].sum()),1))
 
-                mean_y_pos = str(round(float(iah_res.loc[(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq)&(iah_res.dc_delta>0),['pcwgt','dc_delta']].prod(axis=1).sum()/
-                                             iah_res.loc[(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq)&(iah_res.dc_delta>0),['pcwgt']].sum()),1))
-                mean_y_neg = str(round(float(iah_res.loc[(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq)&(iah_res.dc_delta<0),['pcwgt','dc_delta']].prod(axis=1).sum()/
-                                             iah_res.loc[(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq)&(iah_res.dc_delta<0),['pcwgt']].sum()),1))
+                mean_y_pos = str(round(float(iah_res.loc[(iah_res.Division=='Ba')&(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq)&(iah_res.dc_delta>0),['pcwgt','dc_delta']].prod(axis=1).sum()/
+                                             iah_res.loc[(iah_res.Division=='Ba')&(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq)&(iah_res.dc_delta>0),['pcwgt']].sum()),1))
+                mean_y_neg = str(round(float(iah_res.loc[(iah_res.Division=='Ba')&(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq)&(iah_res.dc_delta<0),['pcwgt','dc_delta']].prod(axis=1).sum()/
+                                             iah_res.loc[(iah_res.Division=='Ba')&(iah_res.hazard==aHaz)&(iah_res.rp==anRP)&(iah_res.quintile==iq)&(iah_res.dc_delta<0),['pcwgt']].sum()),1))
                 
                 anno_str = 'Q'+str(iq)+' dc = '+mean_x+' - '+mean_y[1:]+' (+'+mean_y_pos+' & '+mean_y_neg+')'
                 ax.annotate(anno_str,xy=(0.10,0.95-0.05*iq),xycoords='axes fraction',size=8,va='top',ha='left',annotation_clip=False,zorder=100)
@@ -176,7 +176,7 @@ try:
             plt.xlim(0,6000)
             plt.ylim(-5000,5000)
             fig = plt.gcf()
-            fig.savefig(output_plots+'experiments/infra_dc_npv_pre_delta_'+aHaz+str(anRP)+'.pdf',format='pdf')
+            fig.savefig(output_plots+'experiments/infra_dc_npv_pre_delta_Ba'+aHaz+str(anRP)+'.pdf',format='pdf')
             print('infra plot 2/2')
             plt.clf()
             plt.close('all')

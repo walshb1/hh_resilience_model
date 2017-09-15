@@ -92,8 +92,10 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     # compute_dK does the following:
     # -- adds dk_event column to macro_event
     # -- adds affected/na categories to cats_event
-    redo_inf = [True,'_ip']
-    macro_event, cats_event_ia = compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,redo_inf[0]) #calculate the actual vulnerability, the potential damange to capital, and consumption
+    share_public_assets = [True,'_ip']
+    macro_event, cats_event_ia, shared_costs = compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_public_assets[0]) #calculate the actual vulnerability, the potential damange to capital, and consumption
+    try: shared_costs.to_csv(output+'shared_costs_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+share_public_assets[1]+'.csv',encoding='utf-8', header=True)
+    except: pass
     print('B\n\n')
     
     macro_event, cats_event_iah = calculate_response(myCountry,pol_str,macro_event,cats_event_ia,event_level,helped_cats,default_rp,option_CB,optionFee=optionFee,optionT=optionT, optionPDS=optionPDS, optionB=optionB,loss_measure='dk',fraction_inside=1, share_insured=.25)
@@ -104,7 +106,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     #optionB:one_per_affected, one_per_helped, one, unlimited, data, unif_poor, max01, max05
     #optionPDS: unif_poor, no, 'prop', 'prop_nonpoor'
 
-    macro_event.to_csv(output+'macro_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+redo_inf[1]+'.csv',encoding='utf-8', header=True)
+    macro_event.to_csv(output+'macro_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+share_public_assets[1]+'.csv',encoding='utf-8', header=True)
     print('Step D: Wrote '+output+'macro_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv')
 
     #cats_event_iah.to_csv(output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
@@ -118,11 +120,11 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     results,iah = process_output(pol_str,out,macro_event,economy,default_rp,return_iah=True,is_local_welfare=False)
     print('G')
 
-    results.to_csv(output+'results_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+redo_inf[1]+'.csv',encoding='utf-8', header=True)
+    results.to_csv(output+'results_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+share_public_assets[1]+'.csv',encoding='utf-8', header=True)
     print('H')
 
     iah = iah.drop([icol for icol in ['index','social','pcsoc','v','v_shew','gamma_SP','c_5','n','shew','fa','hh_share','public_loss_v','v_shew','SP_CPP','SP_FAP','SP_FNPF','SP_SPS','SP_PBS','SPP_core','SPP_add','nOlds','dc_0'] if icol in iah.columns],axis=1)
-    iah.to_csv(output+'iah_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+redo_inf[1]+'.csv',encoding='utf-8', header=True)
+    iah.to_csv(output+'iah_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+share_public_assets[1]+'.csv',encoding='utf-8', header=True)
     print('Step I: wrote iah, a huge file. See anything to drop?\n',iah.columns)
     return True
 

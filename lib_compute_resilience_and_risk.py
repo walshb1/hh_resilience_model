@@ -275,7 +275,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 
     return macro_event, cats_event, hazard_ratios_event 
 
-def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,infra_patch=False):
+def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_public_assets=False):
 
     cats_event_ia=concat_categories(cats_event,cats_event,index= affected_cats)
     
@@ -305,10 +305,12 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,infra_p
     macro_event['dk_event']   =  cats_event_ia[['dk','pcwgt']].prod(axis=1,skipna=False).sum(level=event_level)
  
     #immediate consumption losses: direct capital losses plus losses through event-scale depression of transfers
-    if infra_patch == False:
+    if share_public_assets == False:
+        print('\nInfra & public asset costs are assigned to *each hh*\n')
         cats_event_ia['dc'] = (1-macro_event['tau_tax'])*cats_event_ia['dk'] + cats_event_ia['gamma_SP']*macro_event[['tau_tax','dk_event']].prod(axis=1)
+        public_costs = None
     else:
-        print('Uncharted waters now')
+        print('\nSharing infra & public asset costs among all households *nationally*\n')
         cats_event_ia = cats_event_ia.reset_index().set_index(event_level+['hhid','affected_cat'])
         rebuild_fees = pd.DataFrame(cats_event_ia[['k','dk','pcwgt']],index=cats_event_ia.index)
 
@@ -350,9 +352,31 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,infra_p
 
         #print(rebuild_fees[['dk_public_hh','hh_fee','frac_k']].sum(level=event_level).head(17))
         # ^ Check: we know this works if hh_fee = 'dk_public_hh'*'frac_k'
+
+        ############################        
+        # Make another output file... public_costs.csv
+        # --> this contains the cost to each province/region of each disaster (hazardxrp) in another province
+        public_costs = pd.DataFrame(index=macro_event.index)
+        public_costs['tot_cost'] = rebuild_fees['dk_public_hh'].sum(level=event_level)
+        public_costs['int_cost'] = (rebuild_fees[['dk_public_hh','frac_k']].sum(level=event_level)).prod(axis=1)
+        public_costs['ext_cost'] = public_costs['tot_cost'] - public_costs['int_cost']
+        public_costs['tmp'] = 1
         
+        prov_k = pd.DataFrame(index=rebuild_fees.sum(level=event_level[0]).index)
+        prov_k.index.names = ['contributer']
+
+        prov_k['frac_k'] = rebuild_fees['frac_k'].sum(level=event_level[0])/rebuild_fees['frac_k'].sum()
+        prov_k['tmp'] = 1
+        prov_k = prov_k.reset_index()
+        
+        public_costs = pd.merge(public_costs.reset_index(),prov_k.reset_index(),on=['tmp']).reset_index().set_index(event_level).sort_index()
+        public_costs = public_costs.drop(['index','level_0','tmp'],axis=1)
+        # ^  broadcast prov index to public_costs (2nd provincial index)
+
+        public_costs['transfer_k'] = public_costs[['tot_cost','frac_k']].prod(axis=1)
+
+        ############################
         # Affected hh:
-        # -- 
         cats_event_ia['dc'] = ((1-macro_event['tau_tax'])*(cats_event_ia['dk']-cats_event_ia['dk_public']) 
                                + cats_event_ia['gamma_SP']*macro_event[['tau_tax','dk_event']].prod(axis=1)
                                + cats_event_ia['pc_fee'])
@@ -362,7 +386,6 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,infra_p
                                                                       + cats_event_ia.loc[(cats_event_ia.affected_cat=='na'),'pc_fee'])
         
         cats_event_ia['dc_0'] = (1-macro_event['tau_tax'])*cats_event_ia['dk'] + cats_event_ia['gamma_SP']*macro_event[['tau_tax','dk_event']].prod(axis=1)
-        #cats_event_ia[['affected_cat','dk','dc','dc_0']].to_csv('~/Desktop/dc.csv')
 
     # This term is the impact on income from labor
     # cats_event_ia['dc_1'] = (1-macro_event['tau_tax'])*cats_event_ia['dk']
@@ -373,7 +396,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,infra_p
     # NPV consumption losses accounting for reconstruction and productivity of capital (pre-response)
     cats_event_ia['dc_npv_pre'] = cats_event_ia['dc']*macro_event['macro_multiplier']
 
-    return macro_event, cats_event_ia
+    return macro_event, cats_event_ia, public_costs
 
 
 def calculate_response(myCountry,pol_str,macro_event,cats_event_ia,event_level,helped_cats,default_rp,option_CB,optionFee='tax',optionT='data', optionPDS='unif_poor', optionB='data',loss_measure='dk',fraction_inside=1, share_insured=.25):
@@ -519,7 +542,7 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
         # ^ Take helped_cat and affected_cat out of index. Need to slice on helped_cat, and the rest of the code doesn't want hhtypes in index
   
         cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped'),'help_received'] = 0
-        cats_event_iah = cats_event_iah.drop([i for i in ['level_0','SPP_core','SPP_add','payout','frac_core','frac_add','SP_lottery','SP_lottery_win']if i in cats_event_iah.columns],axis=1)
+        cats_event_iah = cats_event_iah.drop([i for i in ['level_0','SPP_core','SPP_add','payout','frac_core','frac_add','SP_lottery','SP_lottery_win'] if i in cats_event_iah.columns],axis=1)
 
         my_out = cats_event_iah[['help_received','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
         my_out.to_csv('../output_country/FJ/SPplus_expenditure.csv')
