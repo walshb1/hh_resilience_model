@@ -309,6 +309,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
         print('\nInfra & public asset costs are assigned to *each hh*\n')
         cats_event_ia['dc'] = (1-macro_event['tau_tax'])*cats_event_ia['dk'] + cats_event_ia['gamma_SP']*macro_event[['tau_tax','dk_event']].prod(axis=1)
         public_costs = None
+
     else:
         print('\nSharing infra & public asset costs among all households *nationally*\n')
         cats_event_ia = cats_event_ia.reset_index().set_index(event_level+['hhid','affected_cat'])
@@ -374,6 +375,47 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
         # ^  broadcast prov index to public_costs (2nd provincial index)
 
         public_costs['transfer_k'] = public_costs[['tot_cost','frac_k']].prod(axis=1)
+        public_costs['dw'] = None
+
+        ############################
+        # So we have cost of each disaster in each province to every other province
+        # - need to calc welfare impact of these transfers
+        public_costs = public_costs.reset_index()
+        cats_event_ia = cats_event_ia.reset_index().set_index(['hhid'])
+        
+        for iP in public_costs.contributer.unique():
+
+            tmp_df = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP)&(cats_event_ia.affected_cat=='na'),['k','c','c_5']].mean(level='hhid')
+            tmp_df['pcwgt'] = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP)&(cats_event_ia.affected_cat=='na'),['pcwgt']].sum(level='hhid')
+            tmp_df['pc_frac_k'] = tmp_df[['pcwgt','k']].prod(axis=1)/tmp_df[['pcwgt','k']].prod(axis=1).sum()
+            # ^ this grabs a single instance of each hh in a given province
+            # --> 'k' and 'c' are not distributed between {a,na} (use mean), but pcwgt is (use sum)
+            # --> 'pc_frac_k' used to determine what they'll pay when a disaster happens elsewhere
+
+            tmp_mm  = macro_event['macro_multiplier'].mean()
+            tmp_ie  = macro_event['income_elast'].mean()
+            tmp_rho = macro_event['rho'].mean()
+            # ^ these *could* vary by province/event, but don't (for now), so I'll use the outside the pandas dfs.
+
+            for iRecip in public_costs[event_level[0]].unique():
+                for iHaz in public_costs.hazard.unique():
+                    for iRP in public_costs.rp.unique():
+                        
+                        tmp_cost = float(public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer == iP)
+                                                     &(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'transfer_k'])
+                        # ^ this identifies the amount that a province (iP, above) will contribute to another province when a disaster occurs
+
+                        tmp_df['tmp_dk'] = tmp_cost*tmp_df['pc_frac_k']
+                        tmp_df['tmp_dc_npv'] = tmp_mm*tmp_df['tmp_dk']
+                        
+                        tmp_df['dw'] = (welf1(tmp_df['c']/tmp_rho, tmp_ie, tmp_df['c_5']/tmp_rho)
+                                        - welf1(tmp_df['c']/tmp_rho-tmp_df['tmp_dc_npv'], tmp_ie,tmp_df['c_5']/tmp_rho))
+                        
+                        public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer == iP)
+                                                     &(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'dw'] = tmp_df[['pcwgt','dw']].prod(axis=1).sum()
+        
+        cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
+        public_costs = public_costs.reset_index().set_index(event_level).drop('index',axis=1)
 
         ############################
         # Affected hh:
@@ -382,7 +424,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
                                + cats_event_ia['pc_fee'])
 
         # Not affected hh:
-        cats_event_ia.loc[(cats_event_ia.affected_cat=='na'),'dc'] = (cats_event_ia.loc[(cats_event_ia.affected_cat=='na'),'gamma_SP']*macro_event[['tau_tax','dk_event']].prod(axis=1) 
+        cats_event_ia.loc[(cats_event_ia.affected_cat=='na'),'dc'] = (cats_event_ia.loc[(cats_event_ia.affected_cat=='na'),'gamma_SP']*macro_event[['tau_tax','dk_event']].prod(axis=1)
                                                                       + cats_event_ia.loc[(cats_event_ia.affected_cat=='na'),'pc_fee'])
         
         cats_event_ia['dc_0'] = (1-macro_event['tau_tax'])*cats_event_ia['dk'] + cats_event_ia['gamma_SP']*macro_event[['tau_tax','dk_event']].prod(axis=1)

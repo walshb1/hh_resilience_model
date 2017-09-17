@@ -259,7 +259,6 @@ def load_survey_data(myC,inc_sf=None):
 
     else: return None
 
-
 def get_df2(myC):
 
     if myC == 'PH':
@@ -282,7 +281,7 @@ def get_vul_curve(myC,struct):
     if myC == 'SL':
         df = pd.read_excel(inputs+'vulnerability_curves.xlsx',sheetname=struct)[['key','v']]
         df = df.rename(columns={'key':'desc'})
-        return df        
+        return df
         
     else: return None
     
