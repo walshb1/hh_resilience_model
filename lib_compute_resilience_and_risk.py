@@ -275,7 +275,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 
     return macro_event, cats_event, hazard_ratios_event 
 
-def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_public_assets=False):
+def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_public_assets=False,is_local_welfare=False):
 
     cats_event_ia=concat_categories(cats_event,cats_event,index= affected_cats)
     
@@ -395,12 +395,21 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
             tmp_mm  = macro_event['macro_multiplier'].mean()
             tmp_ie  = macro_event['income_elast'].mean()
             tmp_rho = macro_event['rho'].mean()
+            h = 1.E-4
             # ^ these *could* vary by province/event, but don't (for now), so I'll use the outside the pandas dfs.
 
             for iRecip in public_costs[event_level[0]].unique():
                 for iHaz in public_costs.hazard.unique():
                     for iRP in public_costs.rp.unique():
                         
+                        # Calculate wprime
+                        tmp_wp = None
+                        if is_local_welfare:
+                            tmp_gdp = macro_event.loc[(macro_event[economy]==iP),'gdp_pc_pp_prov'].mean()
+                            tmp_wp =(welf(tmp_gdp/tmp_rho+h,tmp_ie)-welf(tmp_gdp/tmp_rho-h,tmp_ie))/(2*h)
+                        else: tmp_wp =(welf(macro_event['gdp_pc_pp_nat'].mean()/tmp_rho+h,tmp_ie)-welf(macro_event['gdp_pc_pp_nat'].mean()/tmp_rho-h,tmp_ie))/(2*h)
+                            
+
                         tmp_cost = float(public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer == iP)
                                                      &(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'transfer_k'])
                         # ^ this identifies the amount that a province (iP, above) will contribute to another province when a disaster occurs
@@ -409,10 +418,11 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
                         tmp_df['tmp_dc_npv'] = tmp_mm*tmp_df['tmp_dk']
                         
                         tmp_df['dw'] = (welf1(tmp_df['c']/tmp_rho, tmp_ie, tmp_df['c_5']/tmp_rho)
-                                        - welf1(tmp_df['c']/tmp_rho-tmp_df['tmp_dc_npv'], tmp_ie,tmp_df['c_5']/tmp_rho))
+                                        - welf1(tmp_df['c']/tmp_rho-tmp_df['tmp_dc_npv'], tmp_ie,tmp_df['c_5']/tmp_rho))/tmp_wp
                         
                         public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer == iP)
-                                                     &(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'dw'] = tmp_df[['pcwgt','dw']].prod(axis=1).sum()
+                                                     #&(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'dw'] = tmp_df[['pcwgt','dw']].prod(axis=1).sum()
+                                                     &(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'dw'] = tmp_df['dw'].sum()
         
         cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
         public_costs = public_costs.reset_index().set_index(event_level).drop('index',axis=1)
@@ -848,7 +858,7 @@ def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_C
         return df_out
     
 	
-def process_output(pol_str,out,macro_event,economy,default_rp,return_iah=True,is_local_welfare=True):
+def process_output(pol_str,out,macro_event,economy,default_rp,return_iah=True,is_local_welfare=False):
 
     #unpacks if needed
     if return_iah:

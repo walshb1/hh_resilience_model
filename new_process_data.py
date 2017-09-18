@@ -63,12 +63,13 @@ df = pd.read_csv(output+'results_tax_'+pds_str+'_.csv', index_col=[economy,'haza
 df_base = pd.read_csv(output+'results_tax_'+base_str+'_.csv', index_col=[economy,'hazard','rp'])
 macro = pd.read_csv(output+'macro_tax_'+pds_str+'_.csv', index_col=[economy,'hazard','rp'])
 
-iah_SP2, df_SP2, iah_infra = None, None,None
+iah_SP2, df_SP2, iah_infra, public_costs = None, None,None,None
 try:
     iah_SP2 = pd.read_csv(output+'iah_tax_'+pds2_str+'_.csv', index_col=[economy,'hazard','rp','hhid'])
     df_SP2  = pd.read_csv(output+'results_tax_'+pds2_str+'_.csv', index_col=[economy,'hazard','rp'])
     iah_infra = pd.read_csv(output+'iah_tax_'+base_str+'__ip.csv', index_col=[economy,'hazard','rp','hhid'])
-    print('loaded all 3 extra files')
+    public_costs = pd.read_csv(output+'shared_costs_tax_'+base_str+'__ip.csv', index_col=[economy,'hazard','rp']).reset_index()
+    print('loaded all 4 extra files')
 except: assert(False)
 
 for iPol in all_policies:
@@ -293,7 +294,7 @@ iah_res = iah_res.reset_index()
 iah_ntl = iah_ntl.reset_index()
 
 myHaz = None
-if myCountry == 'FJ': myHaz = [['Ba','Lau','Tailevu'],get_all_hazards(myCountry,iah_res),[1,100,500]]
+if myCountry == 'FJ': myHaz = [['Ba','Lau','Tailevu'],get_all_hazards(myCountry,iah_res),[1,10,100,500,1000]]
 elif myCountry == 'PH': myHaz = [['NCR'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
 
 ##################################################################
@@ -315,10 +316,10 @@ for aReg in myHaz[0]:
             ax=plt.gca()
 
             cf_heights, cf_bins = np.histogram((iah_res.loc[(iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP),'c_final']/scale_fac).clip(upper=upper_clip), bins=c_bins[1], 
-                                               weights=iah_res.loc[(iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP),'pcwgt']/get_scale_fac(myCountry)[0])
+                                               weights=iah_res.loc[(iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP),'pcwgt']/get_pop_scale_fac(myCountry)[0])
             if c_bins[0] == None: c_bins = [cf_bins,cf_bins]
             ci_heights, ci_bins = np.histogram((iah_res.loc[(iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP),'c_initial']/scale_fac).clip(upper=upper_clip), bins=c_bins[1], 
-                                               weights=iah_res.loc[(iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP),'pcwgt']/get_scale_fac(myCountry)[0])
+                                               weights=iah_res.loc[(iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP),'pcwgt']/get_pop_scale_fac(myCountry)[0])
         
             ax.bar(c_bins[1][:-1], ci_heights, width=(c_bins[1][1]-c_bins[1][0]), label=aReg+' - Initial', facecolor=q_colors[1],alpha=0.4)
             ax.bar(c_bins[1][:-1], cf_heights, width=(c_bins[1][1]-c_bins[1][0]), label=aReg+' - Post-disaster', facecolor=q_colors[0],alpha=0.4)
@@ -326,19 +327,25 @@ for aReg in myHaz[0]:
             if myC_ylim == None: myC_ylim = ax.get_ylim()
             plt.ylim(myC_ylim[0],1.4*myC_ylim[1])
 
+            mny = get_currency(myCountry)
+
             plt.xlim(0,upper_clip)
-            plt.xlabel(r'Income ('+get_currency(myCountry)+' yr$^{-1}$)')
-            plt.ylabel('Population'+get_scale_fac(myCountry)[1])
+            plt.xlabel(r'Income ('+mny[0]+' yr$^{-1}$)')
+            plt.ylabel('Population'+get_pop_scale_fac(myCountry)[1])
             plt.title(str(anRP)+'-year '+aDis+' event in '+aReg)
             leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
             leg.get_frame().set_color('white')
             leg.get_frame().set_edgecolor(greys_pal[7])
             leg.get_frame().set_linewidth(0.2)
 
-            ax.annotate('Total asset losses: '+str(round(iah_res.loc[(iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP),['pcwgt','dk']].prod(axis=1).sum()/1.E9,1))+' bill. '+get_currency(myCountry), 
+            ax.annotate('Total asset losses: '+str(round(iah_res.loc[(iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP),['pcwgt','dk']].prod(axis=1).sum()/mny[1],1))+mny[0],
                         xy=(0.03,-0.18), xycoords=leg.get_frame(),size=7,va='top',ha='left',annotation_clip=False,zorder=100)
-            ax.annotate('Total well-being losses: '+str(round(iah_res.loc[(iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP),['pcwgt','dw']].prod(axis=1).sum()/1.E9,1))+' bill. '+get_currency(myCountry), 
+            ax.annotate('Int. well-being losses: '+str(round(iah_res.loc[(iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP),['pcwgt','dw']].prod(axis=1).sum()/mny[1],1))+mny[0],
                         xy=(0.03,-0.50), xycoords=leg.get_frame(),size=7,va='top',ha='left',annotation_clip=False,zorder=100)
+            ax.annotate('Natl. liability: '+str(round(float(public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),['transfer_k']].sum()/mny[1]),1))+mny[0],
+                        xy=(0.03,-0.92), xycoords=leg.get_frame(),size=7,va='top',ha='left',annotation_clip=False,zorder=100)
+            ax.annotate('Natl. well-being losses: '+str(round(float(public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),['dw']].sum()/mny[1]),1))+mny[0],
+                        xy=(0.03,-1.24), xycoords=leg.get_frame(),size=7,va='top',ha='left',annotation_clip=False,zorder=100)
 
             new_pov = int(iah_res.loc[((iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)
                                        &(iah_res.pcinc_ae > iah_res.pov_line)&(iah_res.c_final < iah_res.pov_line)),'pcwgt'].sum())
@@ -433,7 +440,7 @@ for aProv in myHaz[0]:
             plt.figure(1)
             plt.plot([xlim for xlim in ax.get_xlim()],[0,0],'k-',lw=0.50,color=greys_pal[7],zorder=100,alpha=0.85)
             ax.xaxis.set_ticks([])
-            plt.ylabel('Disaster losses ('+get_currency(myCountry)+' per capita)')
+            plt.ylabel('Disaster losses ('+get_currency(myCountry)[0]+' per capita)')
 
             print('losses_k_'+aDis+'_'+str(anRP)+'.pdf')
             fig.savefig(output_plots+'npr_'+aProv+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
@@ -459,7 +466,7 @@ for aProv in myHaz[0]:
             ax2.xaxis.set_ticks([])
             plt.xlim(3,26)
             plt.plot([i for i in ax2.get_xlim()],[0,0],'k-',lw=2.5,color=greys_pal[7],zorder=100,alpha=0.85)
-            plt.ylabel('Well-being losses ('+get_currency(myCountry)+' per capita)')
+            plt.ylabel('Well-being losses ('+get_currency(myCountry)[0]+' per capita)')
             fig2.savefig(output_plots+'npr_pds_schemes_'+aProv+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')
             fig2.savefig(output_plots+'png/npr_pds_schemes_'+aProv+'_'+aDis+'_'+str(anRP)+'.png',format='png')
         

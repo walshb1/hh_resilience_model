@@ -47,10 +47,10 @@ def get_economic_unit(myC):
 
 def get_currency(myC):
     
-    if myC == 'PH': return 'PhP'
-    elif myC == 'FJ': return 'F\$'
-    elif myC == 'SL': return 'LKR'
-    else: return 'XXX'
+    if myC == 'PH': return ['b. PhP',1.E9]
+    elif myC == 'FJ': return ['k. F\$',1.E3]
+    elif myC == 'SL': return ['LKR',1.E0]
+    else: return ['XXX',1.E0]
 
 def get_places(myC,economy):
     # This df should have just province code/name and population
@@ -582,7 +582,7 @@ def get_to_USD(myC):
     elif myC == 'SL': return 153.76
     else: return 0.
 
-def get_scale_fac(myC):
+def get_pop_scale_fac(myC):
     
     if myC == 'PH': return [1.E6,' (Millions)']
     elif myC == 'FJ': return [1.E3,' (Thousands)']
