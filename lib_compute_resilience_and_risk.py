@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from pandas_helper import get_list_of_index_names, broadcast_simple, concat_categories
 from scipy.interpolate import interp1d
 from lib_gather_data import social_to_tx_and_gsp
+import math
 
 from lib_country_dir import *
 
@@ -408,7 +409,6 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
                             tmp_gdp = macro_event.loc[(macro_event[economy]==iP),'gdp_pc_pp_prov'].mean()
                             tmp_wp =(welf(tmp_gdp/tmp_rho+h,tmp_ie)-welf(tmp_gdp/tmp_rho-h,tmp_ie))/(2*h)
                         else: tmp_wp =(welf(macro_event['gdp_pc_pp_nat'].mean()/tmp_rho+h,tmp_ie)-welf(macro_event['gdp_pc_pp_nat'].mean()/tmp_rho-h,tmp_ie))/(2*h)
-                            
 
                         tmp_cost = float(public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer == iP)
                                                      &(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'transfer_k'])
@@ -978,8 +978,9 @@ def agg_to_event_level (df, seriesname,event_level):
     """ aggregates seriesname in df (string of list of string) to event level (country, hazard, rp) across income_cat and affected_cat using n in df as weight
     does NOT normalize weights to 1."""
     return (df[seriesname].T*df['pcwgt']).T.sum(level=event_level)
-    
-def calc_delta_welfare(micro, macro):
+
+def calc_delta_welfare(micro, macro,revised = False):
+
     """welfare cost from consumption before (c) 
     an after (dc_npv_post) event. Line by line"""
     #computes welfare losses per category
@@ -993,10 +994,45 @@ def calc_delta_welfare(micro, macro):
     mic_ix = micro.index.names
 
     temp = pd.merge(micro.reset_index(),macro.reset_index(),on=[i for i in mac_ix]).reset_index().set_index([i for i in mic_ix])
+    temp.to_csv('~/Desktop/my_temp.csv')
 
     dw= (welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
          - welf1(temp['c']/temp['rho']-temp['dc_npv_post'], temp['income_elast'],temp['c_5']/temp['rho']))
+
+    dw = dw.reset_index()
+    temp = temp.reset_index()
     
+    dw['dc'] = temp['dc']
+    
+    dw['fac1'] = temp['c']**(1-temp['income_elast'])/(1-temp['income_elast'])
+    dw['fac2'] = -1.*dw['fac1']*temp['rho']**(-1)
+    dw['int1'] = 0.
+
+    int_dt = np.linspace(0,100,100)#2400)
+    step_dt = int_dt[1]-int_dt[0]
+
+    tmp_t_reco = float(temp['T_rebuild_K'].mean())
+    tmp_ie = float(temp['income_elast'].mean())
+    tmp_rho = float(temp['rho'].mean())
+
+    print(dw['fac2'].head(1))
+
+    my_out_x, my_out_y = [], []
+    for i_dt in int_dt:
+        dw['int1'] += step_dt*(((1.-(temp['dc']/temp['c'])*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)) * math.e**(-tmp_rho*i_dt) )
+        my_out_y.append(((1.-float((temp['dc']/temp['c']).head(1))*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)) * math.e**(-tmp_rho*i_dt)*float(dw['fac1'].head(1))+float(dw['fac2'].head(1).fillna(0)))
+        my_out_x.append(i_dt)
+    
+    ax = plt.gca()
+    plt.plot(my_out_x,my_out_y)
+    fig = ax.get_figure()
+    fig.savefig('/Users/brian/Desktop/my_plots/dw.pdf',format='pdf')
+
+    dw['dw_rev'] = dw[['fac1','int1']].prod(axis=1)+dw['fac2']
+    dw.loc[dw.Division=='Ba'].to_csv('~/Desktop/my_ddw.csv')
+    print(dw.head(10))
+    assert(False)
+
     return dw
 	
 def welf1(c,elast,comp):
