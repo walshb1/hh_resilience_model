@@ -979,7 +979,7 @@ def agg_to_event_level (df, seriesname,event_level):
     does NOT normalize weights to 1."""
     return (df[seriesname].T*df['pcwgt']).T.sum(level=event_level)
 
-def calc_delta_welfare(micro, macro,revised = False):
+def calc_delta_welfare(micro, macro,revised=False,shortcut=False):
 
     """welfare cost from consumption before (c) 
     an after (dc_npv_post) event. Line by line"""
@@ -990,49 +990,94 @@ def calc_delta_welfare(micro, macro,revised = False):
     #dw= (welf1(micro['c']/macro['rho'], macro['income_elast'], micro['c_5']/macro['rho'])
     #             - welf1(micro['c']/macro['rho']-micro['dc_npv_post'], macro['income_elast'],micro['c_5']/macro['rho']))       
 
-    mac_ix = macro.index.names
-    mic_ix = micro.index.names
+    temp = None
+    if shortcut == False:
+        mac_ix = macro.index.names
+        mic_ix = micro.index.names
 
-    temp = pd.merge(micro.reset_index(),macro.reset_index(),on=[i for i in mac_ix]).reset_index().set_index([i for i in mic_ix])
-    temp.to_csv('~/Desktop/my_temp.csv')
+        temp = pd.merge(micro.reset_index(),macro.reset_index(),on=[i for i in mac_ix]).reset_index().set_index([i for i in mic_ix])
+        temp.to_csv('~/Desktop/my_temp.csv')
 
+        dw= (welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
+             - welf1(temp['c']/temp['rho']-temp['dc_npv_post'], temp['income_elast'],temp['c_5']/temp['rho']))
+
+        return dw
+
+    temp = pd.read_csv('~/Desktop/my_temp.csv',index_col=['Division','hazard','rp']).head(2) 
+
+    rho = float(temp['rho'].mean())
+    h=1e-4
+    temp['wprime'] =(welf(temp['gdp_pc_pp_prov']/rho+h,temp['income_elast'])-welf(temp['gdp_pc_pp_prov']/rho-h,temp['income_elast']))/(2*h)
+    
     dw= (welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
          - welf1(temp['c']/temp['rho']-temp['dc_npv_post'], temp['income_elast'],temp['c_5']/temp['rho']))
 
     dw = dw.reset_index()
     temp = temp.reset_index()
     
-    dw['dc'] = temp['dc']
-    
-    dw['fac1'] = temp['c']**(1-temp['income_elast'])/(1-temp['income_elast'])
-    dw['fac2'] = -1.*dw['fac1']*temp['rho']**(-1)
-    dw['int1'] = 0.
-
-    int_dt = np.linspace(0,100,100)#2400)
-    step_dt = int_dt[1]-int_dt[0]
-
     tmp_t_reco = float(temp['T_rebuild_K'].mean())
     tmp_ie = float(temp['income_elast'].mean())
     tmp_rho = float(temp['rho'].mean())
 
-    print(dw['fac2'].head(1))
+    dw.columns = ['Division','hazard','rp','dw']
+    dw['w'] = welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
+                    
+    dw['wprime'] = temp['wprime']
+    dw['wprime_rev1'] = temp['c']**(1-tmp_ie)
+    dw['wprime_rev2'] = temp['c']**(1-tmp_ie)/temp['rho']
 
-    my_out_x, my_out_y = [], []
-    for i_dt in int_dt:
-        dw['int1'] += step_dt*(((1.-(temp['dc']/temp['c'])*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)) * math.e**(-tmp_rho*i_dt) )
-        my_out_y.append(((1.-float((temp['dc']/temp['c']).head(1))*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)) * math.e**(-tmp_rho*i_dt)*float(dw['fac1'].head(1))+float(dw['fac2'].head(1).fillna(0)))
-        my_out_x.append(i_dt)
+    dw['dc'] = temp['dc']
+    dw['dw_curr'] = dw['dw']/dw['wprime']
     
+    dw['fac1'] = ((temp['c']**(1.-temp['income_elast']))/(1.-temp['income_elast']))
+    dw['int2'] = 0.
+
+    my_out_x, my_out_yA, my_out_yNA, my_out_yzero = [], [], [], []
+    x_min, x_max, n_steps = 0.,100.,1.E4
+    int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
+
+    for i_dt in int_dt:
+        dw['int2'] += step_dt*(((1.-(temp['dc']/temp['c'])*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
+
+        if i_dt < 10:
+
+            aff_val = float((temp['dc']/temp['c']).head(1))
+            naf_val = float((temp['dc']/temp['c']).head(2).tail(1))
+            
+            tmp_out_yA    = step_dt*(((1.-(aff_val)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(dw['fac1'].head(1))
+            tmp_out_yNA   = step_dt*(((1.-(naf_val)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(dw['fac1'].head(1))
+            tmp_out_yzero = step_dt*(((1.-0*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(dw['fac1'].head(1))
+            
+            my_out_yA.append(tmp_out_yA)
+            my_out_yNA.append(tmp_out_yNA)
+            my_out_yzero.append(tmp_out_yzero)
+              
+            my_out_x.append(i_dt)
+
     ax = plt.gca()
-    plt.plot(my_out_x,my_out_y)
+    ltx_str = r'$\Delta W = \frac{c_0^{1-\eta}}{1-\eta}  \int_0^{\infty} [ (1-\frac{\Delta c}{c_0}e^{\frac{-t}{\tau}})^{(1-\eta)}-1 ] \times e^{-\rho t}dt$'
+    ax.annotate(ltx_str,xy=(0.25,0.54),xycoords='axes fraction',size=12,va='top',ha='left',annotation_clip=False,zorder=100,weight='bold')
+    plt.plot(my_out_x,my_out_yA,color='red',label='Aff. (dc='+str(round(float(temp['dc'].head(1)),1))+')')
+    plt.plot(my_out_x,my_out_yNA,color='blue',label='Not aff. (dc='+str(round(float(temp['dc'].head(2).tail(1))*1.E3,2))+'E-3)')
+    plt.plot(my_out_x,my_out_yzero,color='black',label='(dc=0)')
+    
+    leg = ax.legend(loc='upper right',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
+    leg.get_frame().set_color('white')
+    leg.get_frame().set_edgecolor('black')
+    leg.get_frame().set_linewidth(0.2)
+    
     fig = ax.get_figure()
     fig.savefig('/Users/brian/Desktop/my_plots/dw.pdf',format='pdf')
 
-    dw['dw_rev'] = dw[['fac1','int1']].prod(axis=1)+dw['fac2']
-    dw.loc[dw.Division=='Ba'].to_csv('~/Desktop/my_ddw.csv')
-    print(dw.head(10))
-    assert(False)
+    dw['dw_rev'] = dw[['fac1','int2']].prod(axis=1)
+    dw['dw_curr_rev1'] = dw['dw_rev']/dw['wprime_rev1']
+    dw['dw_curr_rev2'] = dw['dw_rev']/dw['wprime_rev2']
 
+    print(dw.head(5))
+    dw.to_csv('~/Desktop/my_dw.csv')
+    
+    assert(False)
+    
     return dw
 	
 def welf1(c,elast,comp):
@@ -1135,8 +1180,7 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfar
     if is_local_welfare:
         wprime =(welf(df['gdp_pc_pp_prov']/rho+h,df['income_elast'])-welf(df['gdp_pc_pp_prov']/rho-h,df['income_elast']))/(2*h)
     else:
-        nat_GDP_pc = np.average(df['gdp_pc_pp_nat'])
-        wprime =(welf(nat_GDP_pc/rho+h,df['income_elast'])-welf(nat_GDP_pc/rho-h,df['income_elast']))/(2*h)
+        wprime =(welf(df['gdp_pc_pp_nat']/rho+h,df['income_elast'])-welf(df['gdp_pc_pp_nat']/rho-h,df['income_elast']))/(2*h)
         
     dWref   = wprime*df['dK']
     

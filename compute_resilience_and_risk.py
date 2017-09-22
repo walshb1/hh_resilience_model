@@ -23,6 +23,8 @@ from itertools import product
 
 def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no'):
 
+    dw = calc_delta_welfare(None,None,revised=False,shortcut=True)
+
     warnings.filterwarnings('always',category=UserWarning)
 
     # Setup directories
@@ -95,7 +97,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     # -- adds dk_event column to macro_event
     # -- adds affected/na categories to cats_event
     share_public_assets = [False,'']
-    if myCountry == 'FJ': share_public_assets = [True,'_ip']
+    #if myCountry == 'FJ': share_public_assets = [True,'_ip']
     macro_event, cats_event_ia, shared_costs = compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_public_assets[0],is_local_welfare) #calculate the actual vulnerability, the potential damange to capital, and consumption
     try: shared_costs.to_csv(output+'shared_costs_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+share_public_assets[1]+'.csv',encoding='utf-8', header=True)
     except: pass

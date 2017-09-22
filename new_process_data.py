@@ -22,7 +22,7 @@ sns.set_style('darkgrid')
 brew_pal = brew.get_map('Set1', 'qualitative', 8).mpl_colors
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.4)
 greys_pal = sns.color_palette('Greys', n_colors=9)
-q_labels = ['Poorest quintile','Q2','Q3','Q4','Wealthiest quintile']
+q_labels = ['Q1 (Poorest)','Q2','Q3','Q4','Q5 (Wealthiest)']
 q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 font = {'family' : 'sans serif',
@@ -417,12 +417,16 @@ for aProv in myHaz[0]:
                 ax.bar([6*ii+myQ for ii in range(1,6)],[dk,dc,dw,pds_nrh,pds_dw],
                        color=q_colors[myQ-1],alpha=0.7,label=q_labels[myQ-1])
 
+                np.savetxt('/Users/brian/Desktop/to_send/dk_dc_dw_pds_'+aProv+'_'+aDis+'_'+str(anRP)+'_Q'+str(myQ)+'.csv',[dk,dc,dw,pds_nrh,pds_dw],delimiter=',')
+
                 lbl= None
                 if myQ==1: 
                     ax2.bar([0],[0],color=[q_colors[0]],alpha=0.7,label='No post-disaster support')
                     ax2.bar([0],[0],color=[q_colors[1]],alpha=0.7,label='Winston-like response')
                     ax2.bar([0],[0],color=[q_colors[2]],alpha=0.7,label='Wider & stronger response')
                 ax2.bar([4*myQ+ii for ii in range(1,4)],[dw,pds_dw,pds_plus_dw],color=[q_colors[0],q_colors[1],q_colors[2]],alpha=0.7)
+                
+                np.savetxt('/Users/brian/Desktop/to_send/pds_comparison_'+aProv+'_'+aDis+'_'+str(anRP)+'_Q'+str(myQ)+'.csv',[dw,pds_dw,pds_plus_dw], delimiter=',')
                 
             out_str = None
             if myCountry == 'FJ': out_str = ['Asset loss','Consumption\nloss','Well-being\nloss','Net cost of\nWinston-like\nsupport','Well-being loss\npost support']
@@ -440,7 +444,7 @@ for aProv in myHaz[0]:
             plt.figure(1)
             plt.plot([xlim for xlim in ax.get_xlim()],[0,0],'k-',lw=0.50,color=greys_pal[7],zorder=100,alpha=0.85)
             ax.xaxis.set_ticks([])
-            plt.ylabel('Disaster losses ('+get_currency(myCountry)[0]+' per capita)')
+            plt.ylabel('Disaster losses ('+get_currency(myCountry)[0][3:]+' per capita)')
 
             print('losses_k_'+aDis+'_'+str(anRP)+'.pdf')
             fig.savefig(output_plots+'npr_'+aProv+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
@@ -459,14 +463,13 @@ for aProv in myHaz[0]:
             for ni, ii in enumerate(range(1,6)):
                 ax2.annotate(out_str[ni],xy=(4*ii+1.05,ann_y),zorder=100,xycoords='data',
                              ha='left',va='center',weight='bold',fontsize=8,annotation_clip=False)
-                plt.plot([4*ii+1.50,4*ii+4.00],[ann_y,ann_y],'k-',lw=0.50,
-                         color=greys_pal[7],zorder=100,alpha=0.85)
-                plt.plot([4*ii+4.00,4*ii+4.00],[ann_y*0.9,ann_y*1.1],'k-',lw=0.50,color=greys_pal[7],zorder=100,alpha=0.85)
+                plt.plot([4*ii+1.80,4*ii+3.78],[ann_y,ann_y],'k-',lw=0.50,color=greys_pal[7],zorder=100,alpha=0.85)
+                plt.plot([4*ii+3.78,4*ii+3.78],[ann_y*0.9,ann_y*1.1],'k-',lw=0.50,color=greys_pal[7],zorder=100,alpha=0.85)
 
             ax2.xaxis.set_ticks([])
             plt.xlim(3,26)
-            plt.plot([i for i in ax2.get_xlim()],[0,0],'k-',lw=2.5,color=greys_pal[7],zorder=100,alpha=0.85)
-            plt.ylabel('Well-being losses ('+get_currency(myCountry)[0]+' per capita)')
+            plt.plot([i for i in ax2.get_xlim()],[0,0],'k-',lw=1.5,color=greys_pal[7],zorder=100,alpha=0.85)
+            plt.ylabel('Well-being losses ('+get_currency(myCountry)[0][3:]+' per capita)')
             fig2.savefig(output_plots+'npr_pds_schemes_'+aProv+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')
             fig2.savefig(output_plots+'png/npr_pds_schemes_'+aProv+'_'+aDis+'_'+str(anRP)+'.png',format='png')
         
