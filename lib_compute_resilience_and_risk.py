@@ -990,6 +990,9 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
     #dw= (welf1(micro['c']/macro['rho'], macro['income_elast'], micro['c_5']/macro['rho'])
     #             - welf1(micro['c']/macro['rho']-micro['dc_npv_post'], macro['income_elast'],micro['c_5']/macro['rho']))       
 
+
+    #####################################
+    # If running in 'study' mode, just load the file from my desktop
     temp = None
     if study == True:
         temp = pd.read_csv('~/Desktop/my_temp.csv',index_col=['Division','hazard','rp'])
@@ -1004,6 +1007,8 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
         mic_ix = micro.index.names
         temp = pd.merge(micro.reset_index(),macro.reset_index(),on=[i for i in mac_ix]).reset_index().set_index([i for i in mic_ix])
 
+    ######################################
+    # Returns the 'legacy' definition of dw
     if is_revised == False:
         print('using legacy calculation of dw')
         dw = (welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
@@ -1011,39 +1016,40 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
         
         return dw
 
+    ########################################
+    # Returns the revised ('rev') definition of dw
     print('using revised calculation of dw')
 
-    rho = float(temp['rho'].mean())
-    h=1e-4
-    temp['wprime'] =(welf(temp['gdp_pc_pp_prov']/rho+h,temp['income_elast'])-welf(temp['gdp_pc_pp_prov']/rho-h,temp['income_elast']))/(2*h)
-    
-    temp['dw'] = (welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
-                  - welf1(temp['c']/temp['rho']-temp['dc_npv_post'], temp['income_elast'],temp['c_5']/temp['rho']))
-
-    temp = temp.reset_index()
-    
+    # Get constants
+    h          = 1.E-4
+    tmp_rho    = float(temp['rho'].mean())
     tmp_t_reco = float(temp['T_rebuild_K'].mean())
-    tmp_ie = float(temp['income_elast'].mean())
-    tmp_rho = float(temp['rho'].mean())
-    
-    #dw.columns = ['Division','hazard','rp','hhid','affected_cat','helped_cat','dw']
-    temp['w'] = welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
+    tmp_ie     = float(temp['income_elast'].mean())
 
+    # For comparison: this is the legacy definition of dw
+    temp['w'] = welf1(temp['c']/tmp_rho, tmp_ie, temp['c_5']/tmp_rho)
+    temp['dw'] = (welf1(temp['c']/tmp_rho, tmp_ie, temp['c_5']/tmp_rho)
+                  - welf1(temp['c']/tmp_rho-temp['dc_npv_post'], tmp_ie,temp['c_5']/tmp_rho))
+    temp['wprime'] =(welf(temp['gdp_pc_pp_prov']/tmp_rho+h,tmp_ie)-welf(temp['gdp_pc_pp_prov']/tmp_rho-h,tmp_ie))/(2*h)
+    temp['dw_curr'] = temp['dw']/temp['wprime']
+    
+    # New defintions of w'
     temp['wprime_rev1'] = abs(((c_mean+h)**(1-tmp_ie)-(c_mean-h)**(1-tmp_ie))/(2*h))
     temp['wprime_rev2'] = abs(((c_mean+h)**(-tmp_ie)-(c_mean-h)**(-tmp_ie))/(2*h))
 
-    temp['dw_curr'] = temp['dw']/temp['wprime']
-    
+    # Set-up to be able to calculate integral
     temp['fac1'] = -1.*((temp['c']**(1.-temp['income_elast']))/(1.-temp['income_elast']))
     temp['int2'] = 0.
 
     my_out_x, my_out_yA, my_out_yNA, my_out_yzero = [], [], [], []
-    x_min, x_max, n_steps = 0.,100.,1E5
+    x_min, x_max, n_steps = 0.,200.,1E5
     int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
 
+    # Calculate integral
     for i_dt in int_dt:
         temp['int2'] += step_dt*(((1.-(temp['dc']/temp['c'])*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
 
+        # If 'study': plot the output
         if study and i_dt < 10:
 
             aff_val = float((temp['dc']/temp['c']).head(1))
@@ -1059,6 +1065,7 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
               
             my_out_x.append(i_dt)
 
+    # If 'study': plot the output
     if study:
         ax = plt.gca()
         ltx_str = r'$\Delta W = \frac{c_0^{1-\eta}}{1-\eta}  \int_0^{\infty} [ (1-\frac{\Delta c}{c_0}e^{\frac{-t}{\tau}})^{(1-\eta)}-1 ] \times e^{-\rho t}dt$'
@@ -1075,14 +1082,20 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
         fig = ax.get_figure()
         fig.savefig('/Users/brian/Desktop/my_plots/dw.pdf',format='pdf')
         
+    # 'revised' calculation of dw
     temp['dw_rev'] = temp[['fac1','int2']].prod(axis=1)
+    
+    # two alternative definitions of w'
     temp['dw_curr_rev1'] = temp['dw_rev']/temp['wprime_rev1']
     temp['dw_curr_rev2'] = temp['dw_rev']/temp['wprime_rev2']
 
-    temp[['hhid','affected_cat','rho','income_elast','k','c','c_mean','dk','dc','w','dw','wprime','dw_curr','dw_rev','wprime_rev1','dw_curr_rev1','wprime_rev2','dw_curr_rev2']].to_csv('~/Desktop/my_dw.csv')
-    if study: assert(False)
-    temp = temp.reset_index().set_index([i for i in mic_ix])
+    # Save it out
+    if study:     
+        temp[['hhid','affected_cat','rho','income_elast','k','c','c_mean','dk','dc','w','dw',
+              'wprime','dw_curr','dw_rev','wprime_rev1','dw_curr_rev1','wprime_rev2','dw_curr_rev2']].to_csv('~/Desktop/my_dw.csv')
+        assert(False)
 
+    temp = temp.reset_index().set_index([i for i in mic_ix])
     return temp['dw_rev']
 	
 def welf1(c,elast,comp):
