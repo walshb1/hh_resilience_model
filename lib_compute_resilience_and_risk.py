@@ -820,7 +820,7 @@ def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_C
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])
 
     cats_event_iah['dc_npv_post'] = cats_event_iah['dc_npv_pre']-cats_event_iah['help_received']+cats_event_iah['help_fee']*option_CB
-    cats_event_iah['dw'] = calc_delta_welfare(cats_event_iah, macro_event)
+    cats_event_iah['dw'] = calc_delta_welfare(cats_event_iah, macro_event,is_revised=True,study=True)
     
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level)
 
@@ -873,7 +873,7 @@ def process_output(pol_str,out,macro_event,economy,default_rp,return_iah=True,is
     macro_event[dkdw_h.columns]=dkdw_h
 
     #computes socio economic capacity and risk at economy level
-    macro = calc_risk_and_resilience_from_k_w(macro_event,cats_event_iah,economy, is_local_welfare)
+    macro = calc_risk_and_resilience_from_k_w(macro_event,cats_event_iah,economy,is_local_welfare=is_local_welfare,is_revised=True)
 
     ###OUTPUTS
     if return_iah:
@@ -979,7 +979,7 @@ def agg_to_event_level (df, seriesname,event_level):
     does NOT normalize weights to 1."""
     return (df[seriesname].T*df['pcwgt']).T.sum(level=event_level)
 
-def calc_delta_welfare(micro, macro,revised=False,shortcut=False):
+def calc_delta_welfare(micro, macro,is_revised=False,study=False):
 
     """welfare cost from consumption before (c) 
     an after (dc_npv_post) event. Line by line"""
@@ -991,62 +991,67 @@ def calc_delta_welfare(micro, macro,revised=False,shortcut=False):
     #             - welf1(micro['c']/macro['rho']-micro['dc_npv_post'], macro['income_elast'],micro['c_5']/macro['rho']))       
 
     temp = None
-    if shortcut == False:
+    if study == True:
+        temp = pd.read_csv('~/Desktop/my_temp.csv',index_col=['Division','hazard','rp'])
+
+        c_mean = temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum()
+        temp['c_mean'] = c_mean
+
+        temp = temp.head(2)
+        temp['dc'] /= 1.E8
+    else:
         mac_ix = macro.index.names
         mic_ix = micro.index.names
-
         temp = pd.merge(micro.reset_index(),macro.reset_index(),on=[i for i in mac_ix]).reset_index().set_index([i for i in mic_ix])
-        temp.to_csv('~/Desktop/my_temp.csv')
 
-        dw= (welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
-             - welf1(temp['c']/temp['rho']-temp['dc_npv_post'], temp['income_elast'],temp['c_5']/temp['rho']))
-
+    if is_revised == False:
+        print('using legacy calculation of dw')
+        dw = (welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
+              - welf1(temp['c']/temp['rho']-temp['dc_npv_post'], temp['income_elast'],temp['c_5']/temp['rho']))
+        
         return dw
 
-    temp = pd.read_csv('~/Desktop/my_temp.csv',index_col=['Division','hazard','rp']).head(2) 
+    print('using revised calculation of dw')
 
     rho = float(temp['rho'].mean())
     h=1e-4
     temp['wprime'] =(welf(temp['gdp_pc_pp_prov']/rho+h,temp['income_elast'])-welf(temp['gdp_pc_pp_prov']/rho-h,temp['income_elast']))/(2*h)
     
-    dw= (welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
-         - welf1(temp['c']/temp['rho']-temp['dc_npv_post'], temp['income_elast'],temp['c_5']/temp['rho']))
+    temp['dw'] = (welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
+                  - welf1(temp['c']/temp['rho']-temp['dc_npv_post'], temp['income_elast'],temp['c_5']/temp['rho']))
 
-    dw = dw.reset_index()
     temp = temp.reset_index()
     
     tmp_t_reco = float(temp['T_rebuild_K'].mean())
     tmp_ie = float(temp['income_elast'].mean())
     tmp_rho = float(temp['rho'].mean())
-
-    dw.columns = ['Division','hazard','rp','dw']
-    dw['w'] = welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
-                    
-    dw['wprime'] = temp['wprime']
-    dw['wprime_rev1'] = temp['c']**(1-tmp_ie)
-    dw['wprime_rev2'] = temp['c']**(1-tmp_ie)/temp['rho']
-
-    dw['dc'] = temp['dc']
-    dw['dw_curr'] = dw['dw']/dw['wprime']
     
-    dw['fac1'] = ((temp['c']**(1.-temp['income_elast']))/(1.-temp['income_elast']))
-    dw['int2'] = 0.
+    #dw.columns = ['Division','hazard','rp','hhid','affected_cat','helped_cat','dw']
+    temp['w'] = welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
+
+    temp['wprime_rev1'] = abs(((c_mean+h)**(1-tmp_ie)-(c_mean-h)**(1-tmp_ie))/(2*h))
+    temp['wprime_rev2'] = abs(((c_mean+h)**(-tmp_ie)-(c_mean-h)**(-tmp_ie))/(2*h))
+
+    temp['dw_curr'] = temp['dw']/temp['wprime']
+    
+    temp['fac1'] = -1.*((temp['c']**(1.-temp['income_elast']))/(1.-temp['income_elast']))
+    temp['int2'] = 0.
 
     my_out_x, my_out_yA, my_out_yNA, my_out_yzero = [], [], [], []
-    x_min, x_max, n_steps = 0.,100.,1.E4
+    x_min, x_max, n_steps = 0.,100.,1E5
     int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
 
     for i_dt in int_dt:
-        dw['int2'] += step_dt*(((1.-(temp['dc']/temp['c'])*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
+        temp['int2'] += step_dt*(((1.-(temp['dc']/temp['c'])*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
 
-        if i_dt < 10:
+        if study and i_dt < 10:
 
             aff_val = float((temp['dc']/temp['c']).head(1))
             naf_val = float((temp['dc']/temp['c']).head(2).tail(1))
             
-            tmp_out_yA    = step_dt*(((1.-(aff_val)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(dw['fac1'].head(1))
-            tmp_out_yNA   = step_dt*(((1.-(naf_val)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(dw['fac1'].head(1))
-            tmp_out_yzero = step_dt*(((1.-0*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(dw['fac1'].head(1))
+            tmp_out_yA    = step_dt*(((1.-(aff_val)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['fac1'].head(1))
+            tmp_out_yNA   = step_dt*(((1.-(naf_val)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['fac1'].head(1))
+            tmp_out_yzero = step_dt*(((1.-0*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['fac1'].head(1))
             
             my_out_yA.append(tmp_out_yA)
             my_out_yNA.append(tmp_out_yNA)
@@ -1054,31 +1059,31 @@ def calc_delta_welfare(micro, macro,revised=False,shortcut=False):
               
             my_out_x.append(i_dt)
 
-    ax = plt.gca()
-    ltx_str = r'$\Delta W = \frac{c_0^{1-\eta}}{1-\eta}  \int_0^{\infty} [ (1-\frac{\Delta c}{c_0}e^{\frac{-t}{\tau}})^{(1-\eta)}-1 ] \times e^{-\rho t}dt$'
-    ax.annotate(ltx_str,xy=(0.25,0.54),xycoords='axes fraction',size=12,va='top',ha='left',annotation_clip=False,zorder=100,weight='bold')
-    plt.plot(my_out_x,my_out_yA,color='red',label='Aff. (dc='+str(round(float(temp['dc'].head(1)),1))+')')
-    plt.plot(my_out_x,my_out_yNA,color='blue',label='Not aff. (dc='+str(round(float(temp['dc'].head(2).tail(1))*1.E3,2))+'E-3)')
-    plt.plot(my_out_x,my_out_yzero,color='black',label='(dc=0)')
-    
-    leg = ax.legend(loc='upper right',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
-    leg.get_frame().set_color('white')
-    leg.get_frame().set_edgecolor('black')
-    leg.get_frame().set_linewidth(0.2)
-    
-    fig = ax.get_figure()
-    fig.savefig('/Users/brian/Desktop/my_plots/dw.pdf',format='pdf')
+    if study:
+        ax = plt.gca()
+        ltx_str = r'$\Delta W = \frac{c_0^{1-\eta}}{1-\eta}  \int_0^{\infty} [ (1-\frac{\Delta c}{c_0}e^{\frac{-t}{\tau}})^{(1-\eta)}-1 ] \times e^{-\rho t}dt$'
+        ax.annotate(ltx_str,xy=(0.25,0.54),xycoords='axes fraction',size=12,va='top',ha='left',annotation_clip=False,zorder=100,weight='bold')
+        plt.plot(my_out_x,my_out_yA,color='red',label='Aff. (dc='+str(round(float(temp['dc'].head(1)),1))+')')
+        plt.plot(my_out_x,my_out_yNA,color='blue',label='Not aff. (dc='+str(round(float(temp['dc'].head(2).tail(1))*1.E3,2))+'E-3)')
+        plt.plot(my_out_x,my_out_yzero,color='black',label='(dc=0)')
+        
+        leg = ax.legend(loc='upper right',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
+        leg.get_frame().set_color('white')
+        leg.get_frame().set_edgecolor('black')
+        leg.get_frame().set_linewidth(0.2)
+        
+        fig = ax.get_figure()
+        fig.savefig('/Users/brian/Desktop/my_plots/dw.pdf',format='pdf')
+        
+    temp['dw_rev'] = temp[['fac1','int2']].prod(axis=1)
+    temp['dw_curr_rev1'] = temp['dw_rev']/temp['wprime_rev1']
+    temp['dw_curr_rev2'] = temp['dw_rev']/temp['wprime_rev2']
 
-    dw['dw_rev'] = dw[['fac1','int2']].prod(axis=1)
-    dw['dw_curr_rev1'] = dw['dw_rev']/dw['wprime_rev1']
-    dw['dw_curr_rev2'] = dw['dw_rev']/dw['wprime_rev2']
+    temp[['hhid','affected_cat','rho','income_elast','k','c','c_mean','dk','dc','w','dw','wprime','dw_curr','dw_rev','wprime_rev1','dw_curr_rev1','wprime_rev2','dw_curr_rev2']].to_csv('~/Desktop/my_dw.csv')
+    if study: assert(False)
+    temp = temp.reset_index().set_index([i for i in mic_ix])
 
-    print(dw.head(5))
-    dw.to_csv('~/Desktop/my_dw.csv')
-    
-    assert(False)
-    
-    return dw
+    return temp['dw_rev']
 	
 def welf1(c,elast,comp):
     """"Welfare function"""
@@ -1167,7 +1172,7 @@ def average_over_rp1(df,default_rp,protection=None):
     averaged = df.mul(proba_serie,axis=0)#.sum(level=idxlevels) # frequency times each variables in the columns including rp.
     return averaged.drop('rp',axis=1) #here drop rp.
 
-def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfare=True): 
+def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfare=True,is_revised=False): 
     """Computes risk and resilience from dk, dw and protection. Line by line: multiple return periods or hazard is transparent to this function"""
     df=df.copy()    
     ############################
@@ -1176,12 +1181,26 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfar
     rho = df['rho']
     h=1e-4
 
+    if is_revised:
+        #if is_local_welfare or not is_local_welfare:
+        # ^ no dependence on this flag, for now
+        c_mean = cats_event_iah[['pcwgt','c']].prod(axis=1).sum()/cats_event_iah['pcwgt'].sum()
+        eta = df['income_elast'].mean()
+
+        wprime = abs(((c_mean+h)**(1.-eta)-(c_mean-h)**(1.-eta))/(2*h))
+        #dw['wprime_rev1'] = abs(((temp['c']+h)**(1-tmp_ie)-(temp['c']-h)**(1-tmp_ie))/(2*h))
+        #wprime = abs(((c_mean+h)**(1.-)-(c_mean-h)**(-1.*df['income_elast']))/(2*h))
+
+        print('Getting wprime (revised), wprime = '+str(wprime))
+
     # flag: gdp_pc_pp is per household. making sure all other things are per household
-    if is_local_welfare:
-        wprime =(welf(df['gdp_pc_pp_prov']/rho+h,df['income_elast'])-welf(df['gdp_pc_pp_prov']/rho-h,df['income_elast']))/(2*h)
-    else:
-        wprime =(welf(df['gdp_pc_pp_nat']/rho+h,df['income_elast'])-welf(df['gdp_pc_pp_nat']/rho-h,df['income_elast']))/(2*h)
-        
+    if not is_revised:
+        print('Getting wprime (legacy)')
+        if is_local_welfare:
+            wprime =(welf(df['gdp_pc_pp_prov']/rho+h,df['income_elast'])-welf(df['gdp_pc_pp_prov']/rho-h,df['income_elast']))/(2*h)
+        else:
+            wprime =(welf(df['gdp_pc_pp_nat']/rho+h,df['income_elast'])-welf(df['gdp_pc_pp_nat']/rho-h,df['income_elast']))/(2*h)
+            
     dWref   = wprime*df['dK']
     
     #expected welfare loss (per family and total)

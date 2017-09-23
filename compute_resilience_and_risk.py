@@ -23,7 +23,8 @@ from itertools import product
 
 def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no'):
 
-    dw = calc_delta_welfare(None,None,revised=False,shortcut=True)
+    dw = calc_delta_welfare(None,None,True,True)
+    
 
     warnings.filterwarnings('always',category=UserWarning)
 
