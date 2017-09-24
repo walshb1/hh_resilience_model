@@ -1000,8 +1000,8 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
         c_mean = temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum()
         temp['c_mean'] = c_mean
 
-        temp = temp.head(2)
-        temp['dc'] /= 1.E8
+        temp = pd.concat([temp.head(2),temp.loc[(temp.quintile==5)].head(2)])
+        #temp['dc'] /= 1.E8
     else:
         mac_ix = macro.index.names
         mic_ix = micro.index.names
@@ -1039,7 +1039,14 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
 
     # Set-up to be able to calculate integral
     temp['fac1'] = -1.*((temp['c']**(1.-temp['income_elast']))/(1.-temp['income_elast']))
-    temp['int2'] = 0.
+    temp['int1'] = 0.
+    
+    temp['facA'] = -1.*((temp['c']+h)**(1.-temp['income_elast']))/(1.-temp['income_elast'])
+    temp['intA'] = 0.
+    temp['facB'] = -1.*((temp['c']-h)**(1.-temp['income_elast']))/(1.-temp['income_elast'])
+    temp['intB'] = 0.
+    
+    temp['wprime_rev3'] = (temp['facA']-temp['facB'])/(2*h)
 
     my_out_x, my_out_yA, my_out_yNA, my_out_yzero = [], [], [], []
     x_min, x_max, n_steps = 0.,200.,1E5
@@ -1047,7 +1054,10 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
 
     # Calculate integral
     for i_dt in int_dt:
-        temp['int2'] += step_dt*(((1.-(temp['dc']/temp['c'])*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
+        temp['int1'] += step_dt*(((1.-(temp['dc']/temp['c'])*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
+
+        temp['intA'] += step_dt*(((1.+(h)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
+        temp['intB'] += step_dt*(((1.-(h)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
 
         # If 'study': plot the output
         if study and i_dt < 10:
@@ -1083,7 +1093,7 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
         fig.savefig('/Users/brian/Desktop/my_plots/dw.pdf',format='pdf')
         
     # 'revised' calculation of dw
-    temp['dw_rev'] = temp[['fac1','int2']].prod(axis=1)
+    temp['dw_rev'] = temp[['fac1','int1']].prod(axis=1)
     
     # two alternative definitions of w'
     temp['dw_curr_rev1'] = temp['dw_rev']/temp['wprime_rev1']
@@ -1091,8 +1101,7 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
 
     # Save it out
     if study:     
-        temp[['hhid','affected_cat','rho','income_elast','k','c','c_mean','dk','dc','w','dw',
-              'wprime','dw_curr','dw_rev','wprime_rev1','dw_curr_rev1','wprime_rev2','dw_curr_rev2']].to_csv('~/Desktop/my_dw.csv')
+        temp[['hhid','quintile','affected_cat','rho','income_elast','k','c','c_mean','dk','dc','w','dw','wprime','dw_curr','dw_rev','wprime_rev1','dw_curr_rev1','wprime_rev2','dw_curr_rev2','facA','intA','facB','intB','wprime_rev3']].to_csv('~/Desktop/my_dw.csv')
         assert(False)
 
     temp = temp.reset_index().set_index([i for i in mic_ix])
