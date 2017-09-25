@@ -1003,7 +1003,7 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
         temp = pd.concat([temp.loc[(temp.quintile==1)].head(2),temp.loc[(temp.quintile==5)].head(2)])
 
         #temp['dc']/=1.E5
-        # ^ uncomment here to make sure that (dw/wprime) converges to dc for smll losses among wealthy
+        # ^ uncomment here if we want to make sure that (dw/wprime) converges to dc for small losses among wealthy
 
     else:
         mac_ix = macro.index.names

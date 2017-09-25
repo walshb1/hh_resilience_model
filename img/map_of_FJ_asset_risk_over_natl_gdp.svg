@@ -96,7 +96,7 @@
     }
 .tailevu
     {  
-       fill: #CBDEF0;
+       fill: #CADDF0;
        stroke:#000000;
        stroke-width:2;
     }

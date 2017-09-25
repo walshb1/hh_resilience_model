@@ -173,7 +173,7 @@ q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 if myCountry == 'PH':
     myHaz = [['NCR'],['flood','wind'],[1,10,25,30,50,100,200,250,500,1000]]
 elif myCountry == 'FJ':
-    myHaz = [['Rewa','Lau'],['TC','EQTS'],[1,5,10,20,22,50,72,75,100,200,224,250,475,500,975,1000,2475]]
+    myHaz = [['Ba'],['TC'],[1,5,10,20,22,50,72,75,100,200,224,250,475,500,975,1000,2475]]
     #myHaz = [['Lau'],['earthquake','tsunami','typhoon'],[1,10,20,50,100,250,500,1000]]
 
 pov_line = get_poverty_line(myCountry,'Rural')
@@ -341,8 +341,13 @@ for myDis in allDis:
         ci_heights, ci_bins = np.histogram((cutA['c_initial']/sf).clip(upper=upper_clip), bins=50, weights=cutA['pcwgt'])
         cf_heights, cf_bins = np.histogram((cutA['c_final']/sf).clip(upper=upper_clip), bins=ci_bins, weights=cutA['pcwgt'])
 
-        ci_heights /= get_scale_fac(myCountry)[0]
-        cf_heights /= get_scale_fac(myCountry)[0]
+        ci_heights /= get_pop_scale_fac(myCountry)[0]
+        cf_heights /= get_pop_scale_fac(myCountry)[0]
+
+        if myDis == 'TC' and str(myRP) == '100':
+            np.savetxt('/Users/brian/Desktop/to_send/income_dist_pre_'+myDis+'_'+str(myRP)+'.csv',[ci_heights],delimiter=',')
+            np.savetxt('/Users/brian/Desktop/to_send/income_dist_post_'+myDis+'_'+str(myRP)+'.csv',[cf_heights],delimiter=',')
+            np.savetxt('/Users/brian/Desktop/to_send/income_dist_bins_'+myDis+'_'+str(myRP)+'.csv',[cf_bins],delimiter=',')
 
         ax.bar(ci_bins[:-1], ci_heights, width=(ci_bins[1]-ci_bins[0]), label='Initial', facecolor=q_colors[1],alpha=0.4)
         ax.bar(cf_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
@@ -352,10 +357,9 @@ for myDis in allDis:
         p_str = format_delta_p(delta_p)
         p_pct = ' ('+str(round((delta_p/cutA['pcwgt'].sum())*100.,2))+'% of population)'
 
-
-        plt.plot([cutA.pov_line.mean(),cutA.pov_line.mean()],[0,1.25*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
-        ax.annotate('Poverty line',xy=(1.1*cutA.pov_line.mean(),1.25*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-        ax.annotate(r'$\Delta$N$_p$ = +'+p_str+p_pct,xy=(1.1*cutA.pov_line.mean(),1.15*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
+        plt.plot([pov_line,pov_line],[0,1.25*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
+        ax.annotate('Poverty line',xy=(1.1*pov_line,1.25*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+        ax.annotate(r'$\Delta$N$_p$ = +'+p_str+p_pct,xy=(1.1*pov_line,1.15*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
 
         # Change in subsistence incidence
         if sub_line:
@@ -373,8 +377,8 @@ for myDis in allDis:
         if myC_ylim == None: myC_ylim = ax.get_ylim()
         plt.ylim(myC_ylim[0],myC_ylim[1])
 
-        plt.xlabel(r'Income ('+get_currency(myCountry)+' yr$^{-1}$)')
-        plt.ylabel('Population'+get_scale_fac(myCountry)[1])
+        plt.xlabel(r'Income ('+get_currency(myCountry)[0]+' yr$^{-1}$)')
+        plt.ylabel('Population'+get_pop_scale_fac(myCountry)[1])
         plt.legend(loc='best')
         print('poverty_k_'+myDis+'_'+str(myRP)+'.pdf')
         fig.savefig('../output_plots/'+myCountry+'/poverty_k_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
@@ -400,12 +404,12 @@ for myDis in allDis:
         p_str = format_delta_p(delta_p)
         p_pct = ' ('+str(round((delta_p/cutA['pcwgt'].sum())*100.,2))+'% of population)'
 
-        plt.plot([49.50*52,49.50*52],[0,1.2*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
-        ax.annotate('Poverty line',xy=(1.1*49.50*52,1.20*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-        ax.annotate(r'$\Delta$N$_p$ = +'+p_str+p_pct,xy=(1.1*49.50*52,1.12*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+        plt.plot([pov_line,pov_line],[0,1.2*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
+        ax.annotate('Poverty line',xy=(1.1*pov_line,1.20*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+        ax.annotate(r'$\Delta$N$_p$ = +'+p_str+p_pct,xy=(1.1*pov_line,1.12*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
 
         fig = ax.get_figure()
-        plt.xlabel(r'Income ['+get_currency(myCountry)+' yr$^{-1}$]')
+        plt.xlabel(r'Income ['+get_currency(myCountry)[0]+' yr$^{-1}$]')
         plt.ylabel('Population')
         #plt.ylim(0,400000)
         plt.legend(loc='best')
@@ -656,7 +660,7 @@ for myRP in myHaz[2]:
 
             ax1.xaxis.set_ticks([])
             plt.title(str(myRP)+'-Year '+myDis[:1].upper()+myDis[1:]+' Event in '+myProv)
-            plt.ylabel('Disaster losses ('+get_currency(myCountry)+' per capita)')
+            plt.ylabel('Disaster losses ('+get_currency(myCountry)[0]+' per capita)')
             ax1.annotate('1% of assets',                 xy=( 6,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
             ax1.annotate('Asset loss',                   xy=(12,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
             ax1.annotate('Consumption\nloss',            xy=(18,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
