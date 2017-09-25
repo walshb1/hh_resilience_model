@@ -397,7 +397,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
             tmp_ie  = macro_event['income_elast'].mean()
             tmp_rho = macro_event['rho'].mean()
             h = 1.E-4
-            # ^ these *could* vary by province/event, but don't (for now), so I'll use the outside the pandas dfs.
+            # ^ these *could* vary by province/event, but don't (for now), so I'll use them outside the pandas dfs.
 
             for iRecip in public_costs[event_level[0]].unique():
                 for iHaz in public_costs.hazard.unique():
@@ -419,11 +419,12 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
                         
                         tmp_df['dw'] = (welf1(tmp_df['c']/tmp_rho, tmp_ie, tmp_df['c_5']/tmp_rho)
                                         - welf1(tmp_df['c']/tmp_rho-tmp_df['tmp_dc_npv'], tmp_ie,tmp_df['c_5']/tmp_rho))/tmp_wp
-                        
+
                         public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer == iP)
                                                      #&(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'dw'] = tmp_df[['pcwgt','dw']].prod(axis=1).sum()
                                                      &(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'dw'] = tmp_df['dw'].sum()
         
+        print('ISSUE: have NOT yet updated dw losses from inter-provincial transfers!!')
         cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
         public_costs = public_costs.reset_index().set_index(event_level).drop('index',axis=1)
 
@@ -816,11 +817,16 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
     return macro_event, cats_event_iah
 
 
-def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True):
+def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True,is_revised_dw=True):
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])
 
-    cats_event_iah['dc_npv_post'] = cats_event_iah['dc_npv_pre']-cats_event_iah['help_received']+cats_event_iah['help_fee']*option_CB
-    cats_event_iah['dw'] = calc_delta_welfare(cats_event_iah, macro_event,is_revised=True,study=False)
+    if not is_revised_dw:
+        cats_event_iah['dc_npv_post'] = cats_event_iah['dc_npv_pre']-cats_event_iah['help_received']+cats_event_iah['help_fee']*option_CB
+    elif if_revised_dw:
+        print('changing dc to include help_received and help_fee, since instantaneous loss is used instead of npv for dw')
+        print('how does timing affect the appropriateness of this?')
+        cats_event_iah['dc_post_pds'] = cats_event_iah['dc']-cats_event_iah['help_received']+cats_event_iah['help_fee']*option_CB        
+        cats_event_iah['dw'] = calc_delta_welfare(cats_event_iah,macro_event,is_revised_dw)
     
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level)
 
@@ -858,7 +864,7 @@ def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_C
         return df_out
     
 	
-def process_output(pol_str,out,macro_event,economy,default_rp,return_iah=True,is_local_welfare=False):
+def process_output(pol_str,out,macro_event,economy,default_rp,return_iah=True,is_local_welfare=False,is_revised_dw=True):
 
     #unpacks if needed
     if return_iah:
@@ -873,7 +879,7 @@ def process_output(pol_str,out,macro_event,economy,default_rp,return_iah=True,is
     macro_event[dkdw_h.columns]=dkdw_h
 
     #computes socio economic capacity and risk at economy level
-    macro = calc_risk_and_resilience_from_k_w(macro_event,cats_event_iah,economy,is_local_welfare=is_local_welfare,is_revised=True)
+    macro = calc_risk_and_resilience_from_k_w(macro_event,cats_event_iah,economy,is_local_welfare,is_revised_dw)
 
     ###OUTPUTS
     if return_iah:
@@ -979,7 +985,7 @@ def agg_to_event_level (df, seriesname,event_level):
     does NOT normalize weights to 1."""
     return (df[seriesname].T*df['pcwgt']).T.sum(level=event_level)
 
-def calc_delta_welfare(micro, macro,is_revised=False,study=False):
+def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
 
     """welfare cost from consumption before (c) 
     an after (dc_npv_post) event. Line by line"""
@@ -1013,7 +1019,7 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
 
     ######################################
     # Returns the 'legacy' definition of dw
-    if is_revised == False:
+    if is_revised_dw == False:
         print('using legacy calculation of dw')
         dw = (welf1(temp['c']/temp['rho'], temp['income_elast'], temp['c_5']/temp['rho'])
               - welf1(temp['c']/temp['rho']-temp['dc_npv_post'], temp['income_elast'],temp['c_5']/temp['rho']))
@@ -1052,13 +1058,13 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
 
     # Calculate integral
     for i_dt in int_dt:
-        temp['integ'] += step_dt*(((1.-(temp['dc']/temp['c'])*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
+        temp['integ'] += step_dt*(((1.-(temp['dc_post_pds']/temp['c'])*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
 
         # If 'study': plot the output
         if study and i_dt < 10:
 
-            aff_val = float((temp['dc']/temp['c']).head(1))
-            naf_val = float((temp['dc']/temp['c']).head(2).tail(1))
+            aff_val = float((temp['dc_post_pds']/temp['c']).head(1))
+            naf_val = float((temp['dc_post_pds']/temp['c']).head(2).tail(1))
             
             tmp_out_yA    = step_dt*(((1.-(aff_val)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['const'].head(1))
             tmp_out_yNA   = step_dt*(((1.-(naf_val)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['const'].head(1))
@@ -1189,7 +1195,7 @@ def average_over_rp1(df,default_rp,protection=None):
     averaged = df.mul(proba_serie,axis=0)#.sum(level=idxlevels) # frequency times each variables in the columns including rp.
     return averaged.drop('rp',axis=1) #here drop rp.
 
-def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfare=True,is_revised=False): 
+def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfare,is_revised_dw): 
     """Computes risk and resilience from dk, dw and protection. Line by line: multiple return periods or hazard is transparent to this function"""
     df=df.copy()    
     ############################
@@ -1199,7 +1205,7 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfar
     rho = df['rho']
     h=1e-4
 
-    if is_revised:
+    if is_revised_dw:
         #if is_local_welfare or not is_local_welfare:
         # ^ no dependence on this flag, for now
         c_mean = cats_event_iah[['pcwgt','c']].prod(axis=1).sum()/cats_event_iah['pcwgt'].sum()
@@ -1211,7 +1217,7 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfar
         print('Getting wprime (revised), wprime = '+str(wprime))
 
     # flag: gdp_pc_pp is per household. making sure all other things are per household
-    if not is_revised:
+    if not is_revised_dw:
         print('Getting wprime (legacy)')
         if is_local_welfare:
             wprime =(welf(df['gdp_pc_pp_prov']/rho+h,df['income_elast'])-welf(df['gdp_pc_pp_prov']/rho-h,df['income_elast']))/(2*h)

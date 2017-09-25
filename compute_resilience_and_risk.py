@@ -78,6 +78,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     helped_cats   = pd.Index(['helped','not_helped'], name='helped_cat')
     
     is_local_welfare = False
+    is_rev_dw = True
 
     #read data
     macro = pd.read_csv(intermediate+'macro.csv', index_col=economy)
@@ -89,7 +90,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     #  - macro has province-level info
     #  - cat_info has household-level info
     #  - hazard_ratios has fa for each household (which varies not by hh, but by province, hazard, & RP) 
-    macro_event, cats_event, hazard_ratios_event = compute_with_hazard_ratios(myCountry,pol_str,intermediate+'hazard_ratios.csv',macro,cat_info,economy,event_level,income_cats,default_rp,rm_overlap=True,verbose_replace=True)
+    macro_event, cats_event, hazard_ratios_event = compute_with_hazard_ratios(myCountry,pol_str,intermediate+'hazard_ratios.csv',macro,cat_info,economy,event_level,income_cats,default_rp,rm_overlap=False,verbose_replace=True)
 
     gc.collect()
     print('A')
@@ -99,7 +100,8 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     # -- adds dk_event column to macro_event
     # -- adds affected/na categories to cats_event
     share_public_assets = [False,'']
-    if myCountry == 'FJ': share_public_assets = [True,'_ip']
+    #if myCountry == 'FJ': share_public_assets = [True,'_ip']
+
     macro_event, cats_event_ia, shared_costs = compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_public_assets[0],is_local_welfare) #calculate the actual vulnerability, the potential damange to capital, and consumption
     try: shared_costs.to_csv(output+'shared_costs_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+share_public_assets[1]+'.csv',encoding='utf-8', header=True)
     except: pass
@@ -119,12 +121,12 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     #cats_event_iah.to_csv(output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('Step E:  NOT writing out '+output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv')
     
-    out = compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True)
+    out = compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True,is_revised_dw=is_rev_dw)
     print('F')
 
     # Flag: running local welfare
     print('running national welfare')
-    results,iah = process_output(pol_str,out,macro_event,economy,default_rp,True,is_local_welfare)
+    results,iah = process_output(pol_str,out,macro_event,economy,default_rp,True,is_local_welfare,is_revised_dw=is_rev_dw)
     print('G')
 
     results.to_csv(output+'results_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+share_public_assets[1]+'.csv',encoding='utf-8', header=True)
