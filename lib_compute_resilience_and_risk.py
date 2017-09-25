@@ -820,7 +820,7 @@ def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_C
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])
 
     cats_event_iah['dc_npv_post'] = cats_event_iah['dc_npv_pre']-cats_event_iah['help_received']+cats_event_iah['help_fee']*option_CB
-    cats_event_iah['dw'] = calc_delta_welfare(cats_event_iah, macro_event,is_revised=True,study=True)
+    cats_event_iah['dw'] = calc_delta_welfare(cats_event_iah, macro_event,is_revised=True,study=False)
     
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level)
 
@@ -993,19 +993,23 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
 
     #####################################
     # If running in 'study' mode, just load the file from my desktop
-    temp = None
+    # ^ grab one hh in the poorest quintile, and one in the wealthiest
+    temp, c_mean = None, None
     if study == True:
         temp = pd.read_csv('~/Desktop/my_temp.csv',index_col=['Division','hazard','rp'])
 
         c_mean = temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum()
         temp['c_mean'] = c_mean
+        temp = pd.concat([temp.loc[(temp.quintile==1)].head(2),temp.loc[(temp.quintile==5)].head(2)])
 
-        temp = pd.concat([temp.head(2),temp.loc[(temp.quintile==5)].head(2)])
-        #temp['dc'] /= 1.E8
+        #temp['dc']/=1.E5
+        # ^ uncomment here to make sure that (dw/wprime) converges to dc for smll losses among wealthy
+
     else:
         mac_ix = macro.index.names
         mic_ix = micro.index.names
         temp = pd.merge(micro.reset_index(),macro.reset_index(),on=[i for i in mac_ix]).reset_index().set_index([i for i in mic_ix])
+        c_mean = temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum()
 
     ######################################
     # Returns the 'legacy' definition of dw
@@ -1023,7 +1027,7 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
     # Get constants
     h          = 1.E-4
     tmp_rho    = float(temp['rho'].mean())
-    tmp_t_reco = float(temp['T_rebuild_K'].mean())
+    tmp_t_reco = float(temp['T_rebuild_K'].mean())/3.
     tmp_ie     = float(temp['income_elast'].mean())
 
     # For comparison: this is the legacy definition of dw
@@ -1034,30 +1038,21 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
     temp['dw_curr'] = temp['dw']/temp['wprime']
     
     # New defintions of w'
-    temp['wprime_rev1'] = abs(((c_mean+h)**(1-tmp_ie)-(c_mean-h)**(1-tmp_ie))/(2*h))
-    temp['wprime_rev2'] = abs(((c_mean+h)**(-tmp_ie)-(c_mean-h)**(-tmp_ie))/(2*h))
+    temp['wprime_rev'] = ((c_mean+h)**(1-tmp_ie)-(c_mean-h)**(1-tmp_ie))/(2*h)
 
     # Set-up to be able to calculate integral
-    temp['fac1'] = -1.*((temp['c']**(1.-temp['income_elast']))/(1.-temp['income_elast']))
-    temp['int1'] = 0.
-    
-    temp['facA'] = -1.*((temp['c']+h)**(1.-temp['income_elast']))/(1.-temp['income_elast'])
-    temp['intA'] = 0.
-    temp['facB'] = -1.*((temp['c']-h)**(1.-temp['income_elast']))/(1.-temp['income_elast'])
-    temp['intB'] = 0.
-    
-    temp['wprime_rev3'] = (temp['facA']-temp['facB'])/(2*h)
+    temp['const'] = ((temp['c']**(1.-temp['income_elast']))/(1.-temp['income_elast']))
+    temp['integ'] = 0.
 
     my_out_x, my_out_yA, my_out_yNA, my_out_yzero = [], [], [], []
-    x_min, x_max, n_steps = 0.,200.,1E5
+    x_min, x_max, n_steps = 0.,10.,1E3
+    # ^ make sure that, if T_recon changes, so does x_max!
+
     int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
 
     # Calculate integral
     for i_dt in int_dt:
-        temp['int1'] += step_dt*(((1.-(temp['dc']/temp['c'])*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
-
-        temp['intA'] += step_dt*(((1.+(h)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
-        temp['intB'] += step_dt*(((1.-(h)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
+        temp['integ'] += step_dt*(((1.-(temp['dc']/temp['c'])*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
 
         # If 'study': plot the output
         if study and i_dt < 10:
@@ -1065,9 +1060,9 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
             aff_val = float((temp['dc']/temp['c']).head(1))
             naf_val = float((temp['dc']/temp['c']).head(2).tail(1))
             
-            tmp_out_yA    = step_dt*(((1.-(aff_val)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['fac1'].head(1))
-            tmp_out_yNA   = step_dt*(((1.-(naf_val)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['fac1'].head(1))
-            tmp_out_yzero = step_dt*(((1.-0*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['fac1'].head(1))
+            tmp_out_yA    = step_dt*(((1.-(aff_val)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['const'].head(1))
+            tmp_out_yNA   = step_dt*(((1.-(naf_val)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['const'].head(1))
+            tmp_out_yzero = step_dt*(((1.-0*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['const'].head(1))
             
             my_out_yA.append(tmp_out_yA)
             my_out_yNA.append(tmp_out_yNA)
@@ -1093,15 +1088,15 @@ def calc_delta_welfare(micro, macro,is_revised=False,study=False):
         fig.savefig('/Users/brian/Desktop/my_plots/dw.pdf',format='pdf')
         
     # 'revised' calculation of dw
-    temp['dw_rev'] = temp[['fac1','int1']].prod(axis=1)
+    temp['dw_rev'] = temp[['const','integ']].prod(axis=1)
     
     # two alternative definitions of w'
-    temp['dw_curr_rev1'] = temp['dw_rev']/temp['wprime_rev1']
-    temp['dw_curr_rev2'] = temp['dw_rev']/temp['wprime_rev2']
+    temp['dw_curr_rev'] = temp['dw_rev']/temp['wprime_rev']
+    #temp['dw_curr_rev2'] = temp['dw_rev']/temp['wprime_rev2']
 
     # Save it out
     if study:     
-        temp[['hhid','quintile','affected_cat','rho','income_elast','k','c','c_mean','dk','dc','w','dw','wprime','dw_curr','dw_rev','wprime_rev1','dw_curr_rev1','wprime_rev2','dw_curr_rev2','facA','intA','facB','intB','wprime_rev3']].to_csv('~/Desktop/my_dw.csv')
+        temp[['hhid','quintile','affected_cat','rho','income_elast','k','c','c_mean','dk','dc','w','dw','wprime','dw_curr','dw_rev','wprime_rev','dw_curr_rev']].to_csv('~/Desktop/my_dw.csv')
         assert(False)
 
     temp = temp.reset_index().set_index([i for i in mic_ix])
@@ -1200,6 +1195,7 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfar
     ############################
     #Expressing welfare losses in currency 
     #discount rate
+    eta = df['income_elast'].mean()
     rho = df['rho']
     h=1e-4
 
@@ -1207,11 +1203,10 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfar
         #if is_local_welfare or not is_local_welfare:
         # ^ no dependence on this flag, for now
         c_mean = cats_event_iah[['pcwgt','c']].prod(axis=1).sum()/cats_event_iah['pcwgt'].sum()
-        eta = df['income_elast'].mean()
 
-        wprime = abs(((c_mean+h)**(1.-eta)-(c_mean-h)**(1.-eta))/(2*h))
-        #dw['wprime_rev1'] = abs(((temp['c']+h)**(1-tmp_ie)-(temp['c']-h)**(1-tmp_ie))/(2*h))
-        #wprime = abs(((c_mean+h)**(1.-)-(c_mean-h)**(-1.*df['income_elast']))/(2*h))
+        #temp['wprime_rev'] = ((c_mean+h)**(1-tmp_ie)-(c_mean-h)**(1-tmp_ie))/(2*h)
+        # ^ from calc_delta_welfare
+        wprime = ((c_mean+h)**(1.-eta)-(c_mean-h)**(1.-eta))/(2*h)
 
         print('Getting wprime (revised), wprime = '+str(wprime))
 
@@ -1223,7 +1218,7 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfar
         else:
             wprime =(welf(df['gdp_pc_pp_nat']/rho+h,df['income_elast'])-welf(df['gdp_pc_pp_nat']/rho-h,df['income_elast']))/(2*h)
             
-    dWref   = wprime*df['dK']
+    dWref = wprime*df['dK']
     
     #expected welfare loss (per family and total)
     df['wprime'] = wprime

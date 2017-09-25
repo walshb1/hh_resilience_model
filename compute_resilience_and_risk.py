@@ -23,9 +23,10 @@ from itertools import product
 
 def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no'):
 
-    dw = calc_delta_welfare(None,None,True,True)
+    #dw = calc_delta_welfare(None,None,is_revised=True,study=True)
+    # Use this to study change in definition of dw
+    # ^ should be deleted when we're happy with the change
     
-
     warnings.filterwarnings('always',category=UserWarning)
 
     # Setup directories
