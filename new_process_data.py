@@ -62,15 +62,17 @@ iah = pd.read_csv(output+'iah_tax_'+pds_str+'_.csv', index_col=[economy,'hazard'
 df = pd.read_csv(output+'results_tax_'+pds_str+'_.csv', index_col=[economy,'hazard','rp'])
 df_base = pd.read_csv(output+'results_tax_'+base_str+'_.csv', index_col=[economy,'hazard','rp'])
 macro = pd.read_csv(output+'macro_tax_'+pds_str+'_.csv', index_col=[economy,'hazard','rp'])
+public_costs = pd.read_csv(output+'shared_costs_tax_'+base_str+'_.csv', index_col=[economy,'hazard','rp']).reset_index()
 
-iah_SP2, df_SP2, iah_infra, public_costs = None, None,None,None
+iah_noPT = pd.read_csv(output+'iah_tax_'+base_str+'__noPT.csv', index_col=[economy,'hazard','rp','hhid'])
+# ^ Scenario: no public transfers to rebuild infrastructure
+
+iah_SP2, df_SP2 = None,None
 try:
     iah_SP2 = pd.read_csv(output+'iah_tax_'+pds2_str+'_.csv', index_col=[economy,'hazard','rp','hhid'])
     df_SP2  = pd.read_csv(output+'results_tax_'+pds2_str+'_.csv', index_col=[economy,'hazard','rp'])
-    iah_infra = pd.read_csv(output+'iah_tax_'+base_str+'__ip.csv', index_col=[economy,'hazard','rp','hhid'])
-    public_costs = pd.read_csv(output+'shared_costs_tax_'+base_str+'__ip.csv', index_col=[economy,'hazard','rp']).reset_index()
-    print('loaded all 4 extra files')
-except: assert(False)
+    print('loaded 2 extra files (secondary SP system for '+myCountry+')')
+except: pass
 
 for iPol in all_policies:
     iah_pol = pd.read_csv(output+'iah_tax_'+pds_str+'_'+iPol+'.csv', index_col=[economy,'hazard','rp','hhid'])
@@ -132,17 +134,38 @@ iah_res['help_fee'] = iah[['help_fee','pcwgt']].prod(axis=1).sum(level=[economy,
 iah_res['dc_npv_pre'] = iah[['dc_npv_pre','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
 iah_res['dc_npv_post'] = iah[['dc_npv_post','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
 
+# These are the other policies (scorecard)
+# ^ already weighted by pcwgt from their respective files
+for iPol in all_policies:
+    print('dk'+iPol)
+    iah_res['dk'+iPol] = iah['dk'+iPol].sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+    iah_res['dw'+iPol] = iah['dw'+iPol].sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+
+# Note that we're pulling dw in from iah_base here
+iah_res['dw']          = (iah_base[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt'])/df.wprime.mean()
+iah_res['pds_dw']      = (     iah[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt'])/df.wprime.mean()
+try: iah_res['pds_plus_dw'] = (  iah_SP2[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt'])/df_SP2.wprime.mean()
+except: pass
+
+iah_res['c_initial']   = iah[['c_initial'  ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c per AE
+iah_res['delta_c']     = iah[['delta_c'    ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # dc per AE
+iah_res['pds_nrh']     = iah[['pds_nrh'    ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # nrh per AE
+iah_res['c_final']     = iah[['c_final'    ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c per AE
+iah_res['c_final_pds'] = iah[['c_final_pds','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c per AE
+
 try:
-    iah_res['dc_inf_npv_pre'] = iah_infra[['dc_npv_pre','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
-    iah_res['dc_inf_npv_post'] = iah_infra[['dc_npv_post','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
-    iah_res['dc_delta'] = iah_res['dc_inf_npv_pre'] - iah_res['dc_npv_pre']
+    iah_res['dc_noPT_npv_pre'] = iah_noPT[['dc_npv_pre','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+    iah_res['dw_noPT'] = iah_noPT[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+    
+    iah_res['dc_delta'] = iah_res['dc_noPT_npv_pre'] - iah_res['dc_npv_pre']
+    iah_res['dw_delta'] = iah_res['dw_noPT'] - iah_res['dw']
 
     iah_res = iah_res.reset_index()
     grab = [['TC'],[1,100,1000]]
     for aHaz in grab[0]:
         for anRP in grab[1]:
             
-            ax = iah_res.loc[(iah_res.Division=='Ba')&(iah_res.hazard==aHaz)&(iah_res.rp==anRP)].plot.scatter('dc_npv_pre','dc_inf_npv_pre',c='quintile')   
+            ax = iah_res.loc[(iah_res.Division=='Ba')&(iah_res.hazard==aHaz)&(iah_res.rp==anRP)].plot.scatter('dc_npv_pre','dc_noPT_npv_pre',c='quintile')   
             ax.plot()
             fig = plt.gcf()
             fig.savefig(output_plots+'experiments/infra_dc_npv_pre.pdf',format='pdf')
@@ -183,26 +206,9 @@ try:
             plt.close('all')
 
     iah_res = iah_res.reset_index().set_index(event_level+['hhid']).drop(['index'],axis=1)
-except: print('DID NOT load infra') 
-
-# These are the other policies (scorecard)
-# ^ already weighted by pcwgt from their respective files
-for iPol in all_policies:
-    print('dk'+iPol)
-    iah_res['dk'+iPol] = iah['dk'+iPol].sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
-    iah_res['dw'+iPol] = iah['dw'+iPol].sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
-
-# Note that we're pulling dw in from iah_base here
-iah_res['dw']          = (iah_base[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt'])/df.wprime.mean()
-iah_res['pds_dw']      = (     iah[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt'])/df.wprime.mean()
-try: iah_res['pds_plus_dw'] = ( iah_SP2[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt'])/df_SP2.wprime.mean()
-except: pass
-
-iah_res['c_initial']   = iah[['c_initial'  ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c per AE
-iah_res['delta_c']     = iah[['delta_c'    ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # dc per AE
-iah_res['pds_nrh']     = iah[['pds_nrh'    ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # nrh per AE
-iah_res['c_final']     = iah[['c_final'    ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c per AE
-iah_res['c_final_pds'] = iah[['c_final_pds','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c per AE
+except: 
+    print('DID NOT plot effects of public transfers to rebuild infra b/c unexpected error:', sys.exc_info()[0])
+    raise
 
 # Huge file
 del iah_base
@@ -217,6 +223,11 @@ iah_out = pd.DataFrame(index=iah_res.sum(level=[economy,'hazard','rp']).index)
 for iPol in ['']+all_policies:
     iah_out['Asset risk'+iPol] = iah_res[['dk'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
     iah_out['Well-being risk'+iPol] = iah_res[['dw'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
+
+# Add public well-being costs to this output
+public_costs_prov_sum = (public_costs.loc[(public_costs.contributer != public_costs[economy])]).reset_index().set_index(event_level).sum(level=event_level)
+iah_out['Well-being risk'] += public_costs_prov_sum['dw']
+
 #iah_out['pds_dw']      = iah_res[['pds_dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
 #iah_out['help_fee']    = iah_res[['help_fee','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
 #iah_out['pds_plus_dw'] = iah_res[['pds_plus_dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
@@ -234,7 +245,8 @@ iah_out.to_csv(output+'geo_aal_sums.csv')
 iah_out[['Asset risk','Well-being risk']]/=1.E6
 iah_out[['SE capacity']]*=100.
 iah_out[['Asset risk','SE capacity','Well-being risk']].sort_values(['Well-being risk'],ascending=False).astype(int).to_latex(output+'geo_aal_sums.tex')
-print('Wrote latex! Sum: ',iah_out.sum())
+print('Wrote latex! Sums:\n',iah_out[['Asset risk','Well-being risk']].sum())
+assert(False)
 
 # Save out iah by economic unit, *only for poorest quintile*
 iah_out = pd.DataFrame(index=iah_res.sum(level=[economy,'hazard','rp']).index)

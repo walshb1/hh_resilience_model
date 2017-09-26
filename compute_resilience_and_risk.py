@@ -57,9 +57,9 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     else: option_CB_name = ''
 
     # Below: this is just so that social protection plus (SPP) can be passed in the starmap as a policy alternative.
-    if pol_str == 'fiji_SPP': 
+    if pol_str == 'fiji_SPP' or pol_str == 'fiji_SPS':
         if optionPDS == 'no':
-            optionPDS = 'fiji_SPP'
+            optionPDS = pol_str
             pol_str   = ''
         else: return False # Just don't want to run fiji_SPP multiple times
 
@@ -80,6 +80,13 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     is_local_welfare = False
     is_rev_dw = True
 
+    share_public_assets = False
+    if myCountry == 'FJ' and pol_str != 'noPT': share_public_assets = True
+
+    #share_public_assets = False
+    #if pol_str == 'noPT': pol_str = ''
+    # ^ uncomment these to reset/run without public transfers
+
     #read data
     macro = pd.read_csv(intermediate+'macro.csv', index_col=economy)
     cat_info = pd.read_csv(intermediate+'cat_info.csv',  index_col=[economy, income_cats])
@@ -99,11 +106,9 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     # compute_dK does the following:
     # -- adds dk_event column to macro_event
     # -- adds affected/na categories to cats_event
-    share_public_assets = [False,'']
-    #if myCountry == 'FJ': share_public_assets = [True,'_ip']
-
-    macro_event, cats_event_ia, shared_costs = compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_public_assets[0],is_local_welfare) #calculate the actual vulnerability, the potential damange to capital, and consumption
-    try: shared_costs.to_csv(output+'shared_costs_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+share_public_assets[1]+'.csv',encoding='utf-8', header=True)
+    macro_event, cats_event_ia, shared_costs = compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_public_assets,is_local_welfare,is_rev_dw) 
+    # ^ calculate the actual vulnerability, the potential damange to capital, and consumption
+    try: shared_costs.to_csv(output+'shared_costs_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     except: pass
     print('B\n\n')
     
@@ -115,7 +120,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     #optionB:one_per_affected, one_per_helped, one, unlimited, data, unif_poor, max01, max05
     #optionPDS: unif_poor, no, 'prop', 'prop_nonpoor'
 
-    macro_event.to_csv(output+'macro_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+share_public_assets[1]+'.csv',encoding='utf-8', header=True)
+    macro_event.to_csv(output+'macro_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('Step D: Wrote '+output+'macro_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv')
 
     #cats_event_iah.to_csv(output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
@@ -126,14 +131,14 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
 
     # Flag: running local welfare
     print('running national welfare')
-    results,iah = process_output(pol_str,out,macro_event,economy,default_rp,True,is_local_welfare,is_revised_dw=is_rev_dw)
+    results,iah = process_output(pol_str,out,macro_event,economy,default_rp,True,is_local_welfare,is_rev_dw)
     print('G')
 
-    results.to_csv(output+'results_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+share_public_assets[1]+'.csv',encoding='utf-8', header=True)
+    results.to_csv(output+'results_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('H')
 
     iah = iah.drop([icol for icol in ['index','social','pcsoc','v','v_shew','gamma_SP','c_5','n','shew','fa','hh_share','public_loss_v','v_shew','SP_CPP','SP_FAP','SP_FNPF','SP_SPS','SP_PBS','SPP_core','SPP_add','nOlds','dc_0'] if icol in iah.columns],axis=1)
-    iah.to_csv(output+'iah_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+share_public_assets[1]+'.csv',encoding='utf-8', header=True)
+    iah.to_csv(output+'iah_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('Step I: wrote iah, a huge file. See anything to drop?\n',iah.columns)
     return True
 
@@ -151,9 +156,11 @@ if __name__ == '__main__':
     if len(sys.argv) > 2: myCountry = sys.argv[2]
     
     if myCountry == 'FJ':
-        pds_str = ['no','fiji_SPS','fiji_SPP']
-        pol_str = ['']#,
-                  # 'fiji_SPP',     # Fijian social protection PLUS <-- Gets transferred to pds_str(optionPDS)!
+        pds_str = ['no']
+        pol_str = ['',
+                   '_noPT',
+                   'fiji_SPS',     # Fijian social protection PLUS <-- Gets transferred to pds_str(optionPDS)!
+                   'fiji_SPP']
                   # '_exp095',      # reduce exposure of poor by 5% (of total exposure!)
                   # '_exr095',      # reduce exposure of rich by 5% (of total exposure!)
                   # '_pcinc_p_110', # increase per capita income of poor people by 10%
@@ -162,6 +169,7 @@ if __name__ == '__main__':
                   # '_ew100',       # universal access to early warnings 
                   # '_vul070',      # decrease vulnerability of poor by 30%
                   # '_vul070r']     # decrease vulnerability of rich by 30%
+        
         # Other policies:
         # --> develop market insurance for rich
         # --> universal access to finance
