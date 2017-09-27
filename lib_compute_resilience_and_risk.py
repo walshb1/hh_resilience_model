@@ -388,8 +388,13 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
         
         for iP in public_costs.contributer.unique():
             
-            tmp_df = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP)&(cats_event_ia.affected_cat=='na'),['k','c','c_5']].mean(level='hhid')
-            tmp_df['pcwgt'] = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP)&(cats_event_ia.affected_cat=='na'),['pcwgt']].sum(level='hhid')
+
+            tmp_df = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP),['k','c','c_5']].mean(level='hhid')
+            tmp_df['pcwgt'] = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP),['pcwgt']].sum(level='hhid')            
+            #tmp_df = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP)&(cats_event_ia.affected_cat=='na'),['k','c','c_5']].mean(level='hhid')
+            #tmp_df['pcwgt'] = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP)&(cats_event_ia.affected_cat=='na'),['pcwgt']].sum(level='hhid')
+            print('ISSUE: should we be pulling only na here?')
+
             tmp_df['pc_frac_k'] = tmp_df[['pcwgt','k']].prod(axis=1)/tmp_df[['pcwgt','k']].prod(axis=1).sum()
             # ^ this grabs a single instance of each hh in a given province
             # --> 'k' and 'c' are not distributed between {a,na} (use mean), but pcwgt is (use sum)
@@ -402,7 +407,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
             c_mean     = float(cats_event_ia[['pcwgt','c']].prod(axis=1).sum()/cats_event_ia['pcwgt'].sum())
             h = 1.E-4
 
-            wprime_rev = ((c_mean+h)**(1-tmp_ie)-(c_mean-h)**(1-tmp_ie))/(2*h)
+            wprime_rev = ((c_mean+h)**(1-tmp_ie)-(c_mean-h)**(1-tmp_ie))/(2*h*tmp_rho)
             # ^ these *could* vary by province/event, but don't (for now), so I'll use them outside the pandas dfs.
             
             for iRecip in public_costs[event_level[0]].unique():
@@ -421,19 +426,19 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
                         # ^ this identifies the amount that a province (iP, above) will contribute to another province when a disaster occurs
 
                         tmp_df['tmp_dk'] = tmp_cost*tmp_df['pc_frac_k']
-                        tmp_df['tmp_dk_pc'] = tmp_df['tmp_dk']/tmp_df['pcwgt']
-                        tmp_df['tmp_dc_npv'] = tmp_mm*tmp_df['tmp_dk']
+                        tmp_df['tmp_dk_pc'] = (tmp_df['tmp_dk']/tmp_df['pcwgt'])
+                        tmp_df['tmp_dc_npv'] = tmp_mm*(tmp_df['tmp_dk']/tmp_df['pcwgt'])
 
                         tmp_df['dw'] = 0.
                         if not is_revised_dw:
-                            tmp_df['dw'] = (welf1(tmp_df['c']/tmp_rho, tmp_ie, tmp_df['c_5']/tmp_rho)
-                                            - welf1(tmp_df['c']/tmp_rho-tmp_df['tmp_dc_npv'], tmp_ie,tmp_df['c_5']/tmp_rho))/tmp_wp
+                            tmp_df['dw'] = tmp_df['pcwgt']*(welf1(tmp_df['c']/tmp_rho, tmp_ie, tmp_df['c_5']/tmp_rho)
+                                                            - welf1(tmp_df['c']/tmp_rho-tmp_df['tmp_dc_npv'], tmp_ie,tmp_df['c_5']/tmp_rho))/tmp_wp
                         else:
                             # Set-up to be able to calculate integral
                             tmp_df['const'] = ((tmp_df['c']**(1.-tmp_ie))/(1.-tmp_ie))
                             tmp_df['integ'] = 0.
 
-                            x_min, x_max, n_steps = 0.,10.,10.
+                            x_min, x_max, n_steps = 0.,10.,20.
                             int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
                             # ^ make sure that, if T_recon changes, so does x_max!
 
@@ -444,6 +449,9 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
                                 
                             # put it all together, including w_prime:
                             tmp_df['dw'] = tmp_df[['pcwgt','const','integ']].prod(axis=1)/wprime_rev
+
+                            #tmp_df.to_csv('~/Desktop/my_tmp.csv')
+                            #assert(False)
 
                         public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer == iP)&(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'dw'] = tmp_df['dw'].sum()
                         
