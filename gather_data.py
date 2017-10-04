@@ -139,7 +139,8 @@ if myCountry == 'PH':
     cat_info.ix[cat_info.v==0.70,'v'] *= np.random.uniform(.8,1.2,cat_info.ix[cat_info.v==0.70].shape[0]) 
     cat_info.drop(['walls','roof'],axis=1,inplace=True)
 
-    plot_simple_hist(cat_info,['v'],['Vulnerability'],'../output_plots/PH/sectoral/vulnerabilities.pdf',uclip=1,nBins=25,xlab='Vulnerability (losses when affected by disaster)')
+    plot_simple_hist(cat_info,['v'],[''],'/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/vulnerabilities_log.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=True)
+    plot_simple_hist(cat_info,['v'],[''],'/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/vulnerabilities.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=False)
     
 if myCountry == 'FJ':
     cat_info.ix[cat_info.v==0.1,'v'] *= np.random.uniform(.8,2,cat_info.ix[cat_info.v==0.1].shape[0])

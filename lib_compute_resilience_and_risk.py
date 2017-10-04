@@ -388,12 +388,8 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
         
         for iP in public_costs.contributer.unique():
             
-
             tmp_df = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP),['k','c','c_5']].mean(level='hhid')
-            tmp_df['pcwgt'] = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP),['pcwgt']].sum(level='hhid')            
-            #tmp_df = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP)&(cats_event_ia.affected_cat=='na'),['k','c','c_5']].mean(level='hhid')
-            #tmp_df['pcwgt'] = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP)&(cats_event_ia.affected_cat=='na'),['pcwgt']].sum(level='hhid')
-            print('ISSUE: should we be pulling only na here?')
+            tmp_df['pcwgt'] = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP),['pcwgt']].sum(level='hhid')
 
             tmp_df['pc_frac_k'] = tmp_df[['pcwgt','k']].prod(axis=1)/tmp_df[['pcwgt','k']].prod(axis=1).sum()
             # ^ this grabs a single instance of each hh in a given province
@@ -407,7 +403,8 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
             c_mean     = float(cats_event_ia[['pcwgt','c']].prod(axis=1).sum()/cats_event_ia['pcwgt'].sum())
             h = 1.E-4
 
-            wprime_rev = ((c_mean+h)**(1-tmp_ie)-(c_mean-h)**(1-tmp_ie))/(2*h*tmp_rho)
+            wprime_rev  = ((c_mean+h)**(1-tmp_ie)-(c_mean-h)**(1-tmp_ie))/(2*h)
+            wprime_rev2 = wprime_rev/tmp_rho
             # ^ these *could* vary by province/event, but don't (for now), so I'll use them outside the pandas dfs.
             
             for iRecip in public_costs[event_level[0]].unique():
@@ -449,11 +446,9 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
                                 
                             # put it all together, including w_prime:
                             tmp_df['dw'] = tmp_df[['pcwgt','const','integ']].prod(axis=1)/wprime_rev
-
-                            #tmp_df.to_csv('~/Desktop/my_tmp.csv')
-                            #assert(False)
-
-                        public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer == iP)&(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'dw'] = tmp_df['dw'].sum()
+                            tmp_df['dw2'] = tmp_df[['pcwgt','const','integ']].prod(axis=1)/wprime_rev2
+                            
+                        public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer==iP)&(public_costs.hazard==iHaz)&(public_costs.rp==iRP)),'dw'] = tmp_df['dw'].sum()
                         
         cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
         public_costs = public_costs.reset_index().set_index(event_level).drop('index',axis=1)
