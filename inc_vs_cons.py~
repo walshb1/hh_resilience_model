@@ -1,0 +1,2 @@
+
+df = pd.read_excel(inputs+'population_2015.xlsx',sheetname='population').set_index('province')

@@ -95,19 +95,25 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
 
         cat_info['social'] = cat_info['social']/cat_info['pcinc']
 
-    # POLICY: Increase social transfers to poor BY one third
     elif pol_str == '_soc133':
-        print('--> POLICY('+pol_str+'): Increase social transfers to poor BY one third')
+        # POLICY: Increase social transfers to poor TO one third
+        print('--> POLICY('+pol_str+'): Increase social transfers to poor TO one third of their income')
+        cat_info.loc[(cat_info.ispoor==1)&(cat_info.social<0.334),'social'] = 0.334
+
+        ########################################################
+        # POLICY: Increase social transfers to poor BY one third
+        #print('--> POLICY('+pol_str+'): Increase social transfers to poor BY one third')
 
         # Cost of this policy = sum(social_topup), per person
-        cat_info['social_topup'] = 0
-        cat_info.loc[cat_info.ispoor==1,'social_topup'] = 0.333*cat_info.loc[cat_info.ispoor==1,['social','c']].prod(axis=1)
+        #cat_info['social_topup'] = 0
+        #cat_info.loc[cat_info.ispoor==1,'social_topup'] = 0.333*cat_info.loc[cat_info.ispoor==1,['social','c']].prod(axis=1)
 
-        cat_info.loc[cat_info.ispoor==1,'c']*=(1.0+0.333*cat_info.loc[cat_info.ispoor==1,'social'])
-        cat_info.loc[cat_info.ispoor==1,'pcinc']*=(1.0+0.333*cat_info.loc[cat_info.ispoor==1,'social'])
-        cat_info.loc[cat_info.ispoor==1,'pcinc_ae']*=(1.0+0.333*cat_info.loc[cat_info.ispoor==1,'social'])
+        #cat_info.loc[cat_info.ispoor==1,'c']*=(1.0+0.333*cat_info.loc[cat_info.ispoor==1,'social'])
+        #cat_info.loc[cat_info.ispoor==1,'pcinc']*=(1.0+0.333*cat_info.loc[cat_info.ispoor==1,'social'])
+        #cat_info.loc[cat_info.ispoor==1,'pcinc_ae']*=(1.0+0.333*cat_info.loc[cat_info.ispoor==1,'social'])
 
-        cat_info['social'] = (cat_info['social_topup']+cat_info['pcsoc'])/cat_info['pcinc']
+        #cat_info['social'] = (cat_info['social_topup']+cat_info['pcsoc'])/cat_info['pcinc']
+        ########################################################
 
     # POLICY: Decrease reconstruction time by 1/3
     elif pol_str == '_rec067':
@@ -416,7 +422,8 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
                         if is_local_welfare:
                             tmp_gdp = macro_event.loc[(macro_event[economy]==iP),'gdp_pc_pp_prov'].mean()
                             tmp_wp =(welf(tmp_gdp/tmp_rho+h,tmp_ie)-welf(tmp_gdp/tmp_rho-h,tmp_ie))/(2*h)
-                        else: tmp_wp =(welf(macro_event['gdp_pc_pp_nat'].mean()/tmp_rho+h,tmp_ie)-welf(macro_event['gdp_pc_pp_nat'].mean()/tmp_rho-h,tmp_ie))/(2*h)
+                        else: 
+                            tmp_wp =(welf(macro_event['gdp_pc_pp_nat'].mean()/tmp_rho+h,tmp_ie)-welf(macro_event['gdp_pc_pp_nat'].mean()/tmp_rho-h,tmp_ie))/(2*h)
 
                         tmp_cost = float(public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer == iP)
                                                      &(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'transfer_k'])
@@ -737,6 +744,8 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
     else:
         assert(False)
         
+    # commit before a series of code edits & reconstructions.
+
     #elif optionB=='max01':
     #    macro_event['max_aid'] = 0.01*macro_event['gdp_pc_pp_nat']
     #    macro_event['aid'] = (macro_event['need']).clip(upper=macro_event['max_aid']) 
