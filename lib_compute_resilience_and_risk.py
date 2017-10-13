@@ -291,27 +291,156 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
     #counts affected and non affected
     print('From here: weights (pc and hh) = nAffected and nNotAffected hh/ind') 
 
+    # Make sure there are no n/a in fa 
+    # - should be ~0 for provinces with no exposure to a particular disaster
     cats_event['fa'] = cats_event.fa.fillna(1E-8)
-    
+
+    # From here, [hhwgt, pcwgt, and pcwgt_ae] are merged with fa  
     for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
         myNaf = cats_event[aWGT]*cats_event.fa
         myNna = cats_event[aWGT]*(1-cats_event.fa)
-        cats_event_ia[aWGT] = concat_categories(myNaf,myNna, index= affected_cats)    
-        #print('From here: \'weight\' = nAffected and nNotAffected: individuals') 
+        cats_event_ia[aWGT] = concat_categories(myNaf,myNna, index=affected_cats)
         
-    #de_index so can access cats as columns and index is still event
+    # de_index so can access cats as columns and index is still event
     cats_event_ia = cats_event_ia.reset_index(['hhid', 'affected_cat']).sort_index()
 
-    #actual vulnerability
-    cats_event_ia['v_shew']=cats_event_ia['v']*(1-macro_event['pi']*cats_event_ia['shew']) 
+    # set vulnerability to zero for non-affected households
+    # --> v for [private, public] assets
+    cats_event_ia.loc[cats_event_ia.affected_cat=='na',['v','public_loss_v']] = [0,0]
 
-    #capital losses and total capital losses. Each household's capital losses is the sum of their private losses and public infrastructure losses (in proportion to their capital)
-    cats_event_ia['dk'] = cats_event_ia[['hh_share','k','v_shew']].prod(axis=1, skipna=False)+cats_event_ia[['k','public_loss_v']].prod(axis=1, skipna=False)
-    cats_event_ia.ix[(cats_event_ia.affected_cat=='na'), 'dk']=0
+    # 'Actual' vulnerability includes migitating effect of early warning systems
+    # --> still 0 for non-affected hh
+    cats_event_ia['v_shew']=cats_event_ia['v']*(1-macro_event['pi']*cats_event_ia['shew'])    
 
-    #'provincial' losses
-    # dk_event is WHEN the event happens--doesn't yet include RP/probability
-    macro_event['dk_event']   =  cats_event_ia[['dk','pcwgt']].prod(axis=1,skipna=False).sum(level=event_level)
+    # Capital losses (public & private) 
+    # --> Each household's capital losses is the sum of their private losses and public infrastructure losses
+    # --> 'hh_share' recovers fraction that is private property
+    cats_event_ia['dk_private'] = cats_event_ia[['k','hh_share','v_shew']].prod(axis=1, skipna=False)
+    cats_event_ia['dk_public']  = cats_event_ia[['k','public_loss_v']].prod(axis=1, skipna=False)
+
+    # Independent of who pays for reconstruction, the total event losses are given by:
+    macro_event['dk_event'] = ( (cats_event_ia['dk_private']+cats_event_ia['dk_public'])*cats_event_ia['pcwgt'] ).sum(level=event_level)
+    # ^ dk_event is WHEN the event happens--doesn't yet include RP/probability
+
+    # --> DEPRECATED: assign losses to each hh
+    if not share_public_assets: 
+        cats_event_ia['dk'] = cats_event_ia['dk_private'] + cats_event_ia['dk_public']
+
+    # --> distribute losses to every hh
+    # TODO: this is going to be the tax rate for all hh, but needs to be broadcast to hh outside of region
+    else:
+        print('\nSharing infra & public asset costs among all households *nationally*\n')
+
+        # Create a new dataframe 
+        cats_event_ia = cats_event_ia.reset_index().set_index(event_level+['hhid','affected_cat'])
+        rebuild_fees = pd.DataFrame(cats_event_ia[['k','dk_private','dk_public','pcwgt']],index=cats_event_ia.index)
+        cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
+        rebuild_fees = rebuild_fees.reset_index().set_index(event_level)
+
+        # Total value of public & private asset losses, when an event hits a single province              
+        rebuild_fees['dk_private_tot'] = rebuild_fees[['pcwgt','dk_private']].prod(axis=1).sum(level=event_level)
+        rebuild_fees['dk_public_tot']  = rebuild_fees[['pcwgt', 'dk_public']].prod(axis=1).sum(level=event_level)
+
+        # This is just a shortcut, makes things easier later
+        rebuild_fees['dk_public_hh'] = rebuild_fees[['pcwgt','dk_public']].prod(axis=1)
+        # ^ gives total public losses suffered by all people represented by each hh
+
+        #######################################################
+        # Create a temporary dataframe that sums over provinces
+        rebuild_fees_tmp = pd.DataFrame(index=cats_event_ia.sum(level=['hazard','rp']).index)
+        
+        # tot_k_BE is all the assets in the country BEFORE EVENT *** BE = BEFORE EVENT ***
+        rebuild_fees_tmp['tot_k_BE'] = cats_event_ia[['pcwgt','k']].prod(axis=1,skipna=False).sum(level=['hazard','rp'])
+        # Can't calculate PE, because the _tmp df is already summed over provinces
+        # ^ BE is the same for all events in all provinces; PE is not
+
+        # Merge _tmp into original df
+        rebuild_fees = pd.merge(rebuild_fees.reset_index(),rebuild_fees_tmp.reset_index(),on=['hazard','rp']).reset_index().set_index(event_level)
+
+        # tot_k_PE is all the assets in the country POST EVENT *** PE = POST EVENT ***
+        rebuild_fees['tot_k_PE'] = rebuild_fees['tot_k_BE'] - (rebuild_fees['dk_private_tot']+rebuild_fees['dk_public_tot'])
+
+        rebuild_fees.to_csv('~/Desktop/my_rf.csv')        
+        #######################################################
+
+        # Prepare 2 dfs for working together again
+        cats_event_ia = cats_event_ia.reset_index().set_index(event_level+['hhid','affected_cat'])
+        rebuild_fees = rebuild_fees.reset_index().set_index(event_level+['hhid','affected_cat'])
+
+        # Determine the fraction of all capital in the country in each hh (includes weighting here)
+        # NB: note the difference between BE and PE here
+        rebuild_fees['frac_k_BE'] = cats_event_ia[['pcwgt','k']].prod(axis=1,skipna=False)/rebuild_fees['tot_k_BE']
+        rebuild_fees['frac_k_PE'] = (cats_event_ia['k']-cats_event_ia['dk_private']-cats_event_ia['dk_public'])*cats_event_ia['pcwgt']/rebuild_fees['tot_k_PE']
+
+        # This is the fraction of damages that each hh will pay
+        rebuild_fees['pc_fee_BE'] = rebuild_fees[['dk_public_tot','frac_k_BE']].prod(axis=1)/rebuild_fees['pcwgt']
+        rebuild_fees['pc_fee_PE'] = rebuild_fees[['dk_public_tot','frac_k_PE']].prod(axis=1)/rebuild_fees['pcwgt']
+        # --> this is where it goes sideways, tho...
+        # --> dk_public_tot is for a specific province/hazard/rp, and it needs to be distributed among everyone, nationally
+        # --> but it only goes to the hh in the province
+
+        # Now calculate the fee paid by each hh
+        # --> still assessing both before and after disaster
+        rebuild_fees['hh_fee_BE'] = rebuild_fees[['pc_fee_BE','pcwgt']].prod(axis=1)       
+        rebuild_fees['hh_fee_PE'] = rebuild_fees[['pc_fee_PE','pcwgt']].prod(axis=1)  
+
+        # Transfer per capita fees back to cats_event_ia 
+        cats_event_ia[['pc_fee_BE','pc_fee_PE']] = rebuild_fees[['pc_fee_BE','pc_fee_PE']]
+        cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
+
+        # Sanity Check: we know this works if hh_fee = 'dk_public_hh'*'frac_k'
+        #print(rebuild_fees['dk_public_tot'].head(1))
+        #print(rebuild_fees[['hh_fee_BE','frac_k_BE']].sum(level=event_level).head(17))
+        #print(rebuild_fees[['hh_fee_PE','frac_k_PE']].sum(level=event_level).head(17))
+
+        ############################        
+        # Make another output file... public_costs.csv
+        # --> this contains the cost to each province/region of each disaster (hazard x rp) in another province
+        public_costs = pd.DataFrame(index=macro_event.index)
+        public_costs['tot_cost'] = rebuild_fees[['pcwgt','dk_public']].prod(axis=1).sum(level=event_level)
+        public_costs['int_cost_BE'] = rebuild_fees[['dk_public_hh','frac_k_BE']].prod(axis=1).sum(level=event_level)
+        public_costs['int_cost_PE'] = rebuild_fees[['dk_public_hh','frac_k_PE']].prod(axis=1).sum(level=event_level)
+        public_costs['ext_cost_BE'] = public_costs['tot_cost'] - public_costs['int_cost_BE']
+        public_costs['ext_cost_PE'] = public_costs['tot_cost'] - public_costs['int_cost_PE']
+        public_costs['tmp'] = 1
+
+        # Grab a list with names of all regions/provinces
+        prov_k = pd.DataFrame(index=rebuild_fees.sum(level=event_level[0]).index)
+        prov_k.index.names = ['contributer']
+        prov_k['frac_k_BE'] = rebuild_fees['frac_k_BE'].sum(level=event_level[0])/rebuild_fees['frac_k_BE'].sum()
+        # Can't define frac_k_PE here: _tmp does not operate at event level
+        prov_k['tmp'] = 1
+        prov_k = prov_k.reset_index()
+        
+        public_costs = pd.merge(public_costs.reset_index(),prov_k.reset_index(),on=['tmp']).reset_index().set_index(event_level+['contributer']).sort_index()
+        public_costs = public_costs.drop(['index','level_0','tmp'],axis=1)
+        # ^  broadcast prov index to public_costs (2nd provincial index)
+
+        # temporary df:
+        public_costs_tmp = pd.DataFrame(index=rebuild_fees.index())
+
+        print('Here is the (or a) problem: frac_k does not operate at event level, but it needs to now')
+        public_costs = public_costs.reset_index()
+        prov_k['frac_k_PE'] = None
+        prov_k.loc[(prov_k.contributer != prov_k[event_level[0]]),'frac_k_PE'] = # something
+
+        
+        
+
+ ( rebuild_fees[''].sum(level=event_level)-rebuild_fees['dk_private_tot'].mean(level=event_level[0]))
+            rebuild_fees['frac_k_PE'].sum(level=event_level)/(rebuild_fees['frac_k_BE'].sum(level=['hazard','rp'])-rebuild_fees['dk_private_tot'].mean(level=event_level[0]))
+
+        public_costs['transfer_k_BE'] = public_costs[['tot_cost','frac_k_BE']].prod(axis=1)
+        public_costs['transfer_k_PE'] = public_costs[['tot_cost','frac_k_PE']].prod(axis=1)
+        public_costs['dw'] = None
+
+        public_costs['PE_to_BE'] = public_costs['transfer_k_PE']/public_costs['transfer_k_BE']
+
+        public_costs.to_csv('~/Desktop/public_costs.csv')
+
+        assert(False)
+
+
  
     #immediate consumption losses: direct capital losses plus losses through event-scale depression of transfers
     if not share_public_assets:
@@ -320,72 +449,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
         public_costs = None
 
     else:
-        print('\nSharing infra & public asset costs among all households *nationally*\n')
-        cats_event_ia = cats_event_ia.reset_index().set_index(event_level+['hhid','affected_cat'])
-        rebuild_fees = pd.DataFrame(cats_event_ia[['k','dk','pcwgt']],index=cats_event_ia.index)
-
-        cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
-        rebuild_fees = rebuild_fees.reset_index().set_index(event_level)
-
-        rebuild_fees['dk_public'] = cats_event_ia[['public_loss_v','k']].prod(axis=1,skipna=False) 
-        rebuild_fees.loc[rebuild_fees.affected_cat == 'na','dk_public'] = 0.
-        # ^  public dk losses, per cap
-        
-        rebuild_fees['dk_public_hh'] = rebuild_fees[['pcwgt','dk_public']].prod(axis=1,skipna=False)
-        # ^ total dk suffered by each hh (and all the people it represents)
- 
-        rebuild_fees['dk_public_tot'] = rebuild_fees['dk_public_hh'].sum(level=event_level)
-        # ^ dk_public_tot is the value of public asset losses, when a disaster (of type&magnitude) hits a single province
-
-        rebuild_fees_tmp = pd.DataFrame(index=cats_event_ia.sum(level=['hazard','rp']).index)
-        rebuild_fees_tmp['tot_k'] = cats_event_ia[['pcwgt','k']].prod(axis=1,skipna=False).sum(level=['hazard','rp'])
-        # ^ tot_k is all the assets in the country
-
-        rebuild_fees = pd.merge(rebuild_fees.reset_index(),rebuild_fees_tmp.reset_index(),on=['hazard','rp']).reset_index().set_index(event_level+['hhid','affected_cat'])
-
-        cats_event_ia = cats_event_ia.reset_index().set_index(event_level+['hhid','affected_cat'])
-        rebuild_fees = rebuild_fees.reset_index().set_index(event_level+['hhid','affected_cat'])
-
-        rebuild_fees['frac_k'] = cats_event_ia[['pcwgt','k']].prod(axis=1,skipna=False)/rebuild_fees['tot_k']
-        # ^ what fraction of all capital in the country is in each hh?
-        
-        rebuild_fees['pc_fee'] = rebuild_fees[['dk_public_tot','frac_k']].prod(axis=1)/rebuild_fees['pcwgt']
-        # ^ this is the fraction of damages that each hh will pay
-        # --> this is where it goes sideways, tho...
-        # --> dk_public_tot is for a specific province/hazard/rp, and it needs to be distributed among everyone, nationally
-        # --> but it only goes to the hh in the province
-        
-        rebuild_fees['hh_fee'] = rebuild_fees[['pc_fee','pcwgt']].prod(axis=1)
-
-        cats_event_ia[['dk_public','pc_fee']] = rebuild_fees[['dk_public','pc_fee']]
-        cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
-
-        #print(rebuild_fees[['dk_public_hh','hh_fee','frac_k']].sum(level=event_level).head(17))
-        # ^ Check: we know this works if hh_fee = 'dk_public_hh'*'frac_k'
-
-        ############################        
-        # Make another output file... public_costs.csv
-        # --> this contains the cost to each province/region of each disaster (hazardxrp) in another province
-        public_costs = pd.DataFrame(index=macro_event.index)
-        public_costs['tot_cost'] = rebuild_fees['dk_public_hh'].sum(level=event_level)
-        public_costs['int_cost'] = (rebuild_fees[['dk_public_hh','frac_k']].sum(level=event_level)).prod(axis=1)
-        public_costs['ext_cost'] = public_costs['tot_cost'] - public_costs['int_cost']
-        public_costs['tmp'] = 1
-        
-        prov_k = pd.DataFrame(index=rebuild_fees.sum(level=event_level[0]).index)
-        prov_k.index.names = ['contributer']
-
-        prov_k['frac_k'] = rebuild_fees['frac_k'].sum(level=event_level[0])/rebuild_fees['frac_k'].sum()
-        prov_k['tmp'] = 1
-        prov_k = prov_k.reset_index()
-        
-        public_costs = pd.merge(public_costs.reset_index(),prov_k.reset_index(),on=['tmp']).reset_index().set_index(event_level).sort_index()
-        public_costs = public_costs.drop(['index','level_0','tmp'],axis=1)
-        # ^  broadcast prov index to public_costs (2nd provincial index)
-
-        public_costs['transfer_k'] = public_costs[['tot_cost','frac_k']].prod(axis=1)
-        public_costs['dw'] = None
-
+                         
         ############################
         # So we have cost of each disaster in each province to every other province
         # - need to calc welfare impact of these transfers
@@ -616,12 +680,6 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
         # Calculate payouts for additional: variable payout based on lottery
         cats_event_iah.loc[(cats_event_iah.SPP_add==True)&(cats_event_iah.SP_lottery<cats_event_iah.frac_add),'SP_lottery_win'] = True
         cats_event_iah['SP_lottery_win'] = cats_event_iah['SP_lottery_win'].fillna(False)
-
-        #cats_event_iah.loc[(cats_event_iah.rp>= 5)&(cats_event_iah.rp<10)&(cats_event_iah.SPP_add==True)&(cats_event_iah.SP_lottery <= 0.25),'SP_lottery_win'] = True
-        #cats_event_iah.loc[(cats_event_iah.rp>=10)&(cats_event_iah.rp<20)&(cats_event_iah.SPP_add==True)&(cats_event_iah.SP_lottery <= 0.50),'SP_lottery_win'] = True
-        #cats_event_iah.loc[(cats_event_iah.rp>=20)&(cats_event_iah.rp<40)&(cats_event_iah.SPP_add==True)&(cats_event_iah.SP_lottery <= 0.75),'SP_lottery_win'] = True
-        #cats_event_iah.loc[(cats_event_iah.rp>=40)&(cats_event_iah.SPP_add==True),'SP_lottery_win'] = True
-        # ^ this info already encoded in frac_add
         
         cats_event_iah.loc[(cats_event_iah.SP_lottery_win==True),'help_received'] = cats_event_iah.loc[(cats_event_iah.SP_lottery_win==True),'payout']/cats_event_iah.loc[(cats_event_iah.SP_lottery<cats_event_iah.frac_core),'hhsize']
 
@@ -743,44 +801,6 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah, event_leve
         macro_event['my_help_fee'] = macro_event['need'].clip(upper=macro_event['max_aid'])
     else:
         assert(False)
-        
-    # commit before a series of code edits & reconstructions.
-
-    #elif optionB=='max01':
-    #    macro_event['max_aid'] = 0.01*macro_event['gdp_pc_pp_nat']
-    #    macro_event['aid'] = (macro_event['need']).clip(upper=macro_event['max_aid']) 
-    #elif optionB=='max05':
-    #    macro_event['max_aid'] = 0.05*macro_event['gdp_pc_pp_nat']
-    #    macro_event['aid'] = (macro_event['need']).clip(upper=macro_event['max_aid'])
-    #elif optionB=='unlimited':
-    #    macro_event['aid'] = macro_event['need']
-    #elif optionB=='one_per_affected':
-    #    d = cats_event_iah.ix[(cats_event_iah.affected_cat=='a')]        
-    #    d['un']=1
-    #    macro_event['need'] = agg_to_event_level(d,'un',event_level)
-    #    macro_event['aid'] = macro_event['need']
-    #elif optionB=='one_per_helped':
-    #    d = cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')]        
-    #    d['un']=1
-    #    macro_event['need'] = agg_to_event_level(d,'un',event_level)
-    #    macro_event['aid'] = macro_event['need']
-    #elif optionB=='one':
-    #    macro_event['aid'] = 1
-    #elif optionB=='no':
-    #    pass	
-    
-    #NO!!!!!
-    #if optionPDS=='unif_poor':
-        # NO. we have already calculated help_received.
-        #macro_event['unif_aid'] = macro_event['aid']
-
-    #elif optionPDS=='unif_poor_only':
-    #    macro_event['unif_aid'] = macro_event['aid']/(cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')&(cats_event_iah.quintile==1),'pcwgt'].sum(level=event_level)) 
-    #    cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')&(cats_event_iah.quintile==1),'help_received'] = macro_event['unif_aid']
-    #    cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')|(cats_event_iah.quintile==1),'help_received']=0
-    
-    #if optionPDS=='prop':
-    #    cats_event_iah['help_received'] = macro_event['aid']/macro_event['need']*cats_event_iah['help_received'] 		
 		
     if optionFee=='tax':
 
