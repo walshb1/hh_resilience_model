@@ -23,7 +23,7 @@
     }
 .i___ilocos
     {  
-       fill: #0C7E42;
+       fill: #0D8043;
        stroke:#000000;
        stroke-width:2;
     }
@@ -41,7 +41,7 @@
     }
 .iva___calabarzon
     {  
-       fill: #93D067;
+       fill: #98D268;
        stroke:#000000;
        stroke-width:2;
     }
@@ -77,7 +77,7 @@
     }
 .vii___central_visayas
     {  
-       fill: #45AD5A;
+       fill: #48AE5B;
        stroke:#000000;
        stroke-width:2;
     }

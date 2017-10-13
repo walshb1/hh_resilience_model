@@ -23,7 +23,7 @@
     }
 .i___ilocos
     {  
-       fill: #A7D96A;
+       fill: #A9DA6B;
        stroke:#000000;
        stroke-width:2;
     }
@@ -35,13 +35,13 @@
     }
 .iii___central_luzon
     {  
-       fill: #FEE99B;
+       fill: #FEE899;
        stroke:#000000;
        stroke-width:2;
     }
 .iva___calabarzon
     {  
-       fill: #FDBC6D;
+       fill: #FDB063;
        stroke:#000000;
        stroke-width:2;
     }
@@ -65,49 +65,49 @@
     }
 .v___bicol
     {  
-       fill: #3CA858;
+       fill: #39A757;
        stroke:#000000;
        stroke-width:2;
     }
 .vi___western_visayas
     {  
-       fill: #2A9F54;
+       fill: #2DA154;
        stroke:#000000;
        stroke-width:2;
     }
 .vii___central_visayas
     {  
-       fill: #108646;
+       fill: #118847;
        stroke:#000000;
        stroke-width:2;
     }
 .viii___eastern_visayas
     {  
-       fill: #6BBF63;
+       fill: #70C164;
        stroke:#000000;
        stroke-width:2;
     }
 .x___northern_mindanao
     {  
-       fill: #06733C;
+       fill: #07753D;
        stroke:#000000;
        stroke-width:2;
     }
 .xi___davao
     {  
-       fill: #84CA66;
+       fill: #81C966;
        stroke:#000000;
        stroke-width:2;
     }
 .xii___soccsksargen
     {  
-       fill: #39A757;
+       fill: #42AB5A;
        stroke:#000000;
        stroke-width:2;
     }
 .xiii___caraga
     {  
-       fill: #279E53;
+       fill: #30A255;
        stroke:#000000;
        stroke-width:2;
     }

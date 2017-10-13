@@ -17,37 +17,37 @@
     }
 .car
     {  
-       fill: #A2D769;
+       fill: #A9DA6B;
        stroke:#000000;
        stroke-width:2;
     }
 .i___ilocos
     {  
-       fill: #FDB668;
+       fill: #FA9857;
        stroke:#000000;
        stroke-width:2;
     }
 .ii___cagayan_valley
     {  
-       fill: #F46D43;
+       fill: #EA593A;
        stroke:#000000;
        stroke-width:2;
     }
 .iii___central_luzon
     {  
-       fill: #FDDA86;
+       fill: #FDCC7A;
        stroke:#000000;
        stroke-width:2;
     }
 .iva___calabarzon
     {  
-       fill: #FA9A58;
+       fill: #F57948;
        stroke:#000000;
        stroke-width:2;
     }
 .ivb___mimaropa
     {  
-       fill: #6BBF63;
+       fill: #6DC063;
        stroke:#000000;
        stroke-width:2;
     }
@@ -59,7 +59,7 @@
     }
 .ncr
     {  
-       fill: #FDDA86;
+       fill: #FDCA78;
        stroke:#000000;
        stroke-width:2;
     }
@@ -71,31 +71,31 @@
     }
 .vi___western_visayas
     {  
-       fill: #2A9F54;
+       fill: #30A255;
        stroke:#000000;
        stroke-width:2;
     }
 .vii___central_visayas
     {  
-       fill: #90CF67;
+       fill: #9DD569;
        stroke:#000000;
        stroke-width:2;
     }
 .viii___eastern_visayas
     {  
-       fill: #FDCE7C;
+       fill: #FDB668;
        stroke:#000000;
        stroke-width:2;
     }
 .x___northern_mindanao
     {  
-       fill: #138B49;
+       fill: #158F4B;
        stroke:#000000;
        stroke-width:2;
     }
 .xi___davao
     {  
-       fill: #036D39;
+       fill: #046F3A;
        stroke:#000000;
        stroke-width:2;
     }
@@ -107,7 +107,7 @@
     }
 .xiii___caraga
     {  
-       fill: #36A557;
+       fill: #45AD5A;
        stroke:#000000;
        stroke-width:2;
     }

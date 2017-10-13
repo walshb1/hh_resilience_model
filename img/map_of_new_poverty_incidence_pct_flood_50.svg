@@ -17,19 +17,19 @@
     }
 .car
     {  
-       fill: #42AB5A;
+       fill: #45AD5A;
        stroke:#000000;
        stroke-width:2;
     }
 .i___ilocos
     {  
-       fill: #51B25D;
+       fill: #54B45E;
        stroke:#000000;
        stroke-width:2;
     }
 .ii___cagayan_valley
     {  
-       fill: #63BB62;
+       fill: #66BD63;
        stroke:#000000;
        stroke-width:2;
     }
@@ -41,7 +41,7 @@
     }
 .iva___calabarzon
     {  
-       fill: #95D168;
+       fill: #9AD468;
        stroke:#000000;
        stroke-width:2;
     }
@@ -77,13 +77,13 @@
     }
 .vii___central_visayas
     {  
-       fill: #9FD669;
+       fill: #A4D869;
        stroke:#000000;
        stroke-width:2;
     }
 .viii___eastern_visayas
     {  
-       fill: #0B7C41;
+       fill: #0C7E42;
        stroke:#000000;
        stroke-width:2;
     }

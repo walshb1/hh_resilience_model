@@ -23,13 +23,13 @@
     }
 .i___ilocos
     {  
-       fill: #2A9F54;
+       fill: #2DA154;
        stroke:#000000;
        stroke-width:2;
     }
 .ii___cagayan_valley
     {  
-       fill: #249D52;
+       fill: #279E53;
        stroke:#000000;
        stroke-width:2;
     }
@@ -41,7 +41,7 @@
     }
 .iva___calabarzon
     {  
-       fill: #7FC765;
+       fill: #86CB66;
        stroke:#000000;
        stroke-width:2;
     }
@@ -77,7 +77,7 @@
     }
 .vii___central_visayas
     {  
-       fill: #8ECE67;
+       fill: #95D168;
        stroke:#000000;
        stroke-width:2;
     }

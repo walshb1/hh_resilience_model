@@ -23,13 +23,13 @@
     }
 .ii___cagayan_valley
     {  
-       fill: #3CA858;
+       fill: #39A757;
        stroke:#000000;
        stroke-width:2;
     }
 .iii___central_luzon
     {  
-       fill: #16914C;
+       fill: #158F4B;
        stroke:#000000;
        stroke-width:2;
     }
@@ -41,7 +41,7 @@
     }
 .ivb___mimaropa
     {  
-       fill: #33A456;
+       fill: #2DA154;
        stroke:#000000;
        stroke-width:2;
     }
@@ -53,13 +53,13 @@
     }
 .ncr
     {  
-       fill: #C1E47B;
+       fill: #BBE277;
        stroke:#000000;
        stroke-width:2;
     }
 .v___bicol
     {  
-       fill: #BC1626;
+       fill: #D62F26;
        stroke:#000000;
        stroke-width:2;
     }
@@ -77,7 +77,7 @@
     }
 .viii___eastern_visayas
     {  
-       fill: #D73127;
+       fill: #D22B26;
        stroke:#000000;
        stroke-width:2;
     }
@@ -95,7 +95,7 @@
     }
 .xiii___caraga
     {  
-       fill: #108646;
+       fill: #118847;
        stroke:#000000;
        stroke-width:2;
     }

@@ -23,7 +23,7 @@
     }
 .i___ilocos
     {  
-       fill: #48AE5B;
+       fill: #4BAF5C;
        stroke:#000000;
        stroke-width:2;
     }
@@ -41,7 +41,7 @@
     }
 .iva___calabarzon
     {  
-       fill: #FEE391;
+       fill: #FDDE89;
        stroke:#000000;
        stroke-width:2;
     }
@@ -65,7 +65,7 @@
     }
 .v___bicol
     {  
-       fill: #33A456;
+       fill: #30A255;
        stroke:#000000;
        stroke-width:2;
     }
@@ -77,25 +77,25 @@
     }
 .vii___central_visayas
     {  
-       fill: #6DC063;
+       fill: #70C164;
        stroke:#000000;
        stroke-width:2;
     }
 .viii___eastern_visayas
     {  
-       fill: #0A7A40;
+       fill: #0B7C41;
        stroke:#000000;
        stroke-width:2;
     }
 .x___northern_mindanao
     {  
-       fill: #30A255;
+       fill: #36A557;
        stroke:#000000;
        stroke-width:2;
     }
 .xi___davao
     {  
-       fill: #0A7A40;
+       fill: #09783F;
        stroke:#000000;
        stroke-width:2;
     }

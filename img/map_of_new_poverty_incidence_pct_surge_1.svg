@@ -23,7 +23,7 @@
     }
 .ii___cagayan_valley
     {  
-       fill: #B1DD71;
+       fill: #B7E075;
        stroke:#000000;
        stroke-width:2;
     }
@@ -35,7 +35,7 @@
     }
 .iva___calabarzon
     {  
-       fill: #17934D;
+       fill: #19974F;
        stroke:#000000;
        stroke-width:2;
     }
@@ -53,7 +53,7 @@
     }
 .ncr
     {  
-       fill: #046F3A;
+       fill: #05713B;
        stroke:#000000;
        stroke-width:2;
     }
@@ -65,19 +65,19 @@
     }
 .vi___western_visayas
     {  
-       fill: #128948;
+       fill: #138B49;
        stroke:#000000;
        stroke-width:2;
     }
 .vii___central_visayas
     {  
-       fill: #45AD5A;
+       fill: #4BAF5C;
        stroke:#000000;
        stroke-width:2;
     }
 .viii___eastern_visayas
     {  
-       fill: #D5ED88;
+       fill: #E0F295;
        stroke:#000000;
        stroke-width:2;
     }

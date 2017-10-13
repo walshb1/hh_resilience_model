@@ -35,13 +35,13 @@
     }
 .iva___calabarzon
     {  
-       fill: #4BAF5C;
+       fill: #4EB15D;
        stroke:#000000;
        stroke-width:2;
     }
 .ivb___mimaropa
     {  
-       fill: #036D39;
+       fill: #046F3A;
        stroke:#000000;
        stroke-width:2;
     }
@@ -71,19 +71,19 @@
     }
 .vii___central_visayas
     {  
-       fill: #C7E77F;
+       fill: #DAEF8D;
        stroke:#000000;
        stroke-width:2;
     }
 .viii___eastern_visayas
     {  
-       fill: #D7EE89;
+       fill: #DEF193;
        stroke:#000000;
        stroke-width:2;
     }
 .x___northern_mindanao
     {  
-       fill: #016937;
+       fill: #026B38;
        stroke:#000000;
        stroke-width:2;
     }

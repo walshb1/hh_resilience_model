@@ -17,25 +17,25 @@
     }
 .car
     {  
-       fill: #108646;
+       fill: #0F8445;
        stroke:#000000;
        stroke-width:2;
     }
 .i___ilocos
     {  
-       fill: #E7F59F;
+       fill: #E6F49D;
        stroke:#000000;
        stroke-width:2;
     }
 .ii___cagayan_valley
     {  
-       fill: #FEF9B5;
+       fill: #FEFDBB;
        stroke:#000000;
        stroke-width:2;
     }
 .iii___central_luzon
     {  
-       fill: #FDB86A;
+       fill: #FDC070;
        stroke:#000000;
        stroke-width:2;
     }
@@ -47,7 +47,7 @@
     }
 .ivb___mimaropa
     {  
-       fill: #0C7E42;
+       fill: #0B7C41;
        stroke:#000000;
        stroke-width:2;
     }
@@ -59,13 +59,13 @@
     }
 .ncr
     {  
-       fill: #F99555;
+       fill: #FBA55C;
        stroke:#000000;
        stroke-width:2;
     }
 .v___bicol
     {  
-       fill: #FEF4AD;
+       fill: #FEFEBD;
        stroke:#000000;
        stroke-width:2;
     }
@@ -83,7 +83,7 @@
     }
 .viii___eastern_visayas
     {  
-       fill: #8ECE67;
+       fill: #90CF67;
        stroke:#000000;
        stroke-width:2;
     }

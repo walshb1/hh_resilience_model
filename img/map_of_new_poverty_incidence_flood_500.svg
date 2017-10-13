@@ -11,7 +11,7 @@
     }
     .armm
     {  
-       fill: #026B38;
+       fill: #016937;
        stroke:#000000;
        stroke-width:2;
     }
@@ -35,25 +35,25 @@
     }
 .iii___central_luzon
     {  
-       fill: #ABDB6D;
+       fill: #A9DA6B;
        stroke:#000000;
        stroke-width:2;
     }
 .iva___calabarzon
     {  
-       fill: #FEF8B3;
+       fill: #FEF4AD;
        stroke:#000000;
        stroke-width:2;
     }
 .ivb___mimaropa
     {  
-       fill: #05713B;
+       fill: #046F3A;
        stroke:#000000;
        stroke-width:2;
     }
 .ix___zamboanga_peninsula
     {  
-       fill: #016937;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
@@ -65,7 +65,7 @@
     }
 .v___bicol
     {  
-       fill: #279E53;
+       fill: #249D52;
        stroke:#000000;
        stroke-width:2;
     }
@@ -77,7 +77,7 @@
     }
 .vii___central_visayas
     {  
-       fill: #70C164;
+       fill: #72C264;
        stroke:#000000;
        stroke-width:2;
     }
@@ -89,7 +89,7 @@
     }
 .x___northern_mindanao
     {  
-       fill: #148D4A;
+       fill: #158F4B;
        stroke:#000000;
        stroke-width:2;
     }

@@ -23,13 +23,13 @@
     }
 .i___ilocos
     {  
-       fill: #95D168;
+       fill: #98D268;
        stroke:#000000;
        stroke-width:2;
     }
 .ii___cagayan_valley
     {  
-       fill: #249D52;
+       fill: #279E53;
        stroke:#000000;
        stroke-width:2;
     }
@@ -41,13 +41,13 @@
     }
 .iva___calabarzon
     {  
-       fill: #FDDA86;
+       fill: #FDD07D;
        stroke:#000000;
        stroke-width:2;
     }
 .ivb___mimaropa
     {  
-       fill: #08773E;
+       fill: #07753D;
        stroke:#000000;
        stroke-width:2;
     }
@@ -65,13 +65,13 @@
     }
 .v___bicol
     {  
-       fill: #2DA154;
+       fill: #2A9F54;
        stroke:#000000;
        stroke-width:2;
     }
 .vi___western_visayas
     {  
-       fill: #1E9A51;
+       fill: #219B51;
        stroke:#000000;
        stroke-width:2;
     }
@@ -83,7 +83,7 @@
     }
 .viii___eastern_visayas
     {  
-       fill: #4BAF5C;
+       fill: #54B45E;
        stroke:#000000;
        stroke-width:2;
     }
@@ -101,13 +101,13 @@
     }
 .xii___soccsksargen
     {  
-       fill: #219B51;
+       fill: #279E53;
        stroke:#000000;
        stroke-width:2;
     }
 .xiii___caraga
     {  
-       fill: #19974F;
+       fill: #1E9A51;
        stroke:#000000;
        stroke-width:2;
     }

@@ -29,7 +29,7 @@
     }
 .iii___central_luzon
     {  
-       fill: #30A255;
+       fill: #2DA154;
        stroke:#000000;
        stroke-width:2;
     }
@@ -41,7 +41,7 @@
     }
 .ivb___mimaropa
     {  
-       fill: #0E8244;
+       fill: #0D8043;
        stroke:#000000;
        stroke-width:2;
     }
@@ -53,13 +53,13 @@
     }
 .ncr
     {  
-       fill: #FDDE89;
+       fill: #FEE493;
        stroke:#000000;
        stroke-width:2;
     }
 .v___bicol
     {  
-       fill: #F67E4B;
+       fill: #FA9A58;
        stroke:#000000;
        stroke-width:2;
     }
@@ -77,13 +77,13 @@
     }
 .viii___eastern_visayas
     {  
-       fill: #FEF1A7;
+       fill: #FEEEA3;
        stroke:#000000;
        stroke-width:2;
     }
 .x___northern_mindanao
     {  
-       fill: #08773E;
+       fill: #09783F;
        stroke:#000000;
        stroke-width:2;
     }
