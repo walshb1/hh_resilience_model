@@ -361,6 +361,8 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
         rebuild_fees = pd.merge(rebuild_fees.reset_index(),rebuild_fees_tmp.reset_index(),on=['hazard','rp']).reset_index().set_index(event_level)
 
         # tot_k_PE is all the assets in the country POST EVENT *** PE = POST EVENT ***
+        # --> delta(tot_k_BE , tot_k_PE) will include both public and private assets
+        # --> that's appropriate because we're imagining tax assessors come after the disaster, when you demonstrate all that lost
         rebuild_fees['tot_k_PE'] = rebuild_fees['tot_k_BE'] - (rebuild_fees['dk_private_tot']+rebuild_fees['dk_public_tot'])     
         #######################################################
 
@@ -384,7 +386,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
         # --> still assessing both before and after disaster
         rebuild_fees['hh_fee_BE'] = rebuild_fees[['pc_fee_BE','pcwgt']].prod(axis=1)       
         rebuild_fees['hh_fee_PE'] = rebuild_fees[['pc_fee_PE','pcwgt']].prod(axis=1)  
-
+        
         # Transfer per capita fees back to cats_event_ia 
         cats_event_ia[['pc_fee_BE','pc_fee_PE']] = rebuild_fees[['pc_fee_BE','pc_fee_PE']]
         cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
@@ -395,7 +397,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
         #print(rebuild_fees[['hh_fee_PE','frac_k_PE']].sum(level=event_level).head(17))
 
         ############################        
-        # Make another output file... public_costs.csv
+        # Make another output file --> public_costs.csv
         # --> this contains the cost to each province/region of each disaster (hazard x rp) in another province
         public_costs = pd.DataFrame(index=macro_event.index)
 
@@ -440,27 +442,45 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
         public_costs['transfer_k_PE'] = public_costs[['dk_public_recipient','frac_k_PE']].prod(axis=1)
         public_costs['PE_to_BE'] = public_costs['transfer_k_PE']/public_costs['transfer_k_BE']
 
-        public_costs = public_costs.drop([i for i in public_costs.columns if i not in ['dk_public_recipient','frac_k_BE','frac_k_PE','transfer_k_BE','transfer_k_PE','PE_to_BE']],axis=1)
-
+        public_costs = public_costs.drop([i for i in public_costs.columns if i not in ['contributer','dk_public_recipient','frac_k_BE','frac_k_PE',
+                                                                                       'transfer_k_BE','transfer_k_PE','PE_to_BE']],axis=1)
         public_costs['dw'] = None
         public_costs.to_csv('~/Desktop/public_costs.csv')
-
-        assert(False)
-        # Stopping here. Have external costs for disasters assessed on provincial capital before and after disaster strikes.
- 
+        
         ############################
         # So we have cost of each disaster in each province to every other province
         # - need to calc welfare impact of these transfers
         public_costs = public_costs.reset_index()
         cats_event_ia = cats_event_ia.reset_index().set_index(['hhid'])
         
+        ############################
+        # Choose whether to assess tax on k (BE='before event') or (PE='post event')
+        # --> the total k in non-aff provinces doesn't change, either way
+        # --> the fraction of assets in the country does, because of destruction in the aff province. 
+
+        # Uncomment these 2 lines for tax assessment before disaster
+        #public_costs = public_costs.rename(columns={'transfer_k_BE':'transfer_k','pc_fee_BE':'pc_fee'})
+        #cats_event_ia = cats_event_ia.rename(columns={'pc_fee_PE':'pc_fee'})
+
+        # Uncomment these 2 lines for tax assessment after disaster
+        public_costs = public_costs.rename(columns={'transfer_k_PE':'transfer_k'})
+        cats_event_ia = cats_event_ia.rename(columns={'pc_fee_PE':'pc_fee'})
+
+        # Assign dk to households in the province where disaster occurred
+        cats_event_ia['dk'] = cats_event_ia['dk_private'] + cats_event_ia['pc_fee']
+        print('NEED TO CHECK DK IS CORRECT!!!')
+        # --> when affected by a disaster, hh lose their private assets...
+        # --> *AND* the fraction of the public assets for which they're responsible
+        # --> pc_fee is only for people (aff & non-aff) in the affected province
+        ############################
+
         for iP in public_costs.contributer.unique():
             
             tmp_df = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP),['k','c','c_5']].mean(level='hhid')
             tmp_df['pcwgt'] = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP),['pcwgt']].sum(level='hhid')
 
             tmp_df['pc_frac_k'] = tmp_df[['pcwgt','k']].prod(axis=1)/tmp_df[['pcwgt','k']].prod(axis=1).sum()
-            # ^ this grabs a single instance of each hh in a given province
+            # ^ this grabs a single instance of each hh in each contributing (non-aff) province
             # --> 'k' and 'c' are not distributed between {a,na} (use mean), but pcwgt is (use sum)
             # --> 'pc_frac_k' used to determine what they'll pay when a disaster happens elsewhere
 
