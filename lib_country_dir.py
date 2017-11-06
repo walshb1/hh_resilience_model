@@ -126,7 +126,9 @@ def load_survey_data(myC,inc_sf=None):
                                                                            'FamilyAssistanceProgrampaymentfromSocialWelfare',
                                                                            'FijiNationalProvidentFundPension',
                                                                            'FNPFWithdrawalsEducationHousingInvestmentsetc',
-                                                                           'SocialPensionScheme']).set_index('HHID')
+                                                                           'SocialPensionScheme',
+                                                                           'TotalBusiness','TotalPropertyIncome'
+                                                                           ]).set_index('HHID')
         df = df.rename(columns={'HHID':'hhid','TotalIncome':'hhinc','HHsize':'hhsize','Weight':'hhwgt','TOTALTRANSFER':'hhsoc',
                                 'CareandProtectionProgrampaymentfromSocialWelfare':'SP_CPP',
                                 'FamilyAssistanceProgrampaymentfromSocialWelfare':'SP_FAP',

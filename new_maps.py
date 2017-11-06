@@ -17,6 +17,35 @@ global model
 model  = os.getcwd()
 inputs = model+'/../inputs/FJ/' # get inputs data directory
 
+pi = 0.3333
+eta = 1.5
+my_cap, my_inc, my_welf = np.linspace(0.0001,100000.1,100), [], []
+for k in my_cap:
+    k = float(k)
+    i = k*pi
+    my_inc.append(i)
+    my_welf.append(((i**(1-eta))/(1-eta)))
+
+ax = plt.gca()
+fig = ax.get_figure()
+
+print(my_cap)
+print(my_inc)
+
+plt.scatter(my_cap,my_inc,'k-', label='Household income',color=q_colors[0],zorder=100,alpha=0.85)
+plt.scatter(my_cap,my_welf,'k-',label='Household well-being',color=q_colors[2],zorder=100,alpha=0.85)
+
+plt.xlabel('Household assets [USD PPP]')
+plt.ylabel('Household assets')
+#leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
+#leg.get_frame().set_color('white')
+#leg.get_frame().set_edgecolor(greys_pal[7])
+#leg.get_frame().set_linewidth(0.2)
+fig.savefig('/Users/brian/Desktop/k_i_w.pdf',format='pdf')
+plt.clf()
+plt.close('all')
+assert(False)
+
 # Poverty definitions
 urban_pov_line = 55.12*52
 rural_pov_line = 49.50*52
