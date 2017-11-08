@@ -269,14 +269,18 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     
     #Broadcast categories to event level
     cats_event = broadcast_simple(cat_info,  event_level_index)
-    cats_event['public_loss_v'] = hazard_ratios_event.public_loss_v
 
-
+    # Need to broadcast 'hh_share' to cats_event
+    hazard_ratios_event = hazard_ratios_event.reset_index().set_index(event_level+['hhid'])    
+    cats_event = cats_event.reset_index().set_index(event_level+['hhid'])
+    cats_event['hh_share'] = hazard_ratios_event['hh_share']
+    
     #updates columns in cats with columns in hazard_ratios_event	
     # applies mh ratios to relevant columns
     cols_c = [c for c in cats_event if c in hazard_ratios_event] #columns that are both in cats_event and hazard_ratios_event    
     if not cols_c==[]:
-        hrb = broadcast_simple(hazard_ratios_event[cols_c], cat_info.index).reset_index().set_index(get_list_of_index_names(cats_event)) #explicitly broadcasts hazard ratios to contain income categories
+        hrb = broadcast_simple(hazard_ratios_event[cols_c], cat_info.index).reset_index().set_index(get_list_of_index_names(cats_event)) 
+        # ^ explicitly broadcasts hazard ratios to contain income categories
         cats_event[cols_c] = hrb
         if verbose_replace:
             flag2=True
@@ -286,7 +290,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 
     return macro_event, cats_event, hazard_ratios_event 
 
-def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_public_assets=False,is_local_welfare=False,is_revised_dw=True):
+def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_public_assets=True,is_local_welfare=False,is_revised_dw=True):
 
     cats_event_ia=concat_categories(cats_event,cats_event,index= affected_cats)
     
@@ -308,7 +312,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
 
     # set vulnerability to zero for non-affected households
     # --> v for [private, public] assets
-    cats_event_ia.loc[cats_event_ia.affected_cat=='na',['v','public_loss_v']] = [0,0]
+    cats_event_ia.loc[cats_event_ia.affected_cat=='na',['v']] = 0
 
     # 'Actual' vulnerability includes migitating effect of early warning systems
     # --> still 0 for non-affected hh
@@ -317,20 +321,20 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
     # Capital losses (public & private) 
     # --> Each household's capital losses is the sum of their private losses and public infrastructure losses
     # --> 'hh_share' recovers fraction that is private property
-    cats_event_ia['dk_private'] = cats_event_ia[['k','hh_share','v_shew']].prod(axis=1, skipna=False)
-    cats_event_ia['dk_public']  = cats_event_ia[['k','public_loss_v']].prod(axis=1, skipna=False)
-    cats_event_ia['dk_other']   = 0.
-
-    print(cats_event_ia[['k','dk_private','dk_public','dk_other']])
-    assert(False)
-
+   
+    cats_event_ia['dk_private'] = cats_event_ia[['k','v_shew','hh_share']].prod(axis=1, skipna=False)
+    cats_event_ia['dk_public']  = cats_event_ia[['k','v_shew']].prod(axis=1, skipna=False)*(1-cats_event_ia['hh_share'])
+    cats_event_ia['dk_other']   = 0. 
+    #cats_event_ia['dk_public']  = cats_event_ia[['k','public_loss_v']].prod(axis=1, skipna=False)
+    # ^ this was FJ; it's buggy -> results in dk > k0
+ 
     # Independent of who pays for reconstruction, the total event losses are given by sum of priv, pub, & other:
     macro_event['dk_event'] = ((cats_event_ia['dk_private']+cats_event_ia['dk_public']+cats_event_ia['dk_other'])*cats_event_ia['pcwgt']).sum(level=event_level)
     # ^ dk_event is WHEN the event happens--doesn't yet include RP/probability
 
     # --> DEPRECATED: assign losses to each hh
     if not share_public_assets: 
-        print('\nInfra & public asset costs are assigned to *each hh*\n')
+        print('\n** share_public_assets = False --> Infra & public asset costs are assigned to *each hh*\n')
         cats_event_ia['dk'] = cats_event_ia['dk_private'] + cats_event_ia['dk_public'] + cats_event_ia['dk_other']
         cats_event_ia['dc'] = (1-macro_event['tau_tax'])*cats_event_ia['dk'] + cats_event_ia['gamma_SP']*macro_event[['tau_tax','dk_event']].prod(axis=1)
         # ^ 2 terms are dk (hh losses) less tax burden AND reduction to transfers due to losses
@@ -339,7 +343,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
     # --> distribute losses to every hh
     # TODO: this is going to be the tax rate for all hh, but needs to be broadcast to hh outside of region
     else:
-        print('\nSharing infra & public asset costs among all households *nationally*\n')
+        print('\n** share_public_assets = True --> Sharing infra & public asset costs among all households *nationally*\n')
 
         # Create a new dataframe 
         cats_event_ia = cats_event_ia.reset_index().set_index(event_level+['hhid','affected_cat'])
@@ -455,7 +459,7 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
         public_costs = public_costs.drop([i for i in public_costs.columns if i not in ['contributer','dk_public_recipient','frac_k_BE','frac_k_PE',
                                                                                        'transfer_k_BE','transfer_k_PE','PE_to_BE']],axis=1)
         public_costs['dw'] = None
-        public_costs.to_csv('~/Desktop/public_costs.csv')
+        #public_costs.to_csv('~/Desktop/public_costs.csv')
                 
         ############################
         # Choose whether to assess tax on k (BE='before event') or (PE='post event')
@@ -480,17 +484,18 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
         cats_event_ia['di0'] = (cats_event_ia['dk0']*macro_event['avg_prod_k'].mean()*(1-macro_event['tau_tax'].mean())
                                 + cats_event_ia['pcsoc']*(rebuild_fees['dk_tot']/rebuild_fees['tot_k_BE']).mean(level=event_level))
 
-        print(cats_event_ia.loc[(cats_event_ia.di0 > cats_event_ia.pcinc),['dk_private','dk_public','k','dk0','pcinc','di0']])
-        assert(False)
         # Leaving out all terms without time-dependence
         # EG: + cats_event_ia['pc_fee'] + cats_event_ia['pds']
 
         # Define dc0 for all households in province where disaster occurred
         cats_event_ia['dc0'] = cats_event_ia['di0'] + recons_rate*cats_event_ia['dk0']
         
-        print(cats_event_ia[['dk0','di0','dc0']].head(10))
-        assert(False)
-        print('NEED TO CHECK DK IS CORRECT!!!')
+        cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.pcinc),['k','pcinc','pcsoc','dk0','dk_private','dk_public','di0','dc0']].to_csv('~/Desktop/excess.csv')
+        
+        if cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.pcinc)].shape[0] != 0:
+            hh_extinction = str(round(float(cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.pcinc)].shape[0]/cats_event_ia.shape[0])*100.,2))
+            print('\n\n***ISSUE: '+hh_extinction+'% of hh x events face dc0 > i0!!\n\n')
+        
         # --> when affected by a disaster, hh lose their private assets...
         # --> *AND* the fraction of the public assets for which they're responsible
         # --> pc_fee is only for people (aff & non-aff) in the affected province
@@ -1145,6 +1150,7 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
 
     # Calculate integral
     for i_dt in int_dt:
+        assert(temp['dc_post_pds']/temp['c']) < 1)
         temp['integ'] += step_dt*(((1.-(temp['dc_post_pds']/temp['c'])*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
 
         # If 'study': plot the output

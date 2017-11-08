@@ -80,12 +80,9 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     is_local_welfare = False
     is_rev_dw = True
 
-    share_public_assets = False
-    if myCountry == 'FJ' and pol_str != 'noPT': share_public_assets = True
-
-    #share_public_assets = False
-    #if pol_str == 'noPT': pol_str = ''
-    # ^ uncomment these to reset/run without public transfers
+    share_public_assets = True
+    if myCountry == 'SL': share_public_assets = False
+    if pol_str == 'noPT': share_public_assets = False
 
     #read data
     macro = pd.read_csv(intermediate+'macro.csv', index_col=economy)
@@ -149,11 +146,11 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
 
 if __name__ == '__main__':
 
-    myCountry = 'FJ'
+    myCountry = 'PH'
     debug = False
-    
-    if len(sys.argv) > 1 and (sys.argv[1] == 'true' or sys.argv[1] == 'True'): debug = True
-    if len(sys.argv) > 2: myCountry = sys.argv[2]
+
+    if len(sys.argv) > 1: myCountry = sys.argv[1]    
+    if len(sys.argv) > 2 and (sys.argv[2] == 'true' or sys.argv[2] == 'True'): debug = True
     
     if myCountry == 'FJ':
         pds_str = ['no']
