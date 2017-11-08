@@ -101,25 +101,25 @@ def get_AIR_data(fname,sname,keep_sec,keep_per):
                             'North Cotabato':'Cotabato'}
     
     # AIR dataset peril code to peril name
-    AIR_peril_lookup_1 = pd.read_excel(fname,sheetname="Lookup_Tables",usecols=['perilsetcode','peril'],index_col='perilsetcode')
+    AIR_peril_lookup_1 = pd.read_excel(fname,sheetname='Lookup_Tables',usecols=['perilsetcode','peril'],index_col='perilsetcode')
     AIR_peril_lookup_1 = AIR_peril_lookup_1['peril'].dropna().to_dict()
     AIR_peril_lookup_2 = {'EQ':'earthquake', 'HUSSPF':'typhoon', 'HU':'wind', 'SS':'surge', 'PF':'flood'}
 
-    AIR_value_destroyed = pd.read_excel(fname,sheetname="Loss_Results",
-                                        usecols=['perilsetcode',"province","Perspective","Sector","EP1","EP10","EP25","EP30","EP50","EP100","EP200","EP250","EP500","EP1000"]).squeeze()
+    AIR_value_destroyed = pd.read_excel(fname,sheetname='Loss_Results',
+                                        usecols=['perilsetcode','province','Perspective','Sector','EP1','EP10','EP25','EP30','EP50','EP100','EP200','EP250','EP500','EP1000']).squeeze()
     AIR_value_destroyed.columns=['hazard','province','Perspective','Sector',1,10,25,30,50,100,200,250,500,1000]
 
     # Change province code to province name
     #AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['hazard','Perspective','Sector'])
-    AIR_value_destroyed["province"].replace(AIR_prov_lookup,inplace=True)
-    AIR_value_destroyed["province"].replace(AIR_prov_corrections,inplace=True) 
+    AIR_value_destroyed['province'].replace(AIR_prov_lookup,inplace=True)
+    AIR_value_destroyed['province'].replace(AIR_prov_corrections,inplace=True) 
     #AIR_prov_corrections
 
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index('province')
     AIR_value_destroyed = AIR_value_destroyed.drop('All Provinces')
 
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['hazard','province','Perspective','Sector'])
-    AIR_value_destroyed = AIR_value_destroyed.drop(['index'],axis=1, errors="ignore")
+    AIR_value_destroyed = AIR_value_destroyed.drop(['index'],axis=1, errors='ignore')
 
     # Stack return periods column
     AIR_value_destroyed.columns.name='rp'
@@ -131,6 +131,7 @@ def get_AIR_data(fname,sname,keep_sec,keep_per):
     # Choose only Sector = 0 (Private Assets) 
     # --> Alternative: 15 = All Assets (Private + Govt (16) + Emergency (17))
     sector_dict = {'Private':0, 'private':0,
+                   'Public':16, 'public':16,
                    'Government':16, 'government':16,
                    'Emergency':17, 'emergency':17,
                    'All':15, 'all':15}
@@ -148,11 +149,11 @@ def get_AIR_data(fname,sname,keep_sec,keep_per):
 
     # Drop Sector and Perspective columns
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['province','hazard','rp'])
-    AIR_value_destroyed = AIR_value_destroyed.drop(['Sector','Perspective'],axis=1, errors="ignore")
+    AIR_value_destroyed = AIR_value_destroyed.drop(['Sector','Perspective'],axis=1, errors='ignore')
     
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index('province')
-    AIR_value_destroyed["hazard"].replace(AIR_peril_lookup_1,inplace=True)
-    AIR_value_destroyed["hazard"].replace(AIR_peril_lookup_2,inplace=True)
+    AIR_value_destroyed['hazard'].replace(AIR_peril_lookup_1,inplace=True)
+    AIR_value_destroyed['hazard'].replace(AIR_peril_lookup_2,inplace=True)
     
     # Keep only earthquake (EQ) and tsunami (HUSSPF)
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['hazard'])

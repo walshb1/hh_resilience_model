@@ -8,6 +8,7 @@ get_ipython().magic('load_ext autoreload')
 get_ipython().magic('autoreload 2')
 
 # Import packages for data analysis
+from lib_asset_info import *
 from lib_country_dir import *
 from lib_gather_data import *
 from lib_sea_level_rise import *
@@ -84,12 +85,6 @@ if myCountry == 'PH':
     df2 = df2.reset_index().set_index('province')
     df2['region'] = cat_info[~cat_info.index.duplicated(keep='first')].region
     df2 = df2.reset_index().set_index(economy)    
-
-    df2[['shewp','pop']].prod()
-
-
-    df2['shewp']*df3['pop'] 
-
 
     df2['shewp'] = df2[['shewp','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)    
     df2['shewr'] = df2[['shewr','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)   
@@ -318,10 +313,11 @@ if myCountry == 'PH':
     k_NCR = cat_info.loc[((cat_info.province == 'Manila') | (cat_info.province == 'NCR-2nd Dist.') 
                           | (cat_info.province == 'NCR-3rd Dist.') | (cat_info.province == 'NCR-4th Dist.')), ['k','hhwgt']].prod(axis=1).sum()
 
-    df_haz.loc[df_haz.province ==        'Manila','value_destroyed'] *= cat_info.loc[cat_info.province ==        'Manila', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
-    df_haz.loc[df_haz.province == 'NCR-2nd Dist.','value_destroyed'] *= cat_info.loc[cat_info.province == 'NCR-2nd Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
-    df_haz.loc[df_haz.province == 'NCR-3rd Dist.','value_destroyed'] *= cat_info.loc[cat_info.province == 'NCR-3rd Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
-    df_haz.loc[df_haz.province == 'NCR-4th Dist.','value_destroyed'] *= cat_info.loc[cat_info.province == 'NCR-4th Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
+    for k_type in ['value_destroyed_prv','value_destroyed_pub']:
+        df_haz.loc[df_haz.province ==        'Manila',k_type] *= cat_info.loc[cat_info.province ==        'Manila', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
+        df_haz.loc[df_haz.province == 'NCR-2nd Dist.',k_type] *= cat_info.loc[cat_info.province == 'NCR-2nd Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
+        df_haz.loc[df_haz.province == 'NCR-3rd Dist.',k_type] *= cat_info.loc[cat_info.province == 'NCR-3rd Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
+        df_haz.loc[df_haz.province == 'NCR-4th Dist.',k_type] *= cat_info.loc[cat_info.province == 'NCR-4th Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
 
     # Add region info to df_haz:
     df_haz = df_haz.reset_index().set_index('province')
@@ -334,6 +330,9 @@ if myCountry == 'PH':
     # Sum over the provinces that we're merging
     # Losses are absolute value, so they are additive
     df_haz = df_haz.reset_index().set_index([economy,'hazard','rp']).sum(level=[economy,'hazard','rp']).drop(['index'],axis=1)
+
+    df_haz['value_destroyed'] = df_haz['value_destroyed_prv'] + df_haz['value_destroyed_pub']
+    df_haz['hh_share'] = df_haz['value_destroyed_prv']/(df_haz['value_destroyed_prv'] + df_haz['value_destroyed_pub'])
     
 elif myCountry == 'FJ':
     df_haz = df_haz.reset_index().set_index([economy,'hazard','rp']).sum(level=[economy,'hazard','rp'])
@@ -347,7 +346,8 @@ hazard_ratios = hazard_ratios.join(df_haz,how='outer')
 
 if myCountry == 'PH':
     hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['HIES_capital']
-    hazard_ratios = hazard_ratios.drop(['HIES_capital','value_destroyed'],axis=1)
+    hazard_ratios = hazard_ratios.drop(['HIES_capital','value_destroyed','value_destroyed_prv','value_destroyed_pub'],axis=1)
+
 elif myCountry == 'FJ':
 
     # PLOT
@@ -406,7 +406,8 @@ if myCountry == 'FJ':
 
     print('Avg prod K:',df['avg_prod_k'].mean())
 
-hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])[['frac_destroyed','v','k','pcwgt']]
+if 'hh_share' not in hazard_ratios.columns: hazard_ratios['hh_share'] = None
+hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])[['frac_destroyed','v','k','pcwgt','hh_share']]
 
 # Transfer fa in excess of 95% to vulnerability
 fa_threshold = 0.95
@@ -418,42 +419,8 @@ hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=0.0000001,upper=fa_threshol
 cat_info = cat_info.reset_index().set_index([economy,'hhid'])
 cat_info['v'] = hazard_ratios.reset_index().set_index([economy,'hhid'])['v'].mean(level=[economy,'hhid']).clip(upper=0.99)
 
-if myCountry == 'FJ':
-
-    hazard_ratios_infra = get_infra_destroyed(myCountry,df_haz)
-    
-    hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),hazard_ratios['fa'].reset_index(),on=[economy,'hazard','rp'],how='outer')
-    hazard_ratios_infra = hazard_ratios_infra.set_index(['sector']+event_level+['hhid'])
-    hazard_ratios_infra['v_k'] = hazard_ratios_infra['frac_destroyed']/hazard_ratios_infra['fa']
-        
-    ##adds the hh_share column in cat_info. this is the share of household's capital that is not infrastructure
-    cat_info['hh_share'] = 1-hazard_ratios_infra.share.sum(level=[economy,'hazard','rp','hhid']).mean()
-    
-    ##adds the public_loss variable in hazard_ratios. this is the share of households's capital that is destroyed and does not directly belongs to the household (fa is missing but it's the same for all capital)
-    hazard_ratios['public_loss_v'] = hazard_ratios_infra[["share","v_k"]].prod(axis=1, skipna=True).sum(level=event_level+['hhid'])
-
-    #Calculation of d(income) over dk for the macro_multiplier. will drop all the intermediate variables at the end
-    if False:
-    #no fancy macro_multiplier for now. need to update for all sectors.
-        service_loss        = get_service_loss(myCountry)
-        service_loss_event  = pd.DataFrame(index=service_loss.unstack('sector').index) #removes the sector level
-        service_loss_event['v_product'] = ((1-service_loss.cost_increase)**service_loss.e).sum(level=['hazard','rp'])
-        service_loss_event['alpha_v_sum'] = hazard_ratios[['fa','v','k','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])/hazard_ratios[['k','pcwgt']].prod(axis=1).sum(level=['hazard','rp']) #fraction of assets lost at national level
-        service_loss_event['avg_prod_k'] = df.avg_prod_k.mean()
-        service_loss_event["dy_over_dk"]  = ((1-service_loss_event['v_product'])/service_loss_event['alpha_v_sum']*service_loss_event["avg_prod_k"]+service_loss_event['v_product']*service_loss_event["avg_prod_k"]/3)
-        service_loss_event["dy_over_dk"] = service_loss_event[["dy_over_dk",'avg_prod_k']].max(axis=1)
-
-        hazard_ratios = pd.merge(hazard_ratios.reset_index(),service_loss_event.dy_over_dk.reset_index(),on=['hazard','rp'],how='inner')
-        hazard_ratios['dy_over_dk'] = hazard_ratios['dy_over_dk'].fillna(df.avg_prod_k.mean())
-    
-    hazard_ratios["dy_over_dk"] = get_avg_prod(myCountry)
-
-    hazard_ratios = hazard_ratios.drop(['k','pcwgt'],axis=1)
-else:
-    cat_info['hh_share'] = 1
-    hazard_ratios['public_loss_v'] = 0
-    hazard_ratios["dy_over_dk"] = get_avg_prod(myCountry)
-    
+# This function collects info on the value and vulnerability of public assets
+cat_info, hazard_ratios = get_asset_infos(myCountry,cat_info,hazard_ratios,df_haz)
 
 df.to_csv(intermediate+'/macro.csv',encoding='utf-8', header=True,index=True)
 

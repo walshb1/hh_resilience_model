@@ -321,6 +321,9 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
     cats_event_ia['dk_public']  = cats_event_ia[['k','public_loss_v']].prod(axis=1, skipna=False)
     cats_event_ia['dk_other']   = 0.
 
+    print(cats_event_ia[['k','dk_private','dk_public','dk_other']])
+    assert(False)
+
     # Independent of who pays for reconstruction, the total event losses are given by sum of priv, pub, & other:
     macro_event['dk_event'] = ((cats_event_ia['dk_private']+cats_event_ia['dk_public']+cats_event_ia['dk_other'])*cats_event_ia['pcwgt']).sum(level=event_level)
     # ^ dk_event is WHEN the event happens--doesn't yet include RP/probability
@@ -477,6 +480,8 @@ def compute_dK(pol_str,macro_event, cats_event,event_level,affected_cats,share_p
         cats_event_ia['di0'] = (cats_event_ia['dk0']*macro_event['avg_prod_k'].mean()*(1-macro_event['tau_tax'].mean())
                                 + cats_event_ia['pcsoc']*(rebuild_fees['dk_tot']/rebuild_fees['tot_k_BE']).mean(level=event_level))
 
+        print(cats_event_ia.loc[(cats_event_ia.di0 > cats_event_ia.pcinc),['dk_private','dk_public','k','dk0','pcinc','di0']])
+        assert(False)
         # Leaving out all terms without time-dependence
         # EG: + cats_event_ia['pc_fee'] + cats_event_ia['pds']
 

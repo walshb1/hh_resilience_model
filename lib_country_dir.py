@@ -309,11 +309,13 @@ def get_rp_dict(myC):
     
 def get_infra_destroyed(myC,df_haz):
 
-    print(get_infra_stocks_data(myC))
+    #print(get_infra_stocks_data(myC))
 
     infra_stocks = get_infra_stocks_data(myC).loc[['transport','energy','water'],:]
     infra_stocks['infra_share'] = infra_stocks.value_k/infra_stocks.value_k.sum()
-        
+
+    print(infra_stocks)
+   
     hazard_ratios_infra = broadcast_simple(df_haz[['frac_inf','frac_destroyed_inf']],infra_stocks.index)
     hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),infra_stocks.infra_share.reset_index(),on='sector',how='outer').set_index(['Division','hazard','rp','sector'])
     hazard_ratios_infra['share'] = hazard_ratios_infra['infra_share']*hazard_ratios_infra['frac_inf']
@@ -351,9 +353,20 @@ def get_service_loss(myC):
 def get_hazard_df(myC,economy,rm_overlap=False):
 
     if myC == 'PH': 
-        df = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','Private','Agg').reset_index()
-        df.columns = ['province','hazard','rp','value_destroyed']
-        return df,df
+        df_prv = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','Private','Agg').reset_index()
+        df_pub = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','Public','Agg').reset_index()
+
+        df_prv.columns = ['province','hazard','rp','value_destroyed_prv']
+        df_pub.columns = ['province','hazard','rp','value_destroyed_pub']
+        
+        df_prv = df_prv.reset_index().set_index(['province','hazard','rp'])
+        df_pub = df_pub.reset_index().set_index(['province','hazard','rp'])
+
+        df_prv['value_destroyed_pub'] = df_pub['value_destroyed_pub']
+        df_prv['hh_share'] = df_prv['value_destroyed_prv']/(df_prv['value_destroyed_pub']+df_prv['value_destroyed_prv'])
+                
+        df_prv = df_prv.reset_index().drop('index',axis=1).fillna(0)
+        return df_prv,df_prv
     
     elif myC == 'FJ':
 
