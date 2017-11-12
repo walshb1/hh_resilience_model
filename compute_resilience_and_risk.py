@@ -95,7 +95,6 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     #  - cat_info has household-level info
     #  - hazard_ratios has fa for each household (which varies not by hh, but by province, hazard, & RP) 
     macro_event, cats_event, hazard_ratios_event = compute_with_hazard_ratios(myCountry,pol_str,intermediate+'hazard_ratios.csv',macro,cat_info,economy,event_level,income_cats,default_rp,rm_overlap=False,verbose_replace=True)
-
     gc.collect()
     print('A')
     #verbose_replace=True by default, replace common columns in macro_event and cats_event with those in hazard_ratios_event
@@ -103,15 +102,27 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     # compute_dK does the following:
     # -- adds dk_event column to macro_event
     # -- adds affected/na categories to cats_event
-    macro_event, cats_event_ia, shared_costs = compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_public_assets,is_local_welfare,is_rev_dw) 
-    # ^ calculate the actual vulnerability, the potential damange to capital, and consumption
-    try: shared_costs.to_csv(output+'shared_costs_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
-    except: pass
+    macro_event, cats_event_ia, pub_costs_inf = compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_public_assets) 
+    # ^ calculate the actual vulnerability, the potential damange to capital, income, and consumption
     print('B\n\n')
     
-    macro_event, cats_event_iah = calculate_response(myCountry,pol_str,macro_event,cats_event_ia,event_level,helped_cats,default_rp,option_CB,optionFee=optionFee,optionT=optionT, optionPDS=optionPDS, optionB=optionB,loss_measure='dk',fraction_inside=1, share_insured=.25)
+    pub_costs_pds = pub_costs_inf.copy()
+    macro_event, cats_event_iah, pub_costs_pds = calculate_response(myCountry,pol_str,macro_event,cats_event_ia,pub_costs_pds,event_level,helped_cats,default_rp,
+                                                                    option_CB,optionFee=optionFee,optionT=optionT, optionPDS=optionPDS, optionB=optionB,
+                                                                    loss_measure='dk_private',fraction_inside=1, share_insured=.25)
     print('C\n\n')
     
+    pub_costs_inf.to_csv(output+'pub_costs_inf_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
+    pub_costs_pds.to_csv(output+'pub_costs_pds_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
+
+    is_contemporaneous = False 
+    # For people outside affected province, do the collections for public asset reco & PDS happen at the same time?
+
+    calc_dw_outside_affected_province(macro_event, cats_event_ia, pub_costs_inf, pub_costs_pds,event_level,is_contemporaneous,is_local_welfare,is_rev_dw)
+    #calc_dw_inside_affected_province()
+    assert(False)
+    #except: pass
+
     #optionFee: tax or insurance_premium  optionFee='insurance_premium',optionT='perfect', optionPDS='prop', optionB='unlimited',optionFee='tax',optionT='data', optionPDS='unif_poor', optionB='data',
     #optionT(targeting errors):perfect, prop_nonpoor_lms, data, x33, incl, excl.
     #optionB:one_per_affected, one_per_helped, one, unlimited, data, unif_poor, max01, max05
@@ -178,7 +189,7 @@ if __name__ == '__main__':
             
     if debug == True:
         print('Running in debug mode!')
-        launch_compute_resilience_and_risk_thread(myCountry,'','no')
+        launch_compute_resilience_and_risk_thread(myCountry,'','unif_poor')
     else:
         with Pool() as pool:
             print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))
