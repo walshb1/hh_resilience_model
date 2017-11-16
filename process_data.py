@@ -63,6 +63,9 @@ df = pd.read_csv(output+'results_tax_'+base_str+'_'+pol_str+'.csv', index_col=[e
 iah = pd.read_csv(output+'iah_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 macro = pd.read_csv(output+'macro_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 
+print(macro.head(20))
+assert(False)
+
 ## get frac below natl avg
 #print(iah.columns)
 #prov_mean = iah.dw.mean(level=economy)
@@ -103,7 +106,7 @@ print(df_prov[['dKtot','dWtot_currency','gdp']].sum())
 print('R_asset:',100.*df_prov['dKtot'].sum()/df_prov['gdp'].sum())
 print('R_welf:',100.*df_prov['dWtot_currency'].sum()/df_prov['gdp'].sum())
 
-print("R_asset per hazard: ",df['dKtot'].sum(level="hazard")/df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level=[economy,'hazard']).sum(level='hazard'))
+print('R_asset per hazard: ',df['dKtot'].sum(level='hazard')/df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level=[economy,'hazard']).sum(level='hazard'))
 
 # Map asset losses as fraction of natl GDP
 print('\n',df_prov.dKtot/df_prov.gdp.sum())
