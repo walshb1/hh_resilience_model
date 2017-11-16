@@ -110,17 +110,19 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     macro_event, cats_event_iah, pub_costs_pds = calculate_response(myCountry,pol_str,macro_event,cats_event_ia,pub_costs_pds,event_level,helped_cats,default_rp,
                                                                     option_CB,optionFee=optionFee,optionT=optionT, optionPDS=optionPDS, optionB=optionB,
                                                                     loss_measure='dk_private',fraction_inside=1, share_insured=.25)
+
+
     print('C\n\n')
     
+
     pub_costs_inf.to_csv(output+'pub_costs_inf_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     pub_costs_pds.to_csv(output+'pub_costs_pds_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
 
     is_contemporaneous = False 
     # For people outside affected province, do the collections for public asset reco & PDS happen at the same time?
-
-    calc_dw_outside_affected_province(macro_event, cats_event_ia, pub_costs_inf, pub_costs_pds,event_level,is_contemporaneous,is_local_welfare,is_rev_dw)
-    #calc_dw_inside_affected_province()
-    assert(False)
+    
+    public_costs = calc_dw_outside_affected_province(macro_event, cat_info, pub_costs_inf, pub_costs_pds,event_level,is_contemporaneous,is_local_welfare,is_rev_dw)
+    public_costs.to_csv(output+'public_costs_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     #except: pass
 
     #optionFee: tax or insurance_premium  optionFee='insurance_premium',optionT='perfect', optionPDS='prop', optionB='unlimited',optionFee='tax',optionT='data', optionPDS='unif_poor', optionB='data',
@@ -133,8 +135,9 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
 
     #cats_event_iah.to_csv(output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('Step E:  NOT writing out '+output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv')
-    
-    out = compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True,is_revised_dw=is_rev_dw)
+
+    #out = compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True,is_revised_dw=is_rev_dw)    
+    out = calc_dw_inside_affected_province(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True,is_revised_dw=is_rev_dw)
     print('F')
 
     # Flag: running local welfare

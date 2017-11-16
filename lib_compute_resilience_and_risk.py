@@ -518,41 +518,41 @@ def distribute_public_costs(macro_event,rebuild_fees,event_level,transfer_type):
 
     return public_costs
 
-def calc_dw_outside_affected_province(macro_event, cats_event_ia, public_costs_pub, public_costs_pds, event_level, is_contemporaneous=False, is_local_welfare=False, is_revised_dw=True):
-
-    print(public_costs_pub.head(2))
-    print(public_costs_pds.head(2))
+def calc_dw_outside_affected_province(macro_event, cat_info, public_costs_pub, public_costs_pds, event_level, is_contemporaneous=False, is_local_welfare=False, is_revised_dw=True):
 
     public_costs = pd.DataFrame(index=public_costs_pub.index)
-    public_costs[['contributer','transfer_pub']] = public_costs_pub[['contributer','transfer_pub']]
+    public_costs[['contributer','transfer_pub','tot_k_recipient_BE','tot_k_recipient_PE','tot_k_contributer']] \
+        = public_costs_pub[['contributer','transfer_pub','tot_k_recipient_BE','tot_k_recipient_PE','tot_k_contributer']]
     public_costs['transfer_pds'] = public_costs_pds['transfer_pds']
 
     ############################
     # So we have cost of each disaster in each province to every other province
     # - need to calc welfare impact of these transfers
     public_costs = public_costs.reset_index()
-    cats_event_ia = cats_event_ia.reset_index().set_index(['hhid'])
+    cat_info = cat_info.reset_index().set_index(['hhid'])
 
     for iP in public_costs.contributer.unique():
-            
-        tmp_df = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP),['k','c','c_5']].mean(level='hhid')
-        tmp_df['pcwgt'] = cats_event_ia.loc[(cats_event_ia[event_level[0]]==iP),['pcwgt']].sum(level='hhid')
+        print('Running revised, non-contemp dw for hh outside '+iP) 
+        
+        tmp_df = cat_info.loc[(cat_info[event_level[0]]==iP)].copy()
 
-        tmp_df['pc_frac_k'] = tmp_df[['pcwgt','k']].prod(axis=1)/tmp_df[['pcwgt','k']].prod(axis=1).sum()
+        tmp_df['hh_frac_k'] = tmp_df[['pcwgt','k']].prod(axis=1)/(tmp_df[['pcwgt','k']].prod(axis=1)).sum()
+        tmp_df['pc_frac_k'] = tmp_df['hh_frac_k']/tmp_df['pcwgt']
         # ^ this grabs a single instance of each hh in each contributing (non-aff) province
         # --> 'k' and 'c' are not distributed between {a,na} (use mean), but pcwgt is (use sum)
         # --> 'pc_frac_k' used to determine what they'll pay when a disaster happens elsewhere
         # Only using capital--not income...
         
-        tmp_rho = macro_event['rho'].mean()
-        tmp_ie     = macro_event['income_elast'].mean()
-        tmp_t_reco = macro_event['T_rebuild_K'].mean()/3.
-        tmp_mm     = macro_event['macro_multiplier'].mean()
-        c_mean     = float(cats_event_ia[['pcwgt','c']].prod(axis=1).sum()/cats_event_ia['pcwgt'].sum())
+        tmp_rho        = float(macro_event['rho'].mean())
+        tmp_ie         = float(macro_event['income_elast'].mean())
+        tmp_t_reco     = float(macro_event['T_rebuild_K'].mean())
+        tmp_reco_const = float(tmp_t_reco/np.log(1/0.05))
+        tmp_mm         = float(macro_event['macro_multiplier'].mean())
+        c_mean         = float(cat_info[['pcwgt','c']].prod(axis=1).sum()/cat_info['pcwgt'].sum())
         h = 1.E-4
 
-        wprime_rev  = ((c_mean+h)**(1-tmp_ie)-(c_mean-h)**(1-tmp_ie))/(2*h)
-        wprime_rev2 = wprime_rev/tmp_rho
+        wprime_rev = c_mean**(-tmp_ie)
+        #wprime_rev2 = abs(wprime_rev/tmp_rho)
         # ^ these *could* vary by province/event, but don't (for now), so I'll use them outside the pandas dfs.
             
         for iRecip in public_costs[event_level[0]].unique():
@@ -573,50 +573,59 @@ def calc_dw_outside_affected_province(macro_event, cats_event_ia, public_costs_p
                                                            &(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'transfer_pds'])
                     # ^ this identifies the amount that a province (iP, above) will contribute to another province when a disaster occurs
 
-                    if is_contemporaneous:
+                    if is_contemporaneous or not is_revised_dw: 
                         tmp_df['dc_per_cap'] = (tmp_cost_pub+tmp_cost_pds)*tmp_df['pc_frac_k']
-                        tmp_df['dw'] = 0.
+
+                        if not is_revised_dw:
+                            tmp_df['dw'] = tmp_df['pcwgt']*(welf1(tmp_df['c']/tmp_rho, tmp_ie, tmp_df['c_5']/tmp_rho)
+                                                            - welf1((tmp_df['c']-tmp_df['dc_per_cap'])/tmp_rho, tmp_ie,tmp_df['c_5']/tmp_rho))/tmp_wp
+                            # ^ returns NPV
+
+                        else:
+                            tmp_df['dw'] += tmp_df['pcwgt']*(welf1(tmp_df['c'], tmp_ie, tmp_df['c_5']) - welf1((tmp_df['c']-tmp_df['dc_per_cap']), tmp_ie,tmp_df['c_5']))/wprime_rev
+                       
+                    else:                        
+                        # Here, we calculate the impact of transfers for public assets & PDS
+                        tmp_df['dw']     = 0.
+                        for iT in [tmp_cost_pub,tmp_cost_pds]:
+                            tmp_df['dw'] += tmp_df['pcwgt']*(welf1(tmp_df['c'], tmp_ie, tmp_df['c_5']) - welf1((tmp_df['c']-iT*tmp_df['pc_frac_k']), tmp_ie,tmp_df['c_5']))
+                            
+                        frac_dk_natl = float((public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.hazard==iHaz)&(public_costs.rp==iRP)
+                                                                &(public_costs.contributer == iP)),'tot_k_recipient_BE']-
+                                              public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.hazard==iHaz)&(public_costs.rp==iRP)
+                                                                &(public_costs.contributer == iP)),'tot_k_recipient_PE'])/
+                                             (public_costs.loc[(public_costs[event_level[0]]==iRecip)&(public_costs.hazard == iHaz)&(public_costs.rp==iRP),'tot_k_contributer']).sum())
                         
-                        
-
-                    else:
-
-
-                    tmp_df['tmp_dk'] = tmp_cost*tmp_df['pc_frac_k']
-                    tmp_df['tmp_dk_pc'] = (tmp_df['tmp_dk']/tmp_df['pcwgt'])
-                    tmp_df['tmp_dc_npv'] = tmp_mm*(tmp_df['tmp_dk']/tmp_df['pcwgt'])
-
-                    tmp_df['dw'] = 0.
-                    if not is_revised_dw:
-                        tmp_df['dw'] = tmp_df['pcwgt']*(welf1(tmp_df['c']/tmp_rho, tmp_ie, tmp_df['c_5']/tmp_rho)
-                                                        - welf1(tmp_df['c']/tmp_rho-tmp_df['tmp_dc_npv'], tmp_ie,tmp_df['c_5']/tmp_rho))/tmp_wp
-                    else:
+                        # Also need to add impacts of social transfer decreases
                         # Set-up to be able to calculate integral
-                        tmp_df['const'] = ((tmp_df['c']**(1.-tmp_ie))/(1.-tmp_ie))
+                        tmp_df['const'] = tmp_df['c']**(1.-tmp_ie)/(1.-tmp_ie)
                         tmp_df['integ'] = 0.
 
-                        x_min, x_max, n_steps = 0.,tmp_t_reco*3.,(tmp_t_reco*3.)*4.
+                        x_min, x_max, n_steps = 0.5,tmp_t_reco*2.,10.
                         int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
                         # ^ make sure that, if T_recon changes, so does x_max!
 
                         # Calculate integral
                         for i_dt in int_dt:
-                            tmp_df['integ'] += step_dt*(((1.-(tmp_df['tmp_dk_pc']/tmp_df['c'])*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
-                            # ^ in main function, we have 'dc_post_pds' instead of 'tmp_dk', but here assuming no offsetting of fee people are paying
-                                
-                        # put it all together, including w_prime:
-                        tmp_df['dw'] = tmp_df[['pcwgt','const','integ']].prod(axis=1)/wprime_rev
-                        tmp_df['dw2'] = tmp_df[['pcwgt','const','integ']].prod(axis=1)/wprime_rev2
                             
-    public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer==iP)&(public_costs.hazard==iHaz)&(public_costs.rp==iRP)),'dw'] = tmp_df['dw'].sum()
-                        
-    cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
+                            # need total asset losses --> tax base reduction
+                            tmp_df['integ'] += step_dt*((1.-frac_dk_natl*tmp_df['social']*math.e**(-i_dt/tmp_reco_const))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt)
+
+                        # put it all together, including w_prime:
+                        #assert(False)
+                        tmp_df['dw_soc'] = tmp_df[['pcwgt','const','integ']].prod(axis=1)
+
+                    public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer==iP)&(public_costs.hazard==iHaz)&(public_costs.rp==iRP)),'dw'] = \
+                        abs(tmp_df['dw'].sum()/wprime_rev)
+                    public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer==iP)&(public_costs.hazard==iHaz)&(public_costs.rp==iRP)),'dw_soc'] = \
+                        abs(tmp_df['dw_soc'].sum()/wprime_rev)
+
     public_costs = public_costs.reset_index().set_index(event_level).drop('index',axis=1)
 
     # NPV consumption losses accounting for reconstruction and productivity of capital (pre-response)
-    cats_event_ia['dc_npv_pre'] = cats_event_ia['dc0']*macro_event['macro_multiplier']
-                                              
-    return macro_event, cats_event_ia, public_costs
+    #cat_info['dc_npv_pre'] = cat_info['dc0']*macro_event['macro_multiplier']
+    
+    return public_costs
 
 
 # We already have the time-dependent parts of dk, di, dc
@@ -914,14 +923,28 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     return macro_event, cats_event_iah, public_costs
 
 
-def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True,is_revised_dw=True):
+def calc_dw_inside_affected_province(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True,is_revised_dw=True):
+
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])
 
-    cats_event_iah['dc_npv_post'] = cats_event_iah['dc_npv_pre']-cats_event_iah['help_received']+cats_event_iah['help_fee']*option_CB
+    # What terms contribute to dc in the affected province?
+    # 1) dk0 -> di0 -> dc0
+    # 2) dc_reco (private only)
+    # 3) PDS receipts
+    # 4) New eff. tax rate
+    
+    
+
+    # These are calculated in calc_dw_outside_affected_province():
+    # 5) Soc. transfer reductions
+    # 6) Public asset reco fees
+    # 7) PDS fees
+
+    #cats_event_iah['dc_npv_post'] = cats_event_iah['dc_npv_pre']-cats_event_iah['help_received']+cats_event_iah['help_fee']*option_CB
     if is_revised_dw:
         print('changing dc to include help_received and help_fee, since instantaneous loss is used instead of npv for dw')
         print('how does timing affect the appropriateness of this?')
-        cats_event_iah['dc_post_pds'] = cats_event_iah['dc']-cats_event_iah['help_received']+cats_event_iah['help_fee']*option_CB        
+        cats_event_iah['dc_post_pds'] = cats_event_iah['dc0']-cats_event_iah['help_received']+cats_event_iah['help_fee']*option_CB        
     
     cats_event_iah['dw'] = calc_delta_welfare(cats_event_iah,macro_event,is_revised_dw)
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level)
@@ -933,9 +956,9 @@ def compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_C
     
     #aggregates dK and delta_W at df level
     # --> dK, dW are averages per individual
-    df_out['dK']        = cats_event_iah[['dk'       ,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah['pcwgt'].sum(level=event_level)
+    df_out['dK']        = cats_event_iah[['dk0'    ,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah['pcwgt'].sum(level=event_level)
     #df_out['dK_public'] = cats_event_iah[['dk_public','pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah['pcwgt'].sum(level=event_level)
-    df_out['delta_W']   = cats_event_iah[['dw'       ,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah['pcwgt'].sum(level=event_level)
+    df_out['delta_W']   = cats_event_iah[['dw'     ,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah['pcwgt'].sum(level=event_level)
 
     # dktot is already summed with RP -- just add them normally to get losses
     df_out['dKtot']       =      df_out['dK']*cats_event_iah['pcwgt'].sum(level=event_level)#macro_event['pop']
@@ -1104,19 +1127,21 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
         temp = pd.merge(micro.reset_index(),macro.reset_index(),on=[i for i in mac_ix]).reset_index().set_index([i for i in mic_ix])
         c_mean = temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum()
 
+        temp.head(1000).to_csv('~/Desktop/my_temp.csv')
+
     # Get constants
-    h          = 1.E-4
-    tmp_rho    = float(temp['rho'].mean())
-    tmp_t_reco = float(temp['T_rebuild_K'].mean())/3.
-    tmp_ie     = float(temp['income_elast'].mean())
+    h              = 1.E-4
+    tmp_rho        = float(temp['rho'].mean())
+    tmp_reco_const = float(temp['T_rebuild_K'].mean()/np.log(1/0.05))
+    tmp_ie         = float(temp['income_elast'].mean())
 
     ######################################
     # For comparison: this is the legacy definition of dw
-    temp['w'] = welf1(temp['c']/tmp_rho, tmp_ie, temp['c_5']/tmp_rho)
-    temp['dw'] = (welf1(temp['c']/tmp_rho, tmp_ie, temp['c_5']/tmp_rho)
-                  - welf1(temp['c']/tmp_rho-temp['dc_npv_post'], tmp_ie,temp['c_5']/tmp_rho))
-    temp['wprime'] =(welf(temp['gdp_pc_pp_prov']/tmp_rho+h,tmp_ie)-welf(temp['gdp_pc_pp_prov']/tmp_rho-h,tmp_ie))/(2*h)
-    temp['dw_curr'] = temp['dw']/temp['wprime']
+    #temp['w'] = welf1(temp['c']/tmp_rho, tmp_ie, temp['c_5']/tmp_rho)
+    #temp['dw'] = (welf1(temp['c']/tmp_rho, tmp_ie, temp['c_5']/tmp_rho)
+    #              - welf1(temp['c']/tmp_rho-temp['dc_npv_post'], tmp_ie,temp['c_5']/tmp_rho))
+    #temp['wprime'] =(welf(temp['gdp_pc_pp_prov']/tmp_rho+h,tmp_ie)-welf(temp['gdp_pc_pp_prov']/tmp_rho-h,tmp_ie))/(2*h)
+    #temp['dw_curr'] = temp['dw']/temp['wprime']
 
     if is_revised_dw == False: 
         print('using legacy calculation of dw')
@@ -1135,15 +1160,15 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
     temp['integ'] = 0.
 
     my_out_x, my_out_yA, my_out_yNA, my_out_yzero = [], [], [], []
-    x_min, x_max, n_steps = 0.,10.,1E3
+    x_min, x_max, n_steps = 0.,10.,1E2
     # ^ make sure that, if T_recon changes, so does x_max!
 
     int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
 
     # Calculate integral
     for i_dt in int_dt:
-        assert(temp['dc_post_pds']/temp['c'] < 1)
-        temp['integ'] += step_dt*(((1.-(temp['dc_post_pds']/temp['c'])*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))
+        #assert(temp['dc_post_pds']/temp['c'] < 1)
+        temp['integ'] += step_dt*((1.-(temp['dc0']/temp['c']-temp['help_received']/tmp_reco_const)*math.e**(-i_dt/tmp_reco_const))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt)
 
         # If 'study': plot the output
         if study and i_dt < 10:
@@ -1151,9 +1176,9 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
             aff_val = float((temp['dc_post_pds']/temp['c']).head(1))
             naf_val = float((temp['dc_post_pds']/temp['c']).head(2).tail(1))
             
-            tmp_out_yA    = step_dt*(((1.-(aff_val)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['const'].head(1))
-            tmp_out_yNA   = step_dt*(((1.-(naf_val)*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['const'].head(1))
-            tmp_out_yzero = step_dt*(((1.-0*math.e**(-i_dt/tmp_t_reco))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['const'].head(1))
+            tmp_out_yA    = step_dt*(((1.-(aff_val)*math.e**(-i_dt/tmp_reco_const))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['const'].head(1))
+            tmp_out_yNA   = step_dt*(((1.-(naf_val)*math.e**(-i_dt/tmp_reco_const))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['const'].head(1))
+            tmp_out_yzero = step_dt*(((1.-0*math.e**(-i_dt/tmp_reco_const))**(1-tmp_ie)-1)*math.e**(-tmp_rho*i_dt))*float(temp['const'].head(1))
             
             my_out_yA.append(tmp_out_yA)
             my_out_yNA.append(tmp_out_yNA)
