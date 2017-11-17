@@ -23,7 +23,7 @@
     }
 .i___ilocos
     {  
-       fill: #E4EFF9;
+       fill: #E5EFF9;
        stroke:#000000;
        stroke-width:2;
     }
@@ -65,25 +65,25 @@
     }
 .v___bicol
     {  
-       fill: #E8F1FA;
+       fill: #EBF3FB;
        stroke:#000000;
        stroke-width:2;
     }
 .vi___western_visayas
     {  
-       fill: #F0F6FC;
+       fill: #F1F7FD;
        stroke:#000000;
        stroke-width:2;
     }
 .vii___central_visayas
     {  
-       fill: #E9F2FA;
+       fill: #EAF2FA;
        stroke:#000000;
        stroke-width:2;
     }
 .viii___eastern_visayas
     {  
-       fill: #ECF4FB;
+       fill: #EEF5FC;
        stroke:#000000;
        stroke-width:2;
     }

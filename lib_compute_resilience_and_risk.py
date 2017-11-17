@@ -453,6 +453,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_pu
         cats_event_ia['dc0'] = cats_event_ia['di0'] + const_reco_rate*cats_event_ia['dk0']
         
         cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.pcinc),['hhid','k','v','pcinc','pcsoc','dk0','dk_private','dk_public','di0','dc0']].to_csv('~/Desktop/my_plots/excess.csv')
+        cats_event_ia = cats_event_ia.loc[(cats_event_ia.dc0 <= cats_event_ia.pcinc)]
         
         if cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.pcinc)].shape[0] != 0:
             hh_extinction = str(round(float(cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.pcinc)].shape[0]/cats_event_ia.shape[0])*100.,2))

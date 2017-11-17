@@ -63,9 +63,6 @@ df = pd.read_csv(output+'results_tax_'+base_str+'_'+pol_str+'.csv', index_col=[e
 iah = pd.read_csv(output+'iah_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 macro = pd.read_csv(output+'macro_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 
-print(macro.head(20))
-assert(False)
-
 ## get frac below natl avg
 #print(iah.columns)
 #prov_mean = iah.dw.mean(level=economy)
