@@ -11,103 +11,103 @@
     }
     .armm
     {  
-       fill: #05713B;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .car
     {  
-       fill: #BFE37A;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .i___ilocos
     {  
-       fill: #ABDB6D;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .ii___cagayan_valley
     {  
-       fill: #DBF08F;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .iii___central_luzon
     {  
-       fill: #A4D869;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .iva___calabarzon
     {  
-       fill: #D7EE89;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .ivb___mimaropa
     {  
-       fill: #108646;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .ix___zamboanga_peninsula
     {  
-       fill: #026B38;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .ncr
     {  
-       fill: #A50026;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .v___bicol
     {  
-       fill: #63BB62;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .vi___western_visayas
     {  
-       fill: #219B51;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .vii___central_visayas
     {  
-       fill: #BFE37A;
+       fill: #A50026;
        stroke:#000000;
        stroke-width:2;
     }
 .viii___eastern_visayas
     {  
-       fill: #1B9850;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .x___northern_mindanao
     {  
-       fill: #0E8244;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .xi___davao
     {  
-       fill: #0A7A40;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .xii___soccsksargen
     {  
-       fill: #006837;
+       fill: #E9F5A1;
        stroke:#000000;
        stroke-width:2;
     }
 .xiii___caraga
     {  
-       fill: #0B7C41;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }

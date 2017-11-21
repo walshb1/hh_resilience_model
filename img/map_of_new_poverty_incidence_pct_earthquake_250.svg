@@ -11,79 +11,79 @@
     }
     .armm
     {  
-       fill: #128948;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .car
     {  
-       fill: #84CA66;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .i___ilocos
     {  
-       fill: #A50026;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .ii___cagayan_valley
     {  
-       fill: #75C364;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .iii___central_luzon
     {  
-       fill: #FEE99B;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .iva___calabarzon
     {  
-       fill: #F88B51;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .ivb___mimaropa
     {  
-       fill: #158F4B;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .ix___zamboanga_peninsula
     {  
-       fill: #016937;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .ncr
     {  
-       fill: #FDAE61;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .v___bicol
     {  
-       fill: #9AD468;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .vi___western_visayas
     {  
-       fill: #CDE983;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .vii___central_visayas
     {  
-       fill: #45AD5A;
+       fill: #A50026;
        stroke:#000000;
        stroke-width:2;
     }
 .viii___eastern_visayas
     {  
-       fill: #BFE37A;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
@@ -95,19 +95,19 @@
     }
 .xi___davao
     {  
-       fill: #C3E57C;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }
 .xii___soccsksargen
     {  
-       fill: #77C464;
+       fill: #F3FAAF;
        stroke:#000000;
        stroke-width:2;
     }
 .xiii___caraga
     {  
-       fill: #FEE391;
+       fill: #006837;
        stroke:#000000;
        stroke-width:2;
     }

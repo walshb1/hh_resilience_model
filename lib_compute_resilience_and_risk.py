@@ -18,6 +18,7 @@ sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
 q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 const_reco_rate, const_rho, const_ie = None, None, None
+const_pds_rate = None
 
 def get_weighted_mean(q1,q2,q3,q4,q5,key,weight_key='pcwgt'):
     
@@ -257,6 +258,9 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     global const_reco_rate
     const_reco_rate = float(np.log(1/0.05) / macro_event['T_rebuild_K'].mean())
     
+    global const_pds_rate
+    const_pds_rate = const_reco_rate/2.
+    
     global const_rho
     const_rho = float(macro_event['rho'].mean())
 
@@ -453,7 +457,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_pu
         cats_event_ia['dc0'] = cats_event_ia['di0'] + const_reco_rate*cats_event_ia['dk0']
         
         cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.pcinc),['hhid','k','v','pcinc','pcsoc','dk0','dk_private','dk_public','di0','dc0']].to_csv('~/Desktop/my_plots/excess.csv')
-        cats_event_ia = cats_event_ia.loc[(cats_event_ia.dc0 <= cats_event_ia.pcinc)]
+        cats_event_ia = cats_event_ia.loc[(cats_event_ia.dc0 <= 0.90*cats_event_ia.pcinc)]
         
         if cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.pcinc)].shape[0] != 0:
             hh_extinction = str(round(float(cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.pcinc)].shape[0]/cats_event_ia.shape[0])*100.,2))
@@ -1169,7 +1173,8 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
     # Calculate integral
     for i_dt in int_dt:
         #assert(temp['dc_post_pds']/temp['c'] < 1)
-        temp['integ'] += step_dt*((1.-(temp['dc0']/temp['c']-temp['help_received']*const_reco_rate)*math.e**(-i_dt*const_reco_rate))**(1-const_ie)-1)*math.e**(-i_dt*const_rho)
+        #flag
+        temp['integ'] += step_dt*((1.-(temp['dc0']/temp['c'])*math.e**(-i_dt*const_reco_rate)+temp['help_received']*const_pds_rate*math.e**(-i_dt*const_pds_rate))**(1-const_ie)-1)*math.e**(-i_dt*const_rho)
 
         # If 'study': plot the output
         if study and i_dt < 10:
