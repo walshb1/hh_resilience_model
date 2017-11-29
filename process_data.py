@@ -96,7 +96,7 @@ results_df.to_csv(output+'results_table_old.csv')
 df_prov['R_asst'] = round(100.*df_prov['dKtot']/df_prov['gdp'],2)
 df_prov['R_welf'] = round(100.*df_prov['dWtot_currency']/df_prov['gdp'],2)
 df_prov = df_prov.sum(level=economy)
-df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level=economy)
+df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level=economy).copy()
 
 print(df_prov)
 print(df_prov[['dKtot','dWtot_currency','gdp']].sum())
@@ -138,7 +138,7 @@ def format_delta_p(delta_p):
 
 # Transform dw:
 wprime = df.wprime.mean()
-print(wprime)
+print('\n\n Wprime = ',wprime,'\n\n')
 
 iah['dw'] = iah['dw']/wprime
 iah['pds_dw']  = iah_pds['dw']/wprime
