@@ -259,7 +259,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     const_reco_rate = float(np.log(1/0.05) / macro_event['T_rebuild_K'].mean())
     
     global const_pds_rate
-    const_pds_rate = const_reco_rate/2.
+    const_pds_rate = const_reco_rate*7.
     
     global const_rho
     const_rho = float(macro_event['rho'].mean())
@@ -456,12 +456,10 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_pu
         # Define dc0 for all households in province where disaster occurred
         cats_event_ia['dc0'] = cats_event_ia['di0'] + const_reco_rate*cats_event_ia['dk0']
         
-        cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.pcinc),['hhid','k','v','pcinc','pcsoc','dk0','dk_private','dk_public','di0','dc0']].to_csv('~/Desktop/my_plots/excess.csv')
-        cats_event_ia = cats_event_ia.loc[(cats_event_ia.dc0 <= 0.90*cats_event_ia.pcinc)]
-        
         if cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.pcinc)].shape[0] != 0:
+            cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.pcinc),['hhid','k','v','pcinc','pcsoc','dk0','dk_private','dk_public','di0','dc0']].to_csv('excess.csv')
             hh_extinction = str(round(float(cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.pcinc)].shape[0]/cats_event_ia.shape[0])*100.,2))
-            print('\n\n***ISSUE: '+hh_extinction+'% of hh x events face dc0 > i0!!\n\n')
+            print('\n\n***ISSUE: '+hh_extinction+'% of (hh x event) combos face dc0 > i0. Could mean extinction!\n--> SOLUTION: capping dw at 20xGDPpc \n\n')
         
         # NOTES
         # --> when affected by a disaster, hh lose their private assets...
@@ -609,7 +607,7 @@ def calc_dw_outside_affected_province(macro_event, cat_info, public_costs_pub, p
                         tmp_df['const'] = tmp_df['c']**(1.-const_ie)/(1.-const_ie)
                         tmp_df['integ'] = 0.
 
-                        x_min, x_max, n_steps = 0.5,tmp_t_reco*2.,10.
+                        x_min, x_max, n_steps = 0.5,tmp_t_reco+0.5,12.
                         int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
                         # ^ make sure that, if T_recon changes, so does x_max!
 
@@ -935,18 +933,21 @@ def calc_dw_inside_affected_province(myCountry,pol_str,macro_event,cats_event_ia
 
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])
 
-    # What terms contribute to dc in the affected province?
+    # These terms contribute to dc in the affected province:
     # 1) dk0 -> di0 -> dc0
     # 2) dc_reco (private only)
     # 3) PDS receipts
-    # 4) New eff. tax rate
-    
-    
+    # 4) New tax burden
+    # 5)*Soc. transfer reductions
+    # 6)*Public asset reco fees
+    # 7)*PDS fees
 
-    # These are calculated in calc_dw_outside_affected_province():
-    # 5) Soc. transfer reductions
-    # 6) Public asset reco fees
-    # 7) PDS fees
+    # These terms contribute to dc outside the affected province: 
+    # 5)*Soc. transfer reductions
+    # 6)*Public asset reco fees
+    # 7)*PDS fees
+  
+    # *These are calculated in calc_dw_outside_affected_province():
 
     #cats_event_iah['dc_npv_post'] = cats_event_iah['dc_npv_pre']-cats_event_iah['help_received']+cats_event_iah['help_fee']*option_CB
     if is_revised_dw:
@@ -956,7 +957,6 @@ def calc_dw_inside_affected_province(myCountry,pol_str,macro_event,cats_event_ia
     
     cats_event_iah['dw'] = calc_delta_welfare(cats_event_iah,macro_event,is_revised_dw)
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level)
-
 
     ###########
     #OUTPUT
@@ -1122,7 +1122,8 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
     if study == True:
         temp = pd.read_csv('~/Desktop/my_temp.csv',index_col=['Division','hazard','rp'])
 
-        c_mean = temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum()
+        c_mean = float(temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum())
+
         temp['c_mean'] = c_mean
         temp = pd.concat([temp.loc[(temp.quintile==1)].head(2),temp.loc[(temp.quintile==5)].head(2)])
 
@@ -1133,48 +1134,46 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
         mac_ix = macro.index.names
         mic_ix = micro.index.names
         temp = pd.merge(micro.reset_index(),macro.reset_index(),on=[i for i in mac_ix]).reset_index().set_index([i for i in mic_ix])
+
+        # Upper limit for per cap dw
         c_mean = temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum()
-
-        temp.head(1000).to_csv('~/Desktop/my_temp.csv')
-
-    # Get constants
-    h              = 1.E-4
+        temp['dw_clip'] = abs(20.*c_mean)
 
     ######################################
     # For comparison: this is the legacy definition of dw
     #temp['w'] = welf1(temp['c']/const_rho, const_ie, temp['c_5']/const_rho)
-    #temp['dw'] = (welf1(temp['c']/const_rho, const_ie, temp['c_5']/const_rho)
+    #temp['dw_dep'] = (welf1(temp['c']/const_rho, const_ie, temp['c_5']/const_rho)
     #              - welf1(temp['c']/const_rho-temp['dc_npv_post'], const_ie,temp['c_5']/const_rho))
     #temp['wprime'] =(welf(temp['gdp_pc_pp_prov']/const_rho+h,const_ie)-welf(temp['gdp_pc_pp_prov']/const_rho-h,const_ie))/(2*h)
-    #temp['dw_curr'] = temp['dw']/temp['wprime']
+    #temp['dw_curr'] = temp['dw_dep']/temp['wprime']
 
     if is_revised_dw == False: 
         print('using legacy calculation of dw')
         temp = temp.reset_index().set_index([i for i in mic_ix])
-        return temp['dw']
+        return temp['dw_dep']
 
     ########################################
     # Returns the revised ('rev') definition of dw
     print('using revised calculation of dw')
 
     # New defintion of w'
-    temp['wprime_rev'] = ((c_mean+h)**(1-const_ie)-(c_mean-h)**(1-const_ie))/(2*h)
+    temp['wprime'] = c_mean**(-const_ie)
 
     # Set-up to be able to calculate integral
-    temp['const'] = ((temp['c']**(1.-temp['income_elast']))/(1.-temp['income_elast']))
-    temp['integ'] = 0.
+    temp['const'] = -1.*(temp['c']**(1.-temp['income_elast']))/(1.-temp['income_elast'])
+    temp['integ'] = 0.0
 
     my_out_x, my_out_yA, my_out_yNA, my_out_yzero = [], [], [], []
-    x_min, x_max, n_steps = 0.,10.,1E2
+    x_min, x_max, n_steps = 0.,6.,1E2
     # ^ make sure that, if T_recon changes, so does x_max!
 
     int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
 
     # Calculate integral
     for i_dt in int_dt:
-        #assert(temp['dc_post_pds']/temp['c'] < 1)
-        #flag
-        temp['integ'] += step_dt*((1.-(temp['dc0']/temp['c'])*math.e**(-i_dt*const_reco_rate)+temp['help_received']*const_pds_rate*math.e**(-i_dt*const_pds_rate))**(1-const_ie)-1)*math.e**(-i_dt*const_rho)
+        temp['integ'] += step_dt*((1.-(temp['dc0']*math.e**(-i_dt*const_reco_rate)-temp['help_received']*const_pds_rate*math.e**(-i_dt*const_pds_rate))/temp['c'])**(1-const_ie)-1.)*math.e**(-i_dt*const_rho)
+        # NOTE: if consumption goes negative, the integral can't be calculated...death!
+        # --> if consumption increases, dw will come out negative. that's just making money off the disaster.
 
         # If 'study': plot the output
         if study and i_dt < 10:
@@ -1209,20 +1208,35 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
         fig = ax.get_figure()
         fig.savefig('/Users/brian/Desktop/my_plots/dw.pdf',format='pdf')
         
+    ################################
     # 'revised' calculation of dw
-    temp['dw_rev'] = temp[['const','integ']].prod(axis=1)
-    
+    temp['dw_curr_no_clip'] = temp[['const','integ']].prod(axis=1)/temp['wprime']
+    temp.loc[(temp.dc0 >= temp.c),'dw_curr_no_clip'] = temp.loc[(temp.dc0 >= temp.c),['dw_clip']].prod(axis=1)
+
+    temp['dw'] = (temp[['const','integ']].prod(axis=1)).clip(upper=temp[['dw_clip','wprime']].prod(axis=1))
+    # ^ calculate dw for most hh, including ceiling on dw
+    temp.loc[(temp.dc0 >= temp.c),'dw'] = temp.loc[(temp.dc0 >= temp.c),['dw_clip','wprime']].prod(axis=1)
+    # ^ assign dw = upper limit for all hh where dc0 > c
+
     # two alternative definitions of w'
-    temp['dw_curr_rev'] = temp['dw_rev']/temp['wprime_rev']
-    #temp['dw_curr_rev2'] = temp['dw_rev']/temp['wprime_rev2']
+    temp['dw_curr'] = temp['dw']/temp['wprime']
+
+    print('\nTotal well-being losses before deathclip:',round(float(temp[['dw_curr_no_clip','pcwgt']].prod(axis=1).sum())/1.E6,3))
+    print('\nTotal well-being losses after deathclip:',round(float((temp[['dw','pcwgt']].prod(axis=1)/temp['wprime']).sum())/1.E6,3))
+    
+    temp[['pcwgt','k','c','dk0','di0','dc0','help_received','dw_clip','wprime','const','integ','dw','dw_curr','dw_curr_no_clip']].head(1000).to_csv('~/Desktop/my_temp.csv')
+    
+    temp['ratio'] = temp['dc0']/temp['c']
+    temp.loc[(temp.dc0 >= 0.8*temp.c),['pcwgt','k','c','dk0','di0','dc0','help_received','dw_clip','wprime','const','integ','dw','dw_curr','dw_curr_no_clip','ratio']].head(10000).to_csv('~/Desktop/my_temp_focus.csv')
+
 
     # Save it out
     if study:     
-        temp[['hhid','quintile','affected_cat','rho','income_elast','k','c','c_mean','dk','dc','w','dw','wprime','dw_curr','dw_rev','wprime_rev','dw_curr_rev']].to_csv('~/Desktop/my_dw.csv')
+        temp[['hhid','quintile','affected_cat','rho','income_elast','k','c','c_mean','dk','dc','w','dw','wprime','dw_curr']].to_csv('~/Desktop/my_dw.csv')
         assert(False)
 
     temp = temp.reset_index().set_index([i for i in mic_ix])
-    return temp['dw_rev']
+    return temp['dw']
 	
 def welf1(c,elast,comp):
     """"Welfare function"""
