@@ -557,7 +557,7 @@ def calc_dw_outside_affected_province(macro_event, cat_info, public_costs_pub, p
         c_mean         = float(cat_info[['pcwgt','c']].prod(axis=1).sum()/cat_info['pcwgt'].sum())
         h = 1.E-4
 
-        wprime_rev = c_mean**(-const_ie)
+        wprime_rev = -1.*(c_mean**(-const_ie))
         #wprime_rev2 = abs(wprime_rev/const_rho)
         # ^ these *could* vary by province/event, but don't (for now), so I'll use them outside the pandas dfs.
             
@@ -1137,7 +1137,7 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
 
         # Upper limit for per cap dw
         c_mean = temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum()
-        temp['dw_clip'] = abs(20.*c_mean)
+        temp['dw_limit'] = abs(20.*c_mean)
 
     ######################################
     # For comparison: this is the legacy definition of dw
@@ -1157,10 +1157,10 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
     print('using revised calculation of dw')
 
     # New defintion of w'
-    temp['wprime'] = c_mean**(-const_ie)
+    temp['wprime'] = -1.*(c_mean**(-const_ie))
 
     # Set-up to be able to calculate integral
-    temp['const'] = -1.*(temp['c']**(1.-temp['income_elast']))/(1.-temp['income_elast'])
+    temp['const'] = (temp['c']**(1.-temp['income_elast']))/(1.-temp['income_elast'])
     temp['integ'] = 0.0
 
     my_out_x, my_out_yA, my_out_yNA, my_out_yzero = [], [], [], []
@@ -1174,68 +1174,40 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
         temp['integ'] += step_dt*((1.-(temp['dc0']*math.e**(-i_dt*const_reco_rate)-temp['help_received']*const_pds_rate*math.e**(-i_dt*const_pds_rate))/temp['c'])**(1-const_ie)-1.)*math.e**(-i_dt*const_rho)
         # NOTE: if consumption goes negative, the integral can't be calculated...death!
         # --> if consumption increases, dw will come out negative. that's just making money off the disaster.
-
-        # If 'study': plot the output
-        if study and i_dt < 10:
-
-            aff_val = float((temp['dc_post_pds']/temp['c']).head(1))
-            naf_val = float((temp['dc_post_pds']/temp['c']).head(2).tail(1))
-            
-            tmp_out_yA    = step_dt*(((1.-(aff_val)*math.e**(-i_dt*const_reco_rate))**(1-const_ie)-1)*math.e**(-const_rho*i_dt))*float(temp['const'].head(1))
-            tmp_out_yNA   = step_dt*(((1.-(naf_val)*math.e**(-i_dt*const_reco_rate))**(1-const_ie)-1)*math.e**(-const_rho*i_dt))*float(temp['const'].head(1))
-            tmp_out_yzero = step_dt*(((1.-0*math.e**(-i_dt*const_reco_rate))**(1-const_ie)-1)*math.e**(-const_rho*i_dt))*float(temp['const'].head(1))
-            
-            my_out_yA.append(tmp_out_yA)
-            my_out_yNA.append(tmp_out_yNA)
-            my_out_yzero.append(tmp_out_yzero)
-              
-            my_out_x.append(i_dt)
-
-    # If 'study': plot the output
-    if study:
-        ax = plt.gca()
-        ltx_str = r'$\Delta W = \frac{c_0^{1-\eta}}{1-\eta}  \int_0^{\infty} [ (1-\frac{\Delta c}{c_0}e^{\frac{-t}{\tau}})^{(1-\eta)}-1 ] \times e^{-\rho t}dt$'
-        ax.annotate(ltx_str,xy=(0.25,0.54),xycoords='axes fraction',size=12,va='top',ha='left',annotation_clip=False,zorder=100,weight='bold')
-        plt.plot(my_out_x,my_out_yA,color='red',label='Aff. (dc='+str(round(float(temp['dc'].head(1)),1))+')')
-        plt.plot(my_out_x,my_out_yNA,color='blue',label='Not aff. (dc='+str(round(float(temp['dc'].head(2).tail(1))*1.E3,2))+'E-3)')
-        plt.plot(my_out_x,my_out_yzero,color='black',label='(dc=0)')
-        
-        leg = ax.legend(loc='upper right',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
-        leg.get_frame().set_color('white')
-        leg.get_frame().set_edgecolor('black')
-        leg.get_frame().set_linewidth(0.2)
-        
-        fig = ax.get_figure()
-        fig.savefig('/Users/brian/Desktop/my_plots/dw.pdf',format='pdf')
         
     ################################
     # 'revised' calculation of dw
     temp['dw_curr_no_clip'] = temp[['const','integ']].prod(axis=1)/temp['wprime']
-    temp.loc[(temp.dc0 >= temp.c),'dw_curr_no_clip'] = temp.loc[(temp.dc0 >= temp.c),['dw_clip']].prod(axis=1)
-
-    temp['dw'] = (temp[['const','integ']].prod(axis=1)).clip(upper=temp[['dw_clip','wprime']].prod(axis=1))
+    temp.loc[(temp.dc0 >= temp.c),'dw_curr_no_clip'] = temp.loc[(temp.dc0 >= temp.c),['dw_limit']].prod(axis=1)
+    temp['dw'] = (temp[['const','integ']].prod(axis=1)).clip(upper=temp[['dw_limit','wprime']].prod(axis=1))
     # ^ calculate dw for most hh, including ceiling on dw
-    temp.loc[(temp.dc0 >= temp.c),'dw'] = temp.loc[(temp.dc0 >= temp.c),['dw_clip','wprime']].prod(axis=1)
+    temp.loc[(temp.dc0 >= temp.c),'dw'] = temp.loc[(temp.dc0 >= temp.c),['dw_limit','wprime']].prod(axis=1)
     # ^ assign dw = upper limit for all hh where dc0 > c
 
     # two alternative definitions of w'
     temp['dw_curr'] = temp['dw']/temp['wprime']
 
     print('\nTotal well-being losses before deathclip:',round(float(temp[['dw_curr_no_clip','pcwgt']].prod(axis=1).sum())/1.E6,3))
-    print('\nTotal well-being losses after deathclip:',round(float((temp[['dw','pcwgt']].prod(axis=1)/temp['wprime']).sum())/1.E6,3))
+
+    tmp_out = pd.DataFrame(index=temp.sum(level=[i for i in mac_ix]).index)
+
+    tmp_out['dk_tot'] = temp[['dk0','pcwgt']].prod(axis=1).sum(level=[i for i in mac_ix])/1.E6
+    tmp_out['dw_tot'] = temp[['dw_curr','pcwgt']].prod(axis=1).sum(level=[i for i in mac_ix])/1.E6
+    tmp_out['res_tot'] = tmp_out['dk_tot']/tmp_out['dw_tot']
+
+    tmp_out['dk_lim'] = temp.loc[(temp.dw_curr==temp.dw_limit),['dk0','pcwgt']].prod(axis=1).sum(level=[i for i in mac_ix])/1.E6    
+    tmp_out['dw_lim'] = temp.loc[(temp.dw_curr==temp.dw_limit),['dw_curr','pcwgt']].prod(axis=1).sum(level=[i for i in mac_ix])/1.E6
+    tmp_out['res_lim'] = tmp_out['dk_lim']/tmp_out['dw_lim']
+
+    tmp_out['dk_sub'] = temp.loc[(temp.dw_curr!=temp.dw_limit),['dk0','pcwgt']].prod(axis=1).sum(level=[i for i in mac_ix])/1.E6
+    tmp_out['dw_sub'] = temp.loc[(temp.dw_curr!=temp.dw_limit),['dw_curr','pcwgt']].prod(axis=1).sum(level=[i for i in mac_ix])/1.E6
+    tmp_out['res_sub'] = tmp_out['dk_sub']/tmp_out['dw_sub']
+
+    tmp_out['ratio_dw_lim_tot']  = tmp_out['dw_lim']/tmp_out['dw_tot']
     
-    temp[['pcwgt','k','c','dk0','di0','dc0','help_received','dw_clip','wprime','const','integ','dw','dw_curr','dw_curr_no_clip']].head(1000).to_csv('~/Desktop/my_temp.csv')
-    
-    temp['ratio'] = temp['dc0']/temp['c']
-    temp.loc[(temp.dc0 >= 0.8*temp.c),['pcwgt','k','c','dk0','di0','dc0','help_received','dw_clip','wprime','const','integ','dw','dw_curr','dw_curr_no_clip','ratio']].head(10000).to_csv('~/Desktop/my_temp_focus.csv')
+    tmp_out.to_csv('~/Desktop/my_summary.csv')
+    #temp[['pcwgt','k','c','dk0','di0','dc0','help_received','dw_limit','wprime','const','integ','dw','dw_curr','dw_curr_no_clip']].head(1000).to_csv('~/Desktop/my_temp.csv')
 
-
-    # Save it out
-    if study:     
-        temp[['hhid','quintile','affected_cat','rho','income_elast','k','c','c_mean','dk','dc','w','dw','wprime','dw_curr']].to_csv('~/Desktop/my_dw.csv')
-        assert(False)
-
-    temp = temp.reset_index().set_index([i for i in mic_ix])
     return temp['dw']
 	
 def welf1(c,elast,comp):
@@ -1331,14 +1303,13 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfar
     ############################
     #Expressing welfare losses in currency 
     #discount rate
-    eta = df['income_elast'].mean()
     h=1e-4
 
     if is_revised_dw:
         #if is_local_welfare or not is_local_welfare:
         # ^ no dependence on this flag, for now
         c_mean = cats_event_iah[['pcwgt','c']].prod(axis=1).sum()/cats_event_iah['pcwgt'].sum()
-        wprime = ((c_mean+h)**(1.-eta)-(c_mean-h)**(1.-eta))/(2*h)
+        wprime = -1.*(c_mean**(-const_ie))
 
         print('Getting wprime (revised), wprime = '+str(wprime))
 
