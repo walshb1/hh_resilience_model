@@ -144,35 +144,36 @@ iah['dw'] = iah['dw']/wprime
 iah['pds_dw']  = iah_pds['dw']/wprime
 
 iah = iah.reset_index()
-iah = iah.loc[(iah.affected_cat=='a')&(iah.helped_cat=='helped')&(iah.hazard=='earthquake')&(iah.rp==1000)]
+print(iah.head(10))
 
-print(iah.head(100))
+iah = iah.loc[(iah.affected_cat=='a')&(iah.helped_cat=='helped')&(iah.hazard=='earthquake')&(iah.rp==1)]
+#print(iah.head(10))
 
 #
-bin0 = float(iah.loc[(iah.dw<100000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
-bin1 = float(iah.loc[(iah.dw>=100000)&(iah.dw<200000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
-bin2 = float(iah.loc[(iah.dw>=200000)&(iah.dw<300000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
-bin3 = float(iah.loc[(iah.dw>=300000)&(iah.dw<400000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
-bin4 = float(iah.loc[(iah.dw>=400000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
+bin0 = float(iah.loc[(iah.dw<200000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
+bin1 = float(iah.loc[(iah.dw>=200000)&(iah.dw<400000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
+bin2 = float(iah.loc[(iah.dw>=400000)&(iah.dw<600000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
+bin3 = float(iah.loc[(iah.dw>=600000)&(iah.dw<800000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
+bin4 = float(iah.loc[(iah.dw>=1000000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
 tot_float = round((bin0 + bin1 + bin2 + bin3 + bin4),2)
 
 
-ax = iah.plot.scatter('k','dw')
-ax.annotate(str(round(100*bin0/tot_float,1))+'%',xy=(0.4E7,90000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-ax.annotate(str(round(100*bin1/tot_float,1))+'%',xy=(0.4E7,190000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-ax.annotate(str(round(100*bin2/tot_float,1))+'%',xy=(0.4E7,290000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-ax.annotate(str(round(100*bin3/tot_float,1))+'%',xy=(0.4E7,390000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-ax.annotate(str(round(100*bin4/tot_float,1))+'%',xy=(0.4E7,490000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-ax.annotate(r'$\Delta W_{tot}$ = '+str(tot_float)+'M',xy=(0.4E7,590000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-
+ax = iah.plot.scatter('k','dw',c='welf_class',loglog=True)
+ax.annotate(str(round(100*bin0/tot_float,1))+'%',xy=(0.4E7,190000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+ax.annotate(str(round(100*bin1/tot_float,1))+'%',xy=(0.4E7,390000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+ax.annotate(str(round(100*bin2/tot_float,1))+'%',xy=(0.4E7,590000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+ax.annotate(str(round(100*bin3/tot_float,1))+'%',xy=(0.4E7,790000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+ax.annotate(str(round(100*bin4/tot_float,1))+'%',xy=(0.4E7,990000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+ax.annotate(r'$\Delta W_{tot}$ = '+str(tot_float)+'M',xy=(0.4E7,1090000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
 ax.plot()
 fig = plt.gcf()
+
 fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/dw.pdf',format='pdf')
 
 plt.clf()
 
 iah['ratio'] = iah['dw']/iah['dc0']
-ax = iah.plot.scatter('dc0','ratio')
+ax = iah.plot.scatter('dc0','ratio',c='welf_class',loglog=True)
 ax.plot()
 fig = plt.gcf()
 fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil.pdf',format='pdf')
