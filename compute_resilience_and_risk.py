@@ -111,10 +111,11 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
                                                                     option_CB,optionFee=optionFee,optionT=optionT, optionPDS=optionPDS, optionB=optionB,
                                                                     loss_measure='dk_private',fraction_inside=1, share_insured=.25)
 
-
+    #print('post calc_resp:'+str(round(100*float(cats_event_iah.loc[(cats_event_iah['hh_reco_rate']<const_nom_reco_rate)].shape[0]/cats_event_iah.shape[0]),2))+'% of hh have t_reco != 3yr')
+    #print('const_nom_reco_rate = ',const_nom_reco_rate)
+    #cats_event_iah.head(10000).to_csv(debug+'my_rr_2.csv')
     print('C\n\n')
     
-
     pub_costs_inf.to_csv(output+'pub_costs_inf_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     pub_costs_pds.to_csv(output+'pub_costs_pds_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
 
@@ -151,7 +152,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     iah = iah.drop([icol for icol in ['index','social','pcsoc','v','v_shew','gamma_SP','c_5','n','shew','fa','hh_share','public_loss_v','v_shew','SP_CPP','SP_FAP','SP_FNPF','SP_SPS','SP_PBS','SPP_core','SPP_add','nOlds','dc_0'] if icol in iah.columns],axis=1)
     iah.to_csv(output+'iah_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('Step I: wrote iah, a huge file. See anything to drop?\n',iah.columns)
-    return True
+    #return True
 
     # result1=pd.read_csv('output-old/results.csv', index_col=economy)
     # iah1=pd.read_csv('output-old/iah.csv', index_col=event_level+['income_cat','affected_cat','helped_cat'])

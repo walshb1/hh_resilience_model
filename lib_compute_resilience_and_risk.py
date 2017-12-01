@@ -20,6 +20,8 @@ q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 const_nom_reco_rate, const_rho, const_ie = None, None, None
 const_pds_rate = None
 
+debug = '~/Desktop/BANK/debug/'
+
 def get_weighted_mean(q1,q2,q3,q4,q5,key,weight_key='pcwgt'):
     
     if q1.shape[0] > 0:
@@ -456,53 +458,81 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_pu
         # Define dc0 for all households in province where disaster occurred
         cats_event_ia['dc0'] = cats_event_ia['di0'] + const_nom_reco_rate*cats_event_ia['dk_private']
 
+        # Get indexing right, so there are not multiple entries with same index:
+        cats_event_ia = cats_event_ia.reset_index().set_index(event_level+['hhid','affected_cat'])
+
         # Tweak dc0 for hh where (c - dc0) < pov_line:
         cats_event_ia['hh_reco_rate'] = const_nom_reco_rate
 
-        # Case: initial consumption is above poverty line, and reco costs would push below poverty_line:
-        # HH response: keep consumption above poverty
-        tmp = cats_event_ia.loc[(cats_event_ia.c>=cats_event_ia.pov_line)                     # HHs initially above poverty line 
+        # Classify these hh responses for studying dw
+        cats_event_ia['welf_class'] = 0
+
+        # Case 1: initial consumption is above poverty line
+        # --> income losses do not push hh into poverty 
+        # --> standard reco costs would push below poverty_line
+        # *** HH response: keep consumption above poverty
+        tmp = cats_event_ia.loc[(cats_event_ia.c>cats_event_ia.pov_line)                      # HHs initially above poverty line 
                                 &((cats_event_ia.c-cats_event_ia.di0)>cats_event_ia.pov_line) # AND income losses don't push them below poverty line
                                 &((cats_event_ia.c-cats_event_ia.dc0)<cats_event_ia.pov_line) # AND reconstruction costs do push them below poverty line 
+                                &(cats_event_ia.welf_class==0)                                # AND they're not in any other class
                                 &(cats_event_ia.dk_private!=0)].copy()                        # AND they did lose some assets
+        tmp['welf_class']   = 1 
+        tmp['dc_old']       = tmp['dc0']
         tmp['hh_reco_rate'] = ((tmp['c']-tmp['pov_line']-tmp['di0'])/tmp['dk_private']).clip(upper=const_nom_reco_rate)
-        tmp['dc_new']       = tmp['di0'] + tmp[['hh_reco_rate','dk_private']].prod(axis=1)
-        tmp.head(20000).to_csv('~/Desktop/my_tmp_peripov.csv')
+        tmp['dc0']          = tmp['di0'] + tmp[['hh_reco_rate','dk_private']].prod(axis=1)
+        tmp.head(20000).to_csv(debug+'my_tmp_peripov.csv')
         cats_event_ia.loc[(cats_event_ia.c>=cats_event_ia.pov_line)
                           &((cats_event_ia.c-cats_event_ia.di0)>cats_event_ia.pov_line)
                           &((cats_event_ia.c-cats_event_ia.dc0)<cats_event_ia.pov_line)
-                          &(cats_event_ia.dk_private!=0),['dc0','hh_reco_rate']] = tmp[['dc_new','hh_reco_rate']]
+                          &(cats_event_ia.welf_class==0)
+                          &(cats_event_ia.dk_private!=0),['dc0','hh_reco_rate','welf_class']] = tmp[['dc0','hh_reco_rate','welf_class']]
+        print('C1: '+str(round(float(100*cats_event_ia.loc[(cats_event_ia.hh_reco_rate!=const_nom_reco_rate)].shape[0])/float(cats_event_ia.shape[0]),2))+'% of hh have t_reco != 3yr')
 
-        # Case: initial consumption is above poverty line, and income losses push below poverty_line:
-        # HH response: keep consumption at some frac of poverty
-        min_frac_cpov = 0.33
-        tmp = cats_event_ia.loc[(cats_event_ia.c>=cats_event_ia.pov_line)                                    # HHs initially above poverty line 
-                                &((cats_event_ia.c-cats_event_ia.di0)<cats_event_ia.pov_line)                # AND income losses (even before reco) do push them below poverty line
-                                &((cats_event_ia.c-cats_event_ia.di0)>=min_frac_cpov*cats_event_ia.pov_line) # AND they can afford (c-di0) at least XX% of poverty consumption
-                                &(cats_event_ia.dk_private!=0)].copy()                                       # AND they did lose some assets
-        tmp['hh_reco_rate'] = ((tmp['c']-min_frac_cpov*tmp['pov_line']-tmp['di0'])/tmp['dk_private']).clip(upper=const_nom_reco_rate)
-        tmp['dc_new']       = tmp['di0'] + tmp[['hh_reco_rate','dk_private']].prod(axis=1)
-        tmp.head(20000).to_csv('~/Desktop/my_tmp_newpov.csv')
-        cats_event_ia.loc[(cats_event_ia.c>=cats_event_ia.pov_line)                                    
-                          &((cats_event_ia.c-cats_event_ia.di0)<cats_event_ia.pov_line)                
-                          &((cats_event_ia.c-cats_event_ia.di0)>=min_frac_cpov*cats_event_ia.pov_line) 
-                          &(cats_event_ia.dk_private!=0),['dc0','hh_reco_rate']] = tmp[['dc_new','hh_reco_rate']]
+        # Case 2: initial consumption is above or below poverty line
+        # --> income losses push below poverty_line, 
+        # --> hh can still afford to avoid subsistence
+        # *** HH response: keep consumption above subsistence
+        if 'sub_line' in cats_event_ia.columns: cats_event_ia['c_min'] = cats_event_ia.sub_line
+        else: cats_event_ia['c_min'] = cats_event_ia.c_5
 
-        # Case: initial consumption is below poverty line, and final consumption is below zero:
-        tmp = cats_event_ia.loc[(cats_event_ia.c<cats_event_ia.pov_line)   # HHs initially below poverty line 
-                                &((cats_event_ia.c-cats_event_ia.dc0)<0.0) # AND (C-di-reco_costs) would bankrupt 
-                                &(cats_event_ia.dk_private!=0)].copy()     # AND they did lose some assets
-        tmp['hh_reco_rate'] = ((tmp['c']-tmp['di0'])/tmp['dk_private']).clip(upper=const_nom_reco_rate)
-        tmp['dc_new']       = tmp['di0'] + tmp[['hh_reco_rate','dk_private']].prod(axis=1)
-        tmp.head(20000).to_csv('~/Desktop/my_tmp_pov.csv')
-        cats_event_ia.loc[(cats_event_ia.c<cats_event_ia.pov_line)
-                          &((cats_event_ia.c-cats_event_ia.dc0)<0.0)
-                          &(cats_event_ia.dk_private!=0),['dc0','hh_reco_rate']] = tmp[['dc_new','hh_reco_rate']]
+        tmp = cats_event_ia.loc[((cats_event_ia.c>=cats_event_ia.pov_line)|(cats_event_ia.c<cats_event_ia.pov_line)) # HHs initially above or below poverty line (doesn't matter)
+                                &((cats_event_ia.c-cats_event_ia.di0)<cats_event_ia.pov_line)                         # AND income losses (even before reco) do push them below poverty line
+                                &((cats_event_ia.c-cats_event_ia.di0)>=cats_event_ia.c_min)                           # AND they can afford (c-di0) at subsistence (or XX% of poverty line)
+                                &(cats_event_ia.welf_class==0)                                                        # AND they're not in any other class
+                                &(cats_event_ia.dk_private!=0)].copy()                                                # AND they did lose some assets
+        tmp['welf_class']   = 2
+        tmp['dc_old']       = tmp['dc0']
+        tmp['hh_reco_rate'] = ((tmp['c']-tmp['c_min']-tmp['di0'])/tmp['dk_private']).clip(upper=const_nom_reco_rate)
+        tmp['dc0']          = tmp['di0'] + tmp[['hh_reco_rate','dk_private']].prod(axis=1)
+        tmp.head(20000).to_csv(debug+'my_tmp_newpov.csv')
+        cats_event_ia.loc[((cats_event_ia.c>=cats_event_ia.pov_line)|(cats_event_ia.c<cats_event_ia.pov_line))
+                          &((cats_event_ia.c-cats_event_ia.di0)<cats_event_ia.pov_line)
+                          &((cats_event_ia.c-cats_event_ia.di0)>=cats_event_ia.c_min)
+                          &(cats_event_ia.welf_class==0)                            
+                          &(cats_event_ia.dk_private!=0),['dc0','hh_reco_rate','welf_class']] = tmp[['dc0','hh_reco_rate','welf_class']]
+        print('C2: '+str(round(float(100*cats_event_ia.loc[(cats_event_ia.hh_reco_rate!=const_nom_reco_rate)].shape[0])/float(cats_event_ia.shape[0]),2))+'% of hh have t_reco != 3yr')
+        
+        # Case 3: Post-disaster income is below subsistence (or c_5):
+        # HH response: do not reconstruct
+        tmp = cats_event_ia.loc[((cats_event_ia.c-cats_event_ia.di0)>0.0)                   # (C-di) does not bankrupt *this can't really evaluate to false, I think...*
+                                &((cats_event_ia.c-cats_event_ia.di0)<=cats_event_ia.c_min) # AND (c-di) is below subsistence 
+                                &(cats_event_ia.welf_class==0)                              # AND they're not in any other class
+                                &(cats_event_ia.dk_private!=0)].copy()                      # AND they did lose some assets
+        tmp['welf_class']   = 3
+        tmp['dc_old']       = tmp['dc0']
+        tmp['hh_reco_rate'] = 0.         # No Reconstruction ((tmp['c']-tmp['di0']-1.)/tmp['dk_private']).clip(upper=const_nom_reco_rate)
+        tmp['dc0']          = tmp['di0'] # No Reconstruction tmp['di0'] + tmp[['hh_reco_rate','dk_private']].prod(axis=1)
+        tmp.head(20000).to_csv(debug+'my_t mp_pov.csv')
+        cats_event_ia.loc[((cats_event_ia.c-cats_event_ia.di0)>0.0)
+                          &((cats_event_ia.c-cats_event_ia.di0)<=cats_event_ia.c_min)
+                          &(cats_event_ia.welf_class==0) 
+                          &(cats_event_ia.dk_private!=0),['dc0','hh_reco_rate','welf_class']] = tmp[['dc0','hh_reco_rate','welf_class']]
+        print('C3: '+str(round(float(100*cats_event_ia.loc[(cats_event_ia.hh_reco_rate!=const_nom_reco_rate)].shape[0])/float(cats_event_ia.shape[0]),2))+'% of hh have t_reco != 3yr')
 
         # make plot here: (income vs. length of reco)
 
         if cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.c)].shape[0] != 0:
-            cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.c),['hhid','k','v','c','pcsoc','dk0','dk_private','dk_public','di0','dc0']].to_csv('excess.csv')
+            cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.c)].to_csv(debug+'excess.csv')
             hh_extinction = str(round(float(cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.c)].shape[0]/cats_event_ia.shape[0])*100.,2))
             print('\n\n***ISSUE: '+hh_extinction+'% of (hh x event) combos face dc0 > i0. Could mean extinction!\n--> SOLUTION: capping dw at 20xGDPpc \n\n')
         
@@ -513,7 +543,8 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_pu
         # --> pc_fee is only for people (aff & non-aff) in the affected province
         # Question: if we charge the pc_fee on post-disaster assets, a & na versions of each hh pay different amounts. need to make sure the math adds up 
         ############################
-
+        cats_event_ia = cats_event_ia.reset_index().set_index(event_level).drop(['c_min'],axis=1)
+        
     return macro_event, cats_event_ia, public_costs
 
 def distribute_public_costs(macro_event,rebuild_fees,event_level,transfer_type):
@@ -569,7 +600,7 @@ def distribute_public_costs(macro_event,rebuild_fees,event_level,transfer_type):
     #                                                                               'transfer_pub_BE','transfer_pub_PE','PE_to_BE']],axis=1)
     
     public_costs['dw'] = None
-    #public_costs.to_csv('~/Desktop/public_costs.csv')
+    public_costs.to_csv(debug+'public_costs.csv')
 
     return public_costs
 
@@ -661,7 +692,6 @@ def calc_dw_outside_affected_province(macro_event, cat_info, public_costs_pub, p
                             # ^ const_nom_reco_rate doesn't get replaced by hh-dep values here, because this is aggregate reco
                             
                         # put it all together, including w_prime:
-                        #assert(False)
                         tmp_df['dw_soc'] = tmp_df[['pcwgt','const','integ']].prod(axis=1)
 
                     public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer==iP)&(public_costs.hazard==iHaz)&(public_costs.rp==iRP)),'dw'] = \
@@ -682,32 +712,35 @@ def calc_dw_outside_affected_province(macro_event, cat_info, public_costs_pub, p
 def calculate_response(myCountry,pol_str,macro_event,cats_event_ia,public_costs,event_level,helped_cats,default_rp,option_CB,
                        optionFee='tax',optionT='data', optionPDS='unif_poor', optionB='data',loss_measure='dk_private',fraction_inside=1, share_insured=.25):
 
-    cats_event_iah = concat_categories(cats_event_ia,cats_event_ia, index= helped_cats).reset_index(helped_cats.name).sort_index().dropna()
+    cats_event_iah = broadcast_simple(cats_event_ia, helped_cats).reset_index().set_index(event_level)
 
     # Baseline case (no insurance):
     cats_event_iah['help_received'] = 0
     cats_event_iah['help_fee'] =0
 
-    macro_event, cats_event_iah, public_costs= compute_response(myCountry, pol_str,macro_event, cats_event_iah, public_costs, event_level,default_rp,option_CB,optionT=optionT, 
-                                                                optionPDS=optionPDS, optionB=optionB, optionFee=optionFee, fraction_inside=fraction_inside, loss_measure = loss_measure)
+    macro_event, cats_event_iah, public_costs = compute_response(myCountry, pol_str,macro_event, cats_event_iah, public_costs, event_level,default_rp,option_CB,optionT=optionT, 
+                                                                 optionPDS=optionPDS, optionB=optionB, optionFee=optionFee, fraction_inside=fraction_inside, loss_measure = loss_measure)
     
-    cats_event_iah.drop('protection',axis=1, inplace=True)	      
-
+    cats_event_iah.drop(['n','protection'],axis=1, inplace=True)	      
+    print('T3:'+str(round(float(100*cats_event_iah.loc[(cats_event_iah['hh_reco_rate']!=const_nom_reco_rate)].shape[0])/float(cats_event_iah.shape[0]),2))+'% of hh have t_reco != 3yr')
+   
     return macro_event, cats_event_iah, public_costs
 	
 def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_costs, event_level, default_rp, option_CB,optionT='data', 
                      optionPDS='unif_poor', optionB='data', optionFee='tax', fraction_inside=1, loss_measure='dk_private'):    
 
     print('NB: when summing over cats_event_iah, be aware that each hh appears 4X in the file: {a,na}x{helped,not_helped}')
-    
-    """Computes aid received,  aid fee, and other stuff, from losses and PDS options on targeting, financing, and dimensioning of the help.
-    Returns copies of macro_event and cats_event_iah updated with stuff"""
+    # This function computes aid received, aid fee, and other stuff, 
+    # --> including losses and PDS options on targeting, financing, and dimensioning of the help.
+    # --> Returns copies of macro_event and cats_event_iah updated with stuff
 
     macro_event    = macro_event.copy()
     cats_event_iah = cats_event_iah.copy()
 
     macro_event['fa'] = (cats_event_iah.loc[(cats_event_iah.affected_cat=='a'),'pcwgt'].sum(level=event_level)/(cats_event_iah['pcwgt'].sum(level=event_level))).fillna(1E-8)
-    # Edit: no factor of 2 in denominator because we're only summing affected households here
+    # No factor of 2 in denominator affected households are counted twice in both the num & denom
+    # --> at this point, each appears twice (helped & not_helped)
+    # --> the weights haven't been adjusted to include targetng errors
 
     ####targeting errors
     if optionPDS == 'fiji_SPS' or optionPDS == 'fiji_SPP':
@@ -738,8 +771,9 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
             
     #counting (mind self multiplication of n)
     df_index = cats_event_iah.index.names    
+
     cats_event_iah = pd.merge(cats_event_iah.reset_index(),macro_event.reset_index()[[i for i in macro_event.index.names]+['error_excl','error_incl']],on=[i for i in macro_event.index.names])
-                              
+
     for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
         cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,aWGT]*=(1-cats_event_iah['error_excl'])
         cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='a') ,aWGT]*=(  cats_event_iah['error_excl'])
@@ -890,8 +924,8 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
 
         # These should be zero here, but just to make sure...
         cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')|(cats_event_iah.quintile > 1),'help_received']=0
-        cats_event_iah.ix[(cats_event_iah.affected_cat=='na')|(cats_event_iah.quintile > 1),'help_received']=0
-
+        #cats_event_iah.ix[(cats_event_iah.affected_cat=='na')|(cats_event_iah.quintile > 1),'help_received']=0
+        # ^ not necessarily zero, if there is targeting error...
         print('Calculating loss measure\n')
 
     elif optionPDS=='prop':
@@ -1176,8 +1210,11 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
     else:
         mac_ix = macro.index.names
         mic_ix = micro.index.names
-        temp = pd.merge(micro.reset_index(),macro.reset_index(),on=[i for i in mac_ix]).reset_index().set_index([i for i in mic_ix])
 
+        #temp = pd.merge(micro.reset_index(),macro.reset_index(),on=[i for i in mac_ix]).reset_index().set_index([i for i in mic_ix])
+        # ^ is merge of cats_event with macro_event actually necessary?
+        temp = micro.copy()
+        
         # Upper limit for per cap dw
         c_mean = temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum()
         temp['dw_limit'] = abs(20.*c_mean)
@@ -1190,10 +1227,10 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
     #temp['wprime'] =(welf(temp['gdp_pc_pp_prov']/const_rho+h,const_ie)-welf(temp['gdp_pc_pp_prov']/const_rho-h,const_ie))/(2*h) <-- Missing a factor of (1-eta) in denom here?
     #temp['dw_curr'] = temp['dw_dep']/temp['wprime']
 
-    if is_revised_dw == False: 
-        print('using legacy calculation of dw')
-        temp = temp.reset_index().set_index([i for i in mic_ix])
-        return temp['dw_dep']
+    #if is_revised_dw == False: 
+    #    print('using legacy calculation of dw')
+    #    temp = temp.reset_index().set_index([i for i in mic_ix])
+    #    return temp['dw_dep']
 
     ########################################
     # Returns the revised ('rev') definition of dw
@@ -1203,11 +1240,14 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
     temp['wprime'] = c_mean**(-const_ie)
 
     # Set-up to be able to calculate integral
-    temp['const'] = -1.*(temp['c']**(1.-temp['income_elast']))/(1.-temp['income_elast'])
+    temp['const'] = -1.*(temp['c']**(1.-const_ie))/(1.-const_ie)
     temp['integ'] = 0.0
 
     my_out_x, my_out_yA, my_out_yNA, my_out_yzero = [], [], [], []
-    x_min, x_max, n_steps = 0.,6.,1E2
+    x_min, n_steps = 0.,5E2
+    x_max = (np.log(1/0.05)/float(temp['hh_reco_rate'].min()))
+    if x_max > 25: x_max = 25
+    print('\nIntegrating well-being losses over '+str(x_max)+' years after disaster') 
     # ^ make sure that, if T_recon changes, so does x_max!
 
     int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
@@ -1226,9 +1266,13 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
     # ^ calculate dw for most hh, including ceiling on dw
     temp.loc[(temp.dc0 >= temp.c),'dw'] = temp.loc[(temp.dc0 >= temp.c),['dw_limit','wprime']].prod(axis=1)
     # ^ assign dw = upper limit for all hh where dc0 > c
-
+    
     # two alternative definitions of w'
     temp['dw_curr'] = temp['dw']/temp['wprime']
+
+    print('Applying upper limit for dw = ',temp['dw_limit'].mean())
+    temp['dw_tot'] = temp[['dw_curr','pcwgt']].prod(axis=1)
+    temp.loc[(temp.dw_curr==temp.dw_limit)].to_csv(debug+'my_late_excess.csv')
 
     print('\nTotal well-being losses before deathclip:',round(float(temp[['dw_curr_no_clip','pcwgt']].prod(axis=1).sum())/1.E6,3))
 
@@ -1247,9 +1291,9 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
     tmp_out['res_sub'] = tmp_out['dk_sub']/tmp_out['dw_sub']
 
     tmp_out['ratio_dw_lim_tot']  = tmp_out['dw_lim']/tmp_out['dw_tot']
-    
-    tmp_out.to_csv('~/Desktop/my_summary.csv')
-    temp[['pcwgt','k','c','dk0','di0','dc0','help_received','dw_limit','wprime','const','integ','dw','dw_curr','dw_curr_no_clip']].head(1000).to_csv('~/Desktop/my_temp.csv')
+    print('Wrote out summary stats for dw')
+    tmp_out.to_csv(debug+'my_summary.csv')
+    temp[['pcwgt','k','c','dk0','di0','dc0','help_received','dw_limit','wprime','const','integ','dw','dw_curr','dw_curr_no_clip']].head(10000).to_csv(debug+'my_temp.csv')
 
     return temp['dw']
 	
