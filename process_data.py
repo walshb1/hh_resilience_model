@@ -1,5 +1,6 @@
 #This script processes data outputs for the resilience indicator multihazard model for the Philippines. Developed by Brian Walsh.
-from IPython import get_ipython
+#import IPython
+from IPython import get_ipython, display
 get_ipython().magic('reset -f')
 get_ipython().magic('load_ext autoreload')
 get_ipython().magic('autoreload 2')
@@ -12,7 +13,9 @@ from lib_gather_data import *
 from maps_lib import *
 
 from scipy.stats import norm
-import matplotlib.mlab as mlab
+#import matplotlib 
+#matplotlib.rc('xtick', labelsize=10) 
+#matplotlib.rc('ytick', labelsize=10) 
 
 from pandas import isnull
 import pandas as pd
@@ -29,9 +32,9 @@ brew_pal = brew.get_map('Set1', 'qualitative', 8).mpl_colors
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
 
 font = {'family' : 'sans serif',
-    'size'   : 20}
+    'size'   : 10}
 plt.rc('font', **font)
-mpl.rcParams['xtick.labelsize'] = 16
+mpl.rcParams['xtick.labelsize'] = 10
 
 import warnings
 warnings.filterwarnings('always',category=UserWarning)
@@ -147,6 +150,7 @@ iah = iah.reset_index()
 print(iah.head(10))
 
 iah = iah.loc[(iah.affected_cat=='a')&(iah.helped_cat=='helped')&(iah.hazard=='earthquake')&(iah.rp==1)]
+iah['ratio'] = iah['dw']/iah['dc0']
 #print(iah.head(10))
 
 #
@@ -169,15 +173,69 @@ ax.plot()
 fig = plt.gcf()
 
 fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/dw.pdf',format='pdf')
+plt.clf()
+
+#def plot_res(fig):
+#    ax=fig.add_axes([0,0,1,1])
+#    ax.set_xlabel("x")
+#    ax.set_ylabel('y')
+#    plotted=ax.imshow(rand(250, 250))
+#    ax.set_title("title")
+#    cbar=fig.colorbar(mappable=plotted)
+#    display.clear_output(wait=True)
+#    display.display(plt.gcf())
+#    fig.clear()
+
+fig=plt.figure()
+
+cmap = colors.ListedColormap(sns.color_palette('Greens').as_hex())
+ax = iah.loc[(iah.welf_class==3)&(iah.dk0<150000)].plot.hexbin('dk0','ratio',cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+
+cmap = colors.ListedColormap(sns.color_palette('Blues').as_hex())
+ax = iah.loc[(iah.welf_class==1)&(iah.dk0<150000)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+
+cmap = colors.ListedColormap(sns.color_palette('Reds').as_hex())
+ax = iah.loc[(iah.welf_class==2)&(iah.dk0<150000)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+
+cmap = colors.ListedColormap(sns.color_palette('Purples').as_hex())
+ax = iah.loc[(iah.welf_class==0)&(iah.dk0<150000)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+
+im=plt.gcf().get_axes()        #this is a list of all images that have been plotted
+for iax in range(len(im))[1:]: im[iax].remove()
+
+fig = plt.gcf()
+fig.set_size_inches(6.5, 5.5)
+
+plt.axes(im[0])
+plt.xlim(0,1E5)
+plt.subplots_adjust(right=0.90)
+#plt.figure(figsize=(6,5))
+
+#im[0].set_aspect(0.5)
+plt.ticklabel_format(style='sci',axis='x', scilimits=(0,0))
+plt.tight_layout()
+plt.draw()
+plt.gcf().savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil_all.pdf',format='pdf',bbox_inches='tight')
 
 plt.clf()
 
-iah['ratio'] = iah['dw']/iah['dc0']
-ax = iah.plot.scatter('dc0','ratio',c='welf_class',loglog=True)
-ax.plot()
-fig = plt.gcf()
-fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil.pdf',format='pdf')
+fig, axes = plt.subplots(nrows=4, ncols=2,figsize=(8,12))
 
+iah.loc[(iah.welf_class==0)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[0,0])
+iah.loc[(iah.welf_class==0)].plot.hexbin('dk0','ratio',ax=axes[0,1],loglog=True)
+iah.loc[(iah.welf_class==1)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[1,0])
+#iah.loc[(iah.welf_class==1)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[1,1],loglog=True)
+iah.loc[(iah.welf_class==2)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[2,0])
+#iah.loc[(iah.welf_class==2)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[2,1],loglog=True)
+iah.loc[(iah.welf_class==3)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[3,0])
+#iah.loc[(iah.welf_class==3)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[3,1],loglog=True)
+#iah.loc[(iah.dc0<50000)].plot.hexbin('dc0','ratio',ax=axes[4,0])
+#iah.loc[(iah.dc0<50000)].plot.hexbin('dc0','ratio',ax=axes[4,1],loglog=True)
+
+#plt.gca().tick_params(labelrotation=45,direction='out', length=6, width=2, colors='r')
+#plt.gca().set_xticklabels(rotation=30,ha='right')
+plt.tight_layout()
+fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil.pdf',format='pdf')
 #iah.head(5000).to_csv('~/Desktop/my_out.csv')
 assert(False)
 
@@ -664,18 +722,18 @@ for myRP in myHaz[2]:
 
                 mu = np.average(df_tmp['q1'], weights=df_wgt['q1_w'])
                 sigma = np.sqrt(np.average((df_tmp['q1']-mu)**2, weights=df_wgt['q1_w']))
-                y = df_wgt['q1_w'].sum()*mlab.normpdf(q1_bins, mu, sigma)
-                l = plt.plot(q1_bins, df_wgt['q1_w'].sum()*y, 'r--', linewidth=2,color=q_colors[0]) 
+                #y = df_wgt['q1_w'].sum()*mlab.normpdf(q1_bins, mu, sigma)
+                #l = plt.plot(q1_bins, df_wgt['q1_w'].sum()*y, 'r--', linewidth=2,color=q_colors[0]) 
 
                 mu = np.average(df_tmp['q3'], weights=df_wgt['q3_w'])
                 sigma = np.sqrt(np.average((df_tmp['q3']-mu)**2, weights=df_wgt['q3_w']))      
-                y = df_wgt['q3_w'].sum()*mlab.normpdf(q3_bins, mu, sigma)
-                l = plt.plot(q3_bins, df_wgt['q3_w'].sum()*y, 'r--', linewidth=2,color=q_colors[2]) 
+                #y = df_wgt['q3_w'].sum()*mlab.normpdf(q3_bins, mu, sigma)
+                #l = plt.plot(q3_bins, df_wgt['q3_w'].sum()*y, 'r--', linewidth=2,color=q_colors[2]) 
 
                 mu = np.average(df_tmp['q5'], weights=df_wgt['q5_w'])
                 sigma = np.sqrt(np.average((df_tmp['q5']-mu)**2, weights=df_wgt['q5_w']))     
-                y = df_wgt['q5_w'].sum()*mlab.normpdf(q5_bins, mu, sigma)
-                l = plt.plot(q5_bins, df_wgt['q5_w'].sum()*y, 'r--', linewidth=2,color=q_colors[4]) 
+                #y = df_wgt['q5_w'].sum()*mlab.normpdf(q5_bins, mu, sigma)
+                #l = plt.plot(q5_bins, df_wgt['q5_w'].sum()*y, 'r--', linewidth=2,color=q_colors[4]) 
 
                 plt.title(myDis+' in '+myProv+' (rp = '+str(myRP)+') - '+istr)
                 plt.xlabel(istr,fontsize=12)
