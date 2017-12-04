@@ -111,21 +111,24 @@ print('R_asset per hazard: ',df['dKtot'].sum(level='hazard')/df[['pop','gdp_pc_p
 # Map asset losses as fraction of natl GDP
 print('\n',df_prov.dKtot/df_prov.gdp.sum())
 print((df_prov.dKtot/df_prov.gdp.sum()).sum(),'\n')
-make_map_from_svg(
-    df_prov.dKtot/df_prov.gdp.sum(), 
-    '../map_files/'+myCountry+'/BlankSimpleMap.svg',
-    outname=myCountry+'_asset_risk_over_natl_gdp',
-    color_maper=plt.cm.get_cmap('Blues'),
-    label='Annual asset risk [% of national GDP]',
-    new_title='Annual asset risk [% of national GDP]',
-    do_qualitative=False,
-    res=2000)
 
+# not runnign for now; svg file doesn't have regional names
+if False:
+    make_map_from_svg(
+        df_prov.dKtot/df_prov.gdp.sum(), 
+        '../map_files/'+myCountry+'/BlankSimpleMap.svg',
+        outname=myCountry+'_asset_risk_over_natl_gdp',
+        color_maper=plt.cm.get_cmap('Blues'),
+        label='Annual asset risk [% of national GDP]',
+        new_title='Annual asset risk [% of national GDP]',
+        do_qualitative=False,
+        res=2000)
+
+res_pds = pd.read_csv(output+'results_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+#iah_pds = pd.read_csv(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp','hhid','helped_cat','affected_cat'])
+iah = iah.reset_index().set_index([economy,'hazard','rp','hhid','helped_cat','affected_cat'])
 print(output+'results_tax_'+pds_str+'_'+pol_str+'.csv')
 print(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv')
-res_pds = pd.read_csv(output+'results_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
-iah_pds = pd.read_csv(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp','hhid','helped_cat','affected_cat'])
-iah = iah.reset_index().set_index([economy,'hazard','rp','hhid','helped_cat','affected_cat'])
 
 def format_delta_p(delta_p):
     delta_p_int = int(delta_p)
@@ -144,7 +147,8 @@ wprime = df.wprime.mean()
 print('\n\n Wprime = ',wprime,'\n\n')
 
 iah['dw'] = iah['dw']/wprime
-iah['pds_dw']  = iah_pds['dw']/wprime
+try: iah['pds_dw'] = iah_pds['dw']/wprime
+except: iah['pds_dw'] = None
 
 iah = iah.reset_index()
 print(iah.head(10))
@@ -186,7 +190,7 @@ plt.clf()
 #    display.display(plt.gcf())
 #    fig.clear()
 
-fig=plt.figure()
+fig = plt.figure(figsize=(15,6))
 
 cmap = colors.ListedColormap(sns.color_palette('Greens').as_hex())
 ax = iah.loc[(iah.welf_class==3)&(iah.dk0<150000)].plot.hexbin('dk0','ratio',cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
@@ -200,23 +204,30 @@ ax = iah.loc[(iah.welf_class==2)&(iah.dk0<150000)].plot.hexbin('dk0','ratio',ax=
 cmap = colors.ListedColormap(sns.color_palette('Purples').as_hex())
 ax = iah.loc[(iah.welf_class==0)&(iah.dk0<150000)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
 
-im=plt.gcf().get_axes()        #this is a list of all images that have been plotted
+fig = plt.gcf()
+im=fig.get_axes()        #this is a list of all images that have been plotted
 for iax in range(len(im))[1:]: im[iax].remove()
 
-fig = plt.gcf()
-fig.set_size_inches(6.5, 5.5)
+plt.axes(ax)
 
-plt.axes(im[0])
+fig = plt.gcf()
+fig.set_size_inches(15, 6)
+
 plt.xlim(0,1E5)
 plt.subplots_adjust(right=0.90)
-#plt.figure(figsize=(6,5))
 
 #im[0].set_aspect(0.5)
 plt.ticklabel_format(style='sci',axis='x', scilimits=(0,0))
 plt.tight_layout()
 plt.draw()
-plt.gcf().savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil_all.pdf',format='pdf',bbox_inches='tight')
+fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil_all.pdf',format='pdf',bbox_inches='tight')
 
+plt.clf()
+
+iah['t_reco'] = np.log(1/0.05)/iah['hh_reco_rate']
+ax = iah.loc[(iah.welf_class==0)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('k','t_reco')
+fig = plt.gcf()
+fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/k_vs_t.pdf',format='pdf',bbox_inches='tight')
 plt.clf()
 
 fig, axes = plt.subplots(nrows=4, ncols=2,figsize=(8,12))
