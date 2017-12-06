@@ -303,7 +303,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 
     return macro_event, cats_event, hazard_ratios_event 
 
-def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_public_assets=True):
+def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,share_public_assets=True):
 
     #counts affected and non affected
     cats_event_ia=concat_categories(cats_event,cats_event,index= affected_cats)
@@ -466,47 +466,45 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_pu
 
         # Classify these hh responses for studying dw
         cats_event_ia['welf_class'] = 0
+        # 1 = quick (<3yrs) reco, while avoiding poverty
 
-        # Case 1: initial consumption is above poverty line
+        if 'sub_line' in cats_event_ia.columns: cats_event_ia['c_min'] = cats_event_ia.sub_line
+        elif get_subsistence_line(myC): cats_event_ia['c_min'] = get_subsistence_line(myC)
+        else: cats_event_ia['c_min'] = cats_event_ia.c_5
+        print('Using hh response: avoid subsistence '+str(round(float(cats_event_ia['c_min'].mean()),2)))
+
+        # Case 1: hh can afford to reconstruct more quickly than 3 years
         # --> income losses do not push hh into poverty 
-        # --> standard reco costs would push below poverty_line
-        # *** HH response: keep consumption above poverty
+        # --> standard reco costs do not push into poverty
+        # *** HH response: reconstruct as quickly as possible (cap of 0.5 yrs/6 months) while keeping consumption above poverty
         tmp = cats_event_ia.loc[(cats_event_ia.c>cats_event_ia.pov_line)                      # HHs initially above poverty line 
-                                &((cats_event_ia.c-cats_event_ia.di0)>cats_event_ia.pov_line) # AND income losses don't push them below poverty line
-                                &((cats_event_ia.c-cats_event_ia.dc0)<cats_event_ia.pov_line) # AND reconstruction costs do push them below poverty line 
-                                &(cats_event_ia.welf_class==0)                                # AND they're not in any other class
+                                &((cats_event_ia.c-cats_event_ia.dc0)>cats_event_ia.pov_line) # AND nominal reconstruction costs don't push them below poverty line 
                                 &(cats_event_ia.dk_private!=0)].copy()                        # AND they did lose some assets
-        tmp['welf_class']   = 1 
+        tmp['welf_class']   = 1
         tmp['dc_old']       = tmp['dc0']
-        tmp['hh_reco_rate'] = ((tmp['c']-tmp['pov_line']-tmp['di0'])/tmp['dk_private']).clip(upper=const_nom_reco_rate)
+        tmp['hh_reco_rate'] = ((tmp['c']-tmp['pov_line']-tmp['di0'])/tmp['dk_private']).clip(upper=6.*const_nom_reco_rate)
         tmp['dc0']          = tmp['di0'] + tmp[['hh_reco_rate','dk_private']].prod(axis=1)
-        tmp.head(20000).to_csv(debug+'my_tmp_peripov.csv')
         cats_event_ia.loc[(cats_event_ia.c>=cats_event_ia.pov_line)
-                          &((cats_event_ia.c-cats_event_ia.di0)>cats_event_ia.pov_line)
-                          &((cats_event_ia.c-cats_event_ia.dc0)<cats_event_ia.pov_line)
-                          &(cats_event_ia.welf_class==0)
+                          &((cats_event_ia.c-cats_event_ia.dc0)>cats_event_ia.pov_line)
                           &(cats_event_ia.dk_private!=0),['dc0','hh_reco_rate','welf_class']] = tmp[['dc0','hh_reco_rate','welf_class']]
-        print('C1: '+str(round(float(100*cats_event_ia.loc[(cats_event_ia.hh_reco_rate!=const_nom_reco_rate)].shape[0])/float(cats_event_ia.shape[0]),2))+'% of hh have t_reco != 3yr')
+        print('C0: '+str(round(float(100*cats_event_ia.loc[(cats_event_ia.hh_reco_rate!=const_nom_reco_rate)].shape[0])/float(cats_event_ia.shape[0]),2))+'% of hh have t_reco != 3yr')        
 
         # Case 2: initial consumption is above or below poverty line
         # --> income losses push below poverty_line, 
         # --> hh can still afford to avoid subsistence
         # *** HH response: keep consumption above subsistence
-        if 'sub_line' in cats_event_ia.columns: cats_event_ia['c_min'] = cats_event_ia.sub_line
-        else: cats_event_ia['c_min'] = cats_event_ia.c_5
-
         tmp = cats_event_ia.loc[((cats_event_ia.c>=cats_event_ia.pov_line)|(cats_event_ia.c<cats_event_ia.pov_line)) # HHs initially above or below poverty line (doesn't matter)
-                                &((cats_event_ia.c-cats_event_ia.di0)<cats_event_ia.pov_line)                         # AND income losses (even before reco) do push them below poverty line
+                                #&((cats_event_ia.c-cats_event_ia.di0)<cats_event_ia.pov_line)                         # AND income losses (even before reco) do push them below poverty line
                                 &((cats_event_ia.c-cats_event_ia.di0)>=cats_event_ia.c_min)                           # AND they can afford (c-di0) at subsistence (or XX% of poverty line)
                                 &(cats_event_ia.welf_class==0)                                                        # AND they're not in any other class
                                 &(cats_event_ia.dk_private!=0)].copy()                                                # AND they did lose some assets
         tmp['welf_class']   = 2
         tmp['dc_old']       = tmp['dc0']
-        tmp['hh_reco_rate'] = ((tmp['c']-tmp['c_min']-tmp['di0'])/tmp['dk_private']).clip(upper=const_nom_reco_rate)
+        tmp['hh_reco_rate'] = ((tmp['c']-tmp['c_min']-tmp['di0'])/tmp['dk_private']).clip(upper=3.*const_nom_reco_rate)
         tmp['dc0']          = tmp['di0'] + tmp[['hh_reco_rate','dk_private']].prod(axis=1)
         tmp.head(20000).to_csv(debug+'my_tmp_newpov.csv')
         cats_event_ia.loc[((cats_event_ia.c>=cats_event_ia.pov_line)|(cats_event_ia.c<cats_event_ia.pov_line))
-                          &((cats_event_ia.c-cats_event_ia.di0)<cats_event_ia.pov_line)
+                          #&((cats_event_ia.c-cats_event_ia.di0)<cats_event_ia.pov_line)
                           &((cats_event_ia.c-cats_event_ia.di0)>=cats_event_ia.c_min)
                           &(cats_event_ia.welf_class==0)                            
                           &(cats_event_ia.dk_private!=0),['dc0','hh_reco_rate','welf_class']] = tmp[['dc0','hh_reco_rate','welf_class']]
@@ -522,7 +520,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_pu
         tmp['dc_old']       = tmp['dc0']
         tmp['hh_reco_rate'] = 0.         # No Reconstruction ((tmp['c']-tmp['di0']-1.)/tmp['dk_private']).clip(upper=const_nom_reco_rate)
         tmp['dc0']          = tmp['di0'] # No Reconstruction tmp['di0'] + tmp[['hh_reco_rate','dk_private']].prod(axis=1)
-        tmp.head(20000).to_csv(debug+'my_t mp_pov.csv')
+        tmp.head(20000).to_csv(debug+'my_tmp_pov.csv')
         cats_event_ia.loc[((cats_event_ia.c-cats_event_ia.di0)>0.0)
                           &((cats_event_ia.c-cats_event_ia.di0)<=cats_event_ia.c_min)
                           &(cats_event_ia.welf_class==0) 
@@ -1291,8 +1289,8 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
     tmp_out['res_sub'] = tmp_out['dk_sub']/tmp_out['dw_sub']
 
     tmp_out['ratio_dw_lim_tot']  = tmp_out['dw_lim']/tmp_out['dw_tot']
-    print('Wrote out summary stats for dw')
     tmp_out.to_csv(debug+'my_summary.csv')
+    print('Wrote out summary stats for dw')
     temp[['pcwgt','k','c','dk0','di0','dc0','help_received','dw_limit','wprime','const','integ','dw','dw_curr','dw_curr_no_clip']].head(10000).to_csv(debug+'my_temp.csv')
 
     return temp['dw']

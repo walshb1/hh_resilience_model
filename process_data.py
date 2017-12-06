@@ -151,103 +151,86 @@ try: iah['pds_dw'] = iah_pds['dw']/wprime
 except: iah['pds_dw'] = None
 
 iah = iah.reset_index()
-print(iah.head(10))
-
-iah = iah.loc[(iah.affected_cat=='a')&(iah.helped_cat=='helped')&(iah.hazard=='earthquake')&(iah.rp==1)]
 iah['ratio'] = iah['dw']/iah['dc0']
-#print(iah.head(10))
 
-#
-bin0 = float(iah.loc[(iah.dw<200000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
-bin1 = float(iah.loc[(iah.dw>=200000)&(iah.dw<400000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
-bin2 = float(iah.loc[(iah.dw>=400000)&(iah.dw<600000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
-bin3 = float(iah.loc[(iah.dw>=600000)&(iah.dw<800000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
-bin4 = float(iah.loc[(iah.dw>=1000000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
-tot_float = round((bin0 + bin1 + bin2 + bin3 + bin4),2)
+for irp in get_all_rps(myCountry,iah):
+    _iah = iah.loc[(iah.affected_cat=='a')&(iah.helped_cat=='helped')&(iah.hazard=='earthquake')&(iah.rp==irp)].copy()
 
+    #
+    bin0 = float(_iah.loc[(_iah.dw<200000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
+    bin1 = float(_iah.loc[(_iah.dw>=200000)&(_iah.dw<400000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
+    bin2 = float(_iah.loc[(_iah.dw>=400000)&(_iah.dw<600000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
+    bin3 = float(_iah.loc[(_iah.dw>=600000)&(_iah.dw<800000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
+    bin4 = float(_iah.loc[(_iah.dw>=1000000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
+    tot_float = round((bin0 + bin1 + bin2 + bin3 + bin4),2)
 
-ax = iah.plot.scatter('k','dw',c='welf_class',loglog=True)
-ax.annotate(str(round(100*bin0/tot_float,1))+'%',xy=(0.4E7,190000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-ax.annotate(str(round(100*bin1/tot_float,1))+'%',xy=(0.4E7,390000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-ax.annotate(str(round(100*bin2/tot_float,1))+'%',xy=(0.4E7,590000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-ax.annotate(str(round(100*bin3/tot_float,1))+'%',xy=(0.4E7,790000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-ax.annotate(str(round(100*bin4/tot_float,1))+'%',xy=(0.4E7,990000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-ax.annotate(r'$\Delta W_{tot}$ = '+str(tot_float)+'M',xy=(0.4E7,1090000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-ax.plot()
-fig = plt.gcf()
+    ax = _iah.plot.scatter('k','dw',c='welf_class',loglog=True)
+    ax.annotate(str(round(100*bin0/tot_float,1))+'%',xy=(0.4E7,190000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+    ax.annotate(str(round(100*bin1/tot_float,1))+'%',xy=(0.4E7,390000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+    ax.annotate(str(round(100*bin2/tot_float,1))+'%',xy=(0.4E7,590000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+    ax.annotate(str(round(100*bin3/tot_float,1))+'%',xy=(0.4E7,790000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+    ax.annotate(str(round(100*bin4/tot_float,1))+'%',xy=(0.4E7,990000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+    ax.annotate(r'$\Delta W_{tot}$ = '+str(tot_float)+'M',xy=(0.4E7,1090000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+    ax.plot()
+    fig = plt.gcf()
+    
+    fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/dw_eq_'+str(irp)+'.pdf',format='pdf')
+    plt.clf()
 
-fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/dw.pdf',format='pdf')
-plt.clf()
+    fig = plt.figure(figsize=(15,6))
 
-#def plot_res(fig):
-#    ax=fig.add_axes([0,0,1,1])
-#    ax.set_xlabel("x")
-#    ax.set_ylabel('y')
-#    plotted=ax.imshow(rand(250, 250))
-#    ax.set_title("title")
-#    cbar=fig.colorbar(mappable=plotted)
-#    display.clear_output(wait=True)
-#    display.display(plt.gcf())
-#    fig.clear()
+    cmap = colors.ListedColormap(sns.color_palette('Greens').as_hex())
+    ax = _iah.loc[(_iah.welf_class==1)].plot.hexbin('dk0','ratio',cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+    
+    cmap = colors.ListedColormap(sns.color_palette('Blues').as_hex())
+    ax = _iah.loc[(_iah.welf_class==2)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+    
+    cmap = colors.ListedColormap(sns.color_palette('Reds').as_hex())
+    ax = _iah.loc[(_iah.welf_class==3)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
 
-fig = plt.figure(figsize=(15,6))
+    fig = plt.gcf()
+    im=fig.get_axes()        #this is a list of all images that have been plotted
+    for iax in range(len(im))[1:]: im[iax].remove()
+    
+    plt.axes(ax)
+    
+    fig = plt.gcf()
+    fig.set_size_inches(15, 6)
+    
+    plt.xlim(0,1E5)
+    plt.subplots_adjust(right=0.90)
+    
+    plt.ticklabel_format(style='sci',axis='x', scilimits=(0,0))
+    plt.tight_layout()
+    plt.draw()
+    fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil_all_'+str(irp)+'.pdf',format='pdf',bbox_inches='tight')
+    plt.clf()
 
-cmap = colors.ListedColormap(sns.color_palette('Greens').as_hex())
-ax = iah.loc[(iah.welf_class==3)&(iah.dk0<150000)].plot.hexbin('dk0','ratio',cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+    ax = plt.gca()
+    fig = ax.get_figure()
+    fig.set_size_inches(6.5,5.5)
+    _iah['t_reco'] = (np.log(1/0.05)/_iah['hh_reco_rate']).fillna(25).clip(upper=25)
+    
+    heights2, bins2 = np.histogram(_iah.loc[_iah.welf_class==2].t_reco,bins=   50,weights=_iah.loc[_iah.welf_class==2].pcwgt)
+    heights1, bins1 = np.histogram(_iah.loc[_iah.welf_class==1].t_reco,bins=bins2,weights=_iah.loc[_iah.welf_class==1].pcwgt)
+    heights3, bins3 = np.histogram(_iah.loc[_iah.welf_class==3].t_reco,bins=bins2,weights=_iah.loc[_iah.welf_class==3].pcwgt)
+    
+    ax.bar(bins2[:-1],heights1, width=(bins2[1]-bins2[0]), facecolor=q_colors[1],alpha=0.8)
+    ax.bar(bins2[:-1],heights2, width=(bins2[1]-bins2[0]), facecolor=q_colors[2],alpha=0.8,bottom=heights1)
+    ax.bar(bins2[:-1],heights3, width=(bins2[1]-bins2[0]), facecolor=q_colors[3],alpha=0.8,bottom=(heights1+heights2))
+    
+    fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/reco_periods_'+str(irp)+'.pdf',format='pdf',bbox_inches='tight')
+    plt.clf()
 
-cmap = colors.ListedColormap(sns.color_palette('Blues').as_hex())
-ax = iah.loc[(iah.welf_class==1)&(iah.dk0<150000)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+    fig, axes = plt.subplots(nrows=3, ncols=2,figsize=(8,12))
 
-cmap = colors.ListedColormap(sns.color_palette('Reds').as_hex())
-ax = iah.loc[(iah.welf_class==2)&(iah.dk0<150000)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+    _iah.loc[(_iah.welf_class==1)&(_iah.dk0<150000)&(_iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[0,0])
+    _iah.loc[(_iah.welf_class==2)&(_iah.dk0<150000)&(_iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[1,0])
+    _iah.loc[(_iah.welf_class==3)&(_iah.dk0<150000)&(_iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[2,0])
+    
+    plt.tight_layout()
+    fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil_'+str(irp)+'.pdf',format='pdf')
 
-cmap = colors.ListedColormap(sns.color_palette('Purples').as_hex())
-ax = iah.loc[(iah.welf_class==0)&(iah.dk0<150000)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
-
-fig = plt.gcf()
-im=fig.get_axes()        #this is a list of all images that have been plotted
-for iax in range(len(im))[1:]: im[iax].remove()
-
-plt.axes(ax)
-
-fig = plt.gcf()
-fig.set_size_inches(15, 6)
-
-plt.xlim(0,1E5)
-plt.subplots_adjust(right=0.90)
-
-#im[0].set_aspect(0.5)
-plt.ticklabel_format(style='sci',axis='x', scilimits=(0,0))
-plt.tight_layout()
-plt.draw()
-fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil_all.pdf',format='pdf',bbox_inches='tight')
-
-plt.clf()
-
-iah['t_reco'] = np.log(1/0.05)/iah['hh_reco_rate']
-ax = iah.loc[(iah.welf_class==0)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('k','t_reco')
-fig = plt.gcf()
-fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/k_vs_t.pdf',format='pdf',bbox_inches='tight')
-plt.clf()
-
-fig, axes = plt.subplots(nrows=4, ncols=2,figsize=(8,12))
-
-iah.loc[(iah.welf_class==0)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[0,0])
-iah.loc[(iah.welf_class==0)].plot.hexbin('dk0','ratio',ax=axes[0,1],loglog=True)
-iah.loc[(iah.welf_class==1)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[1,0])
-#iah.loc[(iah.welf_class==1)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[1,1],loglog=True)
-iah.loc[(iah.welf_class==2)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[2,0])
-#iah.loc[(iah.welf_class==2)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[2,1],loglog=True)
-iah.loc[(iah.welf_class==3)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[3,0])
-#iah.loc[(iah.welf_class==3)&(iah.dk0<150000)&(iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[3,1],loglog=True)
-#iah.loc[(iah.dc0<50000)].plot.hexbin('dc0','ratio',ax=axes[4,0])
-#iah.loc[(iah.dc0<50000)].plot.hexbin('dc0','ratio',ax=axes[4,1],loglog=True)
-
-#plt.gca().tick_params(labelrotation=45,direction='out', length=6, width=2, colors='r')
-#plt.gca().set_xticklabels(rotation=30,ha='right')
-plt.tight_layout()
-fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil.pdf',format='pdf')
-#iah.head(5000).to_csv('~/Desktop/my_out.csv')
 assert(False)
 
 iah['pds_nrh'] = iah_pds['help_fee']-iah_pds['help_received'] # Net received help
