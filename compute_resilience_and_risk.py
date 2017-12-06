@@ -102,7 +102,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     # compute_dK does the following:
     # -- adds dk_event column to macro_event
     # -- adds affected/na categories to cats_event
-    macro_event, cats_event_ia, pub_costs_inf = compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,share_public_assets) 
+    macro_event, cats_event_ia, pub_costs_inf = compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myCountry,share_public_assets) 
     # ^ calculate the actual vulnerability, the potential damange to capital, income, and consumption
     print('B\n\n')
     
