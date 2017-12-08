@@ -54,6 +54,9 @@ dem = get_demonym(myCountry)
 #
 drm_pov_sign = -1 # toggle subtraction or addition of dK to affected people's incomes
 
+pov_line = get_poverty_line(myCountry,'Rural')
+sub_line = get_subsistence_line(myCountry)
+
 # Load output files
 pol_str = ''#'_v95'#could be {'_v95'}
 
@@ -83,6 +86,8 @@ macro = pd.read_csv(output+'macro_tax_'+base_str+'_'+pol_str+'.csv', index_col=[
 #df_prov = sum_with_rp(myCountry,macro[['dk_event']],['dk_event'],sum_provinces=False,national=False)
 df_prov = df[['dKtot','dWtot_currency']]
 df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1)
+df_prov['gdp_hh'] = float(macro['avg_prod_k'].mean())*iah[['k','pcwgt']].prod(axis=1).sum(level=event_level)
+
 # HACK
 #df_prov.ix['Rotuma'].dWtot_currency = df_prov.ix['Rotuma'].dWtot_currency.clip(upper=df_prov.ix['Rotuma'].gdp.mean())
 
@@ -102,9 +107,11 @@ df_prov = df_prov.sum(level=economy)
 df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level=economy).copy()
 
 print(df_prov)
-print(df_prov[['dKtot','dWtot_currency','gdp']].sum())
+print(df_prov[['dKtot','dWtot_currency','gdp','gdp_hh']].sum())
 print('R_asset:',100.*df_prov['dKtot'].sum()/df_prov['gdp'].sum())
 print('R_welf:',100.*df_prov['dWtot_currency'].sum()/df_prov['gdp'].sum())
+
+assert(False)
 
 print('R_asset per hazard: ',df['dKtot'].sum(level='hazard')/df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level=[economy,'hazard']).sum(level='hazard'))
 
@@ -154,6 +161,7 @@ iah = iah.reset_index()
 iah['ratio'] = iah['dw']/iah['dc0']
 
 for irp in get_all_rps(myCountry,iah):
+    print('Running',irp)
     _iah = iah.loc[(iah.affected_cat=='a')&(iah.helped_cat=='helped')&(iah.hazard=='earthquake')&(iah.rp==irp)].copy()
 
     #
@@ -211,14 +219,17 @@ for irp in get_all_rps(myCountry,iah):
     fig.set_size_inches(6.5,5.5)
     _iah['t_reco'] = (np.log(1/0.05)/_iah['hh_reco_rate']).fillna(25).clip(upper=25)
     
-    heights2, bins2 = np.histogram(_iah.loc[_iah.welf_class==2].t_reco,bins=   50,weights=_iah.loc[_iah.welf_class==2].pcwgt)
-    heights1, bins1 = np.histogram(_iah.loc[_iah.welf_class==1].t_reco,bins=bins2,weights=_iah.loc[_iah.welf_class==1].pcwgt)
-    heights3, bins3 = np.histogram(_iah.loc[_iah.welf_class==3].t_reco,bins=bins2,weights=_iah.loc[_iah.welf_class==3].pcwgt)
+    heights2 , bins2  = np.histogram(_iah.loc[_iah.welf_class==2].t_reco,bins=   50,weights=_iah.loc[_iah.welf_class==2].pcwgt)
+    heights1 , bins1  = np.histogram(_iah.loc[_iah.welf_class==1].t_reco,bins=bins2,weights=_iah.loc[_iah.welf_class==1].pcwgt)
+    heights3 , bins3  = np.histogram(_iah.loc[(_iah.welf_class==3)&(_iah.c<=sub_line)].t_reco,bins=bins2,weights=_iah.loc[(_iah.welf_class==3)&(_iah.c<sub_line)].pcwgt)
+    heights3n, bins3n = np.histogram(_iah.loc[(_iah.welf_class==3)&(_iah.c>sub_line)].t_reco,bins=bins2,weights=_iah.loc[(_iah.welf_class==3)&(_iah.c>sub_line)].pcwgt)
     
-    ax.bar(bins2[:-1],heights1, width=(bins2[1]-bins2[0]), facecolor=q_colors[1],alpha=0.8)
-    ax.bar(bins2[:-1],heights2, width=(bins2[1]-bins2[0]), facecolor=q_colors[2],alpha=0.8,bottom=heights1)
-    ax.bar(bins2[:-1],heights3, width=(bins2[1]-bins2[0]), facecolor=q_colors[3],alpha=0.8,bottom=(heights1+heights2))
+    ax.bar(bins2[:-1],heights1,  width=(bins2[1]-bins2[0]), facecolor=q_colors[1],alpha=0.8)
+    ax.bar(bins2[:-1],heights2,  width=(bins2[1]-bins2[0]), facecolor=q_colors[2],alpha=0.8,bottom=heights1)
+    ax.bar(bins2[:-1],heights3,  width=(bins2[1]-bins2[0]), facecolor=q_colors[3],alpha=0.8,bottom=(heights1+heights2))
+    ax.bar(bins2[:-1],heights3n, width=(bins2[1]-bins2[0]), facecolor=q_colors[4],alpha=0.8,bottom=(heights1+heights2+heights3))
     
+    plt.ylim(0,1.5E7)
     fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/reco_periods_'+str(irp)+'.pdf',format='pdf',bbox_inches='tight')
     plt.clf()
 
@@ -230,6 +241,7 @@ for irp in get_all_rps(myCountry,iah):
     
     plt.tight_layout()
     fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil_'+str(irp)+'.pdf',format='pdf')
+    plt.close('all')
 
 assert(False)
 
@@ -265,9 +277,6 @@ if myCountry == 'PH':
 elif myCountry == 'FJ':
     myHaz = [['Ba'],['TC'],[1,5,10,20,22,50,72,75,100,200,224,250,475,500,975,1000,2475]]
     #myHaz = [['Lau'],['earthquake','tsunami','typhoon'],[1,10,20,50,100,250,500,1000]]
-
-pov_line = get_poverty_line(myCountry,'Rural')
-sub_line = get_subsistence_line(myCountry)
 
 iah = iah.reset_index()
 

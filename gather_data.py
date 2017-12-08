@@ -89,6 +89,9 @@ if myCountry == 'PH':
     df2['shewp'] = df2[['shewp','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)    
     df2['shewr'] = df2[['shewr','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)   
     df2['gdp_pc_pp'] = df2[['gdp_pc_pp','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)
+
+    df2.to_csv('~/Desktop/my_df2.csv')
+
     df2['pop'] = df2['pop'].sum(level=economy)
     df2['gdp'] = df2['gdp'].sum(level=economy)
     df2 = df2.mean(level=economy).drop(['gdp_pc_pp','pop'],axis=1)
@@ -105,8 +108,8 @@ if myCountry == 'SL':
     cat_info = cat_info.reset_index().set_index(economy).drop(['index'],axis=1)
 
 # Define per capita income (in local currency)
-df['gdp_pc_pp_prov'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
-df['gdp_pc_pp_nat'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info['pcwgt'].sum()
+df['gdp_pc_prov'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
+df['gdp_pc_nat'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info['pcwgt'].sum()
 # ^ this is per capita income
 
 df['pop'] = cat_info.pcwgt.sum(level=economy)
@@ -311,13 +314,13 @@ if myCountry == 'PH':
     # Distribute losses among Manila & NCR 2-4 according to assets
     cat_info = cat_info.reset_index()
     k_NCR = cat_info.loc[((cat_info.province == 'Manila') | (cat_info.province == 'NCR-2nd Dist.') 
-                          | (cat_info.province == 'NCR-3rd Dist.') | (cat_info.province == 'NCR-4th Dist.')), ['k','hhwgt']].prod(axis=1).sum()
-
+                          | (cat_info.province == 'NCR-3rd Dist.') | (cat_info.province == 'NCR-4th Dist.')), ['k','pcwgt']].prod(axis=1).sum()
+    
     for k_type in ['value_destroyed_prv','value_destroyed_pub']:
-        df_haz.loc[df_haz.province ==        'Manila',k_type] *= cat_info.loc[cat_info.province ==        'Manila', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
-        df_haz.loc[df_haz.province == 'NCR-2nd Dist.',k_type] *= cat_info.loc[cat_info.province == 'NCR-2nd Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
-        df_haz.loc[df_haz.province == 'NCR-3rd Dist.',k_type] *= cat_info.loc[cat_info.province == 'NCR-3rd Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
-        df_haz.loc[df_haz.province == 'NCR-4th Dist.',k_type] *= cat_info.loc[cat_info.province == 'NCR-4th Dist.', ['k','hhwgt']].prod(axis=1).sum()/k_NCR
+        df_haz.loc[df_haz.province ==        'Manila',k_type] *= cat_info.loc[cat_info.province ==        'Manila', ['k','pcwgt']].prod(axis=1).sum()/k_NCR
+        df_haz.loc[df_haz.province == 'NCR-2nd Dist.',k_type] *= cat_info.loc[cat_info.province == 'NCR-2nd Dist.', ['k','pcwgt']].prod(axis=1).sum()/k_NCR
+        df_haz.loc[df_haz.province == 'NCR-3rd Dist.',k_type] *= cat_info.loc[cat_info.province == 'NCR-3rd Dist.', ['k','pcwgt']].prod(axis=1).sum()/k_NCR
+        df_haz.loc[df_haz.province == 'NCR-4th Dist.',k_type] *= cat_info.loc[cat_info.province == 'NCR-4th Dist.', ['k','pcwgt']].prod(axis=1).sum()/k_NCR
 
     # Add region info to df_haz:
     df_haz = df_haz.reset_index().set_index('province')
