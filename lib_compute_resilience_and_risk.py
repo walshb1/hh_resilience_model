@@ -1253,6 +1253,7 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
     # Calculate integral
     for i_dt in int_dt:
         temp['integ'] += step_dt*((1.-(temp['dc0']*math.e**(-i_dt*temp['hh_reco_rate'])-temp['help_received']*const_pds_rate*math.e**(-i_dt*const_pds_rate))/temp['c'])**(1-const_ie)-1.)*math.e**(-i_dt*const_rho)
+        # NB: dc0 has both public and private capital in it...need to allow for the possibility of independent reconstruction times
         # NOTE: if consumption goes negative, the integral can't be calculated...death!
         # --> if consumption increases, dw will come out negative. that's just making money off the disaster.
         
