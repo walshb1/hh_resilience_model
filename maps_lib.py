@@ -130,8 +130,8 @@ def sum_with_rp(myC,df,columns,sum_provinces,economy,national=False):
         else:
             return df.sum()
 
-def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_cmap("Blues"), label = "", outfolder ="img/" , 
-                      new_title=None, do_qualitative=False, res=1000, verbose=True, svg_handle='class'):
+def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_cmap("Blues"), label = "", outfolder ="img/" ,
+                      svg_handle='class',new_title=None, do_qualitative=False, res=1000, verbose=True):
     """Makes a cloropleth map and a legend from a panda series and a blank svg map. 
     Assumes the index of the series matches the SVG classes
     Saves the map in SVG, and in PNG if Inkscape is installed.

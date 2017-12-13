@@ -265,7 +265,7 @@ def get_df2(myC):
 
     if myC == 'PH':
         df2 = pd.read_excel(inputs+'PSA_compiled.xlsx',skiprows=1)[['province','gdp_pc_pp','pop','shewp','shewr']].set_index('province')
-        df2['gdp'] = df2['gdp_pc_pp']*df2['pop']
+        df2['gdp_pp'] = df2['gdp_pc_pp']*df2['pop']
         return df2
 
     else: return None
@@ -353,8 +353,8 @@ def get_service_loss(myC):
 def get_hazard_df(myC,economy,rm_overlap=False):
 
     if myC == 'PH': 
-        df_prv = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','Private','Occ').reset_index()
-        df_pub = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','Public','Occ').reset_index()
+        df_prv = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population_with_EP1.xlsx','Loss_Results','Private','Agg').reset_index()
+        df_pub = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population_with_EP1.xlsx','Loss_Results','Public','Agg').reset_index()
 
         df_prv.columns = ['province','hazard','rp','value_destroyed_prv']
         df_pub.columns = ['province','hazard','rp','value_destroyed_pub']

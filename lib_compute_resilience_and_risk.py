@@ -221,9 +221,10 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
         
         hazard_ratios_event = hazard_ratios_event.reset_index().set_index(['Division','hazard','rp','hhid'])
 
-    # PSA input: original value of c
-    avg_c = round(np.average(macro['gdp_pc_pp_prov'],weights=macro['pop'])/get_to_USD(myCountry),2)
-    print('\nMean consumption (PSA): ',avg_c,' USD.\nMean GDP pc ',round(np.average(macro['gdp_pc_pp_prov'],weights=macro['pop'])/get_to_USD(myCountry),2),' USD.\n')
+    # This value of provincial GDP is derived from hh consumption in HIES
+    # --> Overall, it's 85% of the PSA macroeconomic stats 
+    avg_c = round(np.average(macro['gdp_pc_prov'],weights=macro['pop'])/get_to_USD(myCountry),2)
+    print('\nMean consumption: ',avg_c,' USD.\nMean GDP pc ',round(np.average(macro['gdp_pc_prov'],weights=macro['pop'])/get_to_USD(myCountry),2),' USD.\n')
 
     cat_info['protection']=broadcast_simple(macro['protection'],cat_info.index)	
 
@@ -288,6 +289,9 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     cats_event = cats_event.reset_index().set_index(event_level+['hhid'])
     cats_event['hh_share'] = hazard_ratios_event['hh_share']
     cats_event['hh_share'] = cats_event['hh_share'].fillna(1.)
+
+    # Need to transfer vulnerability from haz_ratios to cats_event:
+    cats_event['v'] = hazard_ratios_event['v']
 
     ###############
     # Don't know what this does, except empty the overlapping columns.
@@ -640,10 +644,10 @@ def calc_dw_outside_affected_province(macro_event, cat_info, public_costs_pub, p
                     # Calculate wprime
                     tmp_wp = None
                     if is_local_welfare:
-                        tmp_gdp = macro_event.loc[(macro_event[event_level[0]]==iP),'gdp_pc_pp_prov'].mean()
+                        tmp_gdp = macro_event.loc[(macro_event[event_level[0]]==iP),'gdp_pc_prov'].mean()
                         tmp_wp =(welf(tmp_gdp/const_rho+h,const_ie)-welf(tmp_gdp/const_rho-h,const_ie))/(2*h)
                     else: 
-                        tmp_wp =(welf(macro_event['gdp_pc_pp_nat'].mean()/const_rho+h,const_ie)-welf(macro_event['gdp_pc_pp_nat'].mean()/const_rho-h,const_ie))/(2*h)
+                        tmp_wp =(welf(macro_event['gdp_pc_nat'].mean()/const_rho+h,const_ie)-welf(macro_event['gdp_pc_nat'].mean()/const_rho-h,const_ie))/(2*h)
 
                     tmp_cost_pub = float(public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer == iP)
                                                            &(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'transfer_pub'])
@@ -786,7 +790,7 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
 
     # max_aid is per cap, and it is constant for all disasters & provinces
     # --> If this much were distributed to everyone in the country, it would be 5% of GDP
-    macro_event['max_aid'] = macro_event['max_increased_spending'].mean()*macro_event[['gdp_pc_pp_prov','pop']].prod(axis=1).sum(level=['hazard','rp']).mean()/macro_event['pop'].sum(level=['hazard','rp']).mean()
+    macro_event['max_aid'] = macro_event['max_increased_spending'].mean()*macro_event[['gdp_pc_prov','pop']].prod(axis=1).sum(level=['hazard','rp']).mean()/macro_event['pop'].sum(level=['hazard','rp']).mean()
 
     if optionFee == 'insurance_premium':
         temp = cats_event_iah.copy()
@@ -1094,7 +1098,7 @@ def unpack_social(m,cat):
     c  = cat.c
     gs = cat.gamma_SP
 
-    social = gs*m.gdp_pc_pp_nat*m.tau_tax/(c+1.0e-10) #gdp*tax should give the total social protection. gs=each one's social protection/(total social protection). social is defined as t(which is social protection)/c_i(consumption)
+    social = gs*m.gdp_pc_nat*m.tau_tax/(c+1.0e-10) #gdp*tax should give the total social protection. gs=each one's social protection/(total social protection). social is defined as t(which is social protection)/c_i(consumption)
 
     return social
     
@@ -1222,7 +1226,7 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
     #temp['w'] = welf1(temp['c']/const_rho, const_ie, temp['c_5']/const_rho)
     #temp['dw_dep'] = (welf1(temp['c']/const_rho, const_ie, temp['c_5']/const_rho)
     #              - welf1(temp['c']/const_rho-temp['dc_npv_post'], const_ie,temp['c_5']/const_rho))
-    #temp['wprime'] =(welf(temp['gdp_pc_pp_prov']/const_rho+h,const_ie)-welf(temp['gdp_pc_pp_prov']/const_rho-h,const_ie))/(2*h) <-- Missing a factor of (1-eta) in denom here?
+    #temp['wprime'] =(welf(temp['gdp_pc_prov']/const_rho+h,const_ie)-welf(temp['gdp_pc_prov']/const_rho-h,const_ie))/(2*h) <-- Missing a factor of (1-eta) in denom here?
     #temp['dw_curr'] = temp['dw_dep']/temp['wprime']
 
     #if is_revised_dw == False: 
@@ -1400,10 +1404,10 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfar
     if not is_revised_dw:
         print('Getting wprime (legacy)')
         if is_local_welfare:
-            wprime =(welf(df['gdp_pc_pp_prov']/const_rho+h,df['income_elast'])-welf(df['gdp_pc_pp_prov']/const_rho-h,df['income_elast']))/(2*h*(1-const_ie))
+            wprime =(welf(df['gdp_pc_prov']/const_rho+h,df['income_elast'])-welf(df['gdp_pc_prov']/const_rho-h,df['income_elast']))/(2*h*(1-const_ie))
             print('Adding (1-eta) to denominator of legacy wprime...')
         else:
-            wprime =(welf(df['gdp_pc_pp_nat']/const_rho+h,df['income_elast'])-welf(df['gdp_pc_pp_nat']/const_rho-h,df['income_elast']))/(2*h*(1-const_ie))
+            wprime =(welf(df['gdp_pc_nat']/const_rho+h,df['income_elast'])-welf(df['gdp_pc_nat']/const_rho-h,df['income_elast']))/(2*h*(1-const_ie))
             print('Adding (1-eta) to denominator of legacy wprime...') 
     
     dWref = wprime*df['dK']
@@ -1417,7 +1421,7 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfar
     df['dWtot_currency']=df['dWpc_currency']*cats_event_iah['pcwgt'].sum(level=[economy,'hazard','rp'])#*df['pop']
     
     #Risk to welfare as percentage of local GDP
-    df['risk']= df['dWpc_currency']/(df['gdp_pc_pp_prov'])
+    df['risk']= df['dWpc_currency']/(df['gdp_pc_prov'])
     
     ############
     #SOCIO-ECONOMIC CAPACITY)

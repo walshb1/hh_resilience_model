@@ -71,11 +71,18 @@ if myCountry == 'PH':
     cat_info['province'].replace(prov_code,inplace=True)     
     cat_info['region'].replace(region_code,inplace=True)
     cat_info = cat_info.reset_index().set_index(economy).drop(['index','level_0'],axis=1)
-    
+
     # There's no region info in df--put that in...
     df = df.reset_index().set_index('province')
     cat_info = cat_info.reset_index().set_index('province')
     df['region'] = cat_info[~cat_info.index.duplicated(keep='first')].region
+
+    try:
+        df.reset_index()[['province','region']].to_csv('../inputs/PH/prov_to_reg_dict.csv',header=True)        
+        print('Updated PH regional-provincial dict')
+    except: 
+        print('Print cound not update regional-provincial dict')
+
     df = df.reset_index().set_index(economy)
 
     df['psa_pop'] = df.sum(level=economy)
@@ -90,11 +97,9 @@ if myCountry == 'PH':
     df2['shewr'] = df2[['shewr','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)   
     df2['gdp_pc_pp'] = df2[['gdp_pc_pp','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)
 
-    df2.to_csv('~/Desktop/my_df2.csv')
-
     df2['pop'] = df2['pop'].sum(level=economy)
-    df2['gdp'] = df2['gdp'].sum(level=economy)
-    df2 = df2.mean(level=economy).drop(['gdp_pc_pp','pop'],axis=1)
+    df2['gdp_pp'] = df2['gdp_pp'].sum(level=economy)
+    df2 = df2.mean(level=economy)
 
     cat_info = cat_info.reset_index().set_index(economy)
 
@@ -315,13 +320,13 @@ if myCountry == 'PH':
     cat_info = cat_info.reset_index()
     k_NCR = cat_info.loc[((cat_info.province == 'Manila') | (cat_info.province == 'NCR-2nd Dist.') 
                           | (cat_info.province == 'NCR-3rd Dist.') | (cat_info.province == 'NCR-4th Dist.')), ['k','pcwgt']].prod(axis=1).sum()
-    
+
     for k_type in ['value_destroyed_prv','value_destroyed_pub']:
         df_haz.loc[df_haz.province ==        'Manila',k_type] *= cat_info.loc[cat_info.province ==        'Manila', ['k','pcwgt']].prod(axis=1).sum()/k_NCR
         df_haz.loc[df_haz.province == 'NCR-2nd Dist.',k_type] *= cat_info.loc[cat_info.province == 'NCR-2nd Dist.', ['k','pcwgt']].prod(axis=1).sum()/k_NCR
         df_haz.loc[df_haz.province == 'NCR-3rd Dist.',k_type] *= cat_info.loc[cat_info.province == 'NCR-3rd Dist.', ['k','pcwgt']].prod(axis=1).sum()/k_NCR
         df_haz.loc[df_haz.province == 'NCR-4th Dist.',k_type] *= cat_info.loc[cat_info.province == 'NCR-4th Dist.', ['k','pcwgt']].prod(axis=1).sum()/k_NCR
-
+        
     # Add region info to df_haz:
     df_haz = df_haz.reset_index().set_index('province')
     cat_info = cat_info.reset_index().set_index('province')
@@ -334,8 +339,8 @@ if myCountry == 'PH':
     # Losses are absolute value, so they are additive
     df_haz = df_haz.reset_index().set_index([economy,'hazard','rp']).sum(level=[economy,'hazard','rp']).drop(['index'],axis=1)
 
-    df_haz['value_destroyed'] = df_haz['value_destroyed_prv'] + df_haz['value_destroyed_pub']
-    df_haz['hh_share'] = df_haz['value_destroyed_prv']/(df_haz['value_destroyed_prv'] + df_haz['value_destroyed_pub'])
+    df_haz['value_destroyed'] = df_haz[['value_destroyed_prv','value_destroyed_pub']].sum(axis=1)
+    df_haz['hh_share'] = df_haz['value_destroyed_prv']/df_haz['value_destroyed']
     
 elif myCountry == 'FJ':
     df_haz = df_haz.reset_index().set_index([economy,'hazard','rp']).sum(level=[economy,'hazard','rp'])
@@ -420,25 +425,44 @@ hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = hazard_ratios.loc[hazard_
 hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=0.0000001,upper=fa_threshold)
 
 cat_info = cat_info.reset_index().set_index([economy,'hhid'])
-cat_info['v'] = hazard_ratios.reset_index().set_index([economy,'hhid'])['v'].mean(level=[economy,'hhid']).clip(upper=0.99)
+#cat_info['v'] = hazard_ratios.reset_index().set_index([economy,'hhid'])['v'].mean(level=[economy,'hhid']).clip(upper=0.99)
+# ^ I think this is throwing off the losses!! Average vulnerability isn't going to cut it
+# --> Use hazard-specific vulnerability for each hh (in hazard_ratios instead of in cats_event)
 
 # This function collects info on the value and vulnerability of public assets
 cat_info, hazard_ratios = get_asset_infos(myCountry,cat_info,hazard_ratios,df_haz)
 
 df.to_csv(intermediate+'/macro.csv',encoding='utf-8', header=True,index=True)
 
-if 'index' in cat_info.columns: cat_info = cat_info.drop(['index'],axis=1)
+cat_info = cat_info.drop([icol for icol in ['level_0','index'] if icol in cat_info.columns],axis=1)
 #cat_info = cat_info.drop([i for i in ['province'] if i != economy],axis=1)
 cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index=True)
 
-hazard_ratios= hazard_ratios.drop(['frac_destroyed','v'],axis=1).drop(["flood_fluv_def"],level="hazard")
+hazard_ratios= hazard_ratios.drop(['frac_destroyed'],axis=1).drop(["flood_fluv_def"],level="hazard")
 hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
 
+# If we have 2 sets of data on k, gdp, look at them now:
+try:
+    summary_df = pd.DataFrame({'macro_stats':df2[['gdp_pc_pp','pop']].prod(axis=1).sum(level=economy),
+                               'hies':df['avg_prod_k'].mean()*cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy)})
+    summary_df['macro_to_hh_ratio'] = summary_df['macro_stats'].divide(summary_df['hies'])
+    print(summary_df)
+
+    totals = summary_df[['macro_stats','hies']].sum().squeeze()
+    ratio = totals[0]/totals[1]
+
+    print(totals, ratio)
+
+except:
+    print('Dont have 2 datasets for GDP. HH survey data:')
+#    print(df['avg_prod_k'].mean()*cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy))
+    
+    
 if myCountry == 'FJ':
     # Compare assets from survey to assets from AIR-PCRAFI
 
     df_haz = df_haz.reset_index()
-    my_df = ((df[['gdp_pc_pp_prov','pop']].prod(axis=1))/df['avg_prod_k']).to_frame(name='HIES')
+    my_df = ((df[['gdp_pc_prov','pop']].prod(axis=1))/df['avg_prod_k']).to_frame(name='HIES')
     my_df['PCRAFI'] = df_haz.ix[(df_haz.rp==1)&(df_haz.hazard=='TC'),['Division','Exp_Value']].set_index('Division')
     
     my_df['HIES']/=1.E9
