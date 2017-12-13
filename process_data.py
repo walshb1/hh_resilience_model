@@ -51,6 +51,10 @@ economy = get_economic_unit(myCountry)
 event_level = [economy, 'hazard', 'rp']
 dem = get_demonym(myCountry)
 
+svg_file = '../map_files/'+myCountry+'/BlankSimpleMap.svg'
+if myCountry == 'PH' and economy == 'region':
+    svg_file = '../map_files/'+myCountry+'/BlankSimpleMapRegional.svg'
+
 #
 drm_pov_sign = -1 # toggle subtraction or addition of dK to affected people's incomes
 
@@ -85,7 +89,7 @@ macro = pd.read_csv(output+'macro_tax_'+base_str+'_'+pol_str+'.csv', index_col=[
 # These are equivalent
 #df_prov = sum_with_rp(myCountry,macro[['dk_event']],['dk_event'],sum_provinces=False,national=False)
 df_prov = df[['dKtot','dWtot_currency']]
-df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1)
+df_prov['gdp'] = df[['pop','gdp_pc_prov']].prod(axis=1)
 df_prov['gdp_hh'] = float(macro['avg_prod_k'].mean())*iah[['k','pcwgt']].prod(axis=1).sum(level=event_level)
 
 # HACK
@@ -104,35 +108,33 @@ results_df.to_csv(output+'results_table_old.csv')
 df_prov['R_asst'] = round(100.*df_prov['dKtot']/df_prov['gdp'],2)
 df_prov['R_welf'] = round(100.*df_prov['dWtot_currency']/df_prov['gdp'],2)
 df_prov = df_prov.sum(level=economy)
-df_prov['gdp'] = df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level=economy).copy()
+df_prov['gdp'] = df[['pop','gdp_pc_prov']].prod(axis=1).mean(level=economy).copy()
 
 print(df_prov)
 print(df_prov[['dKtot','dWtot_currency','gdp','gdp_hh']].sum())
 print('R_asset:',100.*df_prov['dKtot'].sum()/df_prov['gdp'].sum())
 print('R_welf:',100.*df_prov['dWtot_currency'].sum()/df_prov['gdp'].sum())
 
-assert(False)
-
-print('R_asset per hazard: ',df['dKtot'].sum(level='hazard')/df[['pop','gdp_pc_pp_prov']].prod(axis=1).mean(level=[economy,'hazard']).sum(level='hazard'))
+print('R_asset per hazard: ',df['dKtot'].sum(level='hazard')/df[['pop','gdp_pc_prov']].prod(axis=1).mean(level=[economy,'hazard']).sum(level='hazard'))
 
 # Map asset losses as fraction of natl GDP
 print('\n',df_prov.dKtot/df_prov.gdp.sum())
 print((df_prov.dKtot/df_prov.gdp.sum()).sum(),'\n')
 
-# not runnign for now; svg file doesn't have regional names
-if False:
-    make_map_from_svg(
-        df_prov.dKtot/df_prov.gdp.sum(), 
-        '../map_files/'+myCountry+'/BlankSimpleMap.svg',
-        outname=myCountry+'_asset_risk_over_natl_gdp',
-        color_maper=plt.cm.get_cmap('Blues'),
-        label='Annual asset risk [% of national GDP]',
-        new_title='Annual asset risk [% of national GDP]',
-        do_qualitative=False,
-        res=2000)
+print(svg_file)
+make_map_from_svg(
+    df_prov.dKtot/df_prov.gdp.sum(), 
+    svg_file,
+    outname=myCountry+'_asset_risk_over_natl_gdp',
+    color_maper=plt.cm.get_cmap('Blues'),
+    #svg_handle = 'reg',
+    label='Annual asset risk [% of national GDP]',
+    new_title='Annual asset risk [% of national GDP]',
+    do_qualitative=False,
+    res=2000)
 
 res_pds = pd.read_csv(output+'results_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
-#iah_pds = pd.read_csv(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp','hhid','helped_cat','affected_cat'])
+iah_pds = pd.read_csv(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp','hhid','helped_cat','affected_cat'])
 iah = iah.reset_index().set_index([economy,'hazard','rp','hhid','helped_cat','affected_cat'])
 print(output+'results_tax_'+pds_str+'_'+pol_str+'.csv')
 print(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv')
@@ -154,15 +156,20 @@ wprime = df.wprime.mean()
 print('\n\n Wprime = ',wprime,'\n\n')
 
 iah['dw'] = iah['dw']/wprime
-try: iah['pds_dw'] = iah_pds['dw']/wprime
+try: 
+    iah['pds_dw'] = iah_pds['dw']/wprime
+    iah['pds_nrh'] = iah_pds['help_fee']-iah_pds['help_received'] # Net received help
+    iah['pds_help_fee'] = iah_pds['help_fee']
+    iah['pds_help_received'] = iah_pds['help_received']
+
 except: iah['pds_dw'] = None
 
 iah = iah.reset_index()
 iah['ratio'] = iah['dw']/iah['dc0']
 
-for irp in get_all_rps(myCountry,iah):
+for irp in get_all_rps(myCountry,iah)[::2]:
     print('Running',irp)
-    _iah = iah.loc[(iah.affected_cat=='a')&(iah.helped_cat=='helped')&(iah.hazard=='earthquake')&(iah.rp==irp)].copy()
+    _iah = iah.loc[(iah.affected_cat=='a')&(iah.helped_cat=='helped')&(iah.hazard=='EQ')&(iah.rp==irp)].copy()
 
     #
     bin0 = float(_iah.loc[(_iah.dw<200000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
@@ -243,20 +250,14 @@ for irp in get_all_rps(myCountry,iah):
     fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil_'+str(irp)+'.pdf',format='pdf')
     plt.close('all')
 
-assert(False)
-
-iah['pds_nrh'] = iah_pds['help_fee']-iah_pds['help_received'] # Net received help
-iah['pds_help_fee'] = iah_pds['help_fee']
-iah['pds_help_received'] = iah_pds['help_received']
-
 iah['hhwgt'] = iah['hhwgt'].fillna(0)
 iah['pcwgt'] = iah['pcwgt'].fillna(0)
 
 # Convert all these hh variables to per cap
-#iah['c']  = iah[['c','hhwgt']].prod(axis=1)/iah['weight']
-#iah['k']  = iah[['k','hhwgt']].prod(axis=1)/iah['weight']
-#iah['dk'] = iah[['dk','hhwgt']].prod(axis=1)/iah['weight']
-#iah['dc'] = iah[['dc','hhwgt']].prod(axis=1)/iah['weight']
+#iah['c']   = iah[['c','hhwgt']].prod(axis=1)/iah['weight']
+#iah['k']   = iah[['k','hhwgt']].prod(axis=1)/iah['weight']
+#iah['dk0'] = iah[['dk0','hhwgt']].prod(axis=1)/iah['weight']
+#iah['dc']  = iah[['dc','hhwgt']].prod(axis=1)/iah['weight']
 #iah['dc_npv_pre'] = iah[['dc_npv_pre','hhwgt']].prod(axis=1)/iah['weight']
 
 #iah['dw'] = iah[['dw','hhwgt']].prod(axis=1)/iah['weight']
@@ -273,7 +274,7 @@ q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 # Look at single event:
 if myCountry == 'PH':
-    myHaz = [['NCR'],['flood','wind'],[1,10,25,30,50,100,200,250,500,1000]]
+    myHaz = [['NCR'],['EQ','TC'],[1,10,25,30,50,100,200,250,500,1000]]
 elif myCountry == 'FJ':
     myHaz = [['Ba'],['TC'],[1,5,10,20,22,50,72,75,100,200,224,250,475,500,975,1000,2475]]
     #myHaz = [['Lau'],['earthquake','tsunami','typhoon'],[1,10,20,50,100,250,500,1000]]
@@ -281,7 +282,7 @@ elif myCountry == 'FJ':
 iah = iah.reset_index()
 
 # PH and SL hazards
-allDis = ['flood','earthquake','surge','wind']
+allDis = ['EQ','TC']
 upper_clip = 100000
 
 if myCountry == 'FJ': 
@@ -304,7 +305,7 @@ for myDis in allDis:
     #print(cut_rps['pov_line'].mean())
     #assert(False)
 
-    cut_rps.loc[cut_rps.pcwgt_ae != 0.,'delta_c']   = (cut_rps.loc[(cut_rps.pcwgt_ae != 0.), ['dk','pcwgt']].prod(axis=1)/cut_rps.loc[(cut_rps.pcwgt_ae != 0.),'pcwgt_ae'])*(df['avg_prod_k'].mean()+1/df['T_rebuild_K'].mean())
+    cut_rps.loc[cut_rps.pcwgt_ae != 0.,'delta_c']   = (cut_rps.loc[(cut_rps.pcwgt_ae != 0.), ['dk0','pcwgt']].prod(axis=1)/cut_rps.loc[(cut_rps.pcwgt_ae != 0.),'pcwgt_ae'])*(df['avg_prod_k'].mean()+1/df['T_rebuild_K'].mean())
 
     cut_rps['c_final']   = (cut_rps['c_initial'] + drm_pov_sign*cut_rps['delta_c'])
     cut_rps['c_final_pds']   = (cut_rps['c_initial'] - cut_rps['delta_c'] - cut_rps['pds_nrh'])
@@ -361,7 +362,7 @@ for myDis in allDis:
 
     make_map_from_svg(
         my_n_pov.disaster_n_pov, 
-        '../map_files/'+myCountry+'/BlankSimpleMap.svg',
+        svg_file,
         outname=myCountry+'_new_poverty_incidence_'+myDis+'_allRPs',
         color_maper=plt.cm.get_cmap('RdYlGn_r'), 
         label='Number of '+dem+' pushed into poverty each year by '+myDis+'s',
@@ -371,7 +372,7 @@ for myDis in allDis:
     
     make_map_from_svg(
         my_n_pov.disaster_n_pov_pct, 
-        '../map_files/'+myCountry+'/BlankSimpleMap.svg',
+        svg_file,
         outname=myCountry+'_new_poverty_incidence_pct_'+myDis+'_allRPs',
         color_maper=plt.cm.get_cmap('RdYlGn_r'), 
         label=dem+' pushed into poverty each year by '+myDis+'s [%]',
@@ -382,7 +383,7 @@ for myDis in allDis:
     if sub_line:
         make_map_from_svg(
             my_n_pov.disaster_n_sub, 
-            '../map_files/'+myCountry+'/BlankSimpleMap.svg',
+            svg_file,
             outname=myCountry+'_new_subsistence_incidence_'+myDis+'_allRPs',
             color_maper=plt.cm.get_cmap('RdYlGn_r'), 
             label='Number of '+dem+' pushed into subsistence each year by '+myDis+'s',
@@ -392,7 +393,7 @@ for myDis in allDis:
     
         make_map_from_svg(
             my_n_pov.disaster_n_sub_pct, 
-            '../map_files/'+myCountry+'/BlankSimpleMap.svg',
+            svg_file,
             outname=myCountry+'_new_subsistence_incidence_pct_'+myDis+'_allRPs',
             color_maper=plt.cm.get_cmap('RdYlGn_r'), 
             label= dem+' pushed into subsistence each year by '+myDis+'s [%]',
@@ -417,7 +418,7 @@ for myDis in allDis:
         # If our calculation of consumption has changed, we need to shift the poverty line by the same amount
         #cutA['pov_line'] *= cutA['c_initial']/cutA['pcinc_ae']
 
-        cutA.loc[cutA.pcwgt_ae != 0,'delta_c']   = (cutA.loc[cutA.pcwgt_ae != 0,['dk','pcwgt']].prod(axis=1)/cutA.loc[cutA.pcwgt_ae != 0.,'pcwgt_ae'])*(df['avg_prod_k'].mean()+1/df['T_rebuild_K'].mean())
+        cutA.loc[cutA.pcwgt_ae != 0,'delta_c']   = (cutA.loc[cutA.pcwgt_ae != 0,['dk0','pcwgt']].prod(axis=1)/cutA.loc[cutA.pcwgt_ae != 0.,'pcwgt_ae'])*(df['avg_prod_k'].mean()+1/df['T_rebuild_K'].mean())
         cutA['c_final']   = (cutA['c_initial'] + drm_pov_sign*cutA['delta_c'])
         cutA['c_initial'] = cutA['c_initial']
 
@@ -520,7 +521,7 @@ for myDis in allDis:
         if myCountry != 'FJ':
             make_map_from_svg(
                 disaster_n_pov.disaster_n_pov, 
-                '../map_files/'+myCountry+'/BlankSimpleMap.svg',
+                svg_file,
                 outname='new_poverty_incidence_'+myDis+'_'+str(myRP),
                 color_maper=plt.cm.get_cmap('RdYlGn_r'), 
                 label='Number of '+dem+' pushed into poverty by '+myDis+' (RP = '+str(myRP)+')',
@@ -530,7 +531,7 @@ for myDis in allDis:
             
             make_map_from_svg(
                 disaster_n_pov.disaster_n_pov_pct, 
-                '../map_files/'+myCountry+'/BlankSimpleMap.svg',
+                svg_file,
                 outname='new_poverty_incidence_pct_'+myDis+'_'+str(myRP),
                 color_maper=plt.cm.get_cmap('RdYlGn_r'), 
                 label=dem+' pushed into poverty by '+myDis+' (RP = '+str(myRP)+') [%]',
@@ -569,41 +570,41 @@ for myRP in myHaz[2]:
     #                 & (iah.quintile == 5) & (iah.rp == myRP)]
 
 
-    print('RP = ',myRP,'dk =',iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP),['dk','pcwgt']].prod(axis=1).sum())
+    print('RP = ',myRP,'dk =',iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP),['dk0','pcwgt']].prod(axis=1).sum())
     print('RP = ',myRP,'dw =',iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP),['dw','pcwgt']].prod(axis=1).sum())
      
 
-    print('RP = ',myRP,'dk (Q1&2) = ',iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP) & (iah.quintile <= 2),['dk','pcwgt']].prod(axis=1).sum())
+    print('RP = ',myRP,'dk (Q1&2) = ',iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP) & (iah.quintile <= 2),['dk0','pcwgt']].prod(axis=1).sum())
     print('RP = ',myRP,'dw (Q1&2) = ',iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP) & (iah.quintile <= 2),['dw','pcwgt']].prod(axis=1).sum())        
 
-    print('RP = ',myRP,'dk (Q1) = ',iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP) & (iah.quintile == 1),['dk','pcwgt']].prod(axis=1).sum())
+    print('RP = ',myRP,'dk (Q1) = ',iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP) & (iah.quintile == 1),['dk0','pcwgt']].prod(axis=1).sum())
     print('RP = ',myRP,'dw (Q1) = ',iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP) & (iah.quintile == 1),['dw','pcwgt']].prod(axis=1).sum())       
 
     #print('RP = ',myRP,'dk =',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-    #              & (iah.rp == myRP),['dk','pcwgt']].prod(axis=1).sum())
+    #              & (iah.rp == myRP),['dk0','pcwgt']].prod(axis=1).sum())
     #print('RP = ',myRP,'dw =',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
     #              & (iah.rp == myRP),['dw','pcwgt']].prod(axis=1).sum())          
 
     #print('RP = ',myRP,'dk (Q1&2) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-    #              & (iah.rp == myRP) & (iah.quintile <= 2),['dk','pcwgt']].prod(axis=1).sum())
+    #              & (iah.rp == myRP) & (iah.quintile <= 2),['dk0','pcwgt']].prod(axis=1).sum())
     #print('RP = ',myRP,'dw (Q1&2) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
     #              & (iah.rp == myRP) & (iah.quintile <= 2),['dw','pcwgt']].prod(axis=1).sum())        
 
     #print('RP = ',myRP,'dk (Q1) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
-    #              & (iah.rp == myRP) & (iah.quintile == 1),['dk','pcwgt']].prod(axis=1).sum())
+    #              & (iah.rp == myRP) & (iah.quintile == 1),['dk0','pcwgt']].prod(axis=1).sum())
     #print('RP = ',myRP,'dw (Q1) = ',iah.loc[(((iah.affected_cat == 'a') & (iah.helped_cat == 'helped')) | ((iah.affected_cat == 'na') & (iah.helped_cat == 'not_helped'))) 
     #              & (iah.rp == myRP) & (iah.quintile == 1),['dw','pcwgt']].prod(axis=1).sum())        
 
     rp_all.append(myRP)
-    dk_all.append(iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP),['dk','pcwgt']].prod(axis=1).sum())
+    dk_all.append(iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP),['dk0','pcwgt']].prod(axis=1).sum())
     dw_all.append(iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP),['dw','pcwgt']].prod(axis=1).sum())
 
-    dk_q1.append(iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP) & (iah.quintile == 1),['dk','pcwgt']].prod(axis=1).sum())
+    dk_q1.append(iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP) & (iah.quintile == 1),['dk0','pcwgt']].prod(axis=1).sum())
     dw_q1.append(iah.loc[(iah.helped_cat == 'helped') & (iah.rp == myRP) & (iah.quintile == 1),['dw','pcwgt']].prod(axis=1).sum())
 
     k_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'k')
-    dk_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'dk')
-    dc_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'dc_npv_pre')
+    dk_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'dk0')
+    dc_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'dc0')
     dw_mean = get_weighted_mean(all_q1,all_q2,all_q3,all_q4,all_q5,'dw')
     nrh_mean = get_weighted_mean(all_q1.loc[all_q1.help_received != 0.],all_q2.loc[all_q2.help_received != 0.],all_q3.loc[all_q3.help_received != 0.],all_q4.loc[all_q4.help_received != 0.],all_q5.loc[all_q5.help_received != 0.],'pds_nrh')
     dw_pds_mean = get_weighted_mean(all_q1.loc[all_q1.help_received != 0.],all_q2.loc[all_q2.help_received != 0.],all_q3.loc[all_q3.help_received != 0.],all_q4.loc[all_q4.help_received != 0.],all_q5.loc[all_q5.help_received != 0.],'pds_dw')
@@ -657,8 +658,8 @@ for myRP in myHaz[2]:
             q5 = cut.loc[(cut.quintile == 5)].reset_index()
             
             k_mean = get_weighted_mean(q1,q2,q3,q4,q5,'k')
-            dk_mean = get_weighted_mean(q1,q2,q3,q4,q5,'dk')
-            dc_mean = get_weighted_mean(q1,q2,q3,q4,q5,'dc_npv_pre')
+            dk_mean = get_weighted_mean(q1,q2,q3,q4,q5,'dk0')
+            dc_mean = get_weighted_mean(q1,q2,q3,q4,q5,'dc0')
             dw_mean = get_weighted_mean(q1,q2,q3,q4,q5,'dw')
             nrh_mean = get_weighted_mean(q1.loc[q1.help_received != 0],q2.loc[q2.help_received != 0],q3.loc[q3.help_received != 0],
                                          q4.loc[q4.help_received != 0],q5.loc[q5.help_received != 0],'pds_nrh')
@@ -696,7 +697,7 @@ for myRP in myHaz[2]:
 
             #df_wgt.to_csv('~/Desktop/weights.csv')
 
-            for istr in ['dk','dc','dw']:
+            for istr in ['dk0','dc0','dw']:
                 continue
                 
                 upper_clip = 75000
@@ -792,9 +793,9 @@ summed = sum_with_rp('FJ',natl_df,['dk_all','dw_all','dk_q1','dw_q1'],sum_provin
 
 df = df.reset_index()
 #print('Prov pop = ',df.loc[(df.rp==1)&(df.hazard=='typhoon'),'pop'])
-#print('Prov GDP pc = ',df.loc[(df.rp==1)&(df.hazard=='typhoon'),'gdp_pc_pp_prov'])
-#print('Prov GDP = ',df.loc[(df.rp==1)&(df.hazard=='typhoon'),['gdp_pc_pp_prov','pop']].prod(axis=1))
-natl_gdp = df.loc[(df.rp==1)&(df.hazard==myHaz[1][0]),['gdp_pc_pp_prov','pop']].prod(axis=1).sum()
+#print('Prov GDP pc = ',df.loc[(df.rp==1)&(df.hazard=='typhoon'),'gdp_pc_prov'])
+#print('Prov GDP = ',df.loc[(df.rp==1)&(df.hazard=='typhoon'),['gdp_pc_prov','pop']].prod(axis=1))
+natl_gdp = df.loc[(df.rp==1)&(df.hazard==myHaz[1][0]),['gdp_pc_prov','pop']].prod(axis=1).sum()
 
 print(summed)
 print(natl_gdp)

@@ -103,7 +103,7 @@ def get_AIR_data(fname,sname,keep_sec,keep_per):
     # AIR dataset peril code to peril name
     AIR_peril_lookup_1 = pd.read_excel(fname,sheetname='Lookup_Tables',usecols=['perilsetcode','peril'],index_col='perilsetcode')
     AIR_peril_lookup_1 = AIR_peril_lookup_1['peril'].dropna().to_dict()
-    AIR_peril_lookup_2 = {'EQ':'earthquake', 'HUSSPF':'typhoon', 'HU':'wind', 'SS':'surge', 'PF':'flood'}
+    #AIR_peril_lookup_2 = {'EQ':'EQ', 'HUSSPF':'TC', 'HU':'wind', 'SS':'surge', 'PF':'flood'}
 
     AIR_value_destroyed = pd.read_excel(fname,sheetname='Loss_Results',
                                         usecols=['perilsetcode','province','Perspective','Sector','EP1','EP10','EP25','EP30','EP50','EP100','EP200','EP250','EP500','EP1000']).squeeze()
@@ -153,11 +153,10 @@ def get_AIR_data(fname,sname,keep_sec,keep_per):
     
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index('province')
     AIR_value_destroyed['hazard'].replace(AIR_peril_lookup_1,inplace=True)
-    AIR_value_destroyed['hazard'].replace(AIR_peril_lookup_2,inplace=True)
-    
-    # Keep only earthquake (EQ) and tsunami (HUSSPF)
-    AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['hazard'])
-    AIR_value_destroyed = AIR_value_destroyed.drop(['typhoon'])    
+
+    # Keep only earthquake (EQ) and typhoon (TC = wind + storm surge + precipitation flood)
+    AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index('hazard')   
+    AIR_value_destroyed = AIR_value_destroyed.drop(['HU','SS','PF'],axis=0)
 
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['province','hazard','rp'])
 
