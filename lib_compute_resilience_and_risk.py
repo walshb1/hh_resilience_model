@@ -143,7 +143,7 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
         
         cat_info.loc[cat_info.ispoor==0,'v']*=0.70
 
-    elif pol_str == '_noPT': pass
+    elif pol_str == '_noPT' or pol_str == '_savings': pass
 
     elif pol_str != '':
         print('What is this? --> ',pol_str)
@@ -175,7 +175,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
         else: hazard_ratios = hazard_ratios.fillna(0)
             
         common_places = [c for c in macro.index if c in cat_info.index and c in hazard_ratios.index]
-        #print(common_places)
+        print(common_places)
 
         hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])
 
@@ -262,7 +262,8 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     const_nom_reco_rate = float(np.log(1/0.05) / macro_event['T_rebuild_K'].mean())
     
     global const_pds_rate
-    const_pds_rate = const_nom_reco_rate*7.
+    const_pds_rate = const_nom_reco_rate*6.
+    # All hh consume whatever PDS they receive in first 6 months after disaster
     
     global const_rho
     const_rho = float(macro_event['rho'].mean())
@@ -504,7 +505,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
                                 &(cats_event_ia.dk_private!=0)].copy()                                                # AND they did lose some assets
         tmp['welf_class']   = 2
         tmp['dc_old']       = tmp['dc0']
-        tmp['hh_reco_rate'] = ((tmp['c']-tmp['c_min']-tmp['di0'])/tmp['dk_private']).clip(upper=3.*const_nom_reco_rate)
+        tmp['hh_reco_rate'] = ((tmp['c']-tmp['c_min']-tmp['di0'])/tmp['dk_private']).clip(upper=6.*const_nom_reco_rate)
         tmp['dc0']          = tmp['di0'] + tmp[['hh_reco_rate','dk_private']].prod(axis=1)
         tmp.head(20000).to_csv(debug+'my_tmp_newpov.csv')
         cats_event_ia.loc[((cats_event_ia.c>=cats_event_ia.pov_line)|(cats_event_ia.c<cats_event_ia.pov_line))
@@ -1034,7 +1035,7 @@ def calc_dw_inside_affected_province(myCountry,pol_str,macro_event,cats_event_ia
         print('how does timing affect the appropriateness of this?')
         cats_event_iah['dc_post_pds'] = cats_event_iah['dc0']-cats_event_iah['help_received']+cats_event_iah['help_fee']*option_CB        
     
-    cats_event_iah['dw'] = calc_delta_welfare(cats_event_iah,macro_event,is_revised_dw)
+    cats_event_iah['dw'] = calc_delta_welfare(cats_event_iah,macro_event,pol_str,is_revised_dw)
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level)
 
     ###########
@@ -1191,7 +1192,7 @@ def agg_to_event_level (df, seriesname,event_level):
     does NOT normalize weights to 1."""
     return (df[seriesname].T*df['pcwgt']).T.sum(level=event_level)
 
-def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
+def calc_delta_welfare(micro, macro, pol_str,is_revised_dw=True,study=False):
     # welfare cost from consumption before (c) and after (dc_npv_post) event. Line by line
 
     #####################################
@@ -1246,17 +1247,57 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
     temp['integ'] = 0.0
 
     my_out_x, my_out_yA, my_out_yNA, my_out_yzero = [], [], [], []
-    x_min, n_steps = 0.,5E2
+    x_min, n_steps = 0.,1E3
     x_max = (np.log(1/0.05)/float(temp['hh_reco_rate'].min()))
-    if x_max > 25: x_max = 25
-    print('\nIntegrating well-being losses over '+str(x_max)+' years after disaster') 
+    if x_max > 50: x_max = 50
+    print('\nIntegrating well-being losses over '+str(x_max)+' years after disaster ('+pol_str+')') 
     # ^ make sure that, if T_recon changes, so does x_max!
+    
+    temp['zeros'] = 0.
+    temp['sav_i'] = 0.
+    if pol_str == '_savings': 
+        temp['sav_i'] = (temp[['axfin','c']].prod(axis=1)/2.).clip(lower=temp['c']/12.)
+    temp['sav_f'] = temp['sav_i']
 
     int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
 
     # Calculate integral
     for i_dt in int_dt:
-        temp['integ'] += step_dt*((1.-(temp['dc0']*math.e**(-i_dt*temp['hh_reco_rate'])-temp['help_received']*const_pds_rate*math.e**(-i_dt*const_pds_rate))/temp['c'])**(1-const_ie)-1.)*math.e**(-i_dt*const_rho)
+
+        temp['dc_i'] = temp['dc0']*math.e**(-i_dt*temp['hh_reco_rate'])-temp['help_received']*const_pds_rate*math.e**(-i_dt*const_pds_rate)
+        # ^ this is dc, assuming no savings
+
+        temp['dc_f'] = (temp['dc_i']-temp['sav_f']).clip(lower=temp[['zeros','dc_i']].min(axis=1).squeeze())
+        # ^ this is dc offset fully by savings (min = 0 if dc_i > 0  -OR-  min = dc_i if dc_i < 0)
+        
+        temp['sav_delta'] = temp['dc_i'] - temp['dc_f']
+        # ^ this is how much was spent out of savings
+        
+        temp['sav_f'] -= temp['sav_delta']
+        # ^ adjust savings after spending
+
+        # Here are 2 ways to do the same, but both take ~2h
+        #if pol_str == '_savings':
+
+            # (1)
+            #_temp = temp.loc[temp.dc_i>0,['dc_i','sav_f']]
+            #temp.loc[temp.dc_i>0, 'dc_f'] = (_temp['dc_i']-_temp['sav_f']).clip(lower=0.)
+            #temp.loc[temp.dc_i>0,'sav_f'] = (_temp['sav_f']-_temp['dc_i']).clip(lower=0.)
+            
+            # (2) 
+            #temp.loc[temp.dc_i>0,['dc_i','sav_f']] = pd.DataFrame({'dc_i':(temp.loc[(temp.dc_i>0),'dc_i'].sub(temp.loc[(temp.dc_i>0),'sav_f'],axis=0).clip(lower=0.)),
+            #                                                           'sav_f':(temp.loc[(temp.dc_i>0),'sav_f'].sub(temp.loc[(temp.dc_i>0),'dc_i'],axis=0).clip(lower=0.))})
+
+        #if (temp['sav_f'].min(axis=0)<-1E-6):
+        #    temp.loc[(temp.sav_f<-1E-6)].to_csv('~/Desktop/my_sav.csv')
+        #    assert(False)
+        # ^ doesn't trigger
+
+        temp['dc_f'] = temp['dc_f']/temp['c'] # This is pulled out of integral & included in constant above
+        temp['integ'] += step_dt*((1.-temp['dc_f'])**(1-const_ie)-1.)*math.e**(-i_dt*const_rho)
+
+        #temp['integ'] += step_dt*((1.-(temp['dc0']*math.e**(-i_dt*temp['hh_reco_rate'])-temp['help_received']*const_pds_rate*math.e**(-i_dt*const_pds_rate))/temp['c'])**(1-const_ie)-1.)*math.e**(-i_dt*const_rho) <-- before adding savings term
+ 
         # NB: dc0 has both public and private capital in it...need to allow for the possibility of independent reconstruction times
         # NOTE: if consumption goes negative, the integral can't be calculated...death!
         # --> if consumption increases, dw will come out negative. that's just making money off the disaster.
@@ -1277,7 +1318,7 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
     temp['dw_tot'] = temp[['dw_curr','pcwgt']].prod(axis=1)
     temp.loc[(temp.dw_curr==temp.dw_limit)].to_csv(debug+'my_late_excess.csv')
 
-    print('\nTotal well-being losses before deathclip:',round(float(temp[['dw_curr_no_clip','pcwgt']].prod(axis=1).sum())/1.E6,3))
+    print('\nTotal well-being losses ('+pol_str+'):',round(float(temp[['dw_curr_no_clip','pcwgt']].prod(axis=1).sum())/1.E6,3))
 
     tmp_out = pd.DataFrame(index=temp.sum(level=[i for i in mac_ix]).index)
 
@@ -1294,8 +1335,8 @@ def calc_delta_welfare(micro, macro,is_revised_dw,study=False):
     tmp_out['res_sub'] = tmp_out['dk_sub']/tmp_out['dw_sub']
 
     tmp_out['ratio_dw_lim_tot']  = tmp_out['dw_lim']/tmp_out['dw_tot']
-    tmp_out.to_csv(debug+'my_summary.csv')
-    print('Wrote out summary stats for dw')
+    tmp_out.to_csv(debug+'my_summary'+pol_str+'.csv')
+    print('Wrote out summary stats for dw ('+pol_str+')')
     temp[['pcwgt','k','c','dk0','di0','dc0','help_received','dw_limit','wprime','const','integ','dw','dw_curr','dw_curr_no_clip']].head(10000).to_csv(debug+'my_temp.csv')
 
     return temp['dw']

@@ -31,10 +31,22 @@ sns.set_style('darkgrid')
 brew_pal = brew.get_map('Set1', 'qualitative', 8).mpl_colors
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
 
+params = {'savefig.bbox': 'tight', #or 'standard'
+          #'savefig.pad_inches': 0.1 
+          'xtick.labelsize': 8,
+          'ytick.labelsize': 8,
+          'legend.fontsize': 9,
+          'legend.facecolor': 'white',
+          #'legend.linewidth': 2, 
+          'legend.fancybox': True,
+          'savefig.facecolor': 'white',   # figure facecolor when saving
+          #'savefig.edgecolor': 'white'    # figure edgecolor when saving
+          }
+plt.rcParams.update(params)
+
 font = {'family' : 'sans serif',
     'size'   : 10}
 plt.rc('font', **font)
-mpl.rcParams['xtick.labelsize'] = 10
 
 import warnings
 warnings.filterwarnings('always',category=UserWarning)
@@ -167,7 +179,7 @@ except: iah['pds_dw'] = None
 iah = iah.reset_index()
 iah['ratio'] = iah['dw']/iah['dc0']
 
-for irp in get_all_rps(myCountry,iah)[::2]:
+for irp in get_all_rps(myCountry,iah)[2::4]:
     print('Running',irp)
     _iah = iah.loc[(iah.affected_cat=='a')&(iah.helped_cat=='helped')&(iah.hazard=='EQ')&(iah.rp==irp)].copy()
 
@@ -225,19 +237,30 @@ for irp in get_all_rps(myCountry,iah)[::2]:
     fig = ax.get_figure()
     fig.set_size_inches(6.5,5.5)
     _iah['t_reco'] = (np.log(1/0.05)/_iah['hh_reco_rate']).fillna(25).clip(upper=25)
+
+    # define binning using entire dataset
+    _h,_b = np.histogram(_iah.t_reco,bins=   50,weights=_iah.pcwgt/1.E6)
+
+    heights2, bins2  = np.histogram(_iah.loc[(_iah.welf_class==2)&(_iah.c>pov_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==2)&(_iah.c>pov_line)].pcwgt/1.E6)
+    heights1, bins1  = np.histogram(_iah.loc[(_iah.welf_class==1)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==1)].pcwgt/1.E6)
+    heights3, bins3  = np.histogram(_iah.loc[(_iah.welf_class==3)&(_iah.c>sub_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==3)&(_iah.c>sub_line)].pcwgt/1.E6)
+    heights2_pov, bins2_pov = np.histogram(_iah.loc[(_iah.welf_class==2)&(_iah.c<=pov_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==2)&(_iah.c<=pov_line)].pcwgt/1.E6)
+    heights3_sub, bins3_sub = np.histogram(_iah.loc[(_iah.welf_class==3)&(_iah.c<=sub_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==3)&(_iah.c<=sub_line)].pcwgt/1.E6)
+    #heights0, bins0 = np.histogram(_iah.loc[(_iah.welf_class==0)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==0)].pcwgt/1.E6)
+    # ^ empty dataframe
+
+    ax.bar(bins2[:-1],heights1,      width=(bins2[1]-bins2[0]), facecolor=q_colors[1],alpha=0.8,label='Above poverty (Case 1)')
+    ax.bar(bins2[:-1],heights2_pov,  width=(bins2[1]-bins2[0]), facecolor=q_colors[0],alpha=0.8,bottom=heights1,label='Pushed into poverty (Case 2)')
+    ax.bar(bins2[:-1],heights2,      width=(bins2[1]-bins2[0]), facecolor=q_colors[2],alpha=0.8,bottom=(heights1+heights2_pov),label='Already in poverty (Case 2)')
+    ax.bar(bins2[:-1],heights3,      width=(bins2[1]-bins2[0]), facecolor=q_colors[3],alpha=0.8,bottom=(heights1+heights2_pov+heights2),label='Pushed into subsistence (Case 3)')
+    ax.bar(bins2[:-1],heights3_sub, width=(bins2[1]-bins2[0]), facecolor=q_colors[4],alpha=0.8,bottom=(heights1+heights2_pov+heights2+heights3),label='Already in subsistence (Case 3)')
     
-    heights2 , bins2  = np.histogram(_iah.loc[_iah.welf_class==2].t_reco,bins=   50,weights=_iah.loc[_iah.welf_class==2].pcwgt)
-    heights1 , bins1  = np.histogram(_iah.loc[_iah.welf_class==1].t_reco,bins=bins2,weights=_iah.loc[_iah.welf_class==1].pcwgt)
-    heights3 , bins3  = np.histogram(_iah.loc[(_iah.welf_class==3)&(_iah.c<=sub_line)].t_reco,bins=bins2,weights=_iah.loc[(_iah.welf_class==3)&(_iah.c<sub_line)].pcwgt)
-    heights3n, bins3n = np.histogram(_iah.loc[(_iah.welf_class==3)&(_iah.c>sub_line)].t_reco,bins=bins2,weights=_iah.loc[(_iah.welf_class==3)&(_iah.c>sub_line)].pcwgt)
-    
-    ax.bar(bins2[:-1],heights1,  width=(bins2[1]-bins2[0]), facecolor=q_colors[1],alpha=0.8)
-    ax.bar(bins2[:-1],heights2,  width=(bins2[1]-bins2[0]), facecolor=q_colors[2],alpha=0.8,bottom=heights1)
-    ax.bar(bins2[:-1],heights3,  width=(bins2[1]-bins2[0]), facecolor=q_colors[3],alpha=0.8,bottom=(heights1+heights2))
-    ax.bar(bins2[:-1],heights3n, width=(bins2[1]-bins2[0]), facecolor=q_colors[4],alpha=0.8,bottom=(heights1+heights2+heights3))
-    
-    plt.ylim(0,1.5E7)
-    fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/reco_periods_'+str(irp)+'.pdf',format='pdf',bbox_inches='tight')
+    plt.xlabel(r'Household reconstruction time ($\tau_h$)')
+    plt.ylabel(r'Households ($\times 10^6$)')
+    plt.ylim(0,1.0E1)
+    leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9,title='Household status post-disaster')
+
+    fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/reco_periods_'+str(irp)+'.pdf',format='pdf',bbox_inches='tight')
     plt.clf()
 
     fig, axes = plt.subplots(nrows=3, ncols=2,figsize=(8,12))

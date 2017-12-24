@@ -15,8 +15,13 @@ def plot_simple_hist(df,cols,labels,fout,nBins=50,uclip=None,lclip=None,xlab='In
     ax = plt.gca()
 
     bin0 = None
+    weighted = True
     for nCol, aCol in enumerate(cols):
-        heights, bins = np.histogram(df[aCol].clip(upper=uclip,lower=lclip), bins=nBins, weights=df[['hhwgt']].prod(axis=1))
+        try:
+            heights, bins = np.histogram(df[aCol].clip(upper=uclip,lower=lclip), bins=nBins, weights=df['hhwgt'])
+        except:
+            heights, bins = np.histogram(df[aCol].clip(upper=uclip,lower=lclip), bins=nBins)
+            weighted = False
   
         if bin0 is None: bin0 = bins
         ax.bar(bin0[:-1], heights, width=(bin0[1]-bin0[0]), label=labels[nCol], facecolor=q_colors[nCol],alpha=0.4)
@@ -24,7 +29,8 @@ def plot_simple_hist(df,cols,labels,fout,nBins=50,uclip=None,lclip=None,xlab='In
     fig = ax.get_figure()
     if logy: plt.yscale('log', nonposy='clip')
     plt.xlabel(xlab)
-    plt.ylabel('Households')
+    if weighted: plt.ylabel('Households')
+    if not weighted: plt.ylabel('HIES entries')
 
     try:
         leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)

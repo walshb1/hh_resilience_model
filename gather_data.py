@@ -147,9 +147,6 @@ if myCountry == 'PH':
     cat_info.ix[cat_info.v==0.55,'v'] *= np.random.uniform(.8,1.2,cat_info.ix[cat_info.v==0.55].shape[0])
     cat_info.ix[cat_info.v==0.70,'v'] *= np.random.uniform(.8,1.2,cat_info.ix[cat_info.v==0.70].shape[0]) 
     cat_info.drop(['walls','roof'],axis=1,inplace=True)
-
-    plot_simple_hist(cat_info,['v'],[''],'/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/vulnerabilities_log.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=True)
-    plot_simple_hist(cat_info,['v'],[''],'/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/vulnerabilities.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=False)
     
 if myCountry == 'FJ':
     cat_info.ix[cat_info.v==0.1,'v'] *= np.random.uniform(.8,2,cat_info.ix[cat_info.v==0.1].shape[0])
@@ -275,8 +272,8 @@ cat_info.fillna(0,inplace=True)
 
 # Cleanup dfs for writing out
 cat_info_col = [economy,'province','hhid','region','pcwgt','pcwgt_ae','hhwgt','code','np','score','v','c','pcsoc','social','c_5','n','hhsize','hhsize_ae',
-                'gamma_SP','k','shew','fa','quintile','ispoor','pcinc','pcinc_ae','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
-                'SP_PBS','SP_FNPF','SPP_core','SPP_add']
+                'gamma_SP','k','shew','quintile','ispoor','pcinc','pcinc_ae','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
+                'SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin']
 cat_info = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if (iXX in cat_info.columns and iXX not in cat_info_col)],axis=1)
 cat_info_index = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in [economy,'hhid']],axis=1)
 
@@ -423,6 +420,20 @@ hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v']).filln
 
 hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = (hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold).clip(0.99)
 hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=0.0000001,upper=fa_threshold)
+
+while True:
+    _path = '/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/'
+    _ = hazard_ratios.reset_index().copy()
+    
+    plot_simple_hist(_.loc[(_.hazard=='EQ')&(_.rp==10)],['v'],[''],_path+'vulnerabilities_EQ10_log.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=True)
+    plot_simple_hist(_.loc[(_.hazard=='EQ')&(_.rp==10)],['v'],[''],_path+'vulnerabilities_EQ10.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=False)
+
+    plot_simple_hist(_.loc[(_.hazard=='EQ')&(_.rp==250)],['v'],[''],_path+'vulnerabilities_EQ250_log.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=True)
+    plot_simple_hist(_.loc[(_.hazard=='EQ')&(_.rp==250)],['v'],[''],_path+'vulnerabilities_EQ250.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=False)  
+  
+    plot_simple_hist(_.loc[(_.hazard=='EQ')&(_.rp==1000)],['v'],[''],_path+'vulnerabilities_EQ1000_log.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=True)
+    plot_simple_hist(_.loc[(_.hazard=='EQ')&(_.rp==1000)],['v'],[''],_path+'vulnerabilities_EQ1000.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=False)
+    break
 
 cat_info = cat_info.reset_index().set_index([economy,'hhid'])
 #cat_info['v'] = hazard_ratios.reset_index().set_index([economy,'hhid'])['v'].mean(level=[economy,'hhid']).clip(upper=0.99)
