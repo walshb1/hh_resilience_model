@@ -14,6 +14,7 @@ from maps_lib import *
 from scipy.stats import norm
 import matplotlib.mlab as mlab
 
+import matplotlib.patches as patches
 from pandas import isnull
 import pandas as pd
 import numpy as np
@@ -59,15 +60,17 @@ try:
     iah_pds = pd.read_csv('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/test_hh.csv').reset_index()
 except:
     iah_pds = pd.read_csv(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv').reset_index()
-    #iah_pds = iah_pds.loc[(iah_pds.hhid==153829114)&(iah_pds.hazard=='earthquake')&(iah_pds.rp==100)&(iah_pds.affected_cat=='a')&(iah_pds.helped_cat=='helped')]
-    iah_pds = iah_pds.loc[(iah_pds.help_received>0)&(iah_pds.hazard=='earthquake')&(iah_pds.rp==100)&(iah_pds.affected_cat=='a')&(iah_pds.helped_cat=='helped')].head(1)
+    #iah_pds = iah_pds.loc[(iah_pds.hhid==153829114)&(iah_pds.hazard=='EQ')&(iah_pds.rp==100)&(iah_pds.affected_cat=='a')&(iah_pds.helped_cat=='helped')]
+    iah_pds = iah_pds.loc[(iah_pds.help_received>0)&(iah_pds.hazard=='EQ')&(iah_pds.rp==100)&(iah_pds.affected_cat=='a')&(iah_pds.helped_cat=='helped')].head(1)
     iah_pds.to_csv('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/test_hh.csv')
 print(iah_pds.columns)
 
 # k recovery
-const_dk_reco = (np.log(1/0.05)/3.)
-const_pds     = const_dk_reco*7. # PDS consumed in first third of recovery 
+const_dk_reco = np.log(1/0.05)/float(iah_pds['hh_reco_rate'])
+const_pds     = (np.log(1/0.05)/3.)*6. # PDS consumed in first half year of recovery 
 const_prod_k  = float(macro.avg_prod_k.mean())
+
+print(iah_pds.head())
 
 c   = float(iah_pds['c'])
 dc0 = float(iah_pds['dc0'])
@@ -95,12 +98,17 @@ for t in t_lins:
 
 # Lost income from capital
 plt.fill_between(t_lins,c_t,[i-j for i,j in zip(c_t,dc_k_t)],facecolor=reds_pal[3],alpha=0.45)
+plt.scatter(0,c_t[0]-dc_k_t[0],color=reds_pal[3],zorder=100)
+plt.annotate('Income\nlosses',[-0.50,(c_t[0]+(c_t[0]-dc_k_t[0]))/2.],fontsize=8,ha='center',va='center')
 
 # Reconstruction costs
 plt.fill_between(t_lins,[i-j for i,j in zip(c_t,dc_k_t)],[i-j-k for i,j,k in zip(c_t,dc_k_t,dc_reco_t)],facecolor=reds_pal[4],alpha=0.45)
+plt.scatter(0,c_t[0]-dc_k_t[0]-dc_reco_t[0],color=reds_pal[4],zorder=100)
+plt.annotate('Reconstruction\ncosts',[-0.50,((c_t[0]-dc_k_t[0])+(c_t[0]-dc_k_t[0]-dc_reco_t[0]))/2.],fontsize=8,ha='center',va='center')
 
 # PDS
-plt.fill_between(t_lins,c_t,[i+j for i,j in zip(c_t,dc_pds_t)],facecolor=sns_pal[1],alpha=0.45)
+plt.fill_between(t_lins,c_t,[i+j for i,j in zip(c_t,dc_pds_t)],facecolor=sns_pal[2],alpha=0.45)
+plt.annotate('PDS\nspend down',[-0.50,(c_t[0]+(c_t[0]+dc_pds_t[0]))/2.],fontsize=8,ha='center',va='center')
 
 plt.plot(t_lins,[i-j-k+l for i,j,k,l in zip(c_t,dc_k_t,dc_reco_t,dc_pds_t)],ls=':',color=reds_pal[8])
 
@@ -110,14 +118,14 @@ plt.plot([-1,5],[c,c],color=greys_pal[8])
 plt.xlim(-1,5)
 #plt.ylim((c-dc0)*0.98,c*1.02)
 
-plt.xlabel(r'Time $t$ after disaster (years)')
+plt.xlabel(r'Time $t$ after disaster ($\tau_h \equiv 3$) [years]')
 plt.ylabel(r'Household consumption ($c_h$)')
 plt.xticks([-1,0,1,2,3,4,5],['-1',r'$t_0$','1','2','3','4','5'])
-plt.yticks([],[])
+plt.yticks([c_t[0]],[r'$c_0$'])
 
 plt.draw()
 fig=plt.gcf()
-fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/dc.pdf',format='pdf')
+fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/dc.pdf',format='pdf')
 
 plt.clf()
 plt.close('all')
@@ -128,13 +136,15 @@ plt.plot([-1,5],[k,k],color=greys_pal[8])
 # points at t0
 plt.scatter(0,k-dk0,color=reds_pal[5],zorder=100)
 plt.scatter(0,k-dkprv,color=reds_pal[3],zorder=100)
-# Annotate
+# Annotate 
+plt.annotate('Private\nasset\nlosses',[-0.65,k-dkprv/2.],fontsize=9,ha='center',va='center')
 plt.annotate(r'$\Delta k^{prv}_0$',[-0.2,k-dkprv/2.],fontsize=10,ha='center',va='center')
 plt.plot([-0.2,-0.2],[k-dkprv,k-1.1*dkprv/2.],color=reds_pal[3])
 plt.plot([-0.2,-0.2],[k-0.9*dkprv/2.,k],color=reds_pal[3])
 plt.plot([-0.22,-0.18],[k,k],color=reds_pal[3])
 plt.plot([-0.22,-0.18],[k-dkprv*0.997,k-dkprv*0.997],color=reds_pal[3],zorder=100)
 
+plt.annotate('Public\nasset\nlosses',[-0.65,k-dk0+dkpub/2.],fontsize=9,ha='center',va='center')
 plt.annotate(r'$\Delta k^{pub}_0$',[-0.2,k-dk0+dkpub/2.],fontsize=10,ha='center',va='center')
 plt.plot([-0.2,-0.2],  [k-dkprv-dkpub,(k-dkprv)-1.5*dkpub/2.],color=reds_pal[5])
 plt.plot([-0.2,-0.2],  [(k-dkprv)-0.5*dkpub/2.,k-dkprv],color=reds_pal[5])
@@ -152,9 +162,9 @@ dkpub_t = []
 
 for t in t_lins:
     k_t.append(k)
-    dk0_t.append(k-dk0*const_dk_reco*np.e**(-t*const_dk_reco))
-    dkprv_t.append(k-dkprv*const_dk_reco*np.e**(-t*const_dk_reco))
-    dkpub_t.append(k-dkpub*const_dk_reco*np.e**(-t*const_dk_reco))
+    dk0_t.append(k-(dk0*np.e**(-t*const_dk_reco)))
+    dkprv_t.append(k-(dkprv*np.e**(-t*const_dk_reco)))
+    dkpub_t.append(k-(dkpub*np.e**(-t*const_dk_reco)))
 
 # Indicate k(t): private and public 
 plt.fill_between(t_lins,k_t,dkprv_t,facecolor=reds_pal[3],alpha=0.45)
@@ -164,28 +174,31 @@ plt.plot([3,3],[k-0.05*dk0,k],color=reds_pal[8])
 plt.plot([2.98,3.02],[k-0.05*dk0,k-0.05*dk0],color=reds_pal[8],zorder=100)
 plt.plot([2.98,3.02],[k,k],color=reds_pal[8],zorder=100)
 
-plt.gca().annotate(r'$\Delta k_h^{eff}|_{t=3}$ = 0.05$\times\Delta k_0^{eff}$',
+plt.gca().add_patch(patches.Rectangle((3.45,k-0.12*dk0),1.60,6500,facecolor='white',zorder=98,clip_on=False))
+plt.gca().annotate(r'$\Delta k_h^{eff}|_{t=\tau_h}$ = 0.05$\times\Delta k_0^{eff}$',
                    xy=(3,k-0.025*dk0), xycoords='data',
-                   xytext=(3.5,k-0.075*dk0), textcoords='data', fontsize=9,
-                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.05"),
-                   ha='left',va='center')
+                   xytext=(3.5,k-0.075*dk0), textcoords='data', fontsize=10,
+                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.05",lw=1.5),
+                   ha='left',va='center',zorder=99)
 
 plt.plot(t_lins,dk0_t,color=reds_pal[8],ls='--',lw=0.75)
+plt.gca().add_patch(patches.Rectangle((1.40,dk0_t[10]*1.005),1.70,7000,facecolor='white',zorder=98))
 plt.gca().annotate(r'$\Delta k_h^{eff}(t) = \Delta k_0^{eff}e^{-R_{\tau}\cdot t}$',
-                   xy=(1.51,dk0_t[15]), xycoords='data',
-                   xytext=(1.45,dk0_t[10]*1.005), textcoords='data', fontsize=12,
-                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=0.2"),
-                   ha='left',va='center')
+                   xy=(t_lins[20],dk0_t[20]), xycoords='data',
+                   xytext=(1.45,dk0_t[10]*1.01), textcoords='data', fontsize=12,
+                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=0.2",lw=1.5),
+                   ha='left',va='center',zorder=99)
 
 plt.xlim(-1,5)
 plt.ylim((k-dk0)*0.98,k*1.02)
 
-plt.xlabel(r'Time $t$ after disaster (years)')
+plt.xlabel(r'Time $t$ after disaster ($\tau_h \equiv 3$) [years]')
+#plt.xlabel(r'Time $t$ after disaster (years)')
 plt.ylabel(r'Effective household capital ($k_h^{eff}$)')
 plt.xticks([-1,0,1,2,3,4,5],['-1',r'$t_0$','1','2','3','4','5'])
-plt.yticks([],[])
+plt.yticks([k_t[0]],[r'$k_h^{eff}$'])
 
 plt.draw()
 fig=plt.gcf()
-fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/dk.pdf',format='pdf')
+fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/dk.pdf',format='pdf')
 

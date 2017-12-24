@@ -103,21 +103,31 @@ def load_survey_data(myC,inc_sf=None):
     # -> ispoor
 
     if myC == 'PH':
-        df = pd.read_csv(inputs+'fies2015.csv',usecols=['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn','walls','roof','totex','cash_abroad',
-                                                          'cash_domestic','regft','hhwgt','fsize','poorhh','totdis','tothrec','pcinc_s','pcinc_ppp11','pcwgt'])
+        df = pd.read_csv(inputs+'fies2015.csv',usecols=['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn',
+                                                        'walls','roof',
+                                                        'totex','cash_abroad','cash_domestic','regft',
+                                                        'hhwgt','fsize','poorhh','totdis','tothrec','pcinc_s','pcinc_ppp11','pcwgt',
+                                                        'savings','invest'])
         df = df.rename(columns={'tothrec':'hhsoc','pcinc_s':'pcinc','poorhh':'ispoor'})
         
         df['pcinc_ae']   = df['pcinc']
         df['pcwgt_ae']   = df['pcwgt']
 
         df['hhsize']     = df['pcwgt']/df['hhwgt']
-        df['hhsize_ae']  = df['pcwgt']/df['hhwgt']        
+        df['hhsize_ae']  = df['pcwgt']/df['hhwgt']
 
         df['hhinc'] = df[['pcinc','hhsize']].prod(axis=1)
 
         df['pcsoc']  = df['hhsoc']/df['hhsize']
 
-        return df
+        df['savings'] = df['savings'].fillna(0)
+        df['invest'] = df['invest'].fillna(0)
+        df['axfin']  = 0
+        df.loc[(df.savings!=0)&(df.invest!=0),'axfin'] = 1
+    
+        print(str(round(100*df[['axfin','hhwgt']].prod(axis=1).sum()/df['hhwgt'].sum(),2))+'% of hh report expenses on savings or investments\n')
+
+        return df.drop(['savings','invest'],axis=1)
 
     elif myC == 'FJ':
         df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',usecols=['HHID','Division','Nchildren','Nadult','AE','HHsize',

@@ -2,7 +2,6 @@ from IPython import get_ipython
 get_ipython().magic('reset -f')
 get_ipython().magic('load_ext autoreload')
 get_ipython().magic('autoreload 2')
-
 import matplotlib
 matplotlib.use('AGG')
 
@@ -63,6 +62,10 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
             pol_str   = ''
         else: return False # Just don't want to run fiji_SPP multiple times
 
+    if optionPDS == '_savings':
+        pol_str = '_savings'
+        optionPDS = 'no'
+
     # Show what we're running
     print('--> pol_str:',pol_str)
     print('optionFee =',optionFee, '\noptionPDS =', optionPDS, '\noptionB =', optionB, '\noptionT =', optionT, '\noption_CB =', option_CB_name,'\n')
@@ -81,7 +84,6 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     is_rev_dw = True
 
     share_public_assets = True
-    if myCountry == 'SL': share_public_assets = False
     if pol_str == 'noPT': share_public_assets = False
 
     #read data
@@ -121,9 +123,9 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
 
     is_contemporaneous = False 
     # For people outside affected province, do the collections for public asset reco & PDS happen at the same time?
-    
-    public_costs = calc_dw_outside_affected_province(macro_event, cat_info, pub_costs_inf, pub_costs_pds,event_level,is_contemporaneous,is_local_welfare,is_rev_dw)
-    public_costs.to_csv(output+'public_costs_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
+    if False:
+        public_costs = calc_dw_outside_affected_province(macro_event, cat_info, pub_costs_inf, pub_costs_pds,event_level,is_contemporaneous,is_local_welfare,is_rev_dw)
+        public_costs.to_csv(output+'public_costs_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
         
     #optionFee: tax or insurance_premium  optionFee='insurance_premium',optionT='perfect', optionPDS='prop', optionB='unlimited',optionFee='tax',optionT='data', optionPDS='unif_poor', optionB='data',
     #optionT(targeting errors):perfect, prop_nonpoor_lms, data, x33, incl, excl.
@@ -187,12 +189,12 @@ if __name__ == '__main__':
         # --> 
     
     if myCountry == 'PH' or myCountry == 'SL':
-        pds_str = ['no','unif_poor']
+        pds_str = ['no','_savings','unif_poor']
         pol_str = ['']
             
     if debug == True:
         print('Running in debug mode!')
-        launch_compute_resilience_and_risk_thread(myCountry,'','unif_poor')
+        launch_compute_resilience_and_risk_thread(myCountry,'','_savings')
     else:
         with Pool() as pool:
             print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))
