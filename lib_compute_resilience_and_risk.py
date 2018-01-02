@@ -492,7 +492,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         cats_event_ia.loc[(cats_event_ia.c>=cats_event_ia.pov_line)
                           &((cats_event_ia.c-cats_event_ia.dc0)>cats_event_ia.pov_line)
                           &(cats_event_ia.dk_private!=0),['dc0','hh_reco_rate','welf_class']] = tmp[['dc0','hh_reco_rate','welf_class']]
-        print('C0: '+str(round(float(100*cats_event_ia.loc[(cats_event_ia.hh_reco_rate!=const_nom_reco_rate)].shape[0])/float(cats_event_ia.shape[0]),2))+'% of hh have t_reco != 3yr')        
+        print('C0: '+str(round(float(100*cats_event_ia.loc[(cats_event_ia.welf_class==1)].shape[0])/float(cats_event_ia.shape[0]),2))+'% of hh accelerate reco to poverty')
 
         # Case 2: initial consumption is above or below poverty line
         # --> income losses push below poverty_line, 
@@ -513,7 +513,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
                           &((cats_event_ia.c-cats_event_ia.di0)>=cats_event_ia.c_min)
                           &(cats_event_ia.welf_class==0)                            
                           &(cats_event_ia.dk_private!=0),['dc0','hh_reco_rate','welf_class']] = tmp[['dc0','hh_reco_rate','welf_class']]
-        print('C2: '+str(round(float(100*cats_event_ia.loc[(cats_event_ia.hh_reco_rate!=const_nom_reco_rate)].shape[0])/float(cats_event_ia.shape[0]),2))+'% of hh have t_reco != 3yr')
+        print('C2: '+str(round(float(200*cats_event_ia.loc[(cats_event_ia.welf_class==2)].shape[0])/float(cats_event_ia.shape[0]),2))+'% of hh accelerate to subsistence')
         
         # Case 3: Post-disaster income is below subsistence (or c_5):
         # HH response: do not reconstruct
@@ -530,7 +530,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
                           &((cats_event_ia.c-cats_event_ia.di0)<=cats_event_ia.c_min)
                           &(cats_event_ia.welf_class==0) 
                           &(cats_event_ia.dk_private!=0),['dc0','hh_reco_rate','welf_class']] = tmp[['dc0','hh_reco_rate','welf_class']]
-        print('C3: '+str(round(float(100*cats_event_ia.loc[(cats_event_ia.hh_reco_rate!=const_nom_reco_rate)].shape[0])/float(cats_event_ia.shape[0]),2))+'% of hh have t_reco != 3yr')
+        print('C3: '+str(round(float(200*cats_event_ia.loc[(cats_event_ia.welf_class==3)].shape[0])/float(cats_event_ia.shape[0]),2))+'% of hh do not reconstruct')
 
         # make plot here: (income vs. length of reco)
 
@@ -1241,6 +1241,7 @@ def calc_delta_welfare(micro, macro, pol_str,is_revised_dw=True,study=False):
 
     # New defintion of w'
     temp['wprime'] = c_mean**(-const_ie)
+    temp['wprime_hh'] = temp['c']**(-const_ie)
 
     # Set-up to be able to calculate integral
     temp['const'] = -1.*(temp['c']**(1.-const_ie))/(1.-const_ie)
@@ -1256,10 +1257,13 @@ def calc_delta_welfare(micro, macro, pol_str,is_revised_dw=True,study=False):
     temp['zeros'] = 0.
     temp['sav_i'] = 0.
     if pol_str == '_savings': 
-        temp['sav_i'] = (temp[['axfin','c']].prod(axis=1)/2.).clip(lower=temp['c']/12.)
+        temp['sav_i'] = (temp[['axfin','c']].prod(axis=1)/2.).clip(lower=temp['c']/12.)#
+        #temp['sav_i'] = temp['k']
     temp['sav_f'] = temp['sav_i']
 
     int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
+
+    counter = 0
 
     # Calculate integral
     for i_dt in int_dt:
@@ -1270,11 +1274,15 @@ def calc_delta_welfare(micro, macro, pol_str,is_revised_dw=True,study=False):
         temp['dc_f'] = (temp['dc_i']-temp['sav_f']).clip(lower=temp[['zeros','dc_i']].min(axis=1).squeeze())
         # ^ this is dc offset fully by savings (min = 0 if dc_i > 0  -OR-  min = dc_i if dc_i < 0)
         
-        temp['sav_delta'] = temp['dc_i'] - temp['dc_f']
+        temp['sav_delta'] = step_dt*(temp['dc_i'] - temp['dc_f'])
         # ^ this is how much was spent out of savings
         
-        temp['sav_f'] -= temp['sav_delta']
+        temp['sav_f'] = temp['sav_f']-temp['sav_delta']
         # ^ adjust savings after spending
+
+        if counter%100 == 0: temp.head(10000).to_csv(debug+'temp_'+str(counter)+'.csv')
+        #else: assert(False) 
+        counter+=1
 
         # Here are 2 ways to do the same, but both take ~2h
         #if pol_str == '_savings':
@@ -1306,12 +1314,17 @@ def calc_delta_welfare(micro, macro, pol_str,is_revised_dw=True,study=False):
     # 'revised' calculation of dw
     temp['dw_curr_no_clip'] = temp[['const','integ']].prod(axis=1)/temp['wprime']
     temp.loc[(temp.dc0 >= temp.c),'dw_curr_no_clip'] = temp.loc[(temp.dc0 >= temp.c),['dw_limit']].prod(axis=1)
-    temp['dw'] = (temp[['const','integ']].prod(axis=1)).clip(upper=temp[['dw_limit','wprime']].prod(axis=1))
+    
+    temp['dw'] = temp[['const','integ']].prod(axis=1) + (temp['sav_i']-temp['sav_f'])*temp['wprime_hh']
+    #            ^ consumption losses                   ^ spent savings
+    temp['dw'].clip(upper=temp[['dw_limit','wprime']].prod(axis=1),inplace=True)
+    # apply upper limit to DW
+
     # ^ calculate dw for most hh, including ceiling on dw
     temp.loc[(temp.dc0 >= temp.c),'dw'] = temp.loc[(temp.dc0 >= temp.c),['dw_limit','wprime']].prod(axis=1)
     # ^ assign dw = upper limit for all hh where dc0 > c
     
-    # two alternative definitions of w'
+    # Divide by dw'
     temp['dw_curr'] = temp['dw']/temp['wprime']
 
     print('Applying upper limit for dw = ',temp['dw_limit'].mean())
@@ -1340,7 +1353,7 @@ def calc_delta_welfare(micro, macro, pol_str,is_revised_dw=True,study=False):
     temp[['pcwgt','k','c','dk0','di0','dc0','help_received','dw_limit','wprime','const','integ','dw','dw_curr','dw_curr_no_clip']].head(10000).to_csv(debug+'my_temp.csv')
 
     return temp['dw']
-	
+
 def welf1(c,elast,comp):
     """"Welfare function"""
     y=(c**(1-elast)-1)/(1-elast)
