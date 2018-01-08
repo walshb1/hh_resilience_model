@@ -360,11 +360,11 @@ def get_service_loss(myC):
         return service_loss
     else:return None
 
-def get_hazard_df(myC,economy,rm_overlap=False):
+def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
 
     if myC == 'PH': 
-        df_prv = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population_with_EP1.xlsx','Loss_Results','Private','Agg').reset_index()
-        df_pub = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population_with_EP1.xlsx','Loss_Results','Public','Agg').reset_index()
+        df_prv = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population_with_EP1.xlsx','Loss_Results','Private',agg_or_occ).reset_index()
+        df_pub = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population_with_EP1.xlsx','Loss_Results','Public',agg_or_occ).reset_index()
 
         df_prv.columns = ['province','hazard','rp','value_destroyed_prv']
         df_pub.columns = ['province','hazard','rp','value_destroyed_pub']
