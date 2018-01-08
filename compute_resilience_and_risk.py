@@ -62,8 +62,8 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
             pol_str   = ''
         else: return False # Just don't want to run fiji_SPP multiple times
 
-    if optionPDS == '_savings':
-        pol_str = '_savings'
+    if optionPDS == '_nosavings':
+        pol_str = '_nosavings'
         optionPDS = 'no'
 
     # Show what we're running
@@ -189,12 +189,12 @@ if __name__ == '__main__':
         # --> 
     
     if myCountry == 'PH' or myCountry == 'SL':
-        pds_str = ['no','_savings','unif_poor']
+        pds_str = ['no','_nosavings','unif_poor']
         pol_str = ['']
             
     if debug == True:
         print('Running in debug mode!')
-        launch_compute_resilience_and_risk_thread(myCountry,'','_savings')
+        launch_compute_resilience_and_risk_thread(myCountry,'no','')
     else:
         with Pool() as pool:
             print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))

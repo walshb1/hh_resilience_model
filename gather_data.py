@@ -155,7 +155,8 @@ if myCountry == 'FJ':
     cat_info.drop(['Constructionofouterwalls','Conditionofouterwalls'],axis=1,inplace=True)
 
 print('Setting c to pcinc') 
-cat_info['c'] = cat_info['pcinc']    
+cat_info['c'] = cat_info['pcinc']
+cat_info['pcsoc'] = cat_info['pcsoc'].clip(upper=0.99*cat_info['pcinc'])
 # --> What's the difference between income & consumption/disbursements?
 # --> totdis = 'total family disbursements'    
 # --> totex = 'total family expenditures'
@@ -163,8 +164,7 @@ cat_info['c'] = cat_info['pcinc']
 # --> can be converted to pcinc_ppp11 by dividing by (365*21.1782)
 
 # Cash receipts, abroad & domestic, other gifts
-cat_info['social'] = cat_info['pcsoc']/cat_info['pcinc']
-cat_info.ix[cat_info.social>=1,'social'] = 0.99
+cat_info['social'] = (cat_info['pcsoc']/cat_info['pcinc'])#.clip(upper=0.99)
 # --> All of this is selected & defined in lib_country_dir
 # --> Excluding international remittances ('cash_abroad')
 
@@ -289,7 +289,7 @@ cat_info_index = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() 
 # --> Need to think about public assets
 #df_haz = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','all','Agg')
 
-df_haz,df_tikina = get_hazard_df(myCountry,economy,rm_overlap=True)
+df_haz,df_tikina = get_hazard_df(myCountry,economy,agg_or_occ='Occ',rm_overlap=True)
 if myCountry == 'FJ': _ = get_SLR_hazard(myCountry,df_tikina)
 
 # Edit & Shuffle provinces
@@ -418,7 +418,7 @@ hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])[['fr
 fa_threshold = 0.95
 hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v']).fillna(1E-8)
 
-hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = (hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold).clip(0.99)
+hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = (hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold).clip(0.95)
 hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=0.0000001,upper=fa_threshold)
 
 while True:
