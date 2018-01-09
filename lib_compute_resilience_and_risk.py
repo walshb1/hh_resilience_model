@@ -12,6 +12,8 @@ import math
 from lib_country_dir import *
 import seaborn as sns
 
+from lib_agents import *
+
 pd.set_option('display.width', 220)
 
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
@@ -510,17 +512,17 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         # --> hh can still afford to avoid subsistence
         # *** HH response: keep consumption above subsistence
         tmp = cats_event_ia.loc[((cats_event_ia.c>=cats_event_ia.pov_line)|(cats_event_ia.c<cats_event_ia.pov_line)) # HHs initially above or below poverty line (doesn't matter)
-                                &((cats_event_ia.c-cats_event_ia.di0)>cats_event_ia.c_min)                            # AND they can afford (c-di0) at subsistence (or XX% of poverty line)
+                                &((cats_event_ia.c-cats_event_ia.di0)>=cats_event_ia.c_min)                            # AND they can afford (c-di0) at subsistence (or XX% of poverty line)
                                 &(cats_event_ia.welf_class==0)                                                        # AND they're not in any other class
                                 &(cats_event_ia.dk_private!=0)].copy()                                                # AND they did lose some assets
         tmp['welf_class']   = 2
         tmp['dc_old']       = tmp['dc0']
-        tmp['hh_reco_rate'] = ((tmp['c']-tmp['c_min']-tmp['di0'])/tmp['dk_private']).clip(upper=6.*const_nom_reco_rate)
+        tmp['hh_reco_rate'] = ((tmp['c']-0.99*tmp['c_min']-tmp['di0'])/tmp['dk_private']).clip(upper=6.*const_nom_reco_rate)
         tmp['dc0_prv']      = tmp['di0_prv'] + tmp[['hh_reco_rate','dk_private']].prod(axis=1)
         tmp['dc0']          = tmp['dc0_prv'] + tmp['dc0_pub']
         tmp.head(50000).to_csv(debug+'my_tmp_newpov.csv')
         cats_event_ia.loc[((cats_event_ia.c>=cats_event_ia.pov_line)|(cats_event_ia.c<cats_event_ia.pov_line))
-                          &((cats_event_ia.c-cats_event_ia.di0)>cats_event_ia.c_min)
+                          &((cats_event_ia.c-cats_event_ia.di0)>=cats_event_ia.c_min)
                           &(cats_event_ia.welf_class==0)  
                           &(cats_event_ia.dk_private!=0),['dc0','dc0_prv','hh_reco_rate','welf_class']] = tmp[['dc0','dc0_prv','hh_reco_rate','welf_class']]
         print('C2: '+str(round(float(200*cats_event_ia.loc[(cats_event_ia.welf_class==2)].shape[0])/float(cats_event_ia.shape[0]),2))+'% of hh accelerate to subsistence')
@@ -528,7 +530,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         # Case 3: Post-disaster income is below subsistence (or c_5):
         # HH response: do not reconstruct
         tmp = cats_event_ia.loc[((cats_event_ia.c-cats_event_ia.di0)>0.0)                   # (C-di) does not bankrupt *this can't really evaluate to false, I think...*
-                                &((cats_event_ia.c-cats_event_ia.di0)<=cats_event_ia.c_min) # AND (c-di0) is below subsistence 
+                                &((cats_event_ia.c-cats_event_ia.di0)<cats_event_ia.c_min) # AND (c-di0) is below subsistence 
                                 &(cats_event_ia.welf_class==0)                              # AND they're not in any other class
                                 &(cats_event_ia.dk_private!=0)].copy()                      # AND they did lose some assets
         tmp['welf_class']   = 3
@@ -538,7 +540,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         tmp['dc0']          = tmp['dc0_prv'] + tmp['dc0_pub']
         tmp.head(50000).to_csv(debug+'my_tmp_pov.csv')
         cats_event_ia.loc[((cats_event_ia.c-cats_event_ia.di0)>0.0)
-                          &((cats_event_ia.c-cats_event_ia.di0)<=cats_event_ia.c_min)
+                          &((cats_event_ia.c-cats_event_ia.di0)<cats_event_ia.c_min)
                           &(cats_event_ia.welf_class==0)
                           &(cats_event_ia.dk_private!=0),['dc0','dc0_prv','hh_reco_rate','welf_class']] = tmp[['dc0','dc0_prv','hh_reco_rate','welf_class']]
         print('C3: '+str(round(float(200*cats_event_ia.loc[(cats_event_ia.welf_class==3)].shape[0])/float(cats_event_ia.shape[0]),2))+'% of hh do not reconstruct')
@@ -1229,7 +1231,9 @@ def calc_delta_welfare(micro, macro, pol_str,is_revised_dw=True,study=False):
         #temp = pd.merge(micro.reset_index(),macro.reset_index(),on=[i for i in mac_ix]).reset_index().set_index([i for i in mic_ix])
         # ^ is merge of cats_event with macro_event actually necessary?
         temp = micro.copy()
-        
+        temp.head(20000).to_csv(debug+'temp_n1.csv')
+        assert(False)
+
         # Upper limit for per cap dw
         c_mean = temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum()
         temp['dw_limit'] = abs(20.*c_mean)
@@ -1279,7 +1283,7 @@ def calc_delta_welfare(micro, macro, pol_str,is_revised_dw=True,study=False):
     temp['sav_i'] = 0.
     if pol_str != '_nosavings': 
         temp['sav_i'] = (temp[['axfin','c']].prod(axis=1)/2.).clip(lower=temp['c']/12.)
-        temp.loc[temp.dk0!=0,'sav_offset_to'] = 0.25*temp.loc[temp.dk0!=0,'dc0']
+        temp.loc[temp.dk0!=0,'sav_offset_to'] = smart_savers(temp,macro.avg_prod_k.mean(),const_pds_rate)
         #temp['sav_i'] = temp['k']
         # ^ use this line to see what happens when they have a year of savings
     temp['sav_f'] = temp['sav_i']
@@ -1297,33 +1301,30 @@ def calc_delta_welfare(micro, macro, pol_str,is_revised_dw=True,study=False):
                         -temp['help_received']*const_pds_rate*math.e**(-i_dt*const_pds_rate))
         # ^ this is value of dc at time i_dt (duration = step_dt), assuming no savings
 
-        if (counter < 100 and (counter-1)%10==0): 
-            temp['sav_offset_to'] *= 0.6
-        elif counter == 100: temp['sav_offset_to'] = 0.
+        if counter == 100: temp['sav_offset_to'] = 0
         # Dont spend all your savings at once...scale down over the first times
         
         if (counter%2 == 0 and counter <= 200) or (counter>200 and counter%50 == 0):    
             # What about deciding here whether the house can reconstruct, after some point?
-            _start = temp.loc[(temp.dk0!=0)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_i)>temp.c_min),:].copy()
+            _start = temp.loc[(temp.dk0!=0)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_i)>=temp.c_min),:].copy()
 
             _start['hh_reco_rate'] = ((_start['c']-_start['c_min']-_start['dc_i'])/_start['dk_prv_t']).clip(upper=6.*const_nom_reco_rate)
-            temp.loc[(temp.dk0!=0)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_i)>temp.c_min),'t_start_prv_reco'] = i_dt
+            temp.loc[(temp.dk0!=0)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_i)>=temp.c_min),'t_start_prv_reco'] = i_dt
 
             # tmp['dc0_prv']      = tmp['di0_prv'] + tmp[['hh_reco_rate','dk_private']].prod(axis=1)
             # NB: take note of the definition of dc0_prv; cant just change the coefficient of decay...
-            temp.loc[(temp.dk0!=0)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_i)>temp.c_min),'dc0_prv'] = _start['dc0_prv']+_start[['hh_reco_rate','dk_prv_t']].prod(axis=1)
+            temp.loc[(temp.dk0!=0)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_i)>=temp.c_min),'dc0_prv'] = _start['dc0_prv']+_start[['hh_reco_rate','dk_prv_t']].prod(axis=1)
             # ^ not assuming no reco has taken place yet
 
-            temp.loc[(temp.dk0!=0)&(temp.hh_reco_rate==0)&((temp.c-temp.dc_i)>temp.c_min),'hh_reco_rate'] = _start['hh_reco_rate']
+            temp.loc[(temp.dk0!=0)&(temp.hh_reco_rate==0)&((temp.c-temp.dc_i)>=temp.c_min),'hh_reco_rate'] = _start['hh_reco_rate']
 
-            _stop = temp.loc[(temp.dk0!=0)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_i)<0.99*temp.c_min)].copy()
+            _stop = temp.loc[(temp.dk0!=0)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_i)<temp.c_min)].copy()
             if _stop.shape[0] > 0: _stop.to_csv(debug+'hh_stopping_reco.csv')
-
 
             temp.loc[(temp.dk0!=0)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_i)<temp.c_min),'dc0_prv'] = _stop['dk_prv_t']*macro.avg_prod_k.mean()
             temp.loc[(temp.dk0!=0)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_i)<temp.c_min),'hh_reco_rate'] = 0.
 
-            print(str(round(100*i_dt/x_max,1))+'% of the way through recovery: '+str(_start.shape[0])+' hh escape subsistence and '+str(_stop.shape[0])+' hh opt not to reconstruct\n')
+            print(str(round(100*i_dt/x_max,1))+'% of the way through recovery: '+str(_start.shape[0])+' hh escape subsistence, and '+str(_stop.shape[0])+' hh opt not to reconstruct\n')
 
         temp['dc_i'] = (temp['dc0_prv']*math.e**(-(i_dt-temp['t_start_prv_reco'])*temp['hh_reco_rate'])
                         +temp['dc0_pub']*math.e**(-i_dt*const_pub_reco_rate)

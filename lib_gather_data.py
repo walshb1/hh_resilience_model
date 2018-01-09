@@ -154,9 +154,9 @@ def get_AIR_data(fname,sname,keep_sec,keep_per):
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index('province')
     AIR_value_destroyed['hazard'].replace(AIR_peril_lookup_1,inplace=True)
 
-    # Keep only earthquake (EQ) and typhoon (TC = wind + storm surge + precipitation flood)
+    # Keep earthquake (EQ), wind (HU), storm surge (SS), and precipitation flood (PF)
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index('hazard')   
-    AIR_value_destroyed = AIR_value_destroyed.drop(['HU','SS','PF'],axis=0)
+    AIR_value_destroyed = AIR_value_destroyed.drop(['HUSSPF'],axis=0)
 
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['province','hazard','rp'])
 
