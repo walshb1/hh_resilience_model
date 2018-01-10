@@ -189,7 +189,7 @@ if __name__ == '__main__':
         # --> 
     
     if myCountry == 'PH' or myCountry == 'SL':
-        pds_str = ['no','_nosavings','unif_poor']
+        pds_str = ['no','unif_poor']
         pol_str = ['']
             
     if debug == True:
