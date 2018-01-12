@@ -268,8 +268,8 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     const_pub_reco_rate = const_nom_reco_rate
     
     global const_pds_rate
-    const_pds_rate = const_nom_reco_rate*4.
-    # All hh consume whatever PDS they receive in first 9 months (3/4 yrs) after disaster
+    const_pds_rate = const_nom_reco_rate*2.
+    # All hh consume whatever PDS they receive in first 1.5 years (3 years/2) after disaster
     
     global const_rho
     const_rho = float(macro_event['rho'].mean())
@@ -1288,101 +1288,118 @@ def calc_delta_welfare(micro, macro, pol_str,is_revised_dw=True,study=False):
     # --> hh will probably take some hit (ie, they will not keep consumption at c_init), 
     # --> But how much will they be willing to take?
 
+    # Define parameters of welfare integration
     int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
     print('using time step = ',step_dt)
     counter = 0
 
-    testA, testB, timesteps, timedelay = [],[],[],[]
     # Calculate integral
     for i_dt in int_dt:
 
+        # Test: if a hh is in poverty after a disaster, they take their savings (100%) and buy a productive thing
+        # --> this affects dk_prv_t, hh_reco_rate, dc0_prv, and sav_f
+        if (counter == 4):
+            _outlay = temp.loc[(temp.welf_class==3)].copy()
+            _outlay['dk_prv_t4'] = _outlay['dk_prv_t'] # hold this value
+            _outlay['dk_prv_t'] -= _outlay['sav_f'].clip(upper=_outlay['dk_prv_t'])  # subtract savings from dk, up to dk
+            _outlay['sav_f']    -= _outlay['dk_prv_t4'].clip(upper=_outlay['sav_f']) # subtract dk from savings, up to savings
+            _outlay['dc0_prv']   = _outlay['dk_prv_t']*(1-macro['tau_tax'].mean())*(macro.avg_prod_k.mean()+_outlay['hh_reco_rate'])
+            temp.loc[(temp.welf_class==3),['dk_prv_t','sav_f','dc0_prv']] = _outlay[['dk_prv_t','sav_f','dc0_prv']]
+
+            # SANITY CHECK: min(dc0_prv) should still be >0:
+            if _outlay['dc0_prv'].min()>=0:
+                _outlay['dc0_prv'].to_csv(debug+'bug_savings_to_pos_cons.csv')
+                assert(_outlay['dc0_prv'].min()>=0)
+            
+        # BELOW: this is value of dc at time i_dt (duration = step_dt), assuming no savings
         temp['dc_i'] = (temp['dc0_prv']*math.e**(-(i_dt-temp['t_start_prv_reco'])*temp['hh_reco_rate'])
-                        # Need to start rebuilding at the right time (below)
+                        # Need to start rebuilding at the right time (t_start_prv_reco = 0 unless reset below)
                         +temp['dc0_pub']*math.e**(-i_dt*const_pub_reco_rate)
+                        # Public asset reconstruction is same for everyone
                         -temp['help_received']*const_pds_rate*math.e**(-i_dt*const_pds_rate))
-        # ^ this is value of dc at time i_dt (duration = step_dt), assuming no savings
+                        # Everyone spends PDS at the same rate
         
-        if (counter%2 == 0 and counter <= 200) or (counter>200 and counter%50 == 0):    
-            # What about deciding here whether the house can reconstruct, after some point?
-            _start = temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_i)>=temp.c_min),:].copy()
-            _stop  = temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_i)<0.95*temp.c_min)].copy()
+        ####################################
+        # Let the hh optimize (pause or re-/start) its reconstruction
+        # NB: only applies to hh in subsistence immediately after the disaster (welf_class == 3)
+        if (counter%2 == 0 and counter <= 200) or (counter>200 and counter%50 == 0):
+            
+            # Find hh that climbed out of/fell back into subsistence
+            _start = temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_i) > temp.c_min)].copy()
+            _stop  = temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_i) < temp.c_min)].copy()
 
+            ############
+            # Set t_start_prv_reco & hh_reco_rate, & dc_0_prt
+            # (re-)starters
             _start['t_start_prv_reco'] = i_dt
-            _start['hh_reco_rate'] = ((_start['c']-_start['c_min']-_start['dc_i'])/_start['dk_prv_t'])
-
-            # Starters
-            #flag
-            temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_i)>=temp.c_min),'dc0_prv'] = _start['dk_prv_t']*(macro.avg_prod_k.mean()+_start['hh_reco_rate'])*(1-macro['tau_tax'].mean())
-            temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_i)>=temp.c_min),['t_start_prv_reco','hh_reco_rate']] = _start[['t_start_prv_reco','hh_reco_rate']]
+            _start['hh_reco_rate'] = ((_start['c']-_start['dc_i']-_start['c_min'])/_start['dk_prv_t']).clip(upper=12.*const_nom_reco_rate)
+            _start['dc0_prv'] = _start['dk_prv_t']*(1-macro['tau_tax'].mean())*(macro.avg_prod_k.mean()+_start['hh_reco_rate'])
 
             # Quitters
-            temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_i)<0.95*temp.c_min),'dc0_prv'] = _stop['dk_prv_t']*macro.avg_prod_k.mean()*(1-macro['tau_tax'].mean())
-            temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_i)<0.95*temp.c_min),'hh_reco_rate'] = 0.
+            #_stop['t_start_prv_reco'] = #unchanged
+            _stop['hh_reco_rate'] = 0.
+            _stop['dc0_prv'] = _stop['dk_prv_t']*(1-macro['tau_tax'].mean())*(macro.avg_prod_k.mean()+_stop['hh_reco_rate'])
 
-            # NB: leaving out this term:
+            # NB: We left term below out of dc0_prv (should be a really really small effect)
             # + cats_event_ia['pcsoc']*(rebuild_fees['dk_tot']/rebuild_fees['tot_k_BE']).mean(level=event_level))
 
-            if _stop.shape[0] > 0: _stop.head(50000).to_csv(debug+'hh_stopping_reco.csv')
-            print('(t='+str(i_dt)+') '+str(round(100*i_dt/x_max,1))+'% of the way through recovery: '+str(_start.shape[0])+' hh escape subsistence & '+str(_stop.shape[0])+' hh stop reconstruction\n')
+            temp.loc[((temp.welf_class==3)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_i) > temp.c_min)),
+                     ['t_start_prv_reco','hh_reco_rate','dc0_prv']] = _start[['t_start_prv_reco','hh_reco_rate','dc0_prv']]
 
-        if counter == 26: temp['sav_offset_to'] = 0.
-        # ^ 6 months (26 weeks) after disaster, use up the rest of savings
+            temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_i) < temp.c_min),['hh_reco_rate','dc0_prv']] = _stop[['hh_reco_rate','dc0_prv']]
+
+            if _stop.shape[0] > 0: _stop.head(50000).to_csv(debug+'hh_stopping_reco.csv')
+            print('(t='+str(i_dt)+') '+str(round(100*i_dt/x_max,1))+'% through reco: '+str(_start.shape[0])+' hh escape subs & '+str(_stop.shape[0])+' hh stop reco\n')
+        #########################################
             
+        # Recalculate dc at this time step after hh make adjustments
         temp['dc_i'] = (temp['dc0_prv']*math.e**(-(i_dt-temp['t_start_prv_reco'])*temp['hh_reco_rate'])
                         +temp['dc0_pub']*math.e**(-i_dt*const_pub_reco_rate)
                         -temp['help_received']*const_pds_rate*math.e**(-i_dt*const_pds_rate))
-        # Recalculate dc at this time step after hh make adjustments
 
-        timesteps.append(i_dt)
-        timedelay.append(float(temp['t_start_prv_reco'].head(1).squeeze()))
-        testA.append(float((temp['dk_private']*math.e**(-(i_dt-temp['t_start_prv_reco'])*temp['hh_reco_rate'])).head(1).squeeze()))
-        testB.append(float(temp['dk_prv_t'].head(1).squeeze()))
+        ########################
+        # Now apply savings (if any left)
 
-        if counter %100 == 0:
-            print('\n',testA)
-            print(testB,'\n')
-            
-
+        # After 6 months (26 weeks), use up the rest of savings
+        if counter == 26: temp['sav_offset_to'] = 0.
+ 
+        # Find dC net of savings (min = sav_offset_to if dc_i > 0  -OR-  min = dc_i if dc_i < 0 ie: na & received PDS)
         temp['dc_net'] = (temp['dc_i']-temp['sav_f']/step_dt).clip(lower=temp[['sav_offset_to','dc_i']].min(axis=1).squeeze())
-        # ^ this is dc offset fully by savings (min = 0 if dc_i > 0  -OR-  min = dc_i if dc_i < 0 ie: na & received PDS)
         
+        # This is how much was spent out of savings
         temp['sav_delta'] = step_dt*(temp['dc_i'] - temp['dc_net'])
-        # ^ this is how much was spent out of savings
-        
+
+        # Adjust savings after spending        
         temp['sav_f'] = temp['sav_f']-temp['sav_delta']
-        # ^ adjust savings after spending
 
-        # Sanity check: savings should not go negative
-        #if (temp['sav_f'].min(axis=0)<-1E-6):
-        #    temp.loc[(temp.sav_f<-1E-6)].to_csv('~/Desktop/my_sav.csv')
-        #    assert(False)
+        # Sanity check: savings should not go negative (not more than 0.01 cent!)
+        if (temp['sav_f'].min(axis=0)<-1E-4):
+            print('Some hh overdraft their savings!')
+            temp.loc[(temp.sav_f<-1E-6)].to_csv(debug+'bug_negative_savings.csv')
+            assert(False)
+      
+        ########################  
+        # Finally, calculate welfare losses
+        temp['integ'] += step_dt*((1.-(temp['dc_net']/temp['c']))**(1-const_ie)-1.)*math.e**(-i_dt*const_rho)
 
-        temp['dc_f'] = temp['dc_net']/temp['c'] # This is pulled out of integral & included in constant above
-        temp['integ'] += step_dt*((1.-temp['dc_f'])**(1-const_ie)-1.)*math.e**(-i_dt*const_rho)
-
+        # Save out the files for deugging
         if ((counter<=20) or (counter <= 100 and counter%10==0) or (counter%100 == 0)): temp.head(10000).to_csv(debug+'temp_'+pol_str+'_'+str(counter)+'.csv')
         counter+=1
 
+        # Decrement dk(t)
         temp['dk_prv_t'] += temp['dk_prv_t']*(-step_dt*temp['hh_reco_rate']+1/2*(step_dt*temp['hh_reco_rate'])**2-1/6*(step_dt*temp['hh_reco_rate'])**3
                                                +1/24*(step_dt*temp['hh_reco_rate'])**4-1/120*(step_dt*temp['hh_reco_rate'])**5+1/720*(step_dt*temp['hh_reco_rate'])**6)
-        #for sub_step in range(0,250):
-        #    temp['dk_prv_t'] -= step_dt/250.*temp[['hh_reco_rate','dk_prv_t']].prod(axis=1)#*math.e**(-(i_dt-temp['t_start_prv_reco'])*temp['hh_reco_rate'])
-        # ^ dk_private after step (i_dt) (this works but is tooo slow)
 
-        # Here are 2 ways to do the same, but both take ~2h
-        # (1)
-        #_temp = temp.loc[temp.dc_i>0,['dc_i','sav_f']]
-        #temp.loc[temp.dc_i>0, 'dc_f'] = (_temp['dc_i']-_temp['sav_f']).clip(lower=0.)
-        #temp.loc[temp.dc_i>0,'sav_f'] = (_temp['sav_f']-_temp['dc_i']).clip(lower=0.)
-            
-        # (2) 
-        #temp.loc[temp.dc_i>0,['dc_i','sav_f']] = pd.DataFrame({'dc_i':(temp.loc[(temp.dc_i>0),'dc_i'].sub(temp.loc[(temp.dc_i>0),'sav_f'],axis=0).clip(lower=0.)),
-        #                                                           'sav_f':(temp.loc[(temp.dc_i>0),'sav_f'].sub(temp.loc[(temp.dc_i>0),'dc_i'],axis=0).clip(lower=0.))})
- 
+        # Sanity check: dk_prv_t should not be higher than dk_private (initial value)
+        if temp.loc[(temp.dk_prv_t>temp.dk_private)].shape[0] > 0:
+            print('Some hh lose more at the end than in the disaster!')
+            temp.loc.to_csv(debug+'bug_ghost_losses.csv')
+            assert(False)  
+
         # NB: dc0 has both public and private capital in it...could rewrite to allow for the possibility of independent reconstruction times
         # NB: if consumption goes negative, the integral can't be calculated...death!
         # NB: if consumption increases, dw will come out negative. that's just making money off the disaster (eg from targeting error)
-        
+
     ################################
     # 'revised' calculation of dw
     temp['dw_curr_no_clip'] = temp[['const','integ']].prod(axis=1)/temp['wprime']
