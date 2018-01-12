@@ -120,13 +120,32 @@ def load_survey_data(myC,inc_sf=None):
 
         df['pcsoc']  = df['hhsoc']/df['hhsize']
 
-        df['savings'] = df['savings'].fillna(0)
-        df['invest'] = df['invest'].fillna(0)
+        df['tot_savings'] = df[['savings','invest']].sum(axis=1,skipna=False)
+        df['savings'] = df['savings'].fillna(-1)
+        df['invest'] = df['invest'].fillna(-1)
+        
         df['axfin']  = 0
-        df.loc[(df.savings!=0)&(df.invest!=0),'axfin'] = 1
-    
-        print(str(round(100*df[['axfin','hhwgt']].prod(axis=1).sum()/df['hhwgt'].sum(),2))+'% of hh report expenses on savings or investments\n')
+        df.loc[(df.savings>0)|(df.invest>0),'axfin'] = 1
 
+        df['est_sav'] = df[['axfin','pcinc']].prod(axis=1)/2.
+
+        # plot 1
+        plot_simple_hist(df.loc[df.axfin==1],['tot_savings'],['hh savings'],'../output_plots/PH/hh_savings.pdf',uclip=None,nBins=25)
+
+        # plot 2
+        ax = df.loc[df.tot_savings>=0].plot.scatter('pcinc','tot_savings')
+        ax.plot()
+        plt.gcf().savefig('../output_plots/PH/hh_savings_scatter.pdf',format='pdf')
+
+        # plot 3
+        ax = df.loc[df.tot_savings>=0].plot.scatter('est_sav','tot_savings')
+        plt.xlim(0,60000)
+        plt.ylim(0,60000)
+        ax.plot()
+        plt.gcf().savefig('../output_plots/PH/hh_est_savings_scatter.pdf',format='pdf')      
+        
+        print(str(round(100*df[['axfin','hhwgt']].prod(axis=1).sum()/df['hhwgt'].sum(),2))+'% of hh report expenses on savings or investments\n')
+    
         return df.drop(['savings','invest'],axis=1)
 
     elif myC == 'FJ':
