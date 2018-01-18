@@ -164,7 +164,7 @@ cat_info['pcsoc'] = cat_info['pcsoc'].clip(upper=0.99*cat_info['pcinc'])
 # --> can be converted to pcinc_ppp11 by dividing by (365*21.1782)
 
 # Cash receipts, abroad & domestic, other gifts
-cat_info['social'] = (cat_info['pcsoc']/cat_info['pcinc'])#.clip(upper=0.99)
+cat_info['social'] = (cat_info['pcsoc']/cat_info['pcinc']).fillna(0)#.clip(upper=0.99)
 # --> All of this is selected & defined in lib_country_dir
 # --> Excluding international remittances ('cash_abroad')
 

@@ -467,6 +467,12 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         cats_event_ia['di0_pub'] = cats_event_ia['dk_public']*macro_event['avg_prod_k'].mean()*(1-macro_event['tau_tax'].mean())
         cats_event_ia['di0'] = cats_event_ia['di0_prv'] + cats_event_ia['di0_pub']
 
+        # Sanity check: (C-di) does not bankrupt
+        _ = cats_event_ia.loc[(cats_event_ia.c-cats_event_ia.di0)<0]
+        if _.shape[0] != 0:
+            _.to_csv(debug+'bankrupt.csv')
+            assert(_.shape[0] == 0)
+
         # Leaving out all terms without time-dependence
         # EG: + cats_event_ia['pc_fee'] + cats_event_ia['pds']
 
@@ -478,17 +484,16 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         # Get indexing right, so there are not multiple entries with same index:
         cats_event_ia = cats_event_ia.reset_index().set_index(event_level+['hhid','affected_cat'])
 
-        # Tweak dc0 for hh where (c - dc0) < pov_line:
+        # Setup to recalc hh_reco_rate and dc0 for hh where (c - dc0) < pov_line:
         cats_event_ia['hh_reco_rate'] = const_nom_reco_rate
 
-        # Classify these hh responses for studying dw
+        # We will classify these hh responses for studying dw
         cats_event_ia['welf_class'] = 0
-        # 1 = quick (<3yrs) reco, while avoiding poverty
 
+        # Get subsistence line
         if 'sub_line' in cats_event_ia.columns: cats_event_ia['c_min'] = cats_event_ia.sub_line
         elif get_subsistence_line(myC): cats_event_ia['c_min'] = get_subsistence_line(myC)
         else: cats_event_ia['c_min'] = cats_event_ia.c_5
-
         print('Using hh response: avoid subsistence '+str(round(float(cats_event_ia['c_min'].mean()),2)))
 
         # Case 1: hh can afford to reconstruct more quickly than 3 years
@@ -506,33 +511,33 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         cats_event_ia.loc[(cats_event_ia.c>=cats_event_ia.pov_line)
                           &((cats_event_ia.c-cats_event_ia.dc0)>cats_event_ia.pov_line)
                           &(cats_event_ia.dk_private!=0),['dc0','dc0_prv','hh_reco_rate','welf_class']] = tmp[['dc0','dc0_prv','hh_reco_rate','welf_class']]
-        print('C0: '+str(round(float(100*cats_event_ia.loc[cats_event_ia.welf_class==1].shape[0])/float(cats_event_ia.loc[cats_event_ia.dk0!=0].shape[0]),2))+'% of hh accelerate reco to poverty')
+        print('C0: '+str(round(float(100*cats_event_ia.loc[cats_event_ia.welf_class==1].shape[0])
+                               /float(cats_event_ia.loc[cats_event_ia.dk0!=0].shape[0]),2))+'% of hh accelerate reco to poverty')
 
         # Case 2: initial consumption is above or below poverty line
         # --> income losses push below poverty_line, 
         # --> hh can still afford to avoid subsistence
         # *** HH response: keep consumption above subsistence
-        tmp = cats_event_ia.loc[((cats_event_ia.c>=cats_event_ia.pov_line)|(cats_event_ia.c<cats_event_ia.pov_line)) # HHs initially above or below poverty line (doesn't matter)
-                                &((cats_event_ia.c-cats_event_ia.di0)>=cats_event_ia.c_min)                            # AND they can afford (c-di0) at subsistence (or XX% of poverty line)
-                                &(cats_event_ia.welf_class==0)                                                        # AND they're not in any other class
-                                &(cats_event_ia.dk_private!=0)].copy()                                                # AND they did lose some assets
+        tmp = cats_event_ia.loc[(cats_event_ia.welf_class==0)                               # HH are not in any other class (initially above or below poverty line)
+                                &((cats_event_ia.c-cats_event_ia.di0)>=cats_event_ia.c_min) # AND they can afford (c-di0) at subsistence
+                                &(cats_event_ia.dk_private!=0)].copy()                      # AND they did lose some assets
+
         tmp['welf_class']   = 2
         tmp['dc_old']       = tmp['dc0']
-        tmp['hh_reco_rate'] = ((tmp['c']-0.99*tmp['c_min']-tmp['di0'])/tmp['dk_private']).clip(upper=6.*const_nom_reco_rate)
+        tmp['hh_reco_rate'] = ((tmp['c']-0.999*tmp['c_min']-tmp['di0'])/tmp['dk_private']).clip(upper=6.*const_nom_reco_rate)
         tmp['dc0_prv']      = tmp['di0_prv'] + tmp[['hh_reco_rate','dk_private']].prod(axis=1)
         tmp['dc0']          = tmp['dc0_prv'] + tmp['dc0_pub']
         tmp.head(50000).to_csv(debug+'my_tmp_newpov.csv')
-        cats_event_ia.loc[((cats_event_ia.c>=cats_event_ia.pov_line)|(cats_event_ia.c<cats_event_ia.pov_line))
+        cats_event_ia.loc[(cats_event_ia.welf_class==0)
                           &((cats_event_ia.c-cats_event_ia.di0)>=cats_event_ia.c_min)
-                          &(cats_event_ia.welf_class==0)  
                           &(cats_event_ia.dk_private!=0),['dc0','dc0_prv','hh_reco_rate','welf_class']] = tmp[['dc0','dc0_prv','hh_reco_rate','welf_class']]
-        print('C2: '+str(round(float(100*cats_event_ia.loc[cats_event_ia.welf_class==2].shape[0])/float(cats_event_ia.loc[cats_event_ia.dk0!=0].shape[0]),2))+'% of hh accelerate to subsistence')
+        print('C2: '+str(round(float(100*cats_event_ia.loc[cats_event_ia.welf_class==2].shape[0])
+                               /float(cats_event_ia.loc[cats_event_ia.dk0!=0].shape[0]),2))+'% of hh accelerate to subsistence')
         
         # Case 3: Post-disaster income is below subsistence (or c_5):
         # HH response: do not reconstruct
-        tmp = cats_event_ia.loc[((cats_event_ia.c-cats_event_ia.di0)>0.0)                   # (C-di) does not bankrupt *this can't really evaluate to false, I think...*
-                                &((cats_event_ia.c-cats_event_ia.di0)<cats_event_ia.c_min) # AND (c-di0) is below subsistence 
-                                &(cats_event_ia.welf_class==0)                              # AND they're not in any other class
+        tmp = cats_event_ia.loc[(cats_event_ia.welf_class==0)                              # AND they're not in any other class
+                                &((cats_event_ia.c-cats_event_ia.di0)<cats_event_ia.c_min)  # AND (c-di0) is below subsistence 
                                 &(cats_event_ia.dk_private!=0)].copy()                      # AND they did lose some assets
         tmp['welf_class']   = 3
         tmp['dc_old']       = tmp['dc0']
@@ -540,14 +545,13 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         tmp['dc0_prv']      = tmp['di0_prv'] # No Reconstruction tmp['di0'] + tmp[['hh_reco_rate','dk_private']].prod(axis=1)
         tmp['dc0']          = tmp['dc0_prv'] + tmp['dc0_pub']
         tmp.head(50000).to_csv(debug+'my_tmp_pov.csv')
-        cats_event_ia.loc[((cats_event_ia.c-cats_event_ia.di0)>0.0)
+        cats_event_ia.loc[(cats_event_ia.welf_class==0)
                           &((cats_event_ia.c-cats_event_ia.di0)<cats_event_ia.c_min)
-                          &(cats_event_ia.welf_class==0)
                           &(cats_event_ia.dk_private!=0),['dc0','dc0_prv','hh_reco_rate','welf_class']] = tmp[['dc0','dc0_prv','hh_reco_rate','welf_class']]
-        print('C3: '+str(round(float(100*cats_event_ia.loc[(cats_event_ia.welf_class==3)].shape[0])/float(cats_event_ia.loc[cats_event_ia.dk0!=0].shape[0]),2))+'% of hh do not reconstruct')
+        print('C3: '+str(round(float(100*cats_event_ia.loc[(cats_event_ia.welf_class==3)].shape[0])
+                               /float(cats_event_ia.loc[cats_event_ia.dk0!=0].shape[0]),2))+'% of hh do not reconstruct')
 
         # make plot here: (income vs. length of reco)
-
         if cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.c)].shape[0] != 0:
             cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.c)].to_csv(debug+'excess.csv')
             hh_extinction = str(round(float(cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.c)].shape[0]/cats_event_ia.shape[0])*100.,2))
