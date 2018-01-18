@@ -289,7 +289,7 @@ cat_info_index = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() 
 # --> Need to think about public assets
 #df_haz = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','all','Agg')
 
-df_haz,df_tikina = get_hazard_df(myCountry,economy,agg_or_occ='Occ',rm_overlap=True)
+df_haz,df_tikina = get_hazard_df(myCountry,economy,agg_or_occ='Agg',rm_overlap=True)
 if myCountry == 'FJ': _ = get_SLR_hazard(myCountry,df_tikina)
 
 # Edit & Shuffle provinces
