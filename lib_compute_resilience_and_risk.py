@@ -457,15 +457,16 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         # Uncomment these 2 lines for tax assessment after disaster
         public_costs = public_costs.rename(columns={'transfer_pub_PE':'transfer_pub'})
         cats_event_ia = cats_event_ia.rename(columns={'pc_fee_PE':'pc_fee'})
+        
+        cats_event_ia['scale_fac_soc'] = (rebuild_fees['dk_tot']/rebuild_fees['tot_k_BE']).mean(level=event_level)
 
         ############################
         # We can already calculate di0, dc0 for hh in province
         #
         # Define di0 for all households in province where disaster occurred
         # NB: cats_event_ia['dk0'] = cats_event_ia['dk_private'] + cats_event_ia['dk_public'] + cats_event_ia['dk_other'] 
-        #flag
         cats_event_ia['di0_prv'] = ((cats_event_ia['dk0']-cats_event_ia['dk_public'])*macro_event['avg_prod_k'].mean()*(1-macro_event['tau_tax'].mean())
-                                    + cats_event_ia['pcsoc']*(rebuild_fees['dk_tot']/rebuild_fees['tot_k_BE']).mean(level=event_level))
+                                    + cats_event_ia[['pcsoc','scale_fac_soc']].prod(axis=1))
         cats_event_ia['di0_pub'] = cats_event_ia['dk_public']*macro_event['avg_prod_k'].mean()*(1-macro_event['tau_tax'].mean())
         cats_event_ia['di0'] = cats_event_ia['di0_prv'] + cats_event_ia['di0_pub']
 
@@ -1250,7 +1251,7 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
         
     # Drop cols from temp, because it's huge...
     temp = temp.drop([i for i in ['province','pcinc','hhwgt','pcinc_ae','hhsize','hhsize_ae','pov_line',
-                                  'gamma_SP','shew','hh_share','fa','v_shew','is_poor','v','social','quintile','pcsoc','c_5'] if i in temp.columns],axis=1)
+                                  'gamma_SP','shew','hh_share','fa','v_shew','is_poor','v','social','quintile','c_5'] if i in temp.columns],axis=1)
 
     ######################################
     # For comparison: this is the legacy definition of dw
@@ -1322,41 +1323,46 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
                 assert(_outlay['dc0_prv'].min()>=0)
             
         # BELOW: this is value of dc at time i_dt (duration = step_dt), assuming no savings
-        temp['dc_i'] = (temp['dc0_prv']*math.e**(-(i_dt-temp['t_start_prv_reco'])*temp['hh_reco_rate'])
+        temp['di_prv_t'] = (temp['dk_prv_t']*macro['avg_prod_k'].mean()*(1-macro['tau_tax'].mean())
+                            + temp[['pcsoc','scale_fac_soc']].prod(axis=1)*math.e**(-i_dt*const_pub_reco_rate))
+
+        temp['di_pub_t'] = temp['di0_pub']*math.e**(-i_dt*const_pub_reco_rate)
+
+        temp['di_t'] = (temp['di_prv_t']
                         # Need to start rebuilding at the right time (t_start_prv_reco = 0 unless reset below)
-                        +temp['dc0_pub']*math.e**(-i_dt*const_pub_reco_rate)
+                        +temp['di_pub_t']
                         # Public asset reconstruction is same for everyone
                         -temp['help_received']*const_pds_rate*math.e**(-i_dt*const_pds_rate))
                         # Everyone spends PDS at the same rate
-        
+
+        temp['dc_t'] = temp['di_t'] + temp[['hh_reco_rate','di_prv_t']].prod(axis=1)
+
         ####################################
         # Let the hh optimize (pause or re-/start) its reconstruction
         # NB: only applies to hh in subsistence immediately after the disaster (welf_class == 3)
         if (counter%2 == 0 and counter <= 200) or (counter>200 and counter%50 == 0):
             
             # Find hh that climbed out of/fell back into subsistence
-            _start = temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_i) > temp.c_min)].copy()
-            _stop  = temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_i) < temp.c_min)].copy()
+            _start = temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate==0)&((temp.c-temp.dc_t) > temp.c_min)].copy()
+            _stop  = temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate!=0)&((temp.c-temp.dc_t) < temp.c_min)].copy()
 
             ############
             # Set t_start_prv_reco & hh_reco_rate, & dc_0_prt
             # (re-)starters
             _start['t_start_prv_reco'] = i_dt
-            _start['hh_reco_rate'] = ((_start['c']-_start['dc_i']-_start['c_min'])/_start['dk_prv_t']).clip(upper=12.*const_nom_reco_rate)
-            _start['dc0_prv'] = _start['dk_prv_t']*(1-macro['tau_tax'].mean())*(macro.avg_prod_k.mean()+_start['hh_reco_rate'])
-
+            _start['hh_reco_rate'] = ((_start['c']-_start['di_t']-_start['c_min'])/_start['dk_prv_t']).clip(upper=12.*const_nom_reco_rate)
+            _start['dc0_prv'] = (_start['dk_prv_t']*((1-macro['tau_tax'].mean())*macro.avg_prod_k.mean()+_start['hh_reco_rate'])
+                                 + _start[['pcsoc','scale_fac_soc']].prod(axis=1)*math.e**(-i_dt*const_pub_reco_rate))
             # Quitters
             #_stop['t_start_prv_reco'] = #unchanged
             _stop['hh_reco_rate'] = 0.
-            _stop['dc0_prv'] = _stop['dk_prv_t']*(1-macro['tau_tax'].mean())*(macro.avg_prod_k.mean()+_stop['hh_reco_rate'])
-
-            # NB: We left term below out of dc0_prv (should be a really really small effect)
-            # + cats_event_ia['pcsoc']*(rebuild_fees['dk_tot']/rebuild_fees['tot_k_BE']).mean(level=event_level))
-
-            temp.loc[((temp.welf_class==3)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_i) > temp.c_min)),
+            _stop['dc0_prv'] = (_stop['dk_prv_t']*((1-macro['tau_tax'].mean())*macro.avg_prod_k.mean()+_stop['hh_reco_rate'])
+                                + _stop[['pcsoc','scale_fac_soc']].prod(axis=1)*math.e**(-i_dt*const_pub_reco_rate))
+        
+            temp.loc[((temp.welf_class==3)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_t) > temp.c_min)),
                      ['t_start_prv_reco','hh_reco_rate','dc0_prv']] = _start[['t_start_prv_reco','hh_reco_rate','dc0_prv']]
 
-            temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_i) < temp.c_min),['hh_reco_rate','dc0_prv']] = _stop[['hh_reco_rate','dc0_prv']]
+            temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_t) < temp.c_min),['hh_reco_rate','dc0_prv']] = _stop[['hh_reco_rate','dc0_prv']]
             
             if _stop.shape[0] > 0: _stop.head(75000).to_csv(debug+'hh_stopping_reco_'+optionPDS+pol_str+'_'+str(counter)+'.csv')
             print('('+optionPDS+' t = '+str(round(i_dt*52,1))+' weeks after disaster; '
@@ -1367,7 +1373,7 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
         #########################################
             
         # Recalculate dc at this time step after hh make adjustments
-        temp['dc_i'] = (temp['dc0_prv']*math.e**(-(i_dt-temp['t_start_prv_reco'])*temp['hh_reco_rate'])
+        temp['dc_t'] = (temp['dc0_prv']# <-- HAS TIME DEPENDENCE BAKED IN *math.e**(-(i_dt-temp['t_start_prv_reco'])*temp['hh_reco_rate'])
                         +temp['dc0_pub']*math.e**(-i_dt*const_pub_reco_rate)
                         -temp['help_received']*const_pds_rate*math.e**(-i_dt*const_pds_rate))
 
@@ -1377,11 +1383,11 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
         # After 6 months (26 weeks), use up the rest of savings
         if counter == 26: temp['sav_offset_to'] = 0.
  
-        # Find dC net of savings (min = sav_offset_to if dc_i > 0  -OR-  min = dc_i if dc_i < 0 ie: na & received PDS)
-        temp['dc_net'] = (temp['dc_i']-temp['sav_f']/step_dt).clip(lower=temp[['sav_offset_to','dc_i']].min(axis=1).squeeze())
+        # Find dC net of savings (min = sav_offset_to if dc_t > 0  -OR-  min = dc_t if dc_t < 0 ie: na & received PDS)
+        temp['dc_net'] = (temp['dc_t']-temp['sav_f']/step_dt).clip(lower=temp[['sav_offset_to','dc_t']].min(axis=1).squeeze())
         
         # This is how much was spent out of savings
-        temp['sav_delta'] = step_dt*(temp['dc_i'] - temp['dc_net'])
+        temp['sav_delta'] = step_dt*(temp['dc_t'] - temp['dc_net'])
 
         # Adjust savings after spending        
         temp['sav_f'] = temp['sav_f']-temp['sav_delta']
