@@ -1358,7 +1358,7 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
 
             temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_i) < temp.c_min),['hh_reco_rate','dc0_prv']] = _stop[['hh_reco_rate','dc0_prv']]
             
-            if _stop.shape[0] > 0: _stop.head(75000).to_csv(debug+'hh_stopping_reco_'+optionPDS+pol_str+'_'+counter'.csv')
+            if _stop.shape[0] > 0: _stop.head(75000).to_csv(debug+'hh_stopping_reco_'+optionPDS+pol_str+'_'+str(counter)+'.csv')
             print('('+optionPDS+' t = '+str(round(i_dt*52,1))+' weeks after disaster; '
                   +str(round(100*i_dt/x_max,1))+'% through reco): '
                   +str(_start.shape[0])+' hh escape subs & '
@@ -1453,7 +1453,7 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
 
     tmp_out['ratio_dw_lim_tot']  = tmp_out['dw_lim']/tmp_out['dw_tot']
     tmp_out.loc[tmp_out.dw_tot!=0].to_csv(debug+'my_summary_'+optionPDS+pol_str+'.csv')
-    print('Wrote out summary stats for dw ('optionPDS+'/'+pol_str+')')
+    print('Wrote out summary stats for dw ('+optionPDS+'/'+pol_str+')')
     
     return temp['dw']
 
