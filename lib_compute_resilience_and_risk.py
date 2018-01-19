@@ -1351,19 +1351,18 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
             # (re-)starters
             _start['t_start_prv_reco'] = i_dt
             _start['hh_reco_rate'] = ((_start['c']-_start['di_t']-_start['c_min'])/_start['dk_prv_t']).clip(upper=12.*const_nom_reco_rate)
-            _start['dc0_prv'] = (_start['dk_prv_t']*((1-macro['tau_tax'].mean())*macro.avg_prod_k.mean()+_start['hh_reco_rate'])
-                                 + _start[['pcsoc','scale_fac_soc']].prod(axis=1)*math.e**(-i_dt*const_pub_reco_rate))
+            #_start['dc0_prv'] = (_start['dk_prv_t']*((1-macro['tau_tax'].mean())*macro.avg_prod_k.mean()+_start['hh_reco_rate'])
+            #                     + _start[['pcsoc','scale_fac_soc']].prod(axis=1)*math.e**(-i_dt*const_pub_reco_rate))
+
             # Quitters
             #_stop['t_start_prv_reco'] = #unchanged
             _stop['hh_reco_rate'] = 0.
-            _stop['dc0_prv'] = (_stop['dk_prv_t']*((1-macro['tau_tax'].mean())*macro.avg_prod_k.mean()+_stop['hh_reco_rate'])
-                                + _stop[['pcsoc','scale_fac_soc']].prod(axis=1)*math.e**(-i_dt*const_pub_reco_rate))
         
             temp.loc[((temp.welf_class==3)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_t) > temp.c_min)),
-                     ['t_start_prv_reco','hh_reco_rate','dc0_prv']] = _start[['t_start_prv_reco','hh_reco_rate','dc0_prv']]
+                     ['t_start_prv_reco','hh_reco_rate']] = _start[['t_start_prv_reco','hh_reco_rate']]
 
-            temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_t) < temp.c_min),['hh_reco_rate','dc0_prv']] = _stop[['hh_reco_rate','dc0_prv']]
-            
+            temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_t) < temp.c_min),['hh_reco_rate']] = _stop[['hh_reco_rate']]
+
             if _stop.shape[0] > 0: _stop.head(75000).to_csv(debug+'hh_stopping_reco_'+optionPDS+pol_str+'_'+str(counter)+'.csv')
             print('('+optionPDS+' t = '+str(round(i_dt*52,1))+' weeks after disaster; '
                   +str(round(100*i_dt/x_max,1))+'% through reco): '
@@ -1371,9 +1370,11 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
                   +str(_stop.shape[0])+' hh stop reco\n')
 
         #########################################
-            
-        # Recalculate dc at this time step after hh make adjustments
-        temp['dc_t'] = (temp['dc0_prv']# <-- HAS TIME DEPENDENCE BAKED IN *math.e**(-(i_dt-temp['t_start_prv_reco'])*temp['hh_reco_rate'])
+        # Recalculate dc at this time step after hh make adjustments 
+        temp['dc0_prv'] = (temp['dk_prv_t']*((1-macro['tau_tax'].mean())*macro.avg_prod_k.mean()+temp['hh_reco_rate'])
+                            + temp[['pcsoc','scale_fac_soc']].prod(axis=1)*math.e**(-i_dt*const_pub_reco_rate))
+ 
+        temp['dc_t'] = (temp['dc0_prv']# <-- HAS TIME DEPENDENCE BAKED IN (see above)
                         +temp['dc0_pub']*math.e**(-i_dt*const_pub_reco_rate)
                         -temp['help_received']*const_pds_rate*math.e**(-i_dt*const_pds_rate))
 
@@ -1402,9 +1403,6 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
         # Finally, calculate welfare losses
         temp['integ'] += step_dt*((1.-(temp['dc_net']/temp['c']))**(1-const_ie)-1.)*math.e**(-i_dt*const_rho)
 
-        # Save out the files for deugging
-        if ((counter<=20) or (counter <= 100 and counter%10==0) or (counter%100 == 0)): temp.head(10000).to_csv(debug+'temp_'+optionPDS+pol_str+'_'+str(counter)+'.csv')
-        counter+=1
 
         # Decrement dk(t)
         temp['dk_prv_t'] += temp['dk_prv_t']*(-step_dt*temp['hh_reco_rate']+1/2*(step_dt*temp['hh_reco_rate'])**2-1/6*(step_dt*temp['hh_reco_rate'])**3
@@ -1415,6 +1413,10 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
             print('Some hh lose more at the end than in the disaster!')
             temp.loc.to_csv(debug+'bug_ghost_losses'+optionPDS+'.csv')
             assert(False)  
+
+        # Save out the files for deugging
+        if ((counter<=20) or (counter <= 100 and counter%10==0) or (counter%100 == 0)): temp.head(10000).to_csv(debug+'temp_'+optionPDS+pol_str+'_'+str(counter)+'.csv')
+        counter+=1
 
         # NB: dc0 has both public and private capital in it...could rewrite to allow for the possibility of independent reconstruction times
         # NB: if consumption goes negative, the integral can't be calculated...death!
