@@ -27,16 +27,30 @@ import brewer2mpl as brew
 from matplotlib import colors
 sns.set_style('darkgrid')
 brew_pal = brew.get_map('Set1', 'qualitative', 8).mpl_colors
-sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
+sns_pal = sns.color_palette('Set1', n_colors=17, desat=None)
 greys_pal = sns.color_palette('Greys', n_colors=9)
 reds_pal = sns.color_palette('Reds', n_colors=9)
 q_labels = ['Q1 (Poorest)','Q2','Q3','Q4','Q5 (Wealthiest)']
 q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
+reg_pal = sns.color_palette(['#e6194b','#3cb44b','#ffe119','#0082c8','#f58231','#911eb4','#46f0f0','#f032e6','#d2f53c','#008080','#e6beff','#fabebe','#800000','#808000','#000080','#808080','#000000'],n_colors=17,desat=None)
+
+params = {'savefig.bbox': 'tight', #or 'standard'
+          #'savefig.pad_inches': 0.1 
+          'xtick.labelsize': 8,
+          'ytick.labelsize': 8,
+          'legend.fontsize': 9,
+          'legend.facecolor': 'white',
+          #'legend.linewidth': 2, 
+          'legend.fancybox': True,
+          'savefig.facecolor': 'white',   # figure facecolor when saving
+          #'savefig.edgecolor': 'white'    # figure edgecolor when saving
+          }
+plt.rcParams.update(params)
+
 font = {'family' : 'sans serif',
-    'size'   : 20}
+    'size'   : 10}
 plt.rc('font', **font)
-mpl.rcParams['xtick.labelsize'] = 16
 
 import warnings
 warnings.filterwarnings('always',category=UserWarning)
@@ -202,3 +216,27 @@ plt.draw()
 fig=plt.gcf()
 fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/dk.pdf',format='pdf')
 
+summary_df = pd.read_csv('/Users/brian/Desktop/BANK/debug/my_summary_no.csv').reset_index()
+
+for iHaz in ['SS','PF','HU','EQ']:
+    _ = summary_df.loc[(summary_df.hazard==iHaz)].sort_values(by=['region','rp'])
+
+    regions = _.groupby('region')
+
+    fig, ax = plt.subplots()
+    ax.margins(0.05) # Optional, just adds 5% padding to the autoscaling
+    col_ix = 0
+    for name, iReg in regions:
+        
+        ax.semilogx(iReg.rp, iReg.res_tot.clip(upper=1.5), marker='.', linestyle='', ms=9, label=name,color=reg_pal[col_ix])
+        col_ix+=1
+
+    leg = ax.legend(loc='best',labelspacing=0.75,ncol=2,fontsize=6,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0,title='Region')
+
+    col_ix = 0
+    for name, iReg in regions:
+        ax.plot(iReg.rp, iReg.res_tot.clip(upper=1.5),color=reg_pal[col_ix])
+        col_ix+=1
+
+    fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/reg_resilience_'+iHaz+'.pdf',format='pdf')
+    plt.clf()

@@ -1318,8 +1318,8 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
             temp.loc[(temp.welf_class==3),['dk_prv_t','sav_f','dc0_prv']] = _outlay[['dk_prv_t','sav_f','dc0_prv']]
 
             # SANITY CHECK: min(dc0_prv) should still be >0:
-            if _outlay['dc0_prv'].min()>=0:
-                _outlay['dc0_prv'].to_csv(debug+'bug_savings_to_pos_cons.csv')
+            if _outlay['dc0_prv'].min()<0:
+                _outlay.loc[(_outlay.dc0_prv<0)].to_csv(debug+'bug_savings_to_pos_cons.csv')
                 assert(_outlay['dc0_prv'].min()>=0)
             
         # BELOW: this is value of dc at time i_dt (duration = step_dt), assuming no savings
@@ -1351,8 +1351,6 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
             # (re-)starters
             _start['t_start_prv_reco'] = i_dt
             _start['hh_reco_rate'] = ((_start['c']-_start['di_t']-_start['c_min'])/_start['dk_prv_t']).clip(upper=12.*const_nom_reco_rate)
-            #_start['dc0_prv'] = (_start['dk_prv_t']*((1-macro['tau_tax'].mean())*macro.avg_prod_k.mean()+_start['hh_reco_rate'])
-            #                     + _start[['pcsoc','scale_fac_soc']].prod(axis=1)*math.e**(-i_dt*const_pub_reco_rate))
 
             # Quitters
             #_stop['t_start_prv_reco'] = #unchanged
