@@ -3,6 +3,51 @@ from pandas_helper import get_list_of_index_names, broadcast_simple, concat_cate
 import numpy as np
 from scipy.interpolate import UnivariateSpline,interp1d
 
+def average_over_rp(df,protection=None):        
+    """Aggregation of the outputs over return periods"""
+    
+    if protection is None:
+        protection=pd.Series(0,index=df.index)    
+    
+    #does nothing if df does not contain data on return periods
+    try:
+        if "rp" not in df.index.names:
+            print("rp was not in df")
+            return df
+    except(TypeError):
+        pass
+    
+    default_rp = 1
+    #just drops rp index if df contains default_rp
+    #if default_rp in df.index.get_level_values("rp"):
+    #    print("default_rp detected, droping rp")
+    #    return (df.T/protection).T.reset_index("rp",drop=True)
+        
+    
+    df=df.copy().reset_index("rp")
+    protection=protection.copy().reset_index("rp",drop=True)
+    
+    #computes probability of each return period
+    return_periods=np.unique(df["rp"].dropna())
+
+    proba = pd.Series(np.diff(np.append(1/return_periods,0)[::-1])[::-1],index=return_periods) #removes 0 from the rps
+
+    #matches return periods and their probability
+    proba_serie=df["rp"].replace(proba)
+
+    #removes events below the protection level
+    proba_serie[protection>df.rp] =0
+
+    #handles cases with multi index and single index (works around pandas limitation)
+    idxlevels = list(range(df.index.nlevels))
+    if idxlevels==[0]:
+        idxlevels =0
+        
+    #average weighted by proba
+    averaged = df.mul(proba_serie,axis=0).sum(level=idxlevels) # obsolete .div(proba_serie.sum(level=idxlevels),axis=0)
+    
+    return averaged.drop("rp",axis=1)
+
 def mystriper(string):
     '''strip blanks and converts everythng to lower case''' 
     if type(string)==str:
@@ -106,8 +151,8 @@ def get_AIR_data(fname,sname,keep_sec,keep_per):
     #AIR_peril_lookup_2 = {'EQ':'EQ', 'HUSSPF':'TC', 'HU':'wind', 'SS':'surge', 'PF':'flood'}
 
     AIR_value_destroyed = pd.read_excel(fname,sheetname='Loss_Results',
-                                        usecols=['perilsetcode','province','Perspective','Sector','EP1','EP10','EP25','EP30','EP50','EP100','EP200','EP250','EP500','EP1000']).squeeze()
-    AIR_value_destroyed.columns=['hazard','province','Perspective','Sector',1,10,25,30,50,100,200,250,500,1000]
+                                        usecols=['perilsetcode','province','Perspective','Sector','AAL','EP1','EP10','EP25','EP30','EP50','EP100','EP200','EP250','EP500','EP1000']).squeeze()
+    AIR_value_destroyed.columns=['hazard','province','Perspective','Sector','AAL',1,10,25,30,50,100,200,250,500,1000]
 
     # Change province code to province name
     #AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['hazard','Perspective','Sector'])
@@ -121,7 +166,10 @@ def get_AIR_data(fname,sname,keep_sec,keep_per):
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['hazard','province','Perspective','Sector'])
     AIR_value_destroyed = AIR_value_destroyed.drop(['index'],axis=1, errors='ignore')
 
+    AIR_aal = AIR_value_destroyed['AAL']
+
     # Stack return periods column
+    AIR_value_destroyed = AIR_value_destroyed.drop('AAL',axis=1)
     AIR_value_destroyed.columns.name='rp'
     AIR_value_destroyed = AIR_value_destroyed.stack()
 
@@ -138,28 +186,104 @@ def get_AIR_data(fname,sname,keep_sec,keep_per):
     
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['Sector'])
     AIR_value_destroyed = AIR_value_destroyed.drop([iSec for iSec in range(0,30) if iSec != sector_dict[keep_sec]])
+
+    AIR_aal = AIR_aal.reset_index().set_index(['Sector'])
+    AIR_aal = AIR_aal.drop([iSec for iSec in range(0,30) if iSec != sector_dict[keep_sec]])
     
     # Choose only Perspective = Occurrence ('Occ') OR Aggregate ('Agg')
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['Perspective'])
     AIR_value_destroyed = AIR_value_destroyed.drop([iPer for iPer in ['Occ', 'Agg'] if iPer != keep_per])
+
+    AIR_aal = AIR_aal.reset_index().set_index(['Perspective'])
+    AIR_aal = AIR_aal.drop([iPer for iPer in ['Occ', 'Agg'] if iPer != keep_per])
     
     # Map perilsetcode to perils to hazard
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['hazard'])
     AIR_value_destroyed = AIR_value_destroyed.drop(-1)
 
+    AIR_aal = AIR_aal.reset_index().set_index(['hazard'])
+    AIR_aal = AIR_aal.drop(-1)
+
     # Drop Sector and Perspective columns
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['province','hazard','rp'])
     AIR_value_destroyed = AIR_value_destroyed.drop(['Sector','Perspective'],axis=1, errors='ignore')
+
+    AIR_aal = AIR_aal.reset_index().set_index(['province','hazard'])
+    AIR_aal = AIR_aal.drop(['Sector','Perspective'],axis=1, errors='ignore')
     
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index('province')
     AIR_value_destroyed['hazard'].replace(AIR_peril_lookup_1,inplace=True)
+
+    AIR_aal = AIR_aal.reset_index().set_index('province')
+    AIR_aal['hazard'].replace(AIR_peril_lookup_1,inplace=True)
 
     # Keep earthquake (EQ), wind (HU), storm surge (SS), and precipitation flood (PF)
     AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index('hazard')   
     AIR_value_destroyed = AIR_value_destroyed.drop(['HUSSPF'],axis=0)
 
-    AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['province','hazard','rp'])
+    AIR_aal = AIR_aal.reset_index().set_index('hazard')   
+    AIR_aal = AIR_aal.drop(['HUSSPF'],axis=0)
 
+    AIR_value_destroyed = AIR_value_destroyed.reset_index().set_index(['province','hazard','rp'])
     AIR_value_destroyed = AIR_value_destroyed.sort_index().squeeze()
 
+    AIR_aal = AIR_aal.reset_index().set_index(['province','hazard'])
+    AIR_aal = AIR_aal.sort_index().squeeze()
+
+    AIR_value_destroyed = AIR_extreme_events(AIR_value_destroyed,AIR_aal)
+
     return AIR_value_destroyed
+
+def AIR_extreme_events(df_air,df_aal):
+
+    # add frequent events
+    last_rp = 20
+    new_rp = 1
+
+    added_proba = 1/new_rp - 1/last_rp
+
+    # places where new values are higher than values for 10-yr RP
+    test = df_air.unstack().replace(0,np.nan).dropna().assign(test=lambda x:x[new_rp]/x[10]).test
+
+    max_relative_exp = .8
+
+    overflow_frequent_countries = test[test>max_relative_exp].index
+    print("overflow in {n} (region, event)".format(n=len(overflow_frequent_countries)))
+    #print(test[overflow_frequent_countries].sort_values(ascending=False))
+
+    # for this places, add infrequent events
+    hop=df_air.unstack()
+
+
+    hop[1]=hop[1].clip(upper=max_relative_exp*hop[10])
+    df_air = hop.stack()
+    #^ changed from: frac_value_destroyed_gar = hop.stack()
+    #print(frac_value_destroyed_gar_completed)
+
+    print(df_air.head(10))
+
+    new_rp = 2000
+    added_proba = 1/2000
+
+    new_frac_destroyed = (df_aal - average_over_rp(df_air).squeeze())/(added_proba)
+
+    #REMOVES 'tsunamis' and 'earthquakes' from this thing
+    # new_frac_destroyed = pd.DataFrame(new_frac_destroyed).query("hazard in ['tsunami', 'earthquake']").squeeze()
+
+    hop = df_air.unstack()
+    hop[new_rp]=   new_frac_destroyed
+    hop= hop.sort_index(axis=1)
+
+    df_air = hop.stack()
+    #frac_value_destroyed_gar_completed.head(10)
+
+    test = df_air.unstack().replace(0,np.nan).dropna().assign(test=lambda x:x[new_rp]/x[1000]).test
+    #print(frac_value_destroyed_gar_completed["United States"])
+
+    pd.DataFrame((average_over_rp(df_air).squeeze()/df_aal).replace(0,np.nan).dropna().sort_values())
+
+    print('GAR preprocessing script: writing out intermediate/frac_value_destroyed_gar_completed.csv')
+    df_air.to_csv('../inputs/PH/Risk_Profile_Master_With_Population_with_EP1_and_EP2000.csv', encoding="utf-8", header=True)
+
+    return df_air
+    

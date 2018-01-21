@@ -1226,7 +1226,7 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
     # ^ grab one hh in the poorest quintile, and one in the wealthiest
     temp, c_mean = None, None
     if study == True:
-        temp = pd.read_csv(debug+'temp_init.csv',index_col=['Division','hazard','rp'])
+        temp = pd.read_csv(debug+'temp_init.csv',index_col=['region','hazard','rp','hhid','affected_cat','helped_cat'])
 
         c_mean = float(temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum())
 
@@ -1236,19 +1236,23 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
         #temp['dc']/=1.E5
         # ^ uncomment here if we want to make sure that (dw/wprime) converges to dc for small losses among wealthy
 
+        mac_ix = ['region','hazard','rp']
+        mic_ix = temp.index.names
+
     else:
-        mac_ix = macro.index.names
-        mic_ix = micro.index.names
 
         #temp = pd.merge(micro.reset_index(),macro.reset_index(),on=[i for i in mac_ix]).reset_index().set_index([i for i in mic_ix])
         # ^ is merge of cats_event with macro_event actually necessary?
         temp = micro.copy()
         temp.head(20000).to_csv(debug+'temp_init.csv')
-
-        # Upper limit for per cap dw
-        c_mean = temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum()
-        temp['dw_limit'] = abs(20.*c_mean)
         
+        mac_ix = macro.index.names
+        mic_ix = micro.index.names
+
+    # Upper limit for per cap dw
+    c_mean = temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum()
+    temp['dw_limit'] = abs(20.*c_mean)
+
     # Drop cols from temp, because it's huge...
     temp = temp.drop([i for i in ['province','pcinc','hhwgt','pcinc_ae','hhsize','hhsize_ae','pov_line',
                                   'gamma_SP','shew','hh_share','fa','v_shew','is_poor','v','social','quintile','c_5'] if i in temp.columns],axis=1)
@@ -1281,6 +1285,8 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
     my_out_x, my_out_yA, my_out_yNA, my_out_yzero = [], [], [], []
     x_max = min((np.log(1/0.05)/float(temp['hh_reco_rate'].min())),10.)
     x_min, n_steps = 0.,52.*x_max # <-- time step = week
+    if study == True: x_min, x_max, n_steps = 0.,1.,1 # <-- time step = 1 year
+
     print('\n ('+optionPDS+') Integrating well-being losses over '+str(x_max)+' years after disaster ('+pol_str+')') 
     # ^ make sure that, if T_recon changes, so does x_max!
     
@@ -1340,10 +1346,10 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
         ####################################
         # Let the hh optimize (pause or re-/start) its reconstruction
         # NB: only applies to hh in subsistence immediately after the disaster (welf_class == 3)
-        if (counter%2 == 0 and counter <= 200) or (counter>200 and counter%50 == 0):
+        if (counter <= 200 and counter%2 == 0) or (counter>200 and counter%50 == 0):
             
             # Find hh that climbed out of/fell back into subsistence
-            _start = temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate==0)&((temp.c-temp.dc_t) > temp.c_min)].copy()
+            _start = temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate==0)&((temp.c-temp.dc_t) > 1.10*temp.c_min)].copy()
             _stop  = temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate!=0)&((temp.c-temp.dc_t) < temp.c_min)].copy()
 
             ############
@@ -1356,7 +1362,7 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
             #_stop['t_start_prv_reco'] = #unchanged
             _stop['hh_reco_rate'] = 0.
         
-            temp.loc[((temp.welf_class==3)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_t) > temp.c_min)),
+            temp.loc[((temp.welf_class==3)&(temp.hh_reco_rate==0.)&((temp.c-temp.dc_t) > 1.10*temp.c_min)),
                      ['t_start_prv_reco','hh_reco_rate']] = _start[['t_start_prv_reco','hh_reco_rate']]
 
             temp.loc[(temp.welf_class==3)&(temp.hh_reco_rate!=0.)&((temp.c-temp.dc_t) < temp.c_min),['hh_reco_rate']] = _stop[['hh_reco_rate']]
@@ -1444,6 +1450,10 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
     print('\n ('+optionPDS+' Total well-being losses ('+pol_str+'):',round(float(temp[['dw_curr_no_clip','pcwgt']].prod(axis=1).sum())/1.E6,3))
 
     tmp_out = pd.DataFrame(index=temp.sum(level=[i for i in mac_ix]).index)
+    print(temp.index.names)
+    print(mac_ix)
+
+    temp = temp.reset_index(level='affected_cat')
 
     tmp_out['dk_tot'] = temp[['dk0','pcwgt']].prod(axis=1).sum(level=[i for i in mac_ix])/1.E6
     tmp_out['dw_tot'] = temp[['dw_curr','pcwgt']].prod(axis=1).sum(level=[i for i in mac_ix])/1.E6
@@ -1458,10 +1468,16 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
     tmp_out['res_sub'] = tmp_out['dk_sub']/tmp_out['dw_sub']
 
     tmp_out['ratio_dw_lim_tot']  = tmp_out['dw_lim']/tmp_out['dw_tot']
+
+    tmp_out['avg_reco_t']         = (np.log(1/0.05)/temp.loc[(temp.affected_cat=='a')&(temp.hh_reco_rate!=0),'hh_reco_rate']).mean(skipna=True,level=[i for i in mac_ix])
+    tmp_out['sub_avg_reco_t']     = (np.log(1/0.05)/temp.loc[(temp.affected_cat=='a')&(temp.welf_class==3)&(temp.hh_reco_rate!=0),'hh_reco_rate']).mean(skipna=True,level=[i for i in mac_ix])
+    tmp_out['non_sub_avg_reco_t'] = (np.log(1/0.05)/temp.loc[(temp.affected_cat=='a')&(temp.welf_class!=3)&(temp.hh_reco_rate!=0),'hh_reco_rate']).mean(skipna=True,level=[i for i in mac_ix])
+    tmp_out['pct_subs']           = temp.loc[(temp.affected_cat=='a')&(temp.hh_reco_rate==0),'pcwgt'].sum(level=[i for i in mac_ix])/temp.loc[(temp.affected_cat=='a'),'pcwgt'].sum(level=[i for i in mac_ix])
+
     tmp_out.loc[tmp_out.dw_tot!=0].to_csv(debug+'my_summary_'+optionPDS+pol_str+'.csv')
     print('Wrote out summary stats for dw ('+optionPDS+'/'+pol_str+')')
     
-    return temp['dw']
+    return temp.reset_index().set_index([i for i in mic_ix])['dw']
 
 def welf1(c,elast,comp):
     """"Welfare function"""
