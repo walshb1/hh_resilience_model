@@ -90,6 +90,9 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     macro = pd.read_csv(intermediate+'macro.csv', index_col=economy)
     cat_info = pd.read_csv(intermediate+'cat_info.csv',  index_col=[economy, income_cats])
 
+    #calc_delta_welfare(None,None,'','no',is_revised_dw=True,study=True)
+    #assert(False)
+
     # First function: compute_with_hazard_ratios 
     # --> This is a shell that loads hazard_ratios, then calls process_input
     #  Inputs:

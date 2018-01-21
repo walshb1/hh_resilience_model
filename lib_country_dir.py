@@ -395,6 +395,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         df_prv['hh_share'] = df_prv['value_destroyed_prv']/(df_prv['value_destroyed_pub']+df_prv['value_destroyed_prv'])
                 
         df_prv = df_prv.reset_index().drop('index',axis=1).fillna(0)
+        
         return df_prv,df_prv
     
     elif myC == 'FJ':
