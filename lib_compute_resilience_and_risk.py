@@ -573,6 +573,11 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         ############################
         cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
         assert(cats_event_ia.hh_reco_rate.min()>=0)
+
+        # NPV consumption losses accounting for reconstruction and productivity of capital (pre-response)
+        cats_event_ia['macro_multiplier'] = (macro_event['avg_prod_k'].mean(level=event_level)+cats_event_ia['hh_reco_rate'])/(const_rho+cats_event_ia['hh_reco_rate'])  
+        # ^ Gamma in the technical paper
+        cats_event_ia['dc_npv_pre'] = cats_event_ia[['dc0','macro_multiplier']].prod(axis=1)
         
     return macro_event, cats_event_ia, public_costs
 
@@ -729,9 +734,6 @@ def calc_dw_outside_affected_province(macro_event, cat_info, public_costs_pub, p
                         abs(tmp_df['dw_soc'].sum()/wprime)
 
     public_costs = public_costs.reset_index().set_index(event_level).drop('index',axis=1)
-
-    # NPV consumption losses accounting for reconstruction and productivity of capital (pre-response)
-    #cat_info['dc_npv_pre'] = cat_info['dc0']*macro_event['macro_multiplier']
     
     return public_costs
 
@@ -1492,80 +1494,6 @@ def welf(c,elast):
     y=(c**(1-elast)-1)/(1-elast)
     return y
 	
-def average_over_rp(df,default_rp,protection=None):        
-    """Aggregation of the outputs over return periods"""    
-    if protection is None:
-        protection=pd.Series(0,index=df.index)        
-
-    #just drops rp index if df contains default_rp
-    if default_rp in df.index.get_level_values('rp'):
-        print('default_rp detected, dropping rp')
-        return (df.T/protection).T.reset_index('rp',drop=True)
-           
-    df=df.copy().reset_index('rp')
-    protection=protection.copy().reset_index('rp',drop=True)
-    
-    #computes frequency of each return period
-    return_periods=np.unique(df['rp'].dropna())
-
-    proba = pd.Series(np.diff(np.append(1/return_periods,0)[::-1])[::-1],index=return_periods) #removes 0 from the rps 
-
-    #matches return periods and their frequency
-    proba_serie=df['rp'].replace(proba).rename('prob')
-    proba_serie1 = pd.concat([df.rp,proba_serie],axis=1)
-#    print(proba_serie.shape)
-#    print(df.rp.shape)
-#    print(protection)
-    #removes events below the protection level
-    proba_serie[protection>df.rp] =0
-
-    #handles cases with multi index and single index (works around pandas limitation)
-    idxlevels = list(range(df.index.nlevels))
-    if idxlevels==[0]:
-        idxlevels =0
-#    print(idxlevels)
-#    print(get_list_of_index_names(df))
-#    print(df.head(10))
-    #average weighted by proba
-    averaged = df.mul(proba_serie,axis=0).sum(level=idxlevels).drop('rp',axis=1) # frequency times each variables in the columns including rp.
-    return averaged,proba_serie1 #here drop rp.
-	
-	
-def average_over_rp1(df,default_rp,protection=None):        
-    """Aggregation of the outputs over return periods"""    
-    if protection is None:
-        protection=pd.Series(0,index=df.index)
-
-    #just drops rp index if df contains default_rp
-    if default_rp in df.index.get_level_values('rp'):
-        print('default_rp detected, dropping rp')
-        return (df.T/protection).T.reset_index('rp',drop=True)
-           
-    df=df.copy().reset_index('rp')
-    protection=protection.copy().reset_index('rp',drop=True)
-    
-    #computes frequency of each return period
-    return_periods=np.unique(df['rp'].dropna())
-
-    proba = pd.Series(np.diff(np.append(1/return_periods,0)[::-1])[::-1],index=return_periods) #removes 0 from the rps 
-
-    #matches return periods and their frequency
-    proba_serie=df['rp'].replace(proba)
-#    print(proba_serie.shape)
-#    print(df.rp.shape)
-#    print(protection)
-    #removes events below the protection level
-    proba_serie[protection>df.rp] =0
-
-    #handles cases with multi index and single index (works around pandas limitation)
-    idxlevels = list(range(df.index.nlevels))
-    if idxlevels==[0]:
-        idxlevels =0
-
-    #average weighted by proba
-    averaged = df.mul(proba_serie,axis=0)#.sum(level=idxlevels) # frequency times each variables in the columns including rp.
-    return averaged.drop('rp',axis=1) #here drop rp.
-
 def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfare,is_revised_dw): 
     """Computes risk and resilience from dk, dw and protection. Line by line: multiple return periods or hazard is transparent to this function"""
     df=df.copy()    
