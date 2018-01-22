@@ -2,51 +2,7 @@ import pandas as pd
 from pandas_helper import get_list_of_index_names, broadcast_simple, concat_categories
 import numpy as np
 from scipy.interpolate import UnivariateSpline,interp1d
-
-def average_over_rp(df,protection=None):        
-    """Aggregation of the outputs over return periods"""
-    
-    if protection is None:
-        protection=pd.Series(0,index=df.index)    
-    
-    #does nothing if df does not contain data on return periods
-    try:
-        if "rp" not in df.index.names:
-            print("rp was not in df")
-            return df
-    except(TypeError):
-        pass
-    
-    default_rp = 1
-    #just drops rp index if df contains default_rp
-    #if default_rp in df.index.get_level_values("rp"):
-    #    print("default_rp detected, droping rp")
-    #    return (df.T/protection).T.reset_index("rp",drop=True)
-        
-    
-    df=df.copy().reset_index("rp")
-    protection=protection.copy().reset_index("rp",drop=True)
-    
-    #computes probability of each return period
-    return_periods=np.unique(df["rp"].dropna())
-
-    proba = pd.Series(np.diff(np.append(1/return_periods,0)[::-1])[::-1],index=return_periods) #removes 0 from the rps
-
-    #matches return periods and their probability
-    proba_serie=df["rp"].replace(proba)
-
-    #removes events below the protection level
-    proba_serie[protection>df.rp] =0
-
-    #handles cases with multi index and single index (works around pandas limitation)
-    idxlevels = list(range(df.index.nlevels))
-    if idxlevels==[0]:
-        idxlevels =0
-        
-    #average weighted by proba
-    averaged = df.mul(proba_serie,axis=0).sum(level=idxlevels) # obsolete .div(proba_serie.sum(level=idxlevels),axis=0)
-    
-    return averaged.drop("rp",axis=1)
+from lib_average_over_rp import *
 
 def mystriper(string):
     '''strip blanks and converts everythng to lower case''' 

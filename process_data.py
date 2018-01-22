@@ -145,6 +145,41 @@ make_map_from_svg(
     do_qualitative=False,
     res=2000)
 
+make_map_from_svg(
+    df_prov.dKtot/df_prov.gdp, 
+    svg_file,
+    outname=myCountry+'_asset_risk_over_reg_gdp',
+    color_maper=plt.cm.get_cmap('Blues'),
+    #svg_handle = 'reg',
+    label='Annual asset risk [% of regional GDP]',
+    new_title='Annual asset risk [% of regional GDP]',
+    do_qualitative=False,
+    res=2000)
+
+make_map_from_svg(
+    df_prov.dWtot_currency/df_prov.gdp, 
+    svg_file,
+    outname=myCountry+'_welf_risk_over_reg_gdp',
+    color_maper=plt.cm.get_cmap('Reds'),
+    #svg_handle = 'reg',
+    label='Annual well-being risk [% of regional GDP]',
+    new_title='Annual well-being risk [% of regional GDP]',
+    do_qualitative=False,
+    res=2000)
+
+make_map_from_svg(
+    df_prov.dWtot_currency/df_prov.gdp.sum(), 
+    svg_file,
+    outname=myCountry+'_welf_risk_over_natl_gdp',
+    color_maper=plt.cm.get_cmap('Reds'),
+    #svg_handle = 'reg',
+    label='Annual well-being risk [% of national GDP]',
+    new_title='Annual well-being risk [% of national GDP]',
+    do_qualitative=False,
+    res=2000)
+
+assert(False)
+
 res_pds = pd.read_csv(output+'results_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 iah_pds = pd.read_csv(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp','hhid','helped_cat','affected_cat'])
 iah = iah.reset_index().set_index([economy,'hazard','rp','hhid','helped_cat','affected_cat'])
