@@ -115,21 +115,19 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     macro_event, cats_event_iah, pub_costs_pds = calculate_response(myCountry,pol_str,macro_event,cats_event_ia,pub_costs_pds,event_level,helped_cats,default_rp,
                                                                     option_CB,optionFee=optionFee,optionT=optionT, optionPDS=optionPDS, optionB=optionB,
                                                                     loss_measure='dk_private',fraction_inside=1, share_insured=.25)
-
-    #print('post calc_resp:'+str(round(100*float(cats_event_iah.loc[(cats_event_iah['hh_reco_rate']<const_nom_reco_rate)].shape[0]/cats_event_iah.shape[0]),2))+'% of hh have t_reco != 3yr')
-    #print('const_nom_reco_rate = ',const_nom_reco_rate)
-    #cats_event_iah.head(10000).to_csv(debug+'my_rr_2.csv')
     print('C\n\n')
     
     pub_costs_inf.to_csv(output+'pub_costs_inf_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     pub_costs_pds.to_csv(output+'pub_costs_pds_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
 
-    is_contemporaneous = False 
-    # For people outside affected province, do the collections for public asset reco & PDS happen at the same time?
-    public_costs = calc_dw_outside_affected_province(macro_event, cat_info, pub_costs_inf, pub_costs_pds,event_level,is_contemporaneous,is_local_welfare,is_rev_dw)
-    public_costs.to_csv(output+'public_costs_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
+    if False:
+        is_contemporaneous = False 
+        # For people outside affected province, do the collections for public asset reco & PDS happen at the same time?
+        public_costs = calc_dw_outside_affected_province(macro_event, cat_info, pub_costs_inf, pub_costs_pds,event_level,is_contemporaneous,is_local_welfare,is_rev_dw)
+        public_costs.to_csv(output+'public_costs_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
         
-    #optionFee: tax or insurance_premium  optionFee='insurance_premium',optionT='perfect', optionPDS='prop', optionB='unlimited',optionFee='tax',optionT='data', optionPDS='unif_poor', optionB='data',
+    #optionFee: tax or insurance_premium  optionFee='insurance_premium',optionT='perfect', optionPDS='prop', 
+    #optionB='unlimited',optionFee='tax',optionT='data', optionPDS='unif_poor', optionB='data',
     #optionT(targeting errors):perfect, prop_nonpoor_lms, data, x33, incl, excl.
     #optionB:one_per_affected, one_per_helped, one, unlimited, data, unif_poor, max01, max05
     #optionPDS: unif_poor, no, 'prop', 'prop_nonpoor'
@@ -152,9 +150,17 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     results.to_csv(output+'results_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('H')
 
-    iah = iah.drop([icol for icol in ['index','social','pcsoc','v','v_shew','gamma_SP','c_5','n','shew','fa','hh_share','public_loss_v','v_shew','SP_CPP','SP_FAP','SP_FNPF','SP_SPS','SP_PBS','SPP_core','SPP_add','nOlds','dc_0'] if icol in iah.columns],axis=1)
-    iah.to_csv(output+'iah_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
-    print('Step I: wrote iah, a huge file. See anything to drop?\n',iah.columns)
+    iah.head(10000).to_csv(output+'iah_full_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
+    iah = iah.drop([icol for icol in ['index','social','pcsoc','v','v_shew','gamma_SP','c_5','n','pcinc','shew','fa',
+                                      'hhsize','hhsize_ae','hh_share','public_loss_v','v_shew',
+                                      'dk_other','dk_private', 'dk_public',
+                                      'di0_prv','di0_pub','di0',
+                                      'dc0_prv','dc0_pub',
+                                      'pc_fee_BE','scale_fac_soc',
+                                      'c_min','macro_multiplier','help_fee',
+                                      'SP_CPP','SP_FAP','SP_FNPF','SP_SPS','SP_PBS','SPP_core','SPP_add','nOlds','dc_0'] if icol in iah.columns],axis=1)
+    iah.loc[iah.pcwgt!=0].to_csv(output+'iah_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
+    print('\n******************\nStep I: wrote iah (excluding all hh with pcwgt = 0) ... still a huge file. See anything to drop?\n',iah.columns)
     #return True
 
     # result1=pd.read_csv('output-old/results.csv', index_col=economy)

@@ -217,25 +217,39 @@ fig=plt.gcf()
 fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/dk.pdf',format='pdf')
 
 summary_df = pd.read_csv('/Users/brian/Desktop/BANK/debug/my_summary_no.csv').reset_index()
+summary_df = summary_df.loc[summary_df.rp!=2000].sort_values(by=['hazard','region','rp'])
+
+all_regions = np.unique(summary_df['region'].dropna())
 
 for iHaz in ['SS','PF','HU','EQ']:
-    _ = summary_df.loc[(summary_df.hazard==iHaz)].sort_values(by=['region','rp'])
+    _ = summary_df.loc[(summary_df.hazard==iHaz)]
 
     regions = _.groupby('region')
-
+    
     fig, ax = plt.subplots()
     ax.margins(0.05) # Optional, just adds 5% padding to the autoscaling
     col_ix = 0
     for name, iReg in regions:
+
+        while name != all_regions[col_ix]:
+            col_ix += 1
         
-        ax.semilogx(iReg.rp, iReg.res_tot.clip(upper=1.5), marker='.', linestyle='', ms=9, label=name,color=reg_pal[col_ix])
+        ax.semilogx(iReg.rp, (100*iReg.res_tot).clip(upper=100), marker='.', linestyle='', ms=9, label=name,color=reg_pal[col_ix])
         col_ix+=1
 
-    leg = ax.legend(loc='best',labelspacing=0.75,ncol=2,fontsize=6,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0,title='Region')
+    plt.xlabel('Return period [years]')
+    plt.ylabel('Socio-economic capacity [%]')
+    plt.ylim(0,130)
+
+    leg = ax.legend(loc='best',labelspacing=0.75,ncol=4,fontsize=6,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0,title='Region')
 
     col_ix = 0
     for name, iReg in regions:
-        ax.plot(iReg.rp, iReg.res_tot.clip(upper=1.5),color=reg_pal[col_ix])
+
+        while name != all_regions[col_ix]:
+            col_ix += 1
+
+        ax.plot(iReg.rp, (100*iReg.res_tot).clip(upper=100),color=reg_pal[col_ix])
         col_ix+=1
 
     fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/reg_resilience_'+iHaz+'.pdf',format='pdf')
