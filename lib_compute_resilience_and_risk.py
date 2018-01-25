@@ -1367,8 +1367,7 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
                   +str(temp.query(stop_criteria).shape[0])+' hh stop reco\n')
 
         #########################################
-        # Recalculate dc at this time step after hh make adjustments 
-        print('Recalc dc after adjustments')
+        # Recalculate dc at this time step after hh make adjustments
         temp['di_prv_t'] = (temp['dk_prv_t'].values*my_avg_prod_k*(1-my_tau_tax)
                             + temp[['pcsoc','scale_fac_soc']].prod(axis=1).values*math.e**(-i_dt*const_pub_reco_rate))
         #NB: temp['di_pub_t'] is unchanged from above
@@ -1379,7 +1378,6 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
         # Now apply savings (if any left)
         #
         # After 6 months (26 weeks), use up the rest of savings
-        print('Check savings')
         if counter == 26: temp['sav_offset_to'] = 0.
  
         # Find dC net of savings (min = sav_offset_to if dc_t > 0  -OR-  min = dc_t if dc_t < 0 ie: na & received PDS)
@@ -1390,11 +1388,9 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
         sav_criteria_2b = sav_criteria+'&(dc_net!=dc_t)&(hh_reco_rate==0)'
 
         # This is how much dc is offset by savings
-        print('debiting savings')
         temp.loc[temp.eval(sav_criteria),'dc_net'] = temp.loc[temp.eval(sav_criteria)].eval('dc_t-sav_f/@step_dt')
         temp.loc[temp.eval(sav_criteria),'dc_net'] = temp.loc[temp.eval(sav_criteria),'dc_net'].clip(lower=temp.loc[temp.eval(sav_criteria),['sav_offset_to','dc_t']].min(axis=1).squeeze())
 
-        print('calc delta_sav')
         temp['sav_delta'] = 0
         _dsav_a = '(dc_t/hh_reco_rate)*(1-@math.e**(-hh_reco_rate*@step_dt))-dc_net*@step_dt'
         _dsav_b = '@step_dt*(dc_t-dc_net)'
@@ -1412,7 +1408,6 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
         #temp.loc[_.index.tolist(),['dc_net','sav_delta']] = _[['dc_net','sav_delta']]
 
         # Adjust savings after spending    
-        print('calc_sav_f')
         temp['sav_f'] = temp['sav_f']-temp['sav_delta']
 
         # Sanity check: savings should not go negative (not more than 0.01 cent!)
@@ -1423,13 +1418,11 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
       
         ########################  
         # Finally, calculate welfare losses
-        print('increment integer')
         temp['integ'] += step_dt*((1.-(temp['dc_net'].values/temp['c'].values))**(1-const_ie)-1.)*math.e**(-i_dt*const_rho)
         # NB: no expansion here because dc_net already gives the instantateous value at t = i_dt
         # --> Could take the average within each time step (step_dt)
 
         # Decrement dk(t)
-        print('decrement dk')
         temp['dk_prv_t'] += temp['dk_prv_t'].values*(-step_dt*temp['hh_reco_rate'].values+1/2*(step_dt*temp['hh_reco_rate'].values)**2-1/6*(step_dt*temp['hh_reco_rate'].values)**3
                                                       +1/24*(step_dt*temp['hh_reco_rate'].values)**4-1/120*(step_dt*temp['hh_reco_rate'].values)**5)
 
@@ -1440,7 +1433,6 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
             assert(False)  
 
         # Save out the files for debugging
-        print('write year_step')
         if ((counter<=10) or (counter%50 == 0)): temp.head(10000).to_csv(debug+'temp_'+optionPDS+pol_str+'_'+str(counter)+'.csv')
         if (counter <= 3*52 and counter%52==0) or (counter==52*10):
             year_step['dk_'+str(int(counter/52))] = temp['dk_prv_t']
