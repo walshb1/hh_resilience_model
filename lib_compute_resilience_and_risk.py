@@ -1375,13 +1375,13 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
             # Find hh that climbed out of subsistence
             temp.loc[temp.eval(start_criteria),'hh_reco_rate'] = (temp.loc[temp.eval(start_criteria)].eval('(c-di_t-c_min)/dk_prv_t')).clip(lower=const_nom_reco_rate/6.,upper=6.*const_nom_reco_rate)
             temp.loc[temp.eval(start_criteria),'t_start_prv_reco'] = i_dt
-
+            
             # Find hh that need to accelerate or scale back their reconstruction...usually because they spent PDS 
             temp.loc[temp.eval(recalc_criteria),'hh_reco_rate'] = (temp.loc[temp.eval(recalc_criteria)].eval('(c-di_t-c_min)/dk_prv_t')).clip(lower=const_nom_reco_rate/6.,upper=6.*const_nom_reco_rate)
             assert(temp.loc[temp.hh_reco_rate<0].shape[0] ==0)
             
             # hh stops reco when its *income* drops below subsistence and it has no more savings...
-            temp.loc[temp.eval(stop_criteria),'hh_reco_rate'] = 0 
+            temp.loc[temp.eval(stop_criteria),'hh_reco_rate'] = 0
 
 
         #########################################
