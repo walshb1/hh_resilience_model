@@ -221,7 +221,9 @@ def AIR_extreme_events(df_air,df_aal):
     new_rp = 2000
     added_proba = 1/2000
 
-    new_frac_destroyed = (df_aal - average_over_rp(df_air).squeeze())/(added_proba)
+    df_air_avg, _ = average_over_rp(df_air)
+
+    new_frac_destroyed = (df_aal - df_air_avg.squeeze())/(added_proba)
 
     #REMOVES 'tsunamis' and 'earthquakes' from this thing
     # new_frac_destroyed = pd.DataFrame(new_frac_destroyed).query("hazard in ['tsunami', 'earthquake']").squeeze()
@@ -236,10 +238,20 @@ def AIR_extreme_events(df_air,df_aal):
     test = df_air.unstack().replace(0,np.nan).dropna().assign(test=lambda x:x[new_rp]/x[1000]).test
     #print(frac_value_destroyed_gar_completed["United States"])
 
-    pd.DataFrame((average_over_rp(df_air).squeeze()/df_aal).replace(0,np.nan).dropna().sort_values())
+    df_air_averages, _ = average_over_rp(df_air)
+
+    pd.DataFrame((df_air_averages.squeeze()/df_aal).replace(0,np.nan).dropna().sort_values())
 
     print('GAR preprocessing script: writing out intermediate/frac_value_destroyed_gar_completed.csv')
     df_air.to_csv('../inputs/PH/Risk_Profile_Master_With_Population_with_EP1_and_EP2000.csv', encoding="utf-8", header=True)
 
     return df_air
     
+def get_provincial_savings(pol,fstr):
+    if pol == '_nosavings': return 0
+    
+    # Without data: we tried giving hh savings = 6 months' income if they report spending on savings or investments, 1 month if not
+    #if pol_str != '_nosavings': temp['sav_i'] = (temp[['axfin','c']].prod(axis=1)/2.).clip(lower=temp['c']/12.)
+    
+    f = pd.read_excel(fstr,sheetname='Average Savings')
+    return 0

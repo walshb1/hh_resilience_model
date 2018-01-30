@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pandas_helper import get_list_of_index_names, broadcast_simple, concat_categories
 from scipy.interpolate import interp1d
-from lib_gather_data import social_to_tx_and_gsp
+from lib_gather_data import social_to_tx_and_gsp, get_provincial_savings
 import math
 from lib_country_dir import *
 import seaborn as sns
@@ -1306,8 +1306,7 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
     # use this to count down as hh rebuilds
 
     # First, assign savings, and use it to pay pc_fee:
-    if pol_str != '_nosavings': temp['sav_i'] = (temp[['axfin','c']].prod(axis=1)/2.).clip(lower=temp['c']/12.)
-    else: temp['sav_i'] = 0.
+    temp['sav_i'] = get_provincial_savings(pol_str,'../inputs/PH/Socioeconomic Resilence (Provincial)_Print Version_rev1.xlsx')
 
     temp['sav_f'] = temp['sav_i']-temp['pc_fee']
     print(temp.loc[temp.sav_f<0].shape[0],' hh borrow to pay their fees :(')
@@ -1572,3 +1571,6 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfar
     df['risk_to_assets']  =df.resilience*df.risk
     
     return df
+
+def get_provincial_savings():
+    return 0.

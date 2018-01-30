@@ -119,15 +119,26 @@ results_df.to_csv(output+'results_table_old.csv')
 
 df_prov['R_asst'] = round(100.*df_prov['dKtot']/df_prov['gdp'],2)
 df_prov['R_welf'] = round(100.*df_prov['dWtot_currency']/df_prov['gdp'],2)
+
+_gdp_hh = df_prov['gdp_hh'].copy().mean(level=economy)
 df_prov = df_prov.sum(level=economy)
+
+df_prov['gdp_hh'] = _gdp_hh
 df_prov['gdp'] = df[['pop','gdp_pc_prov']].prod(axis=1).mean(level=economy).copy()
+
+pop = float(df['pop'].mean(level=economy).sum())
+gdp = float(df_prov['gdp'].sum())
 
 print(df_prov)
 print(df_prov[['dKtot','dWtot_currency','gdp','gdp_hh']].sum())
+print('gdp/cap: ',round(gdp/pop,0))
+print('pop: '+str(pop))
 print('R_asset:',100.*df_prov['dKtot'].sum()/df_prov['gdp'].sum())
 print('R_welf:',100.*df_prov['dWtot_currency'].sum()/df_prov['gdp'].sum())
 
 print('R_asset per hazard: ',df['dKtot'].sum(level='hazard')/df[['pop','gdp_pc_prov']].prod(axis=1).mean(level=[economy,'hazard']).sum(level='hazard'))
+
+assert(False)
 
 # Map asset losses as fraction of natl GDP
 print('\n',df_prov.dKtot/df_prov.gdp.sum())
