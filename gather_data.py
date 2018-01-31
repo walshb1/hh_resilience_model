@@ -8,11 +8,6 @@ get_ipython().magic('load_ext autoreload')
 get_ipython().magic('autoreload 2')
 
 # Import packages for data analysis
-from lib_asset_info import *
-from lib_country_dir import *
-from lib_gather_data import *
-from lib_sea_level_rise import *
-from replace_with_warning import *
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -20,6 +15,13 @@ from pandas import isnull
 import os, time
 import warnings
 import sys
+
+from libraries.lib_asset_info import *
+from libraries.lib_country_dir import *
+from libraries.lib_gather_data import *
+from libraries.lib_sea_level_rise import *
+from libraries.replace_with_warning import *
+
 warnings.filterwarnings('always',category=UserWarning)
 
 if len(sys.argv) < 2:

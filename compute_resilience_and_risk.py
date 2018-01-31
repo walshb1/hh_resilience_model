@@ -12,9 +12,9 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from lib_country_dir import *
-from lib_compute_resilience_and_risk import *
-from replace_with_warning import *
+from libraries/lib_country_dir import *
+from libraries/lib_compute_resilience_and_risk import *
+from libraries/replace_with_warning import *
 
 from multiprocessing import Pool
 from itertools import repeat
