@@ -5,14 +5,14 @@ matplotlib.use('AGG')
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from pandas_helper import get_list_of_index_names, broadcast_simple, concat_categories
 from scipy.interpolate import interp1d
-from lib_gather_data import social_to_tx_and_gsp, get_provincial_savings
 import math
-from lib_country_dir import *
 import seaborn as sns
 
-from lib_agents import *
+from libraries.pandas_helper import get_list_of_index_names, broadcast_simple, concat_categories
+from libraries.lib_gather_data import social_to_tx_and_gsp, get_hh_savings
+from libraries.lib_country_dir import *
+from libraries.lib_agents import *
 
 pd.set_option('display.width', 220)
 
@@ -1046,7 +1046,7 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
     
     cats_event_iah['dc_post_reco'] = 0
     cats_event_iah['dw'] = 0.
-    cats_event_iah.loc[cats_event_iah.pcwgt!=0,['dc_post_reco','dw']] = calc_delta_welfare(cats_event_iah,macro_event,pol_str,optionPDS,is_revised_dw) 
+    cats_event_iah.loc[cats_event_iah.pcwgt!=0,['dc_post_reco','dw']] = calc_delta_welfare(myCountry,cats_event_iah,macro_event,pol_str,optionPDS,is_revised_dw) 
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level)
 
     ###########
@@ -1203,7 +1203,7 @@ def agg_to_event_level (df, seriesname,event_level):
     does NOT normalize weights to 1."""
     return (df[seriesname].T*df['pcwgt']).T.sum(level=event_level)
 
-def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=False):
+def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,study=False):
     # welfare cost from consumption before (c) and after (dc_npv_post) event. Line by line
 
     #####################################
@@ -1306,7 +1306,7 @@ def calc_delta_welfare(micro, macro, pol_str,optionPDS,is_revised_dw=True,study=
     # use this to count down as hh rebuilds
 
     # First, assign savings, and use it to pay pc_fee:
-    temp['sav_i'] = get_provincial_savings(pol_str,'../inputs/PH/Socioeconomic Resilence (Provincial)_Print Version_rev1.xlsx')
+    temp['sav_i'] = get_hh_savings(temp[['province','ispoor']],myC,pol_str,'../inputs/PH/Socioeconomic Resilience (Provincial)_Print Version_rev1.xlsx')
 
     temp['sav_f'] = temp['sav_i']-temp['pc_fee']
     print(temp.loc[temp.sav_f<0].shape[0],' hh borrow to pay their fees :(')
