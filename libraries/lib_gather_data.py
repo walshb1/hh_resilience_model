@@ -186,11 +186,11 @@ def get_AIR_data(fname,sname,keep_sec,keep_per):
     AIR_aal = AIR_aal.reset_index().set_index(['province','hazard'])
     AIR_aal = AIR_aal.sort_index().squeeze()
 
-    AIR_value_destroyed = AIR_extreme_events(AIR_value_destroyed,AIR_aal)
+    AIR_value_destroyed = AIR_extreme_events(AIR_value_destroyed,AIR_aal,sec=keep_sec,per=keep_per)
 
     return AIR_value_destroyed
 
-def AIR_extreme_events(df_air,df_aal):
+def AIR_extreme_events(df_air,df_aal,sec='',per=''):
 
     # add frequent events
     last_rp = 20
@@ -243,15 +243,45 @@ def AIR_extreme_events(df_air,df_aal):
     pd.DataFrame((df_air_averages.squeeze()/df_aal).replace(0,np.nan).dropna().sort_values())
 
     print('GAR preprocessing script: writing out intermediate/frac_value_destroyed_gar_completed.csv')
-    df_air.to_csv('../inputs/PH/Risk_Profile_Master_With_Population_with_EP1_and_EP2000.csv', encoding="utf-8", header=True)
+    df_air.to_csv('../inputs/PH/Risk_Profile_Master_With_Population_with_EP1_and_EP2000'+sec+'_'+per+'.csv', encoding="utf-8", header=True)
 
     return df_air
     
-def get_provincial_savings(pol,fstr):
+def get_hh_savings(df, myC, pol, fstr):
+
+    _s = pd.DataFrame({'province':df.province,'ispoor':df.ispoor},index=df.index)
+
     if pol == '_nosavings': return 0
+
+    if myC == 'PH':
+
+        # Load PSA file with average savings
+        f = pd.read_excel(fstr,sheetname='Average Savings',skiprows=3).rename(columns={'Unnamed: 0':'province','Estimate':'p','Estimate.1':'np'})[['province','p','np']]
+
+        # Load dictionaries so that these province names match those in df
+        ph_prov_lookup = pd.read_excel('../inputs/PH/FIES_provinces.xlsx',usecols=['province_upper','province_AIR'],index_col='province_upper')['province_AIR'].to_dict()
+        AIR_prov_corrections = {'Tawi-Tawi':'Tawi-tawi','North Cotabato':'Cotabato'}
+        f['province'].replace(ph_prov_lookup,inplace=True)
+        f['province'].replace(AIR_prov_corrections,inplace=True) 
+
+        # Manipulate for ease of merge
+        f = f.reset_index().set_index('province').drop('index',axis=1)
+        f.columns.name = 'pnp'
+        f = f.stack().to_frame()
+        f.columns = ['avg_savings']
+        f = f.reset_index().set_index('province')
+        
+        f['ispoor'] = 0
+        f.loc[f.pnp=='p','ispoor'] = 1
+
+        # Poor in some provinces report negative savings...don't need to model their debt
+        f['avg_savings'] = f['avg_savings'].clip(lower=0.)
+
+        # Put it back together
+        _s = pd.merge(_s.reset_index(),f.reset_index(),on=['province','ispoor']).set_index('index')
     
-    # Without data: we tried giving hh savings = 6 months' income if they report spending on savings or investments, 1 month if not
-    #if pol_str != '_nosavings': temp['sav_i'] = (temp[['axfin','c']].prod(axis=1)/2.).clip(lower=temp['c']/12.)
+    else:
+        # Without data: we tried giving hh savings = 6 months' income if they report spending on savings or investments, 1 month if not
+        _s = (temp[['axfin','c']].prod(axis=1)/2.).clip(lower=temp['c']/12.)
     
-    f = pd.read_excel(fstr,sheetname='Average Savings')
-    return 0
+    return _s['avg_savings']
