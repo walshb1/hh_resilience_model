@@ -1,8 +1,8 @@
 import pandas as pd
-from pandas_helper import get_list_of_index_names, broadcast_simple, concat_categories
+from libraries.pandas_helper import get_list_of_index_names, broadcast_simple, concat_categories
 import numpy as np
 from scipy.interpolate import UnivariateSpline,interp1d
-from lib_average_over_rp import *
+from libraries.lib_average_over_rp import *
 
 def mystriper(string):
     '''strip blanks and converts everythng to lower case''' 
