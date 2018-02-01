@@ -79,6 +79,8 @@ def get_places_dict(myC):
 
     if myC == 'PH': 
         p_code = pd.read_excel(inputs+'FIES_provinces.xlsx')[['province_code','province_AIR']].set_index('province_code').squeeze()
+        p_code[97] = 'Zamboanga del Norte'
+        p_code[98] = 'Zamboanga Sibugay'
         r_code = pd.read_excel(inputs+'FIES_regions.xlsx')[['region_code','region_name']].set_index('region_code').squeeze()
         
     if myC == 'FJ':

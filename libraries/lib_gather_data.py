@@ -94,6 +94,9 @@ def get_AIR_data(fname,sname,keep_sec,keep_per):
     # AIR dataset province code to province name
     AIR_prov_lookup = pd.read_excel(fname,sheetname='Lookup_Tables',usecols=['province_code','province'],index_col='province_code')
     AIR_prov_lookup = AIR_prov_lookup['province'].to_dict()
+    # NOTE: the coding in AIR differs from the latest PSA coding for Zamboanga Peninsula 
+    # --> AIR: 80: 'Zamboanga del Norte', 81: 'Zamboanga del Sur', 82: 'Zamboanga Sibugay'
+    # --> PSA: 
 
     AIR_prov_corrections = {'Tawi-Tawi':'Tawi-tawi',
                             #'Metropolitan Manila':'Manila',
@@ -260,25 +263,44 @@ def get_hh_savings(df, myC, pol, fstr):
 
         # Load dictionaries so that these province names match those in df
         ph_prov_lookup = pd.read_excel('../inputs/PH/FIES_provinces.xlsx',usecols=['province_upper','province_AIR'],index_col='province_upper')['province_AIR'].to_dict()
-        AIR_prov_corrections = {'Tawi-Tawi':'Tawi-tawi','North Cotabato':'Cotabato'}
+        AIR_prov_corrections = {'Tawi-Tawi':'Tawi-tawi',
+                                'North Cotabato':'Cotabato',
+                                'COTABATO':'Cotabato',
+                                'DAVAO':'Davao',
+                                'COTABATO CITY':'Cotabato',
+                                'ISABELA CITY':'Isabela',
+                                'MANILA':'Manila',
+                                'NCR-2ND DIST.':'NCR-2nd Dist.',
+                                'NCR-3RD DIST.':'NCR-3rd Dist.',
+                                'NCR-4TH DIST.':'NCR-4th Dist.',
+                                'SAMAR (WESTERN)':'Samar (Western)'
+                                }
         f['province'].replace(ph_prov_lookup,inplace=True)
-        f['province'].replace(AIR_prov_corrections,inplace=True) 
+        f['province'].replace(AIR_prov_corrections,inplace=True)
+
 
         # Manipulate for ease of merge
         f = f.reset_index().set_index('province').drop('index',axis=1)
         f.columns.name = 'pnp'
         f = f.stack().to_frame()
         f.columns = ['avg_savings']
-        f = f.reset_index().set_index('province')
+        
+        f = f.reset_index().set_index(['province'])
         
         f['ispoor'] = 0
         f.loc[f.pnp=='p','ispoor'] = 1
+        f = f.drop('pnp',axis=1)
+
+        f = f.reset_index().set_index(['province','ispoor']).dropna()
 
         # Poor in some provinces report negative savings...don't need to model their debt
-        f['avg_savings'] = f['avg_savings'].clip(lower=0.)
+        f['avg_savings'] = f['avg_savings'].mean(level=['province','ispoor']).clip(lower=500.)
+        try: f.to_csv('../../debug/provincial_savings_avg.csv')
+        except: pass
 
         # Put it back together
-        _s = pd.merge(_s.reset_index(),f.reset_index(),on=['province','ispoor']).set_index('index')
+        _s = pd.merge(_s.reset_index(),f.reset_index(),on=['province','ispoor']).set_index('index').sort_index()
+        _s = _s.mean(level='index')
     
     else:
         # Without data: we tried giving hh savings = 6 months' income if they report spending on savings or investments, 1 month if not
