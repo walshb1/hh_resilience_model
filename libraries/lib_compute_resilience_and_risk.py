@@ -1262,8 +1262,8 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     my_dw_limit = abs(20.*c_mean)
 
     # Drop cols from temp, because it's huge...
-    temp = temp.drop([i for i in ['province','pcinc','hhwgt','pcinc_ae','hhsize','hhsize_ae','pov_line','help_fee','pc_fee_BE',
-                                  'dk_other','k','gamma_SP','shew','hh_share','fa','v_shew','is_poor','v','social','quintile','c_5'] if i in temp.columns],axis=1)
+    temp = temp.drop([i for i in ['pcinc','hhwgt','pcinc_ae','hhsize','hhsize_ae','pov_line','help_fee','pc_fee_BE',
+                                  'dk_other','k','gamma_SP','shew','hh_share','fa','v_shew','v','social','quintile','c_5'] if i in temp.columns],axis=1)
 
     # setup new df for illustrating reco dynamics
     affected_year_step = pd.DataFrame(index=temp.index)
@@ -1306,10 +1306,11 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # use this to count down as hh rebuilds
 
     # First, assign savings, and use it to pay pc_fee:
-    temp['sav_i'] = get_hh_savings(temp[['province','ispoor']],myC,pol_str,'../inputs/PH/Socioeconomic Resilience (Provincial)_Print Version_rev1.xlsx')
 
+    temp['sav_i'] = get_hh_savings(temp[['province','ispoor']],myC,pol_str,'../inputs/PH/Socioeconomic Resilience (Provincial)_Print Version_rev1.xlsx')
     temp['sav_f'] = temp['sav_i']-temp['pc_fee']
-    print(temp.loc[temp.sav_f<0].shape[0],' hh borrow to pay their fees :(')
+
+    print(temp.loc[temp.sav_f<0].shape[0],' hh borrow to pay their fees...')
     temp.loc[temp.sav_f<0].to_csv(debug+'borrow_to_pay_fees.csv')
     # debit pc_fee... what happens if pc_fee > sav_i?
     # --> for now, I will let this go...assume that hh are able to borrow in order to pay that fee
@@ -1330,18 +1331,10 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         # Test: if a hh is in poverty after a disaster, they take their savings (50%) and buy a productive thing
         # --> this affects dk_prv_t, hh_reco_rate, dc_prv_t, and sav_f
         if (counter == 4):
-
-            # Do this with eval & query
             
             _t4 = temp.loc[temp.welf_class==3,'dk_prv_t'].copy()
             temp.loc[temp.welf_class==3, 'dk_prv_t'] -= (0.5*temp.loc[temp.welf_class==3,'sav_f']).clip(upper=temp.loc[temp.welf_class==3,'dk_prv_t'])
             temp.loc[temp.welf_class==3,    'sav_f'] -= _t4.clip(upper=0.5*temp.loc[temp.welf_class==3,'sav_f'])
-            
-            #_outlay = temp.loc[(temp.welf_class==3)].copy()
-            #_outlay['dk_prv_t4'] = _outlay['dk_prv_t'] # hold this value
-            #_outlay['dk_prv_t'] -= (0.5*_outlay['sav_f']).clip(upper=_outlay['dk_prv_t'])  # subtract savings from dk, up to dk
-            #_outlay['sav_f']    -= _outlay['dk_prv_t4'].clip(upper=0.5*_outlay['sav_f']) # subtract dk from savings, up to savings
-            #temp.loc[(temp.welf_class==3),['dk_prv_t','sav_f']] = _outlay[['dk_prv_t','sav_f']]
 
             # SANITY CHECK: min(dk_prv_t) should still be >= 0:
             if temp['dk_prv_t'].min()<0:
@@ -1431,13 +1424,15 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         # --> Could take the average within each time step (step_dt)
 
         # Decrement dk(t)
-        temp['dk_prv_t'] += temp['dk_prv_t'].values*(-step_dt*temp['hh_reco_rate'].values+1/2*(step_dt*temp['hh_reco_rate'].values)**2-1/6*(step_dt*temp['hh_reco_rate'].values)**3
-                                                      +1/24*(step_dt*temp['hh_reco_rate'].values)**4-1/120*(step_dt*temp['hh_reco_rate'].values)**5)
+        _dk_prv = 'dk_prv_t*(@math.e**(-hh_reco_rate*@step_dt)-1)'
+        temp.loc[temp.eval(sav_criteria_2a),'dk_prv_t'] += temp.eval(_dk_prv)
+        #temp['dk_prv_t'] += temp['dk_prv_t'].values*(-step_dt*temp['hh_reco_rate'].values+1/2*(step_dt*temp['hh_reco_rate'].values)**2-1/6*(step_dt*temp['hh_reco_rate'].values)**3
+        #                                              +1/24*(step_dt*temp['hh_reco_rate'].values)**4-1/120*(step_dt*temp['hh_reco_rate'].values)**5)
 
         # Sanity check: dk_prv_t should not be higher than dk_private (initial value)
-        if temp.loc[(temp.dk_prv_t>temp.dk_private)].shape[0] > 0:
+        if temp.loc[(temp.dk_prv_t>temp.dk_private+0.01)].shape[0] > 0:
             print('Some hh lose more at the end than in the disaster!')
-            temp.loc[(temp.dk_prv_t>temp.dk_private)].to_csv(debug+'bug_ghost_losses'+optionPDS+'_'+str(counter)+'.csv')
+            temp.loc[(temp.dk_prv_t>temp.dk_private+0.01)].to_csv(debug+'bug_ghost_losses'+optionPDS+'_'+str(counter)+'.csv')
             #assert(False)  
 
         # Save out the files for debugging
@@ -1571,6 +1566,3 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfar
     df['risk_to_assets']  =df.resilience*df.risk
     
     return df
-
-def get_provincial_savings():
-    return 0.

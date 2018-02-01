@@ -95,6 +95,8 @@ if myCountry == 'PH':
     df2['region'] = cat_info[~cat_info.index.duplicated(keep='first')].region
     df2 = df2.reset_index().set_index(economy)    
 
+    df2.to_csv('~/Desktop/my_df2.csv')
+
     df2['shewp'] = df2[['shewp','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)    
     df2['shewr'] = df2[['shewr','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)   
     df2['gdp_pc_pp'] = df2[['gdp_pc_pp','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)
