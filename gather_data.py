@@ -191,10 +191,10 @@ print('--> Individuals in poverty:', cat_info.loc[(cat_info.pcinc_ae <= cat_info
 print('-----> Families in poverty:', cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line), 'hhwgt'].sum())
 
 if myCountry == 'FJ':
-    print('-----------> Rural poverty:', cat_info.loc[(cat_info.Sector=='Rural')&(cat_info.pcinc_ae <= cat_info.pov_line),'pcwgt'].sum()/cat_info.loc[cat_info.Sector=='Rural','pcwgt'].sum())
-    print('-----------> Urban poverty:', cat_info.loc[(cat_info.Sector=='Urban')&(cat_info.pcinc_ae <= cat_info.pov_line),'pcwgt'].sum()/cat_info.loc[cat_info.Sector=='Urban','pcwgt'].sum())
-    print('-----> Rural pov (flagged):',round(100.*cat_info.loc[(cat_info.Sector=='Rural')&(cat_info.ispoor==1),'pcwgt'].sum()/cat_info.loc[cat_info.Sector=='Rural','pcwgt'].sum(),1),'%')
-    print('-----> Urban pov (flagged):',round(100.*cat_info.loc[(cat_info.Sector=='Urban')&(cat_info.ispoor==1),'pcwgt'].sum()/cat_info.loc[cat_info.Sector=='Urban','pcwgt'].sum(),1),'%')
+    print('--------> Rural pov:', cat_info.loc[(cat_info.Sector=='Rural')&(cat_info.pcinc_ae<=cat_info.pov_line),'pcwgt'].sum()/cat_info.loc[cat_info.Sector=='Rural','pcwgt'].sum())
+    print('--------> Urban pov:', cat_info.loc[(cat_info.Sector=='Urban')&(cat_info.pcinc_ae<=cat_info.pov_line),'pcwgt'].sum()/cat_info.loc[cat_info.Sector=='Urban','pcwgt'].sum())
+    print('--> Rural pov (flagged):',round(100.*cat_info.loc[(cat_info.Sector=='Rural')&(cat_info.ispoor==1),'pcwgt'].sum()/cat_info.loc[cat_info.Sector=='Rural','pcwgt'].sum(),1),'%')
+    print('--> Urban pov (flagged):',round(100.*cat_info.loc[(cat_info.Sector=='Urban')&(cat_info.ispoor==1),'pcwgt'].sum()/cat_info.loc[cat_info.Sector=='Urban','pcwgt'].sum(),1),'%')
 
 # Change the name: district to code, and create an multi-level index 
 cat_info = cat_info.rename(columns={'district':'code','HHID':'hhid'})
@@ -241,7 +241,7 @@ print('Get the share of Social Protection')
 cat_info['gamma_SP'] = cat_info[['social','c']].prod(axis=1,skipna=False)*cat_info['pcwgt'].sum()/cat_info[['social','c','pcwgt']].prod(axis=1, skipna=False).sum()
 cat_info.drop('n_national',axis=1,inplace=True)
 
-# Intl remittances: subtract from 'c'
+# Transfers & intl remittances: subtract from 'c'
 print('Calculate capital')
 cat_info['k'] = (1-cat_info['social'])*cat_info['c']/((1-df['tau_tax'])*df['avg_prod_k']) #calculate the capital
 cat_info.ix[cat_info.k<0,'k'] = 0.0
@@ -275,8 +275,8 @@ cat_info['fa'] = 0
 cat_info.fillna(0,inplace=True)
 
 # Cleanup dfs for writing out
-cat_info_col = [economy,'province','hhid','region','pcwgt','pcwgt_ae','hhwgt','code','np','score','v','c','pcsoc','social','c_5','n','hhsize','hhsize_ae',
-                'gamma_SP','k','shew','quintile','ispoor','pcinc','pcinc_ae','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
+cat_info_col = [economy,'province','hhid','region','pcwgt','pcwgt_ae','hhwgt','code','np','score','v','c','pcsoc','social','c_5','n','hhsize',
+                'hhsize_ae','gamma_SP','k','shew','quintile','ispoor','pcinc','pcinc_ae','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
                 'SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin']
 cat_info = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if (iXX in cat_info.columns and iXX not in cat_info_col)],axis=1)
 cat_info_index = cat_info.drop([iXX for iXX in cat_info.columns.values.tolist() if iXX not in [economy,'hhid']],axis=1)
@@ -342,6 +342,9 @@ if myCountry == 'PH':
 
     df_haz['value_destroyed'] = df_haz[['value_destroyed_prv','value_destroyed_pub']].sum(axis=1)
     df_haz['hh_share'] = df_haz['value_destroyed_prv']/df_haz['value_destroyed']
+    # Weird things can happen for rp=2000 (negative losses), but they're < 10E-5, so we don't worry much about them
+    #df_haz.loc[df_haz.hh_share>1.].to_csv('~/Desktop/hh_share.csv')
+    
     
 elif myCountry == 'FJ':
     df_haz = df_haz.reset_index().set_index([economy,'hazard','rp']).sum(level=[economy,'hazard','rp'])
@@ -420,7 +423,17 @@ hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])[['fr
 
 # Transfer fa in excess of 95% to vulnerability
 fa_threshold = 0.95
-hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v']).fillna(1E-8)
+
+#hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v'].fillna(1E-8)
+#print(hazard_ratios['frac_destroyed'].head(10))
+
+v_mean = hazard_ratios[['pcwgt','v']].prod(axis=1).sum(level=event_level)/hazard_ratios['pcwgt'].sum(level=event_level)
+v_mean.name = 'v_mean'
+
+hazard_ratios = pd.merge(hazard_ratios.reset_index(),v_mean.reset_index(),on=[i for i in event_level]).reset_index().set_index([i for i in event_level]+['hhid']).sort_index()
+hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v_mean']).fillna(1E-8)
+
+print('\n\nhaz_rat\n\n',hazard_ratios[['fa','v']].head())
 
 hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = (hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold).clip(upper=0.95)
 hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=0.0000001,upper=fa_threshold)
