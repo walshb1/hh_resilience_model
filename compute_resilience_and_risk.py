@@ -197,8 +197,8 @@ if __name__ == '__main__':
         # --> 
     
     if myCountry == 'PH' or myCountry == 'SL':
-        pds_str = ['no','unif_poor']
-        pol_str = ['']
+        pds_str = ['no']
+        pol_str = ['','_nosavings']
             
     if debug == True:
         print('Running in debug mode!')
