@@ -148,6 +148,7 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
 
     elif (pol_str == '_noPT' 
           or pol_str == '_nosavings'
+          or pol_str == '_nosavingsdata'
           or pol_str == '_unif_reco'): pass
 
     elif pol_str != '':
@@ -1315,7 +1316,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
 
     # First, assign savings, and use it to pay pc_fee:
 
-    temp['sav_i'] = get_hh_savings(temp[['province','ispoor']],myC,pol_str,'../inputs/PH/Socioeconomic Resilience (Provincial)_Print Version_rev1.xlsx')
+    temp['sav_i'] = get_hh_savings(temp[['c','province','ispoor']],myC,pol_str,'../inputs/PH/Socioeconomic Resilience (Provincial)_Print Version_rev1.xlsx')
     temp['sav_f'] = temp['sav_i']-temp['pc_fee']
 
     print(temp.loc[temp.sav_f<0].shape[0],' hh borrow to pay their fees...')

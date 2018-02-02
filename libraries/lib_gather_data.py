@@ -255,8 +255,9 @@ def get_hh_savings(df, myC, pol, fstr):
     _s = pd.DataFrame({'province':df.province,'ispoor':df.ispoor},index=df.index)
 
     if pol == '_nosavings': return 0
-
-    if myC == 'PH':
+    elif pol == '_nosavingsdata': return df.eval('c/12')
+        
+    elif myC == 'PH':
 
         # Load PSA file with average savings
         f = pd.read_excel(fstr,sheetname='Average Savings',skiprows=3).rename(columns={'Unnamed: 0':'province','Estimate':'p','Estimate.1':'np'})[['province','p','np']]
@@ -277,7 +278,6 @@ def get_hh_savings(df, myC, pol, fstr):
                                 }
         f['province'].replace(ph_prov_lookup,inplace=True)
         f['province'].replace(AIR_prov_corrections,inplace=True)
-
 
         # Manipulate for ease of merge
         f = f.reset_index().set_index('province').drop('index',axis=1)
