@@ -294,13 +294,15 @@ def get_hh_savings(df, myC, pol, fstr):
         f = f.reset_index().set_index(['province','ispoor']).dropna()
 
         # Poor in some provinces report negative savings...don't need to model their debt
-        f['avg_savings'] = f['avg_savings'].mean(level=['province','ispoor']).clip(lower=500.)
+        f['avg_savings'] = f['avg_savings'].mean(level=['province','ispoor'])
         try: f.to_csv('../../debug/provincial_savings_avg.csv')
         except: pass
 
         # Put it back together
         _s = pd.merge(_s.reset_index(),f.reset_index(),on=['province','ispoor']).set_index('index').sort_index()
         _s = _s.mean(level='index')
+
+        #_s *= np.random.normal(1,
     
     else:
         # Without data: we tried giving hh savings = 6 months' income if they report spending on savings or investments, 1 month if not
