@@ -6,11 +6,11 @@ get_ipython().magic('load_ext autoreload')
 get_ipython().magic('autoreload 2')
 
 #Import packages for data analysis
-from lib_compute_resilience_and_risk import *
-from replace_with_warning import *
-from lib_country_dir import *
-from lib_gather_data import *
-from maps_lib import *
+from libraries.lib_compute_resilience_and_risk import *
+from libraries.replace_with_warning import *
+from libraries.lib_country_dir import *
+from libraries.lib_gather_data import *
+from libraries.maps_lib import *
 
 from scipy.stats import norm
 #import matplotlib 

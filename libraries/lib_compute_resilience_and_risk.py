@@ -297,7 +297,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     hazard_ratios_event = hazard_ratios_event.reset_index().set_index(event_level+['hhid'])    
     cats_event = cats_event.reset_index().set_index(event_level+['hhid'])
     cats_event['hh_share'] = hazard_ratios_event['hh_share']
-    cats_event['hh_share'] = cats_event['hh_share'].fillna(1.)
+    cats_event['hh_share'] = cats_event['hh_share'].fillna(1.).clip(upper=1.)
 
     # Transfer vulnerability from haz_ratios to cats_event:
     cats_event['v'] = hazard_ratios_event['v']
@@ -351,7 +351,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
     # --> 'hh_share' recovers fraction that is private property
     
     cats_event_ia['dk_private'] = cats_event_ia[['k','v_shew','hh_share']].prod(axis=1, skipna=False).fillna(0)
-    cats_event_ia['dk_public']  = (cats_event_ia[['k','v_shew']].prod(axis=1, skipna=False)*(1-cats_event_ia['hh_share'])).fillna(0)
+    cats_event_ia['dk_public']  = (cats_event_ia[['k','v_shew']].prod(axis=1, skipna=False)*(1-cats_event_ia['hh_share'])).fillna(0).clip(lower=0.)
     cats_event_ia['dk_other']   = 0. 
     #cats_event_ia['dk_public']  = cats_event_ia[['k','public_loss_v']].prod(axis=1, skipna=False)
     # ^ this was FJ; it's buggy -> results in dk > k0
@@ -511,7 +511,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         _c1 = cats_event_ia.query('(c>pov_line)&((c-dc0)>pov_line)&(dk_private!=0)')[['c','pov_line','dk_private','di0_prv','di0','dc0_prv','dc0_pub','dc0']].copy()
         _c1['welf_class']   = 1
         _c1['dc_old']       = _c1['dc0']
-        _c1['hh_reco_rate'] = ((_c1['c']-_c1['pov_line']-_c1['di0'])/_c1['dk_private']).clip(upper=6.*const_nom_reco_rate)
+        _c1['hh_reco_rate'] = ((_c1['c']-_c1['pov_line']-_c1['di0'])/_c1['dk_private']).clip(lower=0,upper=6.*const_nom_reco_rate)
         _c1['dc0_prv']      = _c1['di0_prv'] + _c1[['hh_reco_rate','dk_private']].prod(axis=1)
         _c1['dc0']          = _c1['dc0_prv'] + _c1['dc0_pub']
         cats_event_ia.loc[_c1.index.tolist(),['dc0','dc0_prv','hh_reco_rate','welf_class']] = _c1[['dc0','dc0_prv','hh_reco_rate','welf_class']]
@@ -523,13 +523,21 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         # --> income losses push below poverty_line, 
         # --> hh can still afford to avoid subsistence
         # *** HH response: keep consumption above subsistence
-        _c2 = cats_event_ia.query('(welf_class==0)&((c-di0)>=c_min)&(dk_private!=0)')[['c','c_min','dk_private','di0_prv','di0','dc0_prv','dc0_pub','dc0']].copy()
+
+        # Reco threshold
+        reco_thresh = 1.05
+        hh_reco_rate_init = '(c-@reco_thresh*c_min-di0)/dk_private'
+        # ^ fraction of c_min at which hh start to reconstruct. 
+        # --> this is useful because hh won't save anything meaningful if you set hh_reco_rate as soon as they cross c_min
+
+        _c2 = cats_event_ia.query('(welf_class==0)&((c-di0)>@reco_thresh*c_min)&(dk_private!=0)')[['c','c_min','dk_private','di0_prv',
+                                                                                                   'di0','dc0_prv','dc0_pub','dc0']].copy()
         _c2['welf_class']   = 2
         _c2['dc_old']       = _c2['dc0']
-        _c2['hh_reco_rate'] = ((_c2['c']-0.999*_c2['c_min']-_c2['di0'])/_c2['dk_private']).clip(upper=6.*const_nom_reco_rate)
+        _c2['hh_reco_rate'] = (_c2.eval(hh_reco_rate_init)).clip(lower=0.,upper=6.*const_nom_reco_rate)
+        assert(_c2['hh_reco_rate'].min()>=0.)
         _c2['dc0_prv']      = _c2['di0_prv'] + _c2[['hh_reco_rate','dk_private']].prod(axis=1)
         _c2['dc0']          = _c2['dc0_prv'] + _c2['dc0_pub']
-        #_c2.head(50000).to_csv(debug+'my_tmp_welfclass2.csv')
         cats_event_ia.loc[_c2.index.tolist(),['dc0','dc0_prv','hh_reco_rate','welf_class']] = _c2[['dc0','dc0_prv','hh_reco_rate','welf_class']]
         print('C2: '+str(round(float(100*cats_event_ia.loc[cats_event_ia.welf_class==2].shape[0])
                                /float(cats_event_ia.loc[cats_event_ia.dk0!=0].shape[0]),2))+'% of hh accelerate to subsistence')
@@ -538,7 +546,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         # --> hh are not in any other class
         # --> (c-di0) is below subsistence 
         # HH response: do not reconstruct
-        _c3 = cats_event_ia.query('(welf_class==0)&((c-di0)<c_min)&(dk_private!=0)')[['dc0','di0_prv','dc0_prv','dc0_pub']].copy()
+        _c3 = cats_event_ia.query('(welf_class==0)&((c-di0)<=@reco_thresh*c_min)&(dk_private!=0)')[['dc0','di0_prv','dc0_prv','dc0_pub']].copy()
         _c3['welf_class']   = 3
         _c3['dc_old']       = _c3['dc0']
         _c3['hh_reco_rate'] = 0.             # No Reconstruction
@@ -1328,19 +1336,20 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # Calculate integral
     for i_dt in int_dt:
 
-        # Test: if a hh is in poverty after a disaster, they take their savings (50%) and buy a productive thing
-        # --> this affects dk_prv_t, hh_reco_rate, dc_prv_t, and sav_f
-        if (counter == 4):
-            
-            _t4 = temp.loc[temp.welf_class==3,'dk_prv_t'].copy()
-            temp.loc[temp.welf_class==3, 'dk_prv_t'] -= (0.5*temp.loc[temp.welf_class==3,'sav_f']).clip(upper=temp.loc[temp.welf_class==3,'dk_prv_t'])
-            temp.loc[temp.welf_class==3,    'sav_f'] -= _t4.clip(upper=0.5*temp.loc[temp.welf_class==3,'sav_f'])
+        ###################################
+        ## Option: if a hh is in poverty after a disaster, they take their savings (50%) and buy a productive thing
+        ## --> this affects dk_prv_t, hh_reco_rate, dc_prv_t, and sav_f
+        #if (counter == 4):
+        #    
+        #    _t4 = temp.loc[temp.welf_class==3,'dk_prv_t'].copy()
+        #    temp.loc[temp.welf_class==3, 'dk_prv_t'] -= (0.5*temp.loc[temp.welf_class==3,'sav_f']).clip(upper=temp.loc[temp.welf_class==3,'dk_prv_t'])
+        #    temp.loc[temp.welf_class==3,    'sav_f'] -= _t4.clip(upper=0.5*temp.loc[temp.welf_class==3,'sav_f'])
+        #    # SANITY CHECK: min(dk_prv_t) should still be >= 0:
+        #    if temp['dk_prv_t'].min()<0:
+        #        temp.loc[(temp.dk_prv_t<0)].to_csv(debug+'bug_savings_to_pos_cons.csv')
+        #        assert(temp['dk_prv_t'].min()>=0)
+        ###################################
 
-            # SANITY CHECK: min(dk_prv_t) should still be >= 0:
-            if temp['dk_prv_t'].min()<0:
-                temp.loc[(temp.dk_prv_t<0)].to_csv(debug+'bug_savings_to_pos_cons.csv')
-                assert(temp['dk_prv_t'].min()>=0)
-   
         # BELOW: this is value of dc at time i_dt (duration = step_dt), assuming no savings
         temp['di_prv_t'] = (temp['dk_prv_t'].values*my_avg_prod_k*(1-my_tau_tax)
                             + temp[['pcsoc','scale_fac_soc']].prod(axis=1).values*math.e**(-i_dt*const_pub_reco_rate))
@@ -1352,9 +1361,12 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         ####################################
         # Let the hh optimize (pause or re-/start) its reconstruction
         # NB: only applies to hh in subsistence immediately after the disaster (welf_class == 3)
+        reco_thresh = 1.05
+        hh_reco_rate_t = '(c-@reco_thresh*c_min-di_t)/dk_prv_t'
+
         if (counter <= 200 and counter%2 == 0) or (counter>200 and counter%12 == 0):
 
-            start_criteria  = '(welf_class==3) & (hh_reco_rate==0) & (dk_prv_t > 0) & ((c-dc_t) >= 1.10*c_min)'
+            start_criteria  = '(welf_class==3) & (hh_reco_rate==0) & (dk_prv_t > 0) & ((c-dc_t) >= @reco_thresh*c_min)'
             recalc_criteria = '(dk_prv_t > 0) & (hh_reco_rate!=0) & (c-di_t > c_min) & ((c-dc_t < c_min) | (dc_t < 0))'
             stop_criteria   = '(welf_class==3) & (hh_reco_rate!=0) & ((c-di_t) < c_min) & (sav_f < 50.)'
 
@@ -1363,13 +1375,15 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
                   +str(temp.query(start_criteria).shape[0])+' hh escape subs & '
                   +str(temp.query(recalc_criteria).shape[0])+' recalculate & '
                   +str(temp.query(stop_criteria).shape[0])+' stop reco\n')
+
+            temp.loc[temp.eval(start_criteria)].head(1000).to_csv(debug+'start_'+str(counter)+'.csv')
             
             # Find hh that climbed out of subsistence
-            temp.loc[temp.eval(start_criteria),'hh_reco_rate'] = (temp.loc[temp.eval(start_criteria)].eval('(c-di_t-c_min)/dk_prv_t')).clip(lower=const_nom_reco_rate/6.,upper=6.*const_nom_reco_rate)
+            temp.loc[temp.eval(start_criteria),'hh_reco_rate'] = (temp.loc[temp.eval(start_criteria)].eval(hh_reco_rate_t)).clip(upper=6.*const_nom_reco_rate)
             temp.loc[temp.eval(start_criteria),'t_start_prv_reco'] = i_dt
             
-            # Find hh that need to accelerate or scale back their reconstruction...usually because they spent PDS 
-            temp.loc[temp.eval(recalc_criteria),'hh_reco_rate'] = (temp.loc[temp.eval(recalc_criteria)].eval('(c-di_t-c_min)/dk_prv_t')).clip(lower=const_nom_reco_rate/6.,upper=6.*const_nom_reco_rate)
+            # Find hh that need to accelerate or scale back their reconstruction b/c of PDS 
+            temp.loc[temp.eval(recalc_criteria),'hh_reco_rate'] = (temp.loc[temp.eval(recalc_criteria)].eval(hh_reco_rate_t)).clip(upper=6.*const_nom_reco_rate)
             assert(temp.loc[temp.hh_reco_rate<0].shape[0] ==0)
             
             # hh stops reco when its *income* drops below subsistence and it has no more savings...
@@ -1411,10 +1425,11 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         # Adjust savings after spending    
         temp['sav_f'] = temp['sav_f']-temp['sav_delta']
 
-        # Sanity check: savings should not go negative (not more than 0.01 cent!)
-        if (temp['sav_f'].min(axis=0)<-1E-4):
+        # Sanity check: savings should not go negative
+        savings_check = '(sav_i>0.)&(sav_f+0.01<0.)'
+        if temp.loc[temp.eval(savings_check)].shape[0] != 0:
             print('Some hh overdraft their savings!')
-            temp.loc[(temp.sav_f<-1E-4)].to_csv(debug+'bug_negative_savings.csv')
+            temp.loc[temp.eval(savings_check)].to_csv(debug+'bug_negative_savings_'+str(counter)+'.csv')
             #assert(False)
       
         ########################  
