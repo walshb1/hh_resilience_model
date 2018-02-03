@@ -198,11 +198,11 @@ if __name__ == '__main__':
     
     if myCountry == 'PH' or myCountry == 'SL':
         pds_str = ['no']
-        pol_str = ['_nosavingsdata']
+        pol_str = ['','_nosavingsdata']
             
     if debug == True:
         print('Running in debug mode!')
-        launch_compute_resilience_and_risk_thread(myCountry,'_nosavingsdata','no')
+        launch_compute_resilience_and_risk_thread(myCountry,'','no')
     else:
         with Pool() as pool:
             print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))
