@@ -110,9 +110,10 @@ def load_survey_data(myC,inc_sf=None):
                                                         'walls','roof',
                                                         'totex','cash_abroad','cash_domestic','regft',
                                                         'hhwgt','fsize','poorhh','totdis','tothrec','pcinc_s','pcinc_ppp11','pcwgt',
+                                                        'radio_qty','tv_qty','cellphone_qty','pc_qty',
                                                         'savings','invest'])
         df = df.rename(columns={'tothrec':'hhsoc','pcinc_s':'pcinc','poorhh':'ispoor'})
-        
+
         df['pcinc_ae']   = df['pcinc']
         df['pcwgt_ae']   = df['pcwgt']
 
@@ -132,6 +133,7 @@ def load_survey_data(myC,inc_sf=None):
 
         df['est_sav'] = df[['axfin','pcinc']].prod(axis=1)/2.
 
+        df['has_ew'] = df[['radio_qty','tv_qty','cellphone_qty','pc_qty']].sum(axis=1).clip(upper=1)
         # plot 1
         plot_simple_hist(df.loc[df.axfin==1],['tot_savings'],['hh savings'],'../output_plots/PH/hh_savings.pdf',uclip=None,nBins=25)
 
@@ -604,7 +606,7 @@ def get_poverty_line(myC,sec=None):
     if myC == 'PH':
         return 22302.6775#21240.2924
 
-    if myC == 'FJ':
+    elif myC == 'FJ':
         # 55.12 per week for an urban adult
         # 49.50 per week for a rural adult
         # children under age 14 are counted as half an adult
@@ -615,6 +617,9 @@ def get_poverty_line(myC,sec=None):
         else: 
             print('Pov line is variable for urb/rur Fijians! Need to specify which you\'re looking for!')
             return 0.0    
+
+    else:
+        print('There is no poverty info for this country. Returning pov_line = 0') 
 
 def get_subsistence_line(myC):
     
