@@ -91,8 +91,6 @@ if myCountry == 'PH':
     df2['region'] = cat_info[~cat_info.index.duplicated(keep='first')].region
     df2 = df2.reset_index().set_index(economy)    
 
-    #df2['shewp'] = df2[['shewp','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)    
-    #df2['shewr'] = df2[['shewr','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)   
     df2['gdp_pc_pp'] = df2[['gdp_pc_pp','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)
 
     df2['pop'] = df2['pop'].sum(level=economy)
@@ -232,26 +230,17 @@ if myCountry == 'FJ':
     cat_info['Division'].replace(prov_code,inplace=True) # replace division code with its name
     cat_info = cat_info.reset_index().set_index(['Division','hhid']).drop(['index'],axis=1)
 
-# Getting rid of Prov_code 98, 99 here
+# Shouldn't be losing anything here 
 print('Check total population:',cat_info.pcwgt.sum())
 cat_info.dropna(inplace=True,how='all')
 print('Check total population (after dropna):',cat_info.pcwgt.sum())
-
-# --> Use number of tv, cell phone, radio, pc from FIES as proxy for early warning
-# Outdated: Assign access to early warning based on 'ispoor' flag
-#if myCountry == 'PH':
-#    cat_info['shew'] = broadcast_simple(df2['shewr'],cat_info.index)
-#    cat_info.ix[cat_info.ispoor == 1,'shew'] = broadcast_simple(df2['shewp'],cat_info.index)
-#if myCountry == 'FJ' or myCountry == 'SL': 
-#    cat_info['shew'] = 0
-#    # can't find relevant info for Fiji and Sri Lanka
 
 # Exposure
 cat_info.fillna(0,inplace=True)
 
 # Cleanup dfs for writing out
 cat_info_col = [economy,'province','hhid','region','pcwgt','pcwgt_ae','hhwgt','code','np','score','v','c','pcsoc','social','c_5','n','hhsize',
-                'hhsize_ae','gamma_SP','k','shew','quintile','ispoor','pcinc','pcinc_ae','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
+                'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','pcinc_ae','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
                 'SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin']
 cat_info = cat_info.drop([i for i in cat_info.columns if (i in cat_info.columns and i not in cat_info_col)],axis=1)
 cat_info_index = cat_info.drop([i for i in cat_info.columns if i not in [economy,'hhid']],axis=1)
