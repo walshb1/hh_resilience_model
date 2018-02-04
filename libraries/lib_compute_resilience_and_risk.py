@@ -23,7 +23,7 @@ const_nom_reco_rate, const_pub_reco_rate = None, None
 const_rho, const_ie = None, None
 const_pds_rate = None
 
-debug = '~/Desktop/BANK/hh_resilience_model/debug/'
+debug = '~/Desktop/BANK/hh_resilience_model/model/debug/'
 
 def get_weighted_mean(q1,q2,q3,q4,q5,key,weight_key='pcwgt'):
     
@@ -753,7 +753,7 @@ def calculate_response(myCountry,pol_str,macro_event,cats_event_ia,public_costs,
     macro_event, cats_event_iah, public_costs = compute_response(myCountry, pol_str,macro_event, cats_event_iah, public_costs, event_level,default_rp,option_CB,optionT=optionT, 
                                                                  optionPDS=optionPDS, optionB=optionB, optionFee=optionFee, fraction_inside=fraction_inside, loss_measure = loss_measure)
     
-    cats_event_iah.drop(['n','protection'],axis=1, inplace=True)
+    cats_event_iah.drop(['protection'],axis=1, inplace=True)
     return macro_event, cats_event_iah, public_costs
 	
 def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_costs, event_level, default_rp, option_CB,optionT='data', 
@@ -1464,7 +1464,8 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
 
     ################################
     # Write out year_step (dk, dc, dw)
-    affected_year_step.to_csv(debug+'../../debug_off_git/annual_dkdcdw_'+optionPDS+pol_str+'.csv')
+    try: affected_year_step.to_csv('/Users/brian/Desktop/BANK/debug_off_git/annual_dkdcdw_'+optionPDS+pol_str+'.csv')
+    except: pass
 
     ################################
     # 'revised' calculation of dw
