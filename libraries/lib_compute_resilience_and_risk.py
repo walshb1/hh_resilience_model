@@ -128,11 +128,10 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
         print('--> POLICY('+pol_str+'): Decrease reconstruction time by 1/3')
         macro['T_rebuild_K'] *= 0.666667
 
-
     # POLICY: Increase access to early warnings to 100%
     elif pol_str == '_ew100':
         print('--> POLICY('+pol_str+'): Increase access to early warnings to 100%')
-        cat_info['shew'] = 1.0
+        cat_info.loc[cat_info.has_ew==0,'ew_expansion'] = 1
 
     # POLICY: Decrease vulnerability of poor by 30%
     elif pol_str == '_vul070':
@@ -161,7 +160,8 @@ def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,ev
 
     #cat_info = cat_info[cat_info.c>0]
     hazard_ratios = pd.read_csv(fname, index_col=event_level+[income_cats])
-
+    
+    cat_info['ew_expansion'] = 0
     macro,cat_info,hazard_ratios = apply_policies(pol_str,macro,cat_info,hazard_ratios)
 
     #compute
@@ -344,15 +344,15 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
 
     # 'Actual' vulnerability includes migitating effect of early warning systems
     # --> still 0 for non-affected hh
-    cats_event_ia['v_shew']=cats_event_ia['v']*(1-macro_event['pi']*cats_event_ia['shew'])    
+    cats_event_ia['v_with_ew']=cats_event_ia['v']*(1-macro_event['pi']*cats_event_ia['ew_expansion'])    
 
     ############################
     # Calculate capital losses (public, private, & other) 
     # --> Each household's capital losses is the sum of their private losses and public infrastructure losses
     # --> 'hh_share' recovers fraction that is private property
     
-    cats_event_ia['dk_private'] = cats_event_ia[['k','v_shew','hh_share']].prod(axis=1, skipna=False).fillna(0)
-    cats_event_ia['dk_public']  = (cats_event_ia[['k','v_shew']].prod(axis=1, skipna=False)*(1-cats_event_ia['hh_share'])).fillna(0).clip(lower=0.)
+    cats_event_ia['dk_private'] = cats_event_ia[['k','v_with_ew','hh_share']].prod(axis=1, skipna=False).fillna(0)
+    cats_event_ia['dk_public']  = (cats_event_ia[['k','v_with_ew']].prod(axis=1, skipna=False)*(1-cats_event_ia['hh_share'])).fillna(0).clip(lower=0.)
     cats_event_ia['dk_other']   = 0. 
     #cats_event_ia['dk_public']  = cats_event_ia[['k','public_loss_v']].prod(axis=1, skipna=False)
     # ^ this was FJ; it's buggy -> results in dk > k0
@@ -1272,7 +1272,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
 
     # Drop cols from temp, because it's huge...
     temp = temp.drop([i for i in ['pcinc','hhwgt','pcinc_ae','hhsize','hhsize_ae','pov_line','help_fee','pc_fee_BE',
-                                  'dk_other','k','gamma_SP','shew','hh_share','fa','v_shew','v','social','quintile','c_5'] if i in temp.columns],axis=1)
+                                  'dk_other','k','gamma_SP','ew_expansion','hh_share','fa','v_with_ew','v','social','quintile','c_5'] if i in temp.columns],axis=1)
 
     # setup new df for illustrating reco dynamics
     affected_year_step = pd.DataFrame(index=temp.index)
@@ -1442,8 +1442,6 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         # Decrement dk(t)
         _dk_prv = 'dk_prv_t*(@math.e**(-hh_reco_rate*@step_dt)-1)'
         temp.loc[temp.eval(sav_criteria_2a),'dk_prv_t'] += temp.eval(_dk_prv)
-        #temp['dk_prv_t'] += temp['dk_prv_t'].values*(-step_dt*temp['hh_reco_rate'].values+1/2*(step_dt*temp['hh_reco_rate'].values)**2-1/6*(step_dt*temp['hh_reco_rate'].values)**3
-        #                                              +1/24*(step_dt*temp['hh_reco_rate'].values)**4-1/120*(step_dt*temp['hh_reco_rate'].values)**5)
 
         # Sanity check: dk_prv_t should not be higher than dk_private (initial value)
         if temp.loc[(temp.dk_prv_t>temp.dk_private+0.01)].shape[0] > 0:
