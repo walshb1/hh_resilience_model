@@ -23,7 +23,7 @@ const_nom_reco_rate, const_pub_reco_rate = None, None
 const_rho, const_ie = None, None
 const_pds_rate = None
 
-debug = '~/Desktop/BANK/debug/'
+debug = '~/Desktop/BANK/hh_resilience_model/debug/'
 
 def get_weighted_mean(q1,q2,q3,q4,q5,key,weight_key='pcwgt'):
     
@@ -302,6 +302,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 
     # Transfer vulnerability from haz_ratios to cats_event:
     cats_event['v'] = hazard_ratios_event['v']
+    hazard_ratios_event = hazard_ratios_event.drop(['v'],axis=1)
 
     ###############
     # Don't know what this does, except empty the overlapping columns.
@@ -1463,7 +1464,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
 
     ################################
     # Write out year_step (dk, dc, dw)
-    affected_year_step.to_csv(debug+'annual_dkdcdw_'+optionPDS+pol_str+'.csv')
+    affected_year_step.to_csv(debug+'../../debug_off_git/annual_dkdcdw_'+optionPDS+pol_str+'.csv')
 
     ################################
     # 'revised' calculation of dw
