@@ -333,14 +333,20 @@ hazard_ratios = hazard_ratios.drop([i for i in ['index'] if i in hazard_ratios.c
 # 2) Transfer fa in excess of 95% to vulnerability
 fa_threshold = 0.95
 
+# Calculate avg vulnerability at event level, and use that to find fa
 v_mean = hazard_ratios[['pcwgt','v']].prod(axis=1).sum(level=event_level)/hazard_ratios['pcwgt'].sum(level=event_level)
 v_mean.name = 'v_mean'
-
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),v_mean.reset_index(),on=[i for i in event_level]).reset_index().set_index([i for i in event_level]+['hhid']).sort_index()
+
+#Need to test: did using v_mean halve welfare losses in NCR?
+# --> was 7.1%, is now 3.9%
+
 hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v_mean']).fillna(1E-8)
 
 hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = (hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold).clip(upper=0.95)
 hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=1E-8,upper=fa_threshold)
+
+hazard_ratios[['fa','v']].mean(level=event_level).to_csv('debug/fa_v.csv')
 
 while True:
     _path = '/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/'
