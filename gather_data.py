@@ -136,26 +136,6 @@ if myCountry != 'FJ':
         cat_info.ix[cat_info.roof.values == thecat,'v'] += vul_curve.loc[vul_curve.desc.values == thecat].v.values
     cat_info.v = cat_info.v/2
 
-# Reduce vulnerability by reduction_vul if hh has access to early warning:
-cat_info['v'] *= (1-cat_info['has_ew']*reduction_vul)
-
-if myCountry == 'PH':
-    cat_info.loc[cat_info['v']<=0.1,'v'] *= np.random.uniform(.8,2,cat_info.loc[cat_info['v']<=0.1].shape[0])
-    cat_info.loc[cat_info['v'] >0.1,'v'] *= np.random.uniform(.8,1.2,cat_info.loc[cat_info['v'] >0.1].shape[0])
-    
-    #cat_info.ix[cat_info.v==0.1,'v'] *= np.random.uniform(.8,2,cat_info.ix[cat_info.v==0.1].shape[0])
-    #cat_info.ix[cat_info.v==0.25,'v'] *= np.random.uniform(.8,1.2,cat_info.ix[cat_info.v==0.25].shape[0])  
-    #cat_info.ix[(10*(cat_info.v-.4)).round()==0,'v'] *= np.random.uniform(.8,1.2,cat_info.ix[(10*(cat_info.v-.4)).round()==0].shape[0])
-    #cat_info.ix[cat_info.v==0.55,'v'] *= np.random.uniform(.8,1.2,cat_info.ix[cat_info.v==0.55].shape[0])
-    #cat_info.ix[cat_info.v==0.70,'v'] *= np.random.uniform(.8,1.2,cat_info.ix[cat_info.v==0.70].shape[0]) 
-    cat_info.drop(['walls','roof'],axis=1,inplace=True)
-    
-if myCountry == 'FJ':
-    cat_info.ix[cat_info.v==0.1,'v'] *= np.random.uniform(.8,2,cat_info.ix[cat_info.v==0.1].shape[0])
-    cat_info.ix[cat_info.v==0.4,'v'] *= np.random.uniform(.8,1.2,cat_info.ix[cat_info.v==0.4].shape[0])
-    cat_info.ix[cat_info.v==0.7,'v'] *= np.random.uniform(.8,1.2,cat_info.ix[cat_info.v==0.7].shape[0]) 
-    cat_info.drop(['Constructionofouterwalls','Conditionofouterwalls'],axis=1,inplace=True)
-
 print('Setting c to pcinc') 
 cat_info['c'] = cat_info['pcinc']
 cat_info['pcsoc'] = cat_info['pcsoc'].clip(upper=0.99*cat_info['pcinc'])
@@ -239,8 +219,8 @@ print('Check total population (after dropna):',cat_info.pcwgt.sum())
 cat_info.fillna(0,inplace=True)
 
 # Cleanup dfs for writing out
-cat_info_col = [economy,'province','hhid','region','pcwgt','pcwgt_ae','hhwgt','code','np','score','v','c','pcsoc','social','c_5','n','hhsize',
-                'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','pcinc_ae','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
+cat_info_col = [economy,'province','hhid','region','pcwgt','pcwgt_ae','hhwgt','code','np','score','v','c','pcsoc','social','c_5','hhsize',
+                'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','pcinc_ae','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds','has_ew',
                 'SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin']
 cat_info = cat_info.drop([i for i in cat_info.columns if (i in cat_info.columns and i not in cat_info_col)],axis=1)
 cat_info_index = cat_info.drop([i for i in cat_info.columns if i not in [economy,'hhid']],axis=1)
@@ -335,14 +315,17 @@ elif myCountry == 'SL':
 # Have frac destroyed, need fa...
 # Frac value destroyed = SUM_i(k*v*fa)
 
+# Merge hazard_ratios with cat_info
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on=economy,how='outer')
 
-if myCountry == 'FJ':
-    hazard_ratios = hazard_ratios.set_index(['Division','hazard','rp'])
-    print('Avg prod K in '+myCountry+':',df['avg_prod_k'].mean())
+# Reduce vulnerability by reduction_vul if hh has access to early warning:
+hazard_ratios.loc[hazard_ratios.hazard!='EQ','v'] *= (1-reduction_vul*hazard_ratios.loc[hazard_ratios.hazard!='EQ','has_ew'])
+hazard_ratios.loc[hazard_ratios['v']<=0.1,'v'] *= np.random.uniform(.8,2,hazard_ratios.loc[hazard_ratios['v']<=0.1].shape[0])
+hazard_ratios.loc[hazard_ratios['v'] >0.1,'v'] *= np.random.uniform(.8,1.2,hazard_ratios.loc[hazard_ratios['v'] >0.1].shape[0])
 
 if 'hh_share' not in hazard_ratios.columns: hazard_ratios['hh_share'] = None
 hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])[['frac_destroyed','v','k','pcwgt','hh_share']]
+hazard_ratios = hazard_ratios.drop([i for i in ['index'] if i in hazard_ratios.columns])
 
 ###########################################
 # 2 things going on here:
