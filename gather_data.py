@@ -54,7 +54,7 @@ df['avg_prod_k']             = get_avg_prod(myCountry) # average productivity of
 df['T_rebuild_K']            = reconstruction_time     # Reconstruction time
 df['income_elast']           = inc_elast               # income elasticity
 df['max_increased_spending'] = max_support             # 5% of GDP in post-disaster support maximum, if everything is ready
-#df['pi']                     = reduction_vul           # how much early warning reduces vulnerability
+df['pi']                     = reduction_vul           # how much early warning reduces vulnerability
 
 # Protected from events with RP < 'protection'
 df['protection'] = 1
