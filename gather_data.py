@@ -340,6 +340,7 @@ hazard_ratios = pd.merge(hazard_ratios.reset_index(),v_mean.reset_index(),on=[i 
 
 #Need to test: did using v_mean halve welfare losses in NCR?
 # --> was 7.1%, is now 3.9%
+#hazard_ratios['v_mean'] = hazard_ratios['v']
 
 hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v_mean']).fillna(1E-8)
 
