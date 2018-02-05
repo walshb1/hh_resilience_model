@@ -1242,7 +1242,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         # Going to separate into a & na now, for speed
         micro = micro.reset_index('affected_cat')
         temp = micro.loc[(micro.pcwgt!=0)&((micro.affected_cat=='a')|(micro.help_received!=0)|(micro.dc0!=0))].reset_index().copy()
-        # ^ ALL HH that are: affected OR received help OR receive social 
+        # ^ ALL HH that are: affected OR received help OR receive social         
 
         temp_na = micro.loc[(micro.pcwgt!=0)&(micro.affected_cat=='na')&(micro.help_received==0)&(micro.dc0==0),['affected_cat','pcwgt','c','dk0','dc0','pc_fee']].reset_index().copy()
         # ^ ALL HH that are: not affected AND didn't receive help AND don't have any social income
