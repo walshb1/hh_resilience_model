@@ -1242,34 +1242,30 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         # Going to separate into a & na now, for speed
         micro = micro.reset_index('affected_cat')
         temp = micro.loc[(micro.pcwgt!=0)&((micro.affected_cat=='a')|(micro.help_received!=0)|(micro.dc0!=0))].reset_index().copy()
-        # ^ ALL HH that are: affected OR received help OR receive social         
+        # ^ ALL HH that are: affected OR received help OR receive social
+        
+        temp = temp.loc[temp.region=='NCR'].copy()
+        temp.to_csv(debug+'temp_NCR.csv')
 
         temp_na = micro.loc[(micro.pcwgt!=0)&(micro.affected_cat=='na')&(micro.help_received==0)&(micro.dc0==0),['affected_cat','pcwgt','c','dk0','dc0','pc_fee']].reset_index().copy()
         # ^ ALL HH that are: not affected AND didn't receive help AND don't have any social income
-
-        temp.head(20000).to_csv(debug+'temp_init.csv')
 
     #############################
     # First debit savings for temp_na
     temp_na['dw'] = temp_na['pc_fee']*(temp_na['c']**(-const_ie))*const_rho
     # ^ assuming every hh has this much savings...
 
-    # Check that all hh have enough savings to cover this cost:
-    if temp_na.loc[(temp_na.c/12.<temp_na.dc0)].shape[0] != 0:
-        temp_na.loc[(temp_na.c/12.<temp_na.dc0)].to_csv(debug+'hh_sav_less_than_fees.csv')
-        #assert(temp_na.loc[(temp.c/12.<temp.dc0)].shape[0] == 0)
     temp_na['dc_t'] = 0.
     # wprime, dk0
 
     temp_na.head(100000).to_csv(debug+'temp_na.csv')
-
     # Will re-merge temp_na with temp at the bottom...trying to optimize here!
 
     #############################
     
     # Upper limit for per cap dw
     c_mean = temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum()
-    my_dw_limit = abs(20.*c_mean)
+    my_dw_limit = 1197638.0#abs(20.*c_mean)
 
     # Drop cols from temp, because it's huge...
     temp = temp.drop([i for i in ['pcinc','hhwgt','pcinc_ae','hhsize','hhsize_ae','pov_line','help_fee','pc_fee_BE',
@@ -1316,12 +1312,11 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # use this to count down as hh rebuilds
 
     # First, assign savings, and use it to pay pc_fee:
-
     temp['sav_i'] = get_hh_savings(temp[['c','province','ispoor']],myC,pol_str,'../inputs/PH/Socioeconomic Resilience (Provincial)_Print Version_rev1.xlsx')
     temp['sav_f'] = temp['sav_i']-temp['pc_fee']
 
     print(temp.loc[temp.sav_f<0].shape[0],' hh borrow to pay their fees...')
-    temp.loc[temp.sav_f<0].to_csv(debug+'borrow_to_pay_fees.csv')
+    temp.loc[temp.sav_f<0,['pc_fee','sav_i','sav_f']].to_csv(debug+'borrow_to_pay_fees.csv')
     # debit pc_fee... what happens if pc_fee > sav_i?
     # --> for now, I will let this go...assume that hh are able to borrow in order to pay that fee
 
