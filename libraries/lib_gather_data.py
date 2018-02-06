@@ -295,7 +295,7 @@ def get_hh_savings(df, myC, pol, fstr):
         f = f.reset_index().set_index(['province','ispoor']).dropna()
 
         # Poor in some provinces report negative savings...don't need to model their debt
-        f['avg_savings'] = f['avg_savings'].mean(level=['province','ispoor'])
+        f['avg_savings'] = f['avg_savings'].mean(level=['province','ispoor']).clip(lower=0.)
         try: f.to_csv('../../debug/provincial_savings_avg.csv')
         except: pass
 
