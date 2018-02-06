@@ -1221,12 +1221,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # ^ grab one hh in the poorest quintile, and one in the wealthiest
     temp, c_mean = None, None
     if study == True:
-        temp = pd.read_csv(debug+'temp_init.csv',index_col=['region','hazard','rp','hhid','affected_cat','helped_cat'])
-
-        c_mean = float(temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum())
-
-        temp['c_mean'] = c_mean
-        temp = pd.concat([temp.loc[(temp.quintile==1)].head(2),temp.loc[(temp.quintile==5)].head(2)])
+        temp = pd.read_csv(debug+'temp_NCR.csv',index_col=['region','hazard','rp','hhid','affected_cat','helped_cat'])
 
         #temp['dc']/=1.E5
         # ^ uncomment here if we want to make sure that (dw/wprime) converges to dc for small losses among wealthy
@@ -1244,11 +1239,22 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         temp = micro.loc[(micro.pcwgt!=0)&((micro.affected_cat=='a')|(micro.help_received!=0)|(micro.dc0!=0))].reset_index().copy()
         # ^ ALL HH that are: affected OR received help OR receive social
         
+        # Look only at NCR right now
         temp = temp.loc[temp.region=='NCR'].copy()
         temp.to_csv(debug+'temp_NCR.csv')
+        macro.to_csv(debug+'temp_macro.csv')
 
         temp_na = micro.loc[(micro.pcwgt!=0)&(micro.affected_cat=='na')&(micro.help_received==0)&(micro.dc0==0),['affected_cat','pcwgt','c','dk0','dc0','pc_fee']].reset_index().copy()
         # ^ ALL HH that are: not affected AND didn't receive help AND don't have any social income
+
+    #############################
+    # Upper limit for per cap dw (from micro, since temp is a subset)
+    try: c_mean = micro[['pcwgt','c']].prod(axis=1).sum()/micro['pcwgt'].sum()
+    except: c_mean =  56676.88707569521
+
+    my_dw_limit = abs(20.*c_mean)
+    my_natl_wprime = c_mean**(-const_ie)
+    print('\n\nc_mean = ',c_mean,' dw_lim = ',my_dw_limit,' wprime_nat = ',my_natl_wprime,'\n')
 
     #############################
     # First debit savings for temp_na
@@ -1262,11 +1268,6 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # Will re-merge temp_na with temp at the bottom...trying to optimize here!
 
     #############################
-    
-    # Upper limit for per cap dw
-    c_mean = temp[['pcwgt','c']].prod(axis=1).sum()/temp['pcwgt'].sum()
-    my_dw_limit = 1197638.0#abs(20.*c_mean)
-
     # Drop cols from temp, because it's huge...
     temp = temp.drop([i for i in ['pcinc','hhwgt','pcinc_ae','hhsize','hhsize_ae','pov_line','help_fee','pc_fee_BE',
                                   'dk_other','k','gamma_SP','ew_expansion','hh_share','fa','v_with_ew','v','social','quintile','c_5'] if i in temp.columns],axis=1)
@@ -1304,9 +1305,11 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # ^ make sure that, if T_recon changes, so does x_max!
     
     temp['t_start_prv_reco'] = 0.
-    my_natl_wprime = c_mean**(-const_ie)
-    my_avg_prod_k = macro.avg_prod_k.mean()
-    my_tau_tax = macro['tau_tax'].mean()
+    try:
+        my_avg_prod_k = macro.avg_prod_k.mean()
+        my_tau_tax = macro['tau_tax'].mean()
+    except:
+        my_avg_prod_k = 0.337; my_tau_tax = 0.07      
 
     temp['dk_prv_t'] = temp['dk_private']
     # use this to count down as hh rebuilds
