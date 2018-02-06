@@ -527,6 +527,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         # *** HH response: keep consumption above subsistence
 
         # Reco threshold
+        global reco_thresh
         reco_thresh = 1.05
         hh_reco_rate_init = '(c-@reco_thresh*c_min-di0)/dk_private'
         # ^ fraction of c_min at which hh start to reconstruct. 
@@ -1240,9 +1241,9 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         # ^ ALL HH that are: affected OR received help OR receive social
         
         # Look only at NCR right now
-        temp = temp.loc[temp.region=='NCR'].copy()
-        temp.to_csv(debug+'temp_NCR.csv')
-        macro.to_csv(debug+'temp_macro.csv')
+        #temp = temp.loc[temp.region=='NCR'].copy()
+        #temp.to_csv(debug+'temp_NCR.csv')
+        #macro.to_csv(debug+'temp_macro.csv')
 
         temp_na = micro.loc[(micro.pcwgt!=0)&(micro.affected_cat=='na')&(micro.help_received==0)&(micro.dc0==0),['affected_cat','pcwgt','c','dk0','dc0','pc_fee']].reset_index().copy()
         # ^ ALL HH that are: not affected AND didn't receive help AND don't have any social income
@@ -1361,7 +1362,6 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         ####################################
         # Let the hh optimize (pause or re-/start) its reconstruction
         # NB: only applies to hh in subsistence immediately after the disaster (welf_class == 3)
-        reco_thresh = 1.05
         hh_reco_rate_t = '(c-@reco_thresh*c_min-di_t)/dk_prv_t'
 
         if (counter <= 200 and counter%2 == 0) or (counter>200 and counter%12 == 0):
@@ -1375,8 +1375,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
                   +str(temp.query(start_criteria).shape[0])+' hh escape subs & '
                   +str(temp.query(recalc_criteria).shape[0])+' recalculate & '
                   +str(temp.query(stop_criteria).shape[0])+' stop reco\n')
-
-            temp.loc[temp.eval(start_criteria)].head(1000).to_csv(debug+'start_'+str(counter)+'.csv')
+            #temp.loc[temp.eval(start_criteria)].head(1000).to_csv(debug+'start_'+str(counter)+'.csv')
             
             # Find hh that climbed out of subsistence
             temp.loc[temp.eval(start_criteria),'hh_reco_rate'] = (temp.loc[temp.eval(start_criteria)].eval(hh_reco_rate_t)).clip(upper=6.*const_nom_reco_rate)
@@ -1484,7 +1483,6 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     
     # Re-merge temp and temp_na
     temp = pd.concat([temp,temp_na]).reset_index().set_index([i for i in mic_ix]).sort_index()
-    temp.head(100000).to_csv(debug+'concat_file.csv')
 
     # Divide by dw'
     temp['dw_curr'] = temp['dw']/my_natl_wprime
