@@ -1240,18 +1240,13 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         temp = micro.loc[(micro.pcwgt!=0)&((micro.affected_cat=='a')|(micro.help_received!=0)|(micro.dc0!=0))].reset_index().copy()
         # ^ ALL HH that are: affected OR received help OR receive social
         
-        # Look only at NCR right now
-        #temp = temp.loc[temp.region=='NCR'].copy()
-        #temp.to_csv(debug+'temp_NCR.csv')
-        #macro.to_csv(debug+'temp_macro.csv')
-
         temp_na = micro.loc[(micro.pcwgt!=0)&(micro.affected_cat=='na')&(micro.help_received==0)&(micro.dc0==0),['affected_cat','pcwgt','c','dk0','dc0','pc_fee']].reset_index().copy()
         # ^ ALL HH that are: not affected AND didn't receive help AND don't have any social income
 
     #############################
     # Upper limit for per cap dw (from micro, since temp is a subset)
     try: c_mean = micro[['pcwgt','c']].prod(axis=1).sum()/micro['pcwgt'].sum()
-    except: c_mean =  56676.88707569521
+    except: c_mean =  56676.89
 
     my_dw_limit = abs(20.*c_mean)
     my_natl_wprime = c_mean**(-const_ie)
