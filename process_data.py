@@ -20,7 +20,7 @@ from scipy.stats import norm
 from pandas import isnull
 import pandas as pd
 import numpy as np
-import os, time
+import os, re, time
 import sys
 
 #Aesthetics
@@ -85,6 +85,11 @@ df = pd.read_csv(output+'results_tax_'+base_str+'_'+pol_str+'.csv', index_col=[e
 iah = pd.read_csv(output+'iah_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 macro = pd.read_csv(output+'macro_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 
+def purge(dir, pattern):
+    for f in os.listdir(dir):
+        if re.search(pattern, f):
+            os.remove(os.path.join(dir, f))
+
 ## get frac below natl avg
 #print(iah.columns)
 #prov_mean = iah.dw.mean(level=economy)
@@ -138,8 +143,6 @@ print('R_welf:',100.*df_prov['dWtot_currency'].sum()/df_prov['gdp'].sum())
 
 print('R_asset per hazard: ',df['dKtot'].sum(level='hazard')/df[['pop','gdp_pc_prov']].prod(axis=1).mean(level=[economy,'hazard']).sum(level='hazard'))
 
-assert(False)
-
 # Map asset losses as fraction of natl GDP
 print('\n',df_prov.dKtot/df_prov.gdp.sum())
 print((df_prov.dKtot/df_prov.gdp.sum()).sum(),'\n')
@@ -188,8 +191,6 @@ make_map_from_svg(
     new_title='Annual well-being risk [% of national GDP]',
     do_qualitative=False,
     res=2000)
-
-assert(False)
 
 res_pds = pd.read_csv(output+'results_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 iah_pds = pd.read_csv(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp','hhid','helped_cat','affected_cat'])
@@ -365,54 +366,46 @@ for myDis in allDis:
 
     cut_rps['c_initial'] = 0.    
     cut_rps['delta_c']   = 0.
-    cut_rps.loc[cut_rps.pcwgt_ae != 0.,'c_initial'] = cut_rps.loc[cut_rps.pcwgt_ae != 0.,['c','hhsize']].prod(axis=1)/cut_rps.loc[(cut_rps.pcwgt_ae != 0.), 'hhsize_ae']
-
-    # If our calculation of consumption has changed, we need to shift the poverty line by the same amount
-    #print(cut_rps['pov_line'].mean())
-    #if myCountry == 'FJ':
-    #    cut_rps['pov_line'] *= cut_rps['c_initial']/cut_rps['pcinc_ae']
-    #print(cut_rps['pov_line'].mean())
-    #assert(False)
-
+    
+    print(cut_rps.columns)
+    
     cut_rps.loc[cut_rps.pcwgt_ae != 0.,'delta_c']   = (cut_rps.loc[(cut_rps.pcwgt_ae != 0.), ['dk0','pcwgt']].prod(axis=1)/cut_rps.loc[(cut_rps.pcwgt_ae != 0.),'pcwgt_ae'])*(df['avg_prod_k'].mean()+1/df['T_rebuild_K'].mean())
 
-    cut_rps['c_final']   = (cut_rps['c_initial'] + drm_pov_sign*cut_rps['delta_c'])
-    cut_rps['c_final_pds']   = (cut_rps['c_initial'] - cut_rps['delta_c'] - cut_rps['pds_nrh'])
-
-    cut_rps['c_initial'] = cut_rps['c_initial']
+    cut_rps['c_final']   = (cut_rps['c'] + drm_pov_sign*cut_rps['delta_c'])
+    cut_rps['c_final_pds']   = (cut_rps['c'] - cut_rps['delta_c'] - cut_rps['pds_nrh'])
 
     cut_rps['pre_dis_n_pov'] = 0
     cut_rps['pre_dis_n_sub'] = 0
-    cut_rps.loc[(cut_rps.c_initial <= cut_rps.pov_line), 'pre_dis_n_pov'] = cut_rps.loc[(cut_rps.c_initial <= cut_rps.pov_line), 'pcwgt']
+    cut_rps.loc[(cut_rps.c <= cut_rps.pov_line), 'pre_dis_n_pov'] = cut_rps.loc[(cut_rps.c <= cut_rps.pov_line), 'pcwgt']
     if sub_line:
-        cut_rps.loc[(cut_rps.c_initial <= sub_line), 'pre_dis_n_sub'] = cut_rps.loc[(cut_rps.c_initial <= sub_line), 'pcwgt']
+        cut_rps.loc[(cut_rps.c <= sub_line), 'pre_dis_n_sub'] = cut_rps.loc[(cut_rps.c <= sub_line), 'pcwgt']
     print('\n\nTotal pop:',cut_rps['pcwgt'].sum(level='rp').mean())
     print('Pop below pov line before disaster:',cut_rps['pre_dis_n_pov'].sum(level=['hazard','rp']).mean())
     print('Pop below sub line before disaster:',cut_rps['pre_dis_n_sub'].sum(level=['hazard','rp']).mean(),'\n')
 
-    print('--> poor, below pov',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c_initial <= cut_rps.pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
-    print('--> poor, above pov',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c_initial > cut_rps.pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
-    print('--> rich, below pov',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c_initial <= cut_rps.pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
-    print('--> rich, above pov',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c_initial > cut_rps.pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+    print('--> poor, below pov',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c <= cut_rps.pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+    print('--> poor, above pov',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c > cut_rps.pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+    print('--> rich, below pov',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c <= cut_rps.pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+    print('--> rich, above pov',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c > cut_rps.pov_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
         
     if sub_line:
-        print('poor, below sub',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c_initial <= sub_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
-        print('poor, above sub',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c_initial > sub_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
-        print('rich, below sub',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c_initial <= sub_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
-        print('rich, above sub',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c_initial > sub_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+        print('poor, below sub',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c <= sub_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+        print('poor, above sub',cut_rps.loc[(cut_rps.ispoor == 1) & (cut_rps.c > sub_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+        print('rich, below sub',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c <= sub_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
+        print('rich, above sub',cut_rps.loc[(cut_rps.ispoor == 0) & (cut_rps.c > sub_line), 'pcwgt'].sum(level=['hazard','rp']).mean())
 
     cut_rps['disaster_n_pov'] = 0
     cut_rps['disaster_pds_n_pov'] = 0
     cut_rps['disaster_n_sub'] = 0
 
-    cut_rps.loc[(cut_rps.c_final <= cut_rps.pov_line) & (cut_rps.c_initial > cut_rps.pov_line), 'disaster_n_pov'] = cut_rps.loc[(cut_rps.c_final <= cut_rps.pov_line) & (cut_rps.c_initial > cut_rps.pov_line), 'pcwgt']
-    cut_rps.loc[(cut_rps.c_final_pds <= cut_rps.pov_line) & (cut_rps.c_initial > cut_rps.pov_line), 'disaster_pds_n_pov'] = cut_rps.loc[(cut_rps.c_final_pds <= cut_rps.pov_line) & (cut_rps.c_initial > cut_rps.pov_line), 'pcwgt']
+    cut_rps.loc[(cut_rps.c_final <= cut_rps.pov_line) & (cut_rps.c > cut_rps.pov_line), 'disaster_n_pov'] = cut_rps.loc[(cut_rps.c_final <= cut_rps.pov_line) & (cut_rps.c > cut_rps.pov_line), 'pcwgt']
+    cut_rps.loc[(cut_rps.c_final_pds <= cut_rps.pov_line) & (cut_rps.c > cut_rps.pov_line), 'disaster_pds_n_pov'] = cut_rps.loc[(cut_rps.c_final_pds <= cut_rps.pov_line) & (cut_rps.c > cut_rps.pov_line), 'pcwgt']
 
     print('Pop pushed below pov line by disaster:',cut_rps['disaster_n_pov'].sum(level=['hazard','rp']).mean())
     print('Pop pushed below pov line by disaster & after PDS:',cut_rps['disaster_pds_n_pov'].sum(level=['hazard','rp']).mean(),'\n')
     
     if sub_line:
-        cut_rps.loc[(cut_rps.c_final <= sub_line) & (cut_rps.c_initial > sub_line), 'disaster_n_sub'] = cut_rps.loc[(cut_rps.c_final <= sub_line) & (cut_rps.c_initial > sub_line), 'pcwgt']
+        cut_rps.loc[(cut_rps.c_final <= sub_line) & (cut_rps.c > sub_line), 'disaster_n_sub'] = cut_rps.loc[(cut_rps.c_final <= sub_line) & (cut_rps.c > sub_line), 'pcwgt']
 
     n_pov = pd.DataFrame(cut_rps[['disaster_n_pov','disaster_n_sub']].sum(level=[economy,'rp']).reset_index(),
                          columns=[economy,'rp','disaster_n_pov','disaster_n_sub']).set_index([economy,'rp'])
@@ -861,12 +854,12 @@ natl_df['dw_q1'] = np.array(dw_q1).T
 summed = sum_with_rp('FJ',natl_df,['dk_all','dw_all','dk_q1','dw_q1'],sum_provinces=True,economy=economy,national=True)
 
 df = df.reset_index()
-#print('Prov pop = ',df.loc[(df.rp==1)&(df.hazard=='typhoon'),'pop'])
-#print('Prov GDP pc = ',df.loc[(df.rp==1)&(df.hazard=='typhoon'),'gdp_pc_prov'])
-#print('Prov GDP = ',df.loc[(df.rp==1)&(df.hazard=='typhoon'),['gdp_pc_prov','pop']].prod(axis=1))
 natl_gdp = df.loc[(df.rp==1)&(df.hazard==myHaz[1][0]),['gdp_pc_prov','pop']].prod(axis=1).sum()
 
 print(summed)
 print(natl_gdp)
 print('Asset Risk:',round(100.*summed['dk_all']/natl_gdp,2),'% of natl GDP per year')
 print('Well-being Risk:',round(100.*summed['dw_all']/natl_gdp,2),'% of natl GDP per year')
+
+purge('img/','map_of_')
+purge('img/','legend_of_')
