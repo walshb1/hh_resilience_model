@@ -151,11 +151,13 @@ cat_info['social'] = (cat_info['pcsoc']/cat_info['pcinc']).fillna(0)#.clip(upper
 # --> Excluding international remittances ('cash_abroad')
 
 print('Getting pov line')
-if myCountry == 'PH': cat_info['pov_line'] = get_poverty_line(myCountry)
-elif myCountry == 'SL': cat_info['pov_line'] = get_poverty_line(myCountry)
-elif myCountry == 'FJ': 
+if myCountry == 'FJ': 
     cat_info.loc[cat_info.Sector=='Urban','pov_line'] = get_poverty_line(myCountry,'Urban')
     cat_info.loc[cat_info.Sector=='Rural','pov_line'] = get_poverty_line(myCountry,'Rural')
+else: cat_info['pov_line'] = get_poverty_line(myCountry)
+
+print(cat_info.columns)
+print(cat_info.head())
 
 print('Total population:',cat_info.pcwgt.sum())
 print('Total n households:',cat_info.hhwgt.sum())
@@ -355,14 +357,14 @@ while True:
     _path = '/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/'
     _ = hazard_ratios.reset_index().copy()
     
-    plot_simple_hist(_.loc[(_.hazard=='EQ')&(_.rp==10)],['v'],[''],_path+'vulnerabilities_EQ10_log.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=True)
-    plot_simple_hist(_.loc[(_.hazard=='EQ')&(_.rp==10)],['v'],[''],_path+'vulnerabilities_EQ10.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=False)
+    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==10)],['v'],[''],_path+'vulnerabilities_PF10_log.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=True)
+    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==10)],['v'],[''],_path+'vulnerabilities_PF10.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=False)
 
-    plot_simple_hist(_.loc[(_.hazard=='EQ')&(_.rp==250)],['v'],[''],_path+'vulnerabilities_EQ250_log.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=True)
-    plot_simple_hist(_.loc[(_.hazard=='EQ')&(_.rp==250)],['v'],[''],_path+'vulnerabilities_EQ250.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=False)  
+    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==250)],['v'],[''],_path+'vulnerabilities_PF250_log.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=True)
+    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==250)],['v'],[''],_path+'vulnerabilities_PF250.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=False)  
   
-    plot_simple_hist(_.loc[(_.hazard=='EQ')&(_.rp==1000)],['v'],[''],_path+'vulnerabilities_EQ1000_log.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=True)
-    plot_simple_hist(_.loc[(_.hazard=='EQ')&(_.rp==1000)],['v'],[''],_path+'vulnerabilities_EQ1000.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=False)
+    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==1000)],['v'],[''],_path+'vulnerabilities_PF1000_log.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=True)
+    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==1000)],['v'],[''],_path+'vulnerabilities_PF1000.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=False)
     break
 
 cat_info = cat_info.reset_index().set_index([economy,'hhid'])

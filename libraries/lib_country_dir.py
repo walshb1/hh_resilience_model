@@ -288,6 +288,8 @@ def load_survey_data(myC,inc_sf=None):
         df['pcwgt_ae'] = df['pcwgt']
 
         df['pcsoc'] = df[['other_inc','income_local']].sum(axis=1)
+
+        df['has_ew'] = df2[['asset_telephone_mobile','asset_telephone','asset_radio','asset_tv','asset_computers']].sum(axis=1).clip(lower=0,upper=1)
         
         df = df.reset_index().set_index('district')
         
@@ -596,7 +598,9 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         return df_sum,df_tikina
 
     elif myC == 'SL':
-        df = pd.read_excel(inputs+'hazards_data.xlsx',sheetname='hazard').dropna(how='any').set_index(['district','hazard','rp'])
+        df = pd.read_excel(inputs+'hazards_data.xlsx',sheetname='hazard').dropna(how='any')
+        df.hazard = df.hazard.replace({'flood':'PF'})
+        df = df.set_index(['district','hazard','rp'])
         return df,df
 
     else: return None,None
@@ -618,8 +622,13 @@ def get_poverty_line(myC,sec=None):
             print('Pov line is variable for urb/rur Fijians! Need to specify which you\'re looking for!')
             return 0.0    
 
+    elif myC == 'SL':
+        # $1.90 x ( GDP_pc(PPP) x population ) / GDP
+        return 1.90*(11417.30*19880090.52663231)/81.32E9
+    
     else:
         print('There is no poverty info for this country. Returning pov_line = 0') 
+        return 0.0
 
 def get_subsistence_line(myC):
     
