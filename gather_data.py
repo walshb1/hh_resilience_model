@@ -163,6 +163,8 @@ print('--> Individuals in poverty:', cat_info.loc[(cat_info.pcinc_ae <= cat_info
 print('-----> Families in poverty:', cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line), 'hhwgt'].sum())
 print('--> Number in poverty (flagged poor):',cat_info.loc[(cat_info.ispoor==1),'pcwgt'].sum())
 print('--> Poverty rate (flagged poor):',round(100.*cat_info.loc[(cat_info.ispoor==1),'pcwgt'].sum()/cat_info['pcwgt'].sum(),1),'%')
+pd.DataFrame({'nPoor':cat_info.loc[cat_info.ispoor==1,'pcwgt'].sum(level=economy),
+              'pctPoor':100.*cat_info.loc[cat_info.ispoor==1,'pcwgt'].sum(level=economy)/cat_info['pcwgt'].sum(level=economy)}).to_csv('debug/poverty_rate.csv')
 # Could also look at urban/rural if we have that divide
 
 # Change the name: district to code, and create an multi-level index 
