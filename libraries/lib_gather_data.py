@@ -253,7 +253,7 @@ def AIR_extreme_events(df_air,df_aal,sec='',per=''):
     
 def get_hh_savings(df, myC, pol, fstr):
 
-    _s = pd.DataFrame({'province':df.province,'ispoor':df.ispoor},index=df.index)
+    _s = pd.DataFrame({'c':df.c,'province':df.province,'ispoor':df.ispoor},index=df.index)
 
     if pol == '_nosavings': return 0
     elif pol == '_nosavingsdata': return df.eval('c/12')
@@ -294,9 +294,9 @@ def get_hh_savings(df, myC, pol, fstr):
 
         f = f.reset_index().set_index(['province','ispoor']).dropna()
 
-        # Poor in some provinces report negative savings...don't need to model their debt
-        f['avg_savings'] = f['avg_savings'].mean(level=['province','ispoor']).clip(lower=0.)
-        try: f.to_csv('../../debug/provincial_savings_avg.csv')
+        # Poor in some provinces report negative savings...
+        f['avg_savings'] = f['avg_savings'].mean(level=['province','ispoor'])
+        try: f.to_csv('debug/provincial_savings_avg.csv')
         except: pass
 
         # Put it back together
@@ -304,6 +304,7 @@ def get_hh_savings(df, myC, pol, fstr):
         _s = _s.mean(level='index')
 
         #_s *= np.random.normal(1,
+        _s['avg_savings'] = _s['avg_savings'].clip(lower=0.,upper=0.5*_s['c'])
     
     else:
         # Without data: we tried giving hh savings = 6 months' income if they report spending on savings or investments, 1 month if not
