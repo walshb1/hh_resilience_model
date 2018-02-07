@@ -20,7 +20,7 @@ from scipy.stats import norm
 from pandas import isnull
 import pandas as pd
 import numpy as np
-import os, re, time
+import os, glob, time
 import sys
 
 #Aesthetics
@@ -86,9 +86,8 @@ iah = pd.read_csv(output+'iah_tax_'+base_str+'_'+pol_str+'.csv', index_col=[econ
 macro = pd.read_csv(output+'macro_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 
 def purge(dir, pattern):
-    for f in os.listdir(dir):
-        if re.search(pattern, f):
-            os.remove(os.path.join(dir, f))
+    for f in glob.glob(dir+pattern):
+        os.remove(f)
 
 ## get frac below natl avg
 #print(iah.columns)
@@ -217,7 +216,7 @@ print('\n\n Wprime = ',wprime,'\n\n')
 iah['dw'] = iah['dw']/wprime
 try: 
     iah['pds_dw'] = iah_pds['dw']/wprime
-    iah['pds_nrh'] = iah_pds['help_fee']-iah_pds['help_received'] # Net received help
+    iah['pds_nrh'] = iah_pds['pc_fee']-iah_pds['help_received'] # Net received help
     iah['pds_help_fee'] = iah_pds['help_fee']
     iah['pds_help_received'] = iah_pds['help_received']
 
@@ -861,5 +860,7 @@ print(natl_gdp)
 print('Asset Risk:',round(100.*summed['dk_all']/natl_gdp,2),'% of natl GDP per year')
 print('Well-being Risk:',round(100.*summed['dw_all']/natl_gdp,2),'% of natl GDP per year')
 
-purge('img/','map_of_')
-purge('img/','legend_of_')
+purge('img/','map_of_*.png')
+purge('img/','legend_of_*.png')
+purge('img/','map_of_*.svg')
+purge('img/','legend_of_*.svg')
