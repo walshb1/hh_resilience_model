@@ -1,12 +1,12 @@
 ##################################
 #Import packages for data analysis
-from lib_compute_resilience_and_risk import *
-from replace_with_warning import *
-from lib_country_dir import *
+from libraries.lib_compute_resilience_and_risk import *
+from libraries.replace_with_warning import *
+from libraries.lib_country_dir import *
 #from lib_gather_data import *
-from maps_lib import *
+from libraries.maps_lib import *
 
-from lib_average_over_rp import *
+from libraries.lib_average_over_rp import *
 
 from scipy.stats import norm
 import matplotlib.mlab as mlab
@@ -431,7 +431,7 @@ for aProv in myHaz[0]:
                 np.savetxt('/Users/brian/Desktop/BANK/hh_resilience_model/output_plots/PH/pds_comparison_'+aProv+'_'+aDis+'_'+str(anRP)+'_Q'+str(myQ)+'.csv',[dw,pds_dw,pds_plus_dw], delimiter=',')
                 
             out_str = None
-            if myCountry == 'FJ': out_str = ['Asset loss','Consumption\nloss','Well-being\nloss','Net cost of\nWinston-like\nsupport','Well-being loss\npost support']
+            if myCountry == 'FJ': out_str = ['Asset loss','Consumption\nloss (NPV)','Well-being\nloss','Net cost of\nWinston-like\nsupport','Well-being loss\npost support']
             elif myCountry == 'PH': out_str = ['Asset loss','Consumption\nloss','Well-being\nloss','Net cost of\nsupport','Well-being loss\npost support']
 
             for ni, ii in enumerate(range(1,6)):
