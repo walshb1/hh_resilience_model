@@ -80,7 +80,8 @@ def sum_with_rp(myC,df,columns,sum_provinces,economy,national=False):
                 '200' :float(1./200  -  1./250),
                 '250' :float(1./250  -  1./500),
                 '500' :float(1./500  - 1./1000),
-                '1000':float(1./1000)}
+                '1000':float(1./1000 - 1./2000),
+                '2000':float(1./2000)}
 
         for aCol in columns:
             df.loc[(df.rp ==    1),aCol] *= freq[   '1']        
@@ -93,6 +94,7 @@ def sum_with_rp(myC,df,columns,sum_provinces,economy,national=False):
             df.loc[(df.rp ==  250),aCol] *= freq[ '250'] 
             df.loc[(df.rp ==  500),aCol] *= freq[ '500'] 
             df.loc[(df.rp == 1000),aCol] *= freq['1000']
+            df.loc[(df.rp == 2000),aCol] *= freq['2000']
 
         if sum_provinces == False:
             return df.sum(level=economy)
@@ -294,7 +296,10 @@ def make_legend(serie,cmap,label="",path=None,do_qualitative=False,res=1000):
         #continuous legend
     norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
     cb = mpl.colorbar.ColorbarBase(ax1, cmap=cmap, norm=norm, orientation='horizontal')
-    
+
+    font_size = 17 # Adjust as appropriate.
+    cb.ax.tick_params(labelsize=font_size)
+
     if do_qualitative:
         #delta = (vmax - vmin)/5
         #bounds = np.array([vmin, vmin+delta, vmin+2*delta, vmin+3*delta, vmin+5*delta])
@@ -303,9 +308,10 @@ def make_legend(serie,cmap,label="",path=None,do_qualitative=False,res=1000):
 
         cb.set_ticks([vmin,vmax])
         cb.ax.set_xticklabels(['Low','High'])
+
         label = label[:label.find(" (")]
 
-    cb.set_label(label)
+    cb.set_label(label=label,size=16,weight='bold')
     if path is not None:
         plt.savefig(path+".png",bbox_inches="tight",transparent=True,dpi=res)  
     plt.close(fig)    

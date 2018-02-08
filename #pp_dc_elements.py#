@@ -5,8 +5,7 @@ get_ipython().magic('load_ext autoreload')
 get_ipython().magic('autoreload 2')
 
 #Import packages for data analysis
-#from libraries.lib_compute_resilience_and_risk import 
-from new_process_data import haz_dict
+from libraries.lib_compute_resilience_and_risk import *
 from libraries.replace_with_warning import *
 from libraries.lib_country_dir import *
 from libraries.lib_gather_data import *
@@ -251,7 +250,7 @@ for iHaz in ['SS','PF','HU','EQ']:
 
     plt.xlabel(haz_dict[iHaz]+' return period [years]',fontsize=16)
     plt.ylabel('Socio-economic capacity [%]',fontsize=16)
-    plt.ylim(0,205)
+    plt.ylim(0,210)
 
     #leg = ax.legend(loc='best',labelspacing=0.75,ncol=4,fontsize=6,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0,title='Region')
     #export_legend(leg,'../check_plots/regional_legend.pdf')
