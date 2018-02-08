@@ -5,8 +5,8 @@ get_ipython().magic('reset -f')
 get_ipython().magic('load_ext autoreload')
 get_ipython().magic('autoreload 2')
 
-#Import packages for data analysis
-from libraries.lib_compute_resilience_and_risk import *
+#Import local libraries
+from libraries.lib_compute_resilience_and_risk import get_weighted_mean
 from libraries.replace_with_warning import *
 from libraries.lib_country_dir import *
 from libraries.lib_gather_data import *
@@ -22,6 +22,7 @@ import pandas as pd
 import numpy as np
 import os, glob, time
 import sys
+import warnings
 
 #Aesthetics
 import seaborn as sns
@@ -30,8 +31,10 @@ from matplotlib import colors
 sns.set_style('darkgrid')
 brew_pal = brew.get_map('Set1', 'qualitative', 8).mpl_colors
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
+q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
+q_labels = ['Poorest quintile','Q2','Q3','Q4','Wealthiest quintile']
 
-params = {'savefig.bbox': 'tight', #or 'standard'
+params = {'savefig.bbox': 'tight',
           #'savefig.pad_inches': 0.1 
           'xtick.labelsize': 8,
           'ytick.labelsize': 8,
@@ -42,13 +45,10 @@ params = {'savefig.bbox': 'tight', #or 'standard'
           'savefig.facecolor': 'white',   # figure facecolor when saving
           #'savefig.edgecolor': 'white'    # figure edgecolor when saving
           }
+font = {'family':'sans serif', 'size':16}
 plt.rcParams.update(params)
-
-font = {'family' : 'sans serif',
-    'size'   : 10}
 plt.rc('font', **font)
 
-import warnings
 warnings.filterwarnings('always',category=UserWarning)
 
 if len(sys.argv) < 2:
@@ -67,65 +67,72 @@ svg_file = '../map_files/'+myCountry+'/BlankSimpleMap.svg'
 if myCountry == 'PH' and economy == 'region':
     svg_file = '../map_files/'+myCountry+'/BlankSimpleMapRegional.svg'
 
-#
-drm_pov_sign = -1 # toggle subtraction or addition of dK to affected people's incomes
+# Toggle subtraction or addition of dK to affected people's incomes
+drm_pov_sign = -1 
 
+#######################
+# Get poverty & subsistence thresholds
 pov_line = get_poverty_line(myCountry,'Rural')
 sub_line = get_subsistence_line(myCountry)
 
+#######################
 # Load output files
-pol_str = ''#'_v95'#could be {'_v95'}
-
+pol_str = ''
 base_str = 'no'
 pds_str = 'unif_poor'
-if myCountry == 'FJ': pds_str = 'fiji_SPP'#'no'
+if myCountry == 'FJ': pds_str = 'fiji_SPP'
 
-#res_base = pd.read_csv(output+'results_tax_no_.csv', index_col=[economy,'hazard','rp'])
 df = pd.read_csv(output+'results_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 iah = pd.read_csv(output+'iah_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 macro = pd.read_csv(output+'macro_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 
+df_pds = pd.read_csv(output+'results_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+iah_pds = pd.read_csv(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp','hhid','helped_cat','affected_cat'])
+
+
+
+#######################
+# 2 simple functions
 def purge(dir, pattern):
     for f in glob.glob(dir+pattern):
         os.remove(f)
 
-## get frac below natl avg
-#print(iah.columns)
-#prov_mean = iah.dw.mean(level=economy)
-#prov_mean.columns = ['provincial_mean']
-#prov_mean['natl_mean'] = iah.dw.mean()
-#natl_mean = iah.dw.mean()
-#prov_mean.columns = ['dw']
+def format_delta_p(delta_p):
+    delta_p_int = int(delta_p)
+    delta_p = int(delta_p)
 
-#(iah.loc[iah.dw > natl_mean,'weight'].sum(level=economy)/iah.weight.sum(level=economy)).to_csv('~/Desktop/my_dw.csv')
+    if delta_p_int >= 1E6:
+        delta_p = str(delta_p)[:-6]+','+str(delta_p)[-6:]
+    if delta_p_int >= 1E3:         
+        delta_p = str(delta_p)[:-3]+','+str(delta_p)[-3:]
+    return(str(delta_p))
 
-#print(prov_mean)
-#prov_mean.to_csv('~/Desktop/my_dw.csv')
 
-# These are equivalent
-#df_prov = sum_with_rp(myCountry,macro[['dk_event']],['dk_event'],sum_provinces=False,national=False)
+
+#######################
+# df_prov = [dK,dW] already multiplied by prob_RP (but not summed over RP)
 df_prov = df[['dKtot','dWtot_currency']]
 df_prov['gdp'] = df[['pop','gdp_pc_prov']].prod(axis=1)
 df_prov['gdp_hh'] = float(macro['avg_prod_k'].mean())*iah[['k','pcwgt']].prod(axis=1).sum(level=event_level)
 
-# HACK
-#df_prov.ix['Rotuma'].dWtot_currency = df_prov.ix['Rotuma'].dWtot_currency.clip(upper=df_prov.ix['Rotuma'].gdp.mean())
+df_prov['R_asst'] = round(100.*df_prov['dKtot']/df_prov['gdp'],2)
+df_prov['R_welf'] = round(100.*df_prov['dWtot_currency']/df_prov['gdp'],2)
 
+#######################
+# Before summing df_prov over rps & hazards, grab the 100-year losses
+# results_df = [dK,dW] for RP=100 & AAL (df_prov) 
 results_df = macro.reset_index().set_index([economy,'hazard'])
 results_df = results_df.loc[results_df.rp==100,'dk_event'].sum(level='hazard')
 results_df = results_df.rename(columns={'dk_event':'dk_event_100'})
 results_df = pd.concat([results_df,df_prov.reset_index().set_index([economy,'hazard']).sum(level='hazard')['dKtot']],axis=1,join='inner')
 results_df.columns = ['dk_event_100','AAL']
-results_df.to_csv(output+'results_table_old.csv')
-
-#print(iah.columns)
-#print(iah[['dc_npv_post','hhwgt','hhsize_ae']].prod(axis=1).sum(level=['hazard','rp'])/iah[['hhwgt','hhsize_ae']].prod(axis=1).sum(level=['hazard','rp']))
-
-df_prov['R_asst'] = round(100.*df_prov['dKtot']/df_prov['gdp'],2)
-df_prov['R_welf'] = round(100.*df_prov['dWtot_currency']/df_prov['gdp'],2)
+results_df.to_csv(output+'results_table_100_plus_AAL.csv')
+#######################
 
 _gdp_hh = df_prov['gdp_hh'].copy().mean(level=economy)
+
 df_prov = df_prov.sum(level=economy)
+# Now sum over RPs & hazards
 
 df_prov['gdp_hh'] = _gdp_hh
 df_prov['gdp'] = df[['pop','gdp_pc_prov']].prod(axis=1).mean(level=economy).copy()
@@ -139,91 +146,86 @@ print('gdp/cap: ',round(gdp/pop,0))
 print('pop: '+str(pop))
 print('R_asset:',100.*df_prov['dKtot'].sum()/df_prov['gdp'].sum())
 print('R_welf:',100.*df_prov['dWtot_currency'].sum()/df_prov['gdp'].sum())
-
 print('R_asset per hazard: ',df['dKtot'].sum(level='hazard')/df[['pop','gdp_pc_prov']].prod(axis=1).mean(level=[economy,'hazard']).sum(level='hazard'))
 
-# Map asset losses as fraction of natl GDP
 print('\n',df_prov.dKtot/df_prov.gdp.sum())
 print((df_prov.dKtot/df_prov.gdp.sum()).sum(),'\n')
 
-print(svg_file)
+#######################
+print('--> Map asset losses as fraction of national GDP')
 make_map_from_svg(
     df_prov.dKtot/df_prov.gdp.sum(), 
     svg_file,
     outname=myCountry+'_asset_risk_over_natl_gdp',
-    color_maper=plt.cm.get_cmap('Blues'),
+    color_maper=plt.cm.get_cmap('GnBu'),
     #svg_handle = 'reg',
     label='Annual asset risk [% of national GDP]',
     new_title='Annual asset risk [% of national GDP]',
     do_qualitative=False,
     res=2000)
 
+#######################
+print('--> Map asset losses as fraction of regional GDP')
 make_map_from_svg(
     df_prov.dKtot/df_prov.gdp, 
     svg_file,
     outname=myCountry+'_asset_risk_over_reg_gdp',
-    color_maper=plt.cm.get_cmap('Blues'),
+    color_maper=plt.cm.get_cmap('GnBu'),
     #svg_handle = 'reg',
     label='Annual asset risk [% of regional GDP]',
     new_title='Annual asset risk [% of regional GDP]',
     do_qualitative=False,
     res=2000)
 
-make_map_from_svg(
-    df_prov.dWtot_currency/df_prov.gdp, 
-    svg_file,
-    outname=myCountry+'_welf_risk_over_reg_gdp',
-    color_maper=plt.cm.get_cmap('Reds'),
-    #svg_handle = 'reg',
-    label='Annual well-being risk [% of regional GDP]',
-    new_title='Annual well-being risk [% of regional GDP]',
-    do_qualitative=False,
-    res=2000)
-
+#######################
+print('--> Map welfare losses as fraction of national GDP')
 make_map_from_svg(
     df_prov.dWtot_currency/df_prov.gdp.sum(), 
     svg_file,
     outname=myCountry+'_welf_risk_over_natl_gdp',
-    color_maper=plt.cm.get_cmap('Reds'),
+    color_maper=plt.cm.get_cmap('OrRd'),
     #svg_handle = 'reg',
     label='Annual well-being risk [% of national GDP]',
     new_title='Annual well-being risk [% of national GDP]',
     do_qualitative=False,
     res=2000)
 
-res_pds = pd.read_csv(output+'results_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
-iah_pds = pd.read_csv(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp','hhid','helped_cat','affected_cat'])
+#######################
+print('Map welfare losses as fraction of regional GDP')
+make_map_from_svg(
+    df_prov.dWtot_currency/df_prov.gdp, 
+    svg_file,
+    outname=myCountry+'_welf_risk_over_reg_gdp',
+    color_maper=plt.cm.get_cmap('OrRd'),
+    #svg_handle = 'reg',
+    label='Annual well-being risk [% of regional GDP]',
+    new_title='Annual well-being risk [% of regional GDP]',
+    do_qualitative=False,
+    res=2000)
+
+#######################
+# Apply the full index to iah for merging with iah_pds
 iah = iah.reset_index().set_index([economy,'hazard','rp','hhid','helped_cat','affected_cat'])
-print(output+'results_tax_'+pds_str+'_'+pol_str+'.csv')
-print(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv')
 
-def format_delta_p(delta_p):
-    delta_p_int = int(delta_p)
-    delta_p = int(delta_p)
-
-    if delta_p_int >= 1E6:
-        delta_p = str(delta_p)[:-6]+','+str(delta_p)[-6:]
-    if delta_p_int >= 1E3:         
-        delta_p = str(delta_p)[:-3]+','+str(delta_p)[-3:]
-    return(str(delta_p))
-        
-#cats = pd.read_csv(output+'cats_tax_no_.csv', index_col=[economy,'hazard','rp'])
-
-# Transform dw:
+# Transform dw into currency
 wprime = df.wprime.mean()
 print('\n\n Wprime = ',wprime,'\n\n')
 
 iah['dw'] = iah['dw']/wprime
+iah['ratio'] = iah['dw']/iah['dc0']
 try: 
     iah['pds_dw'] = iah_pds['dw']/wprime
     iah['pds_nrh'] = iah_pds['pc_fee']-iah_pds['help_received'] # Net received help
-    iah['pds_help_fee'] = iah_pds['help_fee']
+    iah['pds_help_fee'] = iah_pds['pc_fee']
     iah['pds_help_received'] = iah_pds['help_received']
+except: 
+    iah['pds_dw'] = iah['dw']
+    iah['pds_nrh'] = iah['pc_fee']
+    iah['pds_help_fee'] = iah['pc_fee']
+    iah['pds_help_received'] = 0
 
-except: iah['pds_dw'] = None
-
+# reset index
 iah = iah.reset_index()
-iah['ratio'] = iah['dw']/iah['dc0']
 
 for irp in get_all_rps(myCountry,iah)[2::4]:
     print('Running',irp)
@@ -246,6 +248,12 @@ for irp in get_all_rps(myCountry,iah)[2::4]:
     ax.annotate(r'$\Delta W_{tot}$ = '+str(tot_float)+'M',xy=(0.4E7,1090000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
     ax.plot()
     fig = plt.gcf()
+
+    #bounds = np.array([0.5,1.5,2.5,3.5])
+    #norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=3)
+    #cb = mpl.colorbar.ColorbarBase(ax, norm=norm, orientation='vertical')
+    #cb.set_ticks([1,2,3])
+    #cb.ax.set_xticklabels(['HH above poverty','HH in poverty','HH in subsistence'])
     
     fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/dw_eq_'+str(irp)+'.pdf',format='pdf')
     plt.clf()
@@ -262,7 +270,7 @@ for irp in get_all_rps(myCountry,iah)[2::4]:
     ax = _iah.loc[(_iah.welf_class==3)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
 
     fig = plt.gcf()
-    im=fig.get_axes()        #this is a list of all images that have been plotted
+    im=fig.get_axes() # this is a list of all images that have been plotted
     for iax in range(len(im))[1:]: im[iax].remove()
     
     plt.axes(ax)
@@ -337,9 +345,6 @@ iah['pcwgt'] = iah['pcwgt'].fillna(0)
 #iah['pds_help_received'] = iah[['pds_help_received','hhwgt']].prod(axis=1)/iah['weight']
 
 #cf_ppp = 17.889
-
-q_labels = ['Poorest quintile','Q2','Q3','Q4','Wealthiest quintile']
-q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 # Look at single event:
 if myCountry == 'PH':
@@ -499,8 +504,8 @@ for myDis in allDis:
 
         sf = 1.
         if myCountry == 'FJ': sf = 2.321208
-        ci_heights, ci_bins = np.histogram((cutA['c_initial']/sf).clip(upper=upper_clip), bins=50, weights=cutA['pcwgt'])
-        cf_heights, cf_bins = np.histogram((cutA['c_final']/sf).clip(upper=upper_clip), bins=ci_bins, weights=cutA['pcwgt'])
+        cf_heights, cf_bins = np.histogram((cutA['c_final']/sf).clip(lower=0,upper=upper_clip), bins=50, weights=cutA['pcwgt'])
+        ci_heights, ci_bins = np.histogram((cutA['c_initial']/sf).clip(lower=0,upper=upper_clip), bins=cf_bins, weights=cutA['pcwgt'])
 
         ci_heights /= get_pop_scale_fac(myCountry)[0]
         cf_heights /= get_pop_scale_fac(myCountry)[0]

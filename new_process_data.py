@@ -1,6 +1,6 @@
 ##################################
 #Import packages for data analysis
-from libraries.lib_compute_resilience_and_risk import *
+from libraries.lib_compute_resilience_and_risk import get_weighted_mean
 from libraries.replace_with_warning import *
 from libraries.lib_country_dir import *
 #from lib_gather_data import *
@@ -32,7 +32,8 @@ q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 font = {'family' : 'sans serif',
     'size'   : 20}
 plt.rc('font', **font)
-mpl.rcParams['xtick.labelsize'] = 16
+mpl.rcParams['xtick.labelsize'] = 14
+mpl.rcParams['ytick.labelsize'] = 14
 
 import warnings
 warnings.filterwarnings('always',category=UserWarning)
@@ -63,6 +64,8 @@ if myCountry == 'FJ':
 
 drm_pov_sign = -1 # toggle subtraction or addition of dK to affected people's incomes
 all_policies = []#['_exp095','_exr095','_ew100','_vul070','_vul070r','_rec067']
+
+haz_dict = {'SS':'Storm surge','PF':'Precipitation flood','HU':'Hurricane','EQ':'Earthquake'}
 
 ##################################
 # Load base and PDS files
@@ -184,13 +187,11 @@ iah_res['delta_pov_post_reco'] = iah_res.loc[(iah_res.c_ae > iah_res.pov_line)&(
 iah = iah.reset_index()
 iah_res  = iah_res.reset_index().set_index([economy,'hazard','rp','hhid'])
 
-print(iah_res.head())
-
 # Save out iah by economic unit
 iah_out = pd.DataFrame(index=iah_res.sum(level=[economy,'hazard','rp']).index)
 for iPol in ['']+all_policies:
     iah_out['Asset risk'+iPol] = iah_res[['dk0'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
-    iah_out['Well-being risk'+iPol] = iah_res[['dw'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
+    iah_out['Well-being risk'+iPol] = iah_res[['dw'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp']) 
 
 print(iah_out.head(10))
 
@@ -208,41 +209,49 @@ print(iah_out.head(10))
 iah_out,_ = average_over_rp(iah_out)
 
 iah_out['SE capacity']  = iah_out['Asset risk']/iah_out['Well-being risk']
-iah_out.to_csv('~/Desktop/my_out.csv')
-
-iah_out['SE capacity']  = iah_out['Asset risk']/iah_out['Well-being risk']
 iah_out.to_csv(output+'geo_haz_aal_sums.csv')
 
 iah_out = iah_out.sum(level=economy)
-iah_out['SE capacity']  = iah_out['Asset risk']/iah_out['Well-being risk']
+
+print(iah_out.head())
+
+iah_out.loc['Total'] = [float(iah_out['Asset risk'].sum()),
+                        float(iah_out['Well-being risk'].sum()),
+                        float(iah_out['Asset risk'].sum()/iah_out['Well-being risk'].sum())]
+iah_out['SE capacity']  = 100.*iah_out['Asset risk']/iah_out['Well-being risk']
+
 iah_out.to_csv(output+'geo_aal_sums.csv')
 iah_out[['Asset risk','Well-being risk']]/=1.E6
-iah_out[['SE capacity']]*=100.
+
 iah_out[['Asset risk','SE capacity','Well-being risk']].sort_values(['Well-being risk'],ascending=False).astype(int).to_latex(output+'geo_aal_sums.tex')
 print('Wrote latex! Sums:\n',iah_out[['Asset risk','Well-being risk']].sum())
 
 # Save out iah by economic unit, *only for poorest quintile*
-iah_out = pd.DataFrame(index=iah_res.sum(level=[economy,'hazard','rp']).index)
+iah_out_q1 = pd.DataFrame(index=iah_res.sum(level=[economy,'hazard','rp']).index)
 for iPol in ['']+all_policies:
-    iah_out['Asset risk'+iPol] = iah_res.loc[(iah_res.quintile==1),['dk0'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
-    iah_out['Well-being risk'+iPol] = iah_res.loc[(iah_res.quintile==1),['dw'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
-#iah_out['pds_dw']      = iah_res.loc[(iah_res.quintile==1),['pds_dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
-#iah_out['pc_fee']      = iah_res.loc[(iah_res.quintile==1),['pc_fee','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
-#iah_out['pds_plus_dw'] = iah_res.loc[(iah_res.quintile==1),['pds_plus_dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
-iah_out['SE capacity']  = iah_out['Asset risk']/iah_out['Well-being risk']
+    iah_out_q1['Asset risk'+iPol] = iah_res.loc[(iah_res.quintile==1),['dk0'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
+    iah_out_q1['Well-being risk'+iPol] = iah_res.loc[(iah_res.quintile==1),['dw'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
 
-iah_out.to_csv(output+'geo_sums_q1.csv')
-iah_out,_ = average_over_rp(iah_out,'default_rp')
-iah_out['SE capacity']  = iah_out['Asset risk']/iah_out['Well-being risk']
-iah_out.to_csv(output+'geo_haz_aal_sums_q1.csv')
+iah_out_q1.to_csv(output+'geo_sums_q1.csv')
+iah_out_q1,_ = average_over_rp(iah_out_q1,'default_rp')
+iah_out_q1['SE capacity']  = iah_out_q1['Asset risk']/iah_out_q1['Well-being risk']
 
-iah_out = iah_out.sum(level=economy)
-iah_out['SE capacity']  = iah_out['Asset risk']/iah_out['Well-being risk']
-iah_out.to_csv(output+'geo_aal_sums_q1.csv')
-iah_out[['Asset risk','Well-being risk']]/=1.E6
-iah_out[['SE capacity']]*=100.
-iah_out[['Asset risk','SE capacity','Well-being risk']].sort_values(['Well-being risk'],ascending=False).astype(int).to_latex(output+'geo_aal_sums_q1.tex',bold_rows=True)
-print('Wrote latex! Q1 sums: ',iah_out.sum())
+iah_out_q1.to_csv(output+'geo_haz_aal_sums_q1.csv')
+
+iah_out_q1 = iah_out_q1.sum(level=economy)
+iah_out_q1.loc['Total'] = [float(iah_out_q1['Asset risk'].sum()),
+                           float(iah_out_q1['Well-being risk'].sum()),
+                           float(iah_out_q1['Asset risk'].sum()/iah_out_q1['Well-being risk'].sum())]
+iah_out_q1['SE capacity']  = iah_out_q1['Asset risk']/iah_out_q1['Well-being risk']
+
+iah_out_q1.to_csv(output+'geo_aal_sums_q1.csv')
+iah_out_q1[['Asset risk','Well-being risk']]/=1.E6
+
+iah_out_q1['% total RA'] = 100.*(iah_out_q1['Asset risk']/iah_out['Asset risk'])
+iah_out_q1['% total RW'] = 100.*(iah_out_q1['Well-being risk']/iah_out['Well-being risk'])
+iah_out_q1[['SE capacity']]*=100.
+iah_out_q1[['Asset risk','% total RA','SE capacity','Well-being risk','% total RW']].sort_values(['Well-being risk'],ascending=False).astype(int).to_latex(output+'geo_aal_sums_q1.tex',bold_rows=True)
+print('Wrote latex! Q1 sums: ',iah_out_q1.sum())
 
 # Save out iah
 iah_out = pd.DataFrame(index=iah_res.sum(level=['hazard','rp']).index)
@@ -294,6 +303,22 @@ if myCountry == 'FJ':
     scale_fac = 2.321208
     upper_clip = 2E4
 
+
+pov_df = iah_res.copy().reset_index().set_index(event_level)
+
+print(pov_df.head())
+
+pov_df_event = pov_df.loc[((pov_df.c_ae>pov_df.pov_line)&(pov_df.c_pre_reco>pov_df.sub_line)&(pov_df.c_pre_reco<=pov_df.pov_line)),'pcwgt'].sum(level=event_level).to_frame(name='new_pov')
+pov_df_event['new_sub'] = pov_df.loc[((pov_df.c_ae>pov_df.sub_line)&(pov_df.c_pre_reco<pov_df.sub_line)),'pcwgt'].sum(level=event_level)
+pov_df_event.to_csv('debug/new_pov_reg_haz_rp.csv')
+pov_df_event,_ = average_over_rp(pov_df_event,'default_rp')
+pov_df_event.to_csv('~/Desktop/new_pov_reg_haz.csv')
+pov_df_event = pov_df_event.sum(level='region')
+pov_df_event.to_csv('~/Desktop/new_pov_reg.csv')
+pov_df_event = pov_df_event.sum()
+pov_df_event.to_csv('~/Desktop/new_pov.csv')
+assert(False)
+
 for aReg in myHaz[0]:
     for aDis in get_all_hazards(myCountry,iah_res):
         
@@ -327,22 +352,22 @@ for aReg in myHaz[0]:
             mny = get_currency(myCountry)
 
             plt.xlim(0,upper_clip)
-            plt.xlabel(r'Income ('+mny[0].replace('b. ','')+' yr$^{-1}$)')
+            plt.xlabel(r'Income ('+mny[0].replace('b. ','')+' per person, per year)')
             plt.ylabel('Population'+get_pop_scale_fac(myCountry)[1])
-            plt.title(str(anRP)+'-year '+aDis+' event in '+aReg)
+            plt.title(str(anRP)+'-year '+haz_dict[aDis].lower()+' event in '+aReg)
             leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
             leg.get_frame().set_color('white')
             leg.get_frame().set_edgecolor(greys_pal[7])
             leg.get_frame().set_linewidth(0.2)
 
             ax.annotate('Total asset losses: '+str(round(iah_res.loc[(iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP),['pcwgt','dk0']].prod(axis=1).sum()/mny[1],1))+mny[0],
-                        xy=(0.03,-0.18), xycoords=leg.get_frame(),size=7,va='top',ha='left',annotation_clip=False,zorder=100)
-            ax.annotate('Int. well-being losses: '+str(round(iah_res.loc[(iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP),['pcwgt','dw']].prod(axis=1).sum()/mny[1],1))+mny[0],
-                        xy=(0.03,-0.50), xycoords=leg.get_frame(),size=7,va='top',ha='left',annotation_clip=False,zorder=100)
+                        xy=(0.03,-0.18), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
+            ax.annotate('Reg. well-being losses: '+str(round(iah_res.loc[(iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP),['pcwgt','dw']].prod(axis=1).sum()/mny[1],1))+mny[0],
+                        xy=(0.03,-0.50), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
             ax.annotate('Natl. liability: '+str(round(float(public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),['transfer_pub']].sum()/mny[1]),1))+mny[0],
-                        xy=(0.03,-0.92), xycoords=leg.get_frame(),size=7,va='top',ha='left',annotation_clip=False,zorder=100)
+                        xy=(0.03,-0.92), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
             ax.annotate('Natl. well-being losses: '+str(round(float(public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),['dw']].sum()/mny[1]),1))+mny[0],
-                        xy=(0.03,-1.24), xycoords=leg.get_frame(),size=7,va='top',ha='left',annotation_clip=False,zorder=100)
+                        xy=(0.03,-1.24), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
 
             new_pov = int(iah_res.loc[((iah_res[economy]==aReg)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)
                                        &(iah_res.c_ae > iah_res.pov_line)
