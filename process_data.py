@@ -224,127 +224,113 @@ except:
     iah['pds_help_fee'] = iah['pc_fee']
     iah['pds_help_received'] = 0
 
-# reset index
-iah = iah.reset_index()
+##########################
+# This plots k vs dw for each hh, grouped by welf_class
+def plot_k_vs_dw(iah):
+    iah = iah.reset_index()
 
-for irp in get_all_rps(myCountry,iah)[2::4]:
-    print('Running',irp)
-    _iah = iah.loc[(iah.affected_cat=='a')&(iah.helped_cat=='helped')&(iah.hazard=='EQ')&(iah.rp==irp)].copy()
+    for irp in get_all_rps(myCountry,iah)[2::4]:
+        print('Running',irp)
+        _iah = iah.loc[(iah.affected_cat=='a')&(iah.helped_cat=='helped')&(iah.hazard=='EQ')&(iah.rp==irp)].copy()
 
-    #
-    bin0 = float(_iah.loc[(_iah.dw<200000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
-    bin1 = float(_iah.loc[(_iah.dw>=200000)&(_iah.dw<400000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
-    bin2 = float(_iah.loc[(_iah.dw>=400000)&(_iah.dw<600000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
-    bin3 = float(_iah.loc[(_iah.dw>=600000)&(_iah.dw<800000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
-    bin4 = float(_iah.loc[(_iah.dw>=1000000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
-    tot_float = round((bin0 + bin1 + bin2 + bin3 + bin4),2)
+        #
+        bin0 = float(_iah.loc[(_iah.dw<200000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
+        bin1 = float(_iah.loc[(_iah.dw>=200000)&(_iah.dw<400000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
+        bin2 = float(_iah.loc[(_iah.dw>=400000)&(_iah.dw<600000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
+        bin3 = float(_iah.loc[(_iah.dw>=600000)&(_iah.dw<800000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
+        bin4 = float(_iah.loc[(_iah.dw>=1000000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
+        tot_float = round((bin0 + bin1 + bin2 + bin3 + bin4),2)
 
-    ax = _iah.plot.scatter('k','dw',c='welf_class',loglog=True)
-    ax.annotate(str(round(100*bin0/tot_float,1))+'%',xy=(0.4E7,190000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-    ax.annotate(str(round(100*bin1/tot_float,1))+'%',xy=(0.4E7,390000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-    ax.annotate(str(round(100*bin2/tot_float,1))+'%',xy=(0.4E7,590000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-    ax.annotate(str(round(100*bin3/tot_float,1))+'%',xy=(0.4E7,790000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-    ax.annotate(str(round(100*bin4/tot_float,1))+'%',xy=(0.4E7,990000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-    ax.annotate(r'$\Delta W_{tot}$ = '+str(tot_float)+'M',xy=(0.4E7,1090000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-    ax.plot()
-    fig = plt.gcf()
+        ax = _iah.plot.scatter('k','dw',c='welf_class',loglog=True)
+        ax.annotate(str(round(100*bin0/tot_float,1))+'%',xy=(0.4E7,190000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+        ax.annotate(str(round(100*bin1/tot_float,1))+'%',xy=(0.4E7,390000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+        ax.annotate(str(round(100*bin2/tot_float,1))+'%',xy=(0.4E7,590000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+        ax.annotate(str(round(100*bin3/tot_float,1))+'%',xy=(0.4E7,790000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+        ax.annotate(str(round(100*bin4/tot_float,1))+'%',xy=(0.4E7,990000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+        ax.annotate(r'$\Delta W_{tot}$ = '+str(tot_float)+'M',xy=(0.4E7,1090000),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+        ax.plot()
+        fig = plt.gcf()
 
-    #bounds = np.array([0.5,1.5,2.5,3.5])
-    #norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=3)
-    #cb = mpl.colorbar.ColorbarBase(ax, norm=norm, orientation='vertical')
-    #cb.set_ticks([1,2,3])
-    #cb.ax.set_xticklabels(['HH above poverty','HH in poverty','HH in subsistence'])
+        #bounds = np.array([0.5,1.5,2.5,3.5])
+        #norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=3)
+        #cb = mpl.colorbar.ColorbarBase(ax, norm=norm, orientation='vertical')
+        #cb.set_ticks([1,2,3])
+        #cb.ax.set_xticklabels(['HH above poverty','HH in poverty','HH in subsistence'])
     
-    fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/dw_eq_'+str(irp)+'.pdf',format='pdf')
-    plt.clf()
+        fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/dw_eq_'+str(irp)+'.pdf',format='pdf')
+        plt.clf()
 
-    fig = plt.figure(figsize=(15,6))
+        fig = plt.figure(figsize=(15,6))
 
-    cmap = colors.ListedColormap(sns.color_palette('Greens').as_hex())
-    ax = _iah.loc[(_iah.welf_class==1)].plot.hexbin('dk0','ratio',cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+        cmap = colors.ListedColormap(sns.color_palette('Greens').as_hex())
+        ax = _iah.loc[(_iah.welf_class==1)].plot.hexbin('dk0','ratio',cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
     
-    cmap = colors.ListedColormap(sns.color_palette('Blues').as_hex())
-    ax = _iah.loc[(_iah.welf_class==2)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+        cmap = colors.ListedColormap(sns.color_palette('Blues').as_hex())
+        ax = _iah.loc[(_iah.welf_class==2)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+        
+        cmap = colors.ListedColormap(sns.color_palette('Reds').as_hex())
+        ax = _iah.loc[(_iah.welf_class==3)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+        
+        fig = plt.gcf()
+        im=fig.get_axes() # this is a list of all images that have been plotted
+        for iax in range(len(im))[1:]: im[iax].remove()
+        
+        plt.axes(ax)
     
-    cmap = colors.ListedColormap(sns.color_palette('Reds').as_hex())
-    ax = _iah.loc[(_iah.welf_class==3)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
-
-    fig = plt.gcf()
-    im=fig.get_axes() # this is a list of all images that have been plotted
-    for iax in range(len(im))[1:]: im[iax].remove()
+        fig = plt.gcf()
+        fig.set_size_inches(15, 6)
     
-    plt.axes(ax)
+        plt.xlim(0,1E5)
+        plt.subplots_adjust(right=0.90)
+        
+        plt.ticklabel_format(style='sci',axis='x', scilimits=(0,0))
+        plt.tight_layout()
+        plt.draw()
+        fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil_all_'+str(irp)+'.pdf',format='pdf',bbox_inches='tight')
+        plt.clf()
+
+        ax = plt.gca()
+        fig = ax.get_figure()
+        fig.set_size_inches(6.5,5.5)
+        _iah['t_reco'] = (np.log(1/0.05)/_iah['hh_reco_rate']).fillna(25).clip(upper=25)
+
+        # define binning using entire dataset
+        _h,_b = np.histogram(_iah.t_reco,bins=   50,weights=_iah.pcwgt/1.E6)
+
+        heights2, bins2  = np.histogram(_iah.loc[(_iah.welf_class==2)&(_iah.c>pov_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==2)&(_iah.c>pov_line)].pcwgt/1.E6)
+        heights1, bins1  = np.histogram(_iah.loc[(_iah.welf_class==1)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==1)].pcwgt/1.E6)
+        heights3, bins3  = np.histogram(_iah.loc[(_iah.welf_class==3)&(_iah.c>sub_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==3)&(_iah.c>sub_line)].pcwgt/1.E6)
+        heights2_pov, bins2_pov = np.histogram(_iah.loc[(_iah.welf_class==2)&(_iah.c<=pov_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==2)&(_iah.c<=pov_line)].pcwgt/1.E6)
+        heights3_sub, bins3_sub = np.histogram(_iah.loc[(_iah.welf_class==3)&(_iah.c<=sub_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==3)&(_iah.c<=sub_line)].pcwgt/1.E6)
+        #heights0, bins0 = np.histogram(_iah.loc[(_iah.welf_class==0)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==0)].pcwgt/1.E6)
+        # ^ empty dataframe
+        
+        ax.bar(bins2[:-1],heights1,      width=(bins2[1]-bins2[0]), facecolor=q_colors[1],alpha=0.8,label='Above poverty (Case 1)')
+        ax.bar(bins2[:-1],heights2_pov,  width=(bins2[1]-bins2[0]), facecolor=q_colors[0],alpha=0.8,bottom=heights1,label='Pushed into poverty (Case 2)')
+        ax.bar(bins2[:-1],heights2,      width=(bins2[1]-bins2[0]), facecolor=q_colors[2],alpha=0.8,bottom=(heights1+heights2_pov),label='Already in poverty (Case 2)')
+        ax.bar(bins2[:-1],heights3,      width=(bins2[1]-bins2[0]), facecolor=q_colors[3],alpha=0.8,bottom=(heights1+heights2_pov+heights2),label='Pushed into subsistence (Case 3)')
+        ax.bar(bins2[:-1],heights3_sub, width=(bins2[1]-bins2[0]), facecolor=q_colors[4],alpha=0.8,bottom=(heights1+heights2_pov+heights2+heights3),label='Already in subsistence (Case 3)')
     
-    fig = plt.gcf()
-    fig.set_size_inches(15, 6)
+        plt.xlabel(r'Household reconstruction time ($\tau_h$)')
+        plt.ylabel(r'Households ($\times 10^6$)')
+        plt.ylim(0,1.0E1)
+        leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9,title='Household status post-disaster')
+        
+        fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/reco_periods_'+str(irp)+'.pdf',format='pdf',bbox_inches='tight')
+        plt.clf()
+        
+        fig, axes = plt.subplots(nrows=3, ncols=2,figsize=(8,12))
+
+        _iah.loc[(_iah.welf_class==1)&(_iah.dk0<150000)&(_iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[0,0])
+        _iah.loc[(_iah.welf_class==2)&(_iah.dk0<150000)&(_iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[1,0])
+        _iah.loc[(_iah.welf_class==3)&(_iah.dk0<150000)&(_iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[2,0])
     
-    plt.xlim(0,1E5)
-    plt.subplots_adjust(right=0.90)
-    
-    plt.ticklabel_format(style='sci',axis='x', scilimits=(0,0))
-    plt.tight_layout()
-    plt.draw()
-    fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil_all_'+str(irp)+'.pdf',format='pdf',bbox_inches='tight')
-    plt.clf()
-
-    ax = plt.gca()
-    fig = ax.get_figure()
-    fig.set_size_inches(6.5,5.5)
-    _iah['t_reco'] = (np.log(1/0.05)/_iah['hh_reco_rate']).fillna(25).clip(upper=25)
-
-    # define binning using entire dataset
-    _h,_b = np.histogram(_iah.t_reco,bins=   50,weights=_iah.pcwgt/1.E6)
-
-    heights2, bins2  = np.histogram(_iah.loc[(_iah.welf_class==2)&(_iah.c>pov_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==2)&(_iah.c>pov_line)].pcwgt/1.E6)
-    heights1, bins1  = np.histogram(_iah.loc[(_iah.welf_class==1)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==1)].pcwgt/1.E6)
-    heights3, bins3  = np.histogram(_iah.loc[(_iah.welf_class==3)&(_iah.c>sub_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==3)&(_iah.c>sub_line)].pcwgt/1.E6)
-    heights2_pov, bins2_pov = np.histogram(_iah.loc[(_iah.welf_class==2)&(_iah.c<=pov_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==2)&(_iah.c<=pov_line)].pcwgt/1.E6)
-    heights3_sub, bins3_sub = np.histogram(_iah.loc[(_iah.welf_class==3)&(_iah.c<=sub_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==3)&(_iah.c<=sub_line)].pcwgt/1.E6)
-    #heights0, bins0 = np.histogram(_iah.loc[(_iah.welf_class==0)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==0)].pcwgt/1.E6)
-    # ^ empty dataframe
-
-    ax.bar(bins2[:-1],heights1,      width=(bins2[1]-bins2[0]), facecolor=q_colors[1],alpha=0.8,label='Above poverty (Case 1)')
-    ax.bar(bins2[:-1],heights2_pov,  width=(bins2[1]-bins2[0]), facecolor=q_colors[0],alpha=0.8,bottom=heights1,label='Pushed into poverty (Case 2)')
-    ax.bar(bins2[:-1],heights2,      width=(bins2[1]-bins2[0]), facecolor=q_colors[2],alpha=0.8,bottom=(heights1+heights2_pov),label='Already in poverty (Case 2)')
-    ax.bar(bins2[:-1],heights3,      width=(bins2[1]-bins2[0]), facecolor=q_colors[3],alpha=0.8,bottom=(heights1+heights2_pov+heights2),label='Pushed into subsistence (Case 3)')
-    ax.bar(bins2[:-1],heights3_sub, width=(bins2[1]-bins2[0]), facecolor=q_colors[4],alpha=0.8,bottom=(heights1+heights2_pov+heights2+heights3),label='Already in subsistence (Case 3)')
-    
-    plt.xlabel(r'Household reconstruction time ($\tau_h$)')
-    plt.ylabel(r'Households ($\times 10^6$)')
-    plt.ylim(0,1.0E1)
-    leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9,title='Household status post-disaster')
-
-    fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/reco_periods_'+str(irp)+'.pdf',format='pdf',bbox_inches='tight')
-    plt.clf()
-
-    fig, axes = plt.subplots(nrows=3, ncols=2,figsize=(8,12))
-
-    _iah.loc[(_iah.welf_class==1)&(_iah.dk0<150000)&(_iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[0,0])
-    _iah.loc[(_iah.welf_class==2)&(_iah.dk0<150000)&(_iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[1,0])
-    _iah.loc[(_iah.welf_class==3)&(_iah.dk0<150000)&(_iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[2,0])
-    
-    plt.tight_layout()
-    fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil_'+str(irp)+'.pdf',format='pdf')
-    plt.close('all')
+        plt.tight_layout()
+        fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil_'+str(irp)+'.pdf',format='pdf')
+        plt.close('all')
 
 iah['hhwgt'] = iah['hhwgt'].fillna(0)
 iah['pcwgt'] = iah['pcwgt'].fillna(0)
-
-# Convert all these hh variables to per cap
-#iah['c']   = iah[['c','hhwgt']].prod(axis=1)/iah['weight']
-#iah['k']   = iah[['k','hhwgt']].prod(axis=1)/iah['weight']
-#iah['dk0'] = iah[['dk0','hhwgt']].prod(axis=1)/iah['weight']
-#iah['dc']  = iah[['dc','hhwgt']].prod(axis=1)/iah['weight']
-#iah['dc_npv_pre'] = iah[['dc_npv_pre','hhwgt']].prod(axis=1)/iah['weight']
-
-#iah['dw'] = iah[['dw','hhwgt']].prod(axis=1)/iah['weight']
-#iah['pds_dw'] = iah[['pds_dw','hhwgt']].prod(axis=1)/iah['weight']
-
-#iah['pds_nrh'] = iah[['pds_nrh','hhwgt']].prod(axis=1)/iah['weight']
-#iah['pds_help_fee'] = iah[['pds_help_fee','hhwgt']].prod(axis=1)/iah['weight']
-#iah['pds_help_received'] = iah[['pds_help_received','hhwgt']].prod(axis=1)/iah['weight']
-
-#cf_ppp = 17.889
 
 # Look at single event:
 if myCountry == 'PH':
@@ -373,7 +359,7 @@ for myDis in allDis:
     
     print(cut_rps.columns)
     
-    cut_rps.loc[cut_rps.pcwgt_ae != 0.,'delta_c']   = (cut_rps.loc[(cut_rps.pcwgt_ae != 0.), ['dk0','pcwgt']].prod(axis=1)/cut_rps.loc[(cut_rps.pcwgt_ae != 0.),'pcwgt_ae'])*(df['avg_prod_k'].mean()+1/df['T_rebuild_K'].mean())
+    cut_rps.loc[cut_rps.pcwgt_ae != 0.,'delta_c']   = (cut_rps.loc[(cut_rps.pcwgt_ae != 0.), ['dc0','pcwgt']].prod(axis=1)/cut_rps.loc[(cut_rps.pcwgt_ae != 0.),'pcwgt_ae'])
 
     cut_rps['c_final']   = (cut_rps['c'] + drm_pov_sign*cut_rps['delta_c'])
     cut_rps['c_final_pds']   = (cut_rps['c'] - cut_rps['delta_c'] - cut_rps['pds_nrh'])
@@ -471,6 +457,9 @@ for myDis in allDis:
     for myRP in myHaz[2]:
         
         cutA = iah.loc[(iah.hazard == myDis) & (iah.rp == myRP)].set_index([economy,'hazard','rp']).fillna(0)
+
+        print(cutA.columns)
+
         #cutA = iah.loc[(iah.hazard == myDis) & (iah.rp == myRP) & (iah.helped_cat == 'helped')].set_index([economy,'hazard','rp']).fillna(0)
         if (cutA['pcwgt'].sum() == 0 or cutA.shape[0] == 0): continue
 
@@ -481,12 +470,8 @@ for myDis in allDis:
         cutA['delta_c']   = 0.
         cutA.loc[cutA.pcwgt_ae != 0,'c_initial'] = cutA.loc[cutA.pcwgt_ae != 0,['c','pcwgt']].prod(axis=1)/cutA.loc[cutA.pcwgt_ae != 0.,'pcwgt_ae']
 
-        # If our calculation of consumption has changed, we need to shift the poverty line by the same amount
-        #cutA['pov_line'] *= cutA['c_initial']/cutA['pcinc_ae']
-
-        cutA.loc[cutA.pcwgt_ae != 0,'delta_c']   = (cutA.loc[cutA.pcwgt_ae != 0,['dk0','pcwgt']].prod(axis=1)/cutA.loc[cutA.pcwgt_ae != 0.,'pcwgt_ae'])*(df['avg_prod_k'].mean()+1/df['T_rebuild_K'].mean())
+        cutA.loc[cutA.pcwgt_ae != 0,'delta_c']   = (cutA.loc[cutA.pcwgt_ae != 0,['dc0','pcwgt']].prod(axis=1)/cutA.loc[cutA.pcwgt_ae != 0.,'pcwgt_ae'])
         cutA['c_final']   = (cutA['c_initial'] + drm_pov_sign*cutA['delta_c'])
-        cutA['c_initial'] = cutA['c_initial']
 
         cutA['disaster_n_pov'] = 0
         cutA['disaster_n_sub'] = 0
@@ -552,15 +537,19 @@ for myDis in allDis:
         plt.cla()    
         
         ##
-
         # Same as above, for affected people
         ax=plt.gca()
 
-        ci_heights, ci_bins = np.histogram(cutA.loc[(cutA.affected_cat =='a'),'c_initial'],       bins=50, weights=cutA.loc[(cutA.affected_cat =='a'),'pcwgt'])
-        cf_heights, cf_bins = np.histogram(cutA.loc[(cutA.affected_cat =='a'),'c_final'],    bins=ci_bins, weights=cutA.loc[(cutA.affected_cat =='a'),'pcwgt'])
+        cf_heights, cf_bins = np.histogram(cutA.loc[(cutA.affected_cat =='a'),'c_final'].clip(upper=200000),bins=50, weights=cutA.loc[(cutA.affected_cat =='a'),'pcwgt'])
+        ci_heights, _       = np.histogram(cutA.loc[(cutA.affected_cat =='a'),'c_initial'].clip(upper=200000),bins=cf_bins, weights=cutA.loc[(cutA.affected_cat =='a'),'pcwgt'])
+        cr_heights, _       = np.histogram((cutA.loc[(cutA.affected_cat =='a'),'c_initial']
+                                            -cutA.loc[(cutA.affected_cat =='a'),'dc_post_reco']).clip(upper=200000),bins=cf_bins, weights=cutA.loc[(cutA.affected_cat =='a'),'pcwgt'])
 
-        ax.bar(ci_bins[:-1], ci_heights, width=(ci_bins[1]-ci_bins[0]), label='Initial', facecolor=q_colors[0],alpha=0.4)
-        ax.bar(cf_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-disaster', facecolor=q_colors[1],alpha=0.4)
+        cutA.loc[(cutA.affected_cat=='a'),['c','dc0','dc_post_reco']].to_csv('debug/c_aff_'+str(myRP)+'.csv')
+
+        ax.bar(cf_bins[:-1], ci_heights, width=(cf_bins[1]-cf_bins[0]), label='Initial', facecolor=q_colors[1],alpha=0.4)
+        ax.bar(cf_bins[:-1], cf_heights, width=(cf_bins[1]-cf_bins[0]), label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
+        ax.bar(cf_bins[:-1], cr_heights, width=(cf_bins[1]-cf_bins[0]), label='Post-reconstruction', facecolor=q_colors[2],alpha=0.4)
 
         print('All people: ',cutA['pcwgt'].sum())
         print('Affected people: ',cutA.loc[(cutA.affected_cat =='a'),'pcwgt'].sum())

@@ -1057,7 +1057,10 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
     
     cats_event_iah['dc_post_reco'] = 0
     cats_event_iah['dw'] = 0.
-    cats_event_iah.loc[cats_event_iah.pcwgt!=0,['dc_post_reco','dw']] = calc_delta_welfare(myCountry,cats_event_iah,macro_event,pol_str,optionPDS,is_revised_dw) 
+    cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dc_post_reco'], cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dw'] = calc_delta_welfare(myCountry,cats_event_iah,macro_event,pol_str,optionPDS,is_revised_dw)
+    assert(cats_event_iah['dc_post_reco'].shape[0] == cats_event_iah['dc_post_reco'].dropna().shape[0])
+    assert(cats_event_iah['dw'].shape[0] == cats_event_iah['dw'].dropna().shape[0])
+
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level)
 
     ###########
@@ -1295,7 +1298,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     my_out_x, my_out_yA, my_out_yNA, my_out_yzero = [], [], [], []
     x_max = min((np.log(1/0.05)/float(temp['hh_reco_rate'].min())),10.)
     x_min, n_steps = 0.,52.*x_max # <-- time step = week
-    if study == True: x_min, x_max, n_steps = 0.,1.,1 # <-- time step = 1 year
+    if study == True: x_min, x_max, n_steps = 0.,1.,2 # <-- time step = 1 year
 
     print('\n ('+optionPDS+') Integrating well-being losses over '+str(x_max)+' years after disaster ('+pol_str+')') 
     # ^ make sure that, if T_recon changes, so does x_max!
@@ -1392,7 +1395,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         #temp['di_t'] = temp['di_prv_t'].values+temp['di_pub_t'].values-temp['help_received'].values*const_pds_rate*math.e**(-i_dt*const_pds_rate)
         # NB: these are unchanged from above...
         temp['dc_t'] = temp['di_t'].values + temp[['hh_reco_rate','dk_prv_t']].prod(axis=1).values
-
+        
         ########################
         # Now apply savings (if any left)
         #
@@ -1478,6 +1481,8 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     
     # Re-merge temp and temp_na
     temp = pd.concat([temp,temp_na]).reset_index().set_index([i for i in mic_ix]).sort_index()
+    assert(temp['dc_t'].shape[0] == temp['dc_t'].dropna().shape[0])
+    assert(temp['dw'].shape[0] == temp['dw'].dropna().shape[0])
 
     # Divide by dw'
     temp['dw_curr'] = temp['dw']/my_natl_wprime
@@ -1487,7 +1492,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     temp.loc[(temp.pcwgt!=0)&(temp.dw_curr==my_dw_limit)].to_csv(debug+'my_late_excess'+optionPDS+'.csv')
 
     print('\n ('+optionPDS+' Total well-being losses ('+pol_str+'):',round(float(temp[['dw_curr_no_clip','pcwgt']].prod(axis=1).sum())/1.E6,3))
-
+    
     temp = temp.reset_index().set_index([i for i in mic_ix]).reset_index(level='affected_cat')
     tmp_out = pd.DataFrame(index=temp.sum(level=[i for i in mac_ix]).index)
     
@@ -1512,8 +1517,11 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
 
     tmp_out.loc[tmp_out.dw_tot!=0].to_csv(debug+'my_summary_'+optionPDS+pol_str+'.csv')
     print('Wrote out summary stats for dw ('+optionPDS+'/'+pol_str+')')
-    
-    return temp.reset_index().set_index([i for i in mic_ix])[['dc_t','dw']]
+
+    print(temp['dc_t'].mean())
+    temp = temp.reset_index().set_index([i for i in mic_ix])
+    return temp['dc_t'], temp['dw']
+
 
 def welf1(c,elast,comp):
     """"Welfare function"""
