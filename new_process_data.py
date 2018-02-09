@@ -317,7 +317,6 @@ pov_df_event = pov_df_event.sum(level='region')
 pov_df_event.to_csv('~/Desktop/new_pov_reg.csv')
 pov_df_event = pov_df_event.sum()
 pov_df_event.to_csv('~/Desktop/new_pov.csv')
-assert(False)
 
 for aReg in myHaz[0]:
     for aDis in get_all_hazards(myCountry,iah_res):
