@@ -154,8 +154,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     iah = iah.drop([icol for icol in ['index','social','pcsoc','v','v_shew','gamma_SP','c_5','n','pcinc','shew','fa',
                                       'hhsize','hhsize_ae','hh_share','public_loss_v','v_shew',
                                       'dk_other','dk_private', 'dk_public',
-                                      'di0_prv','di0_pub','di0',
-                                      'dc0_prv','dc0_pub',
+                                      'di0_prv','di0_pub','dc0_prv','dc0_pub',
                                       'pc_fee_BE','scale_fac_soc',
                                       'c_min','macro_multiplier','help_fee',
                                       'SP_CPP','SP_FAP','SP_FNPF','SP_SPS','SP_PBS','SPP_core','SPP_add','nOlds','dc_0'] if icol in iah.columns],axis=1)

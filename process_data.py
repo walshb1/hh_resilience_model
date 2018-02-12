@@ -12,6 +12,11 @@ from libraries.lib_country_dir import *
 from libraries.lib_gather_data import *
 from libraries.maps_lib import *
 
+purge('img/','map_of_*.png')
+purge('img/','legend_of_*.png')
+purge('img/','map_of_*.svg')
+purge('img/','legend_of_*.svg')
+
 from scipy.stats import norm
 #import matplotlib 
 #matplotlib.rc('xtick', labelsize=10) 
@@ -92,11 +97,7 @@ iah_pds = pd.read_csv(output+'iah_tax_'+pds_str+'_'+pol_str+'.csv', index_col=[e
 
 
 #######################
-# 2 simple functions
-def purge(dir, pattern):
-    for f in glob.glob(dir+pattern):
-        os.remove(f)
-
+# 1 helper function
 def format_delta_p(delta_p):
     delta_p_int = int(delta_p)
     delta_p = int(delta_p)
@@ -111,7 +112,7 @@ def format_delta_p(delta_p):
 
 #######################
 # df_prov = [dK,dW] already multiplied by prob_RP (but not summed over RP)
-df_prov = df[['dKtot','dWtot_currency']]
+df_prov = df[['dKtot','dWtot_currency']].copy()
 df_prov['gdp'] = df[['pop','gdp_pc_prov']].prod(axis=1)
 df_prov['gdp_hh'] = float(macro['avg_prod_k'].mean())*iah[['k','pcwgt']].prod(axis=1).sum(level=event_level)
 
@@ -359,7 +360,7 @@ for myDis in allDis:
     
     print(cut_rps.columns)
     
-    cut_rps.loc[cut_rps.pcwgt_ae != 0.,'delta_c']   = (cut_rps.loc[(cut_rps.pcwgt_ae != 0.), ['dc0','pcwgt']].prod(axis=1)/cut_rps.loc[(cut_rps.pcwgt_ae != 0.),'pcwgt_ae'])
+    cut_rps.loc[cut_rps.pcwgt_ae != 0.,'delta_c']   = (cut_rps.loc[(cut_rps.pcwgt_ae != 0.), ['di0','pcwgt']].prod(axis=1)/cut_rps.loc[(cut_rps.pcwgt_ae != 0.),'pcwgt_ae'])
 
     cut_rps['c_final']   = (cut_rps['c'] + drm_pov_sign*cut_rps['delta_c'])
     cut_rps['c_final_pds']   = (cut_rps['c'] - cut_rps['delta_c'] - cut_rps['pds_nrh'])
@@ -406,52 +407,8 @@ for myDis in allDis:
     n_pov.disaster_n_sub/=100.
     n_pov = n_pov.reset_index().set_index([economy,'rp'])
 
-    n_pov = sum_with_rp(myCountry,n_pov[['disaster_n_pov','disaster_n_pov_pct','disaster_n_sub','disaster_n_sub_pct']],
-                        ['disaster_n_pov','disaster_n_pov_pct','disaster_n_sub','disaster_n_sub_pct'],sum_provinces=False,economy=economy)
+    n_pov,_ = average_over_rp(n_pov[['disaster_n_pov','disaster_n_pov_pct','disaster_n_sub','disaster_n_sub_pct']])
     my_n_pov = n_pov.copy()
-
-    if myCountry == 'PH': my_n_pov = n_pov.copy()#.drop(['Batanes'],axis=0)
-
-    make_map_from_svg(
-        my_n_pov.disaster_n_pov, 
-        svg_file,
-        outname=myCountry+'_new_poverty_incidence_'+myDis+'_allRPs',
-        color_maper=plt.cm.get_cmap('RdYlGn_r'), 
-        label='Number of '+dem+' pushed into poverty each year by '+myDis+'s',
-        new_title='Number of '+dem+' pushed into poverty each year by '+myDis+'s',
-        do_qualitative=False,
-        res=2000)
-    
-    make_map_from_svg(
-        my_n_pov.disaster_n_pov_pct, 
-        svg_file,
-        outname=myCountry+'_new_poverty_incidence_pct_'+myDis+'_allRPs',
-        color_maper=plt.cm.get_cmap('RdYlGn_r'), 
-        label=dem+' pushed into poverty each year by '+myDis+'s [%]',
-        new_title= dem+' pushed into poverty by '+myDis+'s [%]',
-        do_qualitative=False,
-        res=2000)
-    
-    if sub_line:
-        make_map_from_svg(
-            my_n_pov.disaster_n_sub, 
-            svg_file,
-            outname=myCountry+'_new_subsistence_incidence_'+myDis+'_allRPs',
-            color_maper=plt.cm.get_cmap('RdYlGn_r'), 
-            label='Number of '+dem+' pushed into subsistence each year by '+myDis+'s',
-            new_title='Number of '+dem+' pushed into subsistence each year by '+myDis+'s',
-            do_qualitative=False,
-            res=800)
-    
-        make_map_from_svg(
-            my_n_pov.disaster_n_sub_pct, 
-            svg_file,
-            outname=myCountry+'_new_subsistence_incidence_pct_'+myDis+'_allRPs',
-            color_maper=plt.cm.get_cmap('RdYlGn_r'), 
-            label= dem+' pushed into subsistence each year by '+myDis+'s [%]',
-            new_title= dem+' pushed into subsistence by '+myDis+'s [%]',
-            do_qualitative=False,
-            res=800)
     
     myC_ylim = None
     for myRP in myHaz[2]:
@@ -470,7 +427,7 @@ for myDis in allDis:
         cutA['delta_c']   = 0.
         cutA.loc[cutA.pcwgt_ae != 0,'c_initial'] = cutA.loc[cutA.pcwgt_ae != 0,['c','pcwgt']].prod(axis=1)/cutA.loc[cutA.pcwgt_ae != 0.,'pcwgt_ae']
 
-        cutA.loc[cutA.pcwgt_ae != 0,'delta_c']   = (cutA.loc[cutA.pcwgt_ae != 0,['dc0','pcwgt']].prod(axis=1)/cutA.loc[cutA.pcwgt_ae != 0.,'pcwgt_ae'])
+        cutA.loc[cutA.pcwgt_ae != 0,'delta_c']   = (cutA.loc[cutA.pcwgt_ae != 0,['di0','pcwgt']].prod(axis=1)/cutA.loc[cutA.pcwgt_ae != 0.,'pcwgt_ae'])
         cutA['c_final']   = (cutA['c_initial'] + drm_pov_sign*cutA['delta_c'])
 
         cutA['disaster_n_pov'] = 0
@@ -490,25 +447,24 @@ for myDis in allDis:
         sf = 1.
         if myCountry == 'FJ': sf = 2.321208
         cf_heights, cf_bins = np.histogram((cutA['c_final']/sf).clip(lower=0,upper=upper_clip), bins=50, weights=cutA['pcwgt'])
-        ci_heights, ci_bins = np.histogram((cutA['c_initial']/sf).clip(lower=0,upper=upper_clip), bins=cf_bins, weights=cutA['pcwgt'])
+        ci_heights, _       = np.histogram((cutA['c_initial']/sf).clip(lower=0,upper=upper_clip), bins=cf_bins, weights=cutA['pcwgt'])
+        cr_heights, _       = np.histogram(((cutA['c_initial']-cutA['dc_post_reco'])/sf).clip(upper=upper_clip),bins=cf_bins, weights=cutA['pcwgt'])
 
         ci_heights /= get_pop_scale_fac(myCountry)[0]
         cf_heights /= get_pop_scale_fac(myCountry)[0]
+        cr_heights /= get_pop_scale_fac(myCountry)[0]
 
-        if myDis == 'TC' and str(myRP) == '100':
-            np.savetxt('/Users/brian/Desktop/to_send/income_dist_pre_'+myDis+'_'+str(myRP)+'.csv',[ci_heights],delimiter=',')
-            np.savetxt('/Users/brian/Desktop/to_send/income_dist_post_'+myDis+'_'+str(myRP)+'.csv',[cf_heights],delimiter=',')
-            np.savetxt('/Users/brian/Desktop/to_send/income_dist_bins_'+myDis+'_'+str(myRP)+'.csv',[cf_bins],delimiter=',')
-
-        ax.bar(ci_bins[:-1], ci_heights, width=(ci_bins[1]-ci_bins[0]), label='Initial', facecolor=q_colors[1],alpha=0.4)
-        ax.bar(cf_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
+        #ax.bar(cf_bins[:-1], ci_heights, width=(cf_bins[1]-cf_bins[0]), label='Initial', facecolor=q_colors[1],alpha=0.4)
+        ax.bar(cf_bins[:-1], cf_heights, width=(cf_bins[1]-cf_bins[0]), label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
+        ax.bar(cf_bins[:-1], cr_heights, width=(cf_bins[1]-cf_bins[0]), label='Post-reconstruction', facecolor=q_colors[2],alpha=0.4)
+        ax.step(cf_bins[1:], ci_heights, label='Initial', linewidth=1.2,color=greys_pal[8])     
 
         # Change in poverty incidence
-        delta_p = cutA.loc[(cutA.c_initial > cutA.pov_line) & (cutA.c_final <= cutA.pov_line),'pcwgt'].sum()
+        delta_p = cutA.loc[(cutA.c_initial > cutA.pov_line)&(cutA.c_final <= cutA.pov_line)&(cutA.c_final>sub_line),'pcwgt'].sum()
         p_str = format_delta_p(delta_p)
         p_pct = ' ('+str(round((delta_p/cutA['pcwgt'].sum())*100.,2))+'% of population)'
 
-        plt.plot([pov_line,pov_line],[0,1.25*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
+        plt.plot([pov_line,pov_line],[0,1.25*cf_heights[:-2].max()],'k-',lw=2.5,color=greys_pal[7],zorder=100,alpha=0.85)
         ax.annotate('Poverty line',xy=(1.1*pov_line,1.25*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
         ax.annotate(r'$\Delta$N$_p$ = +'+p_str+p_pct,xy=(1.1*pov_line,1.15*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
 
@@ -518,9 +474,9 @@ for myDis in allDis:
             s_str = format_delta_p(delta_s)
             s_pct = ' ('+str(round((delta_s/cutA['pcwgt'].sum())*100.,2))+'% of population)'
 
-            plt.plot([sub_line,sub_line],[0,1.6*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
-            ax.annotate('Subsistence line',xy=(1.1*sub_line,1.60*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
-            ax.annotate(r'$\Delta$N$_s$ = +'+s_str+s_pct,xy=(sub_line*1.1,1.5*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
+            plt.plot([sub_line,sub_line],[0,1.41*cf_heights[:-2].max()],'k-',lw=2.5,color=greys_pal[7],zorder=100,alpha=0.85)
+            ax.annotate('Subsistence line',xy=(1.1*sub_line,1.41*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+            ax.annotate(r'$\Delta$N$_s$ = +'+s_str+s_pct,xy=(sub_line*1.1,1.34*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
         
         fig = ax.get_figure()
         plt.title(str(myRP)+'-Year '+myDis[:1].upper()+myDis[1:]+' Event')
@@ -528,9 +484,10 @@ for myDis in allDis:
         if myC_ylim == None: myC_ylim = ax.get_ylim()
         plt.ylim(myC_ylim[0],myC_ylim[1])
 
-        plt.xlabel(r'Income ('+get_currency(myCountry)[0]+' yr$^{-1}$)')
-        plt.ylabel('Population'+get_pop_scale_fac(myCountry)[1])
-        plt.legend(loc='best')
+        plt.xlabel(r'Income ['+get_currency(myCountry)[0].replace('b.','')+' per person, per year]')
+        plt.ylabel('Population'+get_pop_scale_fac(myCountry)[1].lower())
+        leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
+
         print('poverty_k_'+myDis+'_'+str(myRP)+'.pdf')
         fig.savefig('../output_plots/'+myCountry+'/poverty_k_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
         fig.savefig('../output_plots/'+myCountry+'/png/poverty_k_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',format='pdf')
@@ -545,54 +502,47 @@ for myDis in allDis:
         cr_heights, _       = np.histogram((cutA.loc[(cutA.affected_cat =='a'),'c_initial']
                                             -cutA.loc[(cutA.affected_cat =='a'),'dc_post_reco']).clip(upper=200000),bins=cf_bins, weights=cutA.loc[(cutA.affected_cat =='a'),'pcwgt'])
 
-        cutA.loc[(cutA.affected_cat=='a'),['c','dc0','dc_post_reco']].to_csv('debug/c_aff_'+str(myRP)+'.csv')
+        ci_heights /= get_pop_scale_fac(myCountry)[0]
+        cf_heights /= get_pop_scale_fac(myCountry)[0]
+        cr_heights /= get_pop_scale_fac(myCountry)[0]
 
-        ax.bar(cf_bins[:-1], ci_heights, width=(cf_bins[1]-cf_bins[0]), label='Initial', facecolor=q_colors[1],alpha=0.4)
+        cutA.loc[(cutA.affected_cat=='a'),['c','di0','dc_post_reco']].to_csv('debug/c_aff_'+str(myRP)+'.csv')
+
+        #ax.bar(cf_bins[:-1], ci_heights, width=(cf_bins[1]-cf_bins[0]), label='Initial', facecolor=q_colors[1],alpha=0.4)
         ax.bar(cf_bins[:-1], cf_heights, width=(cf_bins[1]-cf_bins[0]), label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
         ax.bar(cf_bins[:-1], cr_heights, width=(cf_bins[1]-cf_bins[0]), label='Post-reconstruction', facecolor=q_colors[2],alpha=0.4)
+        ax.step(cf_bins[1:], ci_heights, label='Initial', linewidth=1.2,color=greys_pal[8])     
 
         print('All people: ',cutA['pcwgt'].sum())
         print('Affected people: ',cutA.loc[(cutA.affected_cat =='a'),'pcwgt'].sum())
 
-        delta_p = cutA.loc[(cutA.affected_cat =='a') & (cutA.c_final <= cutA.pov_line),'pcwgt'].sum() 
-        delta_p -= cutA.loc[(cutA.affected_cat =='a') & (cutA.c_initial <= cutA.pov_line),'pcwgt'].sum()
+        delta_p = cutA.loc[(cutA.affected_cat =='a')&(cutA.c_initial > cutA.pov_line)&(cutA.c_final <= cutA.pov_line)&(cutA.c_initial > sub_line),'pcwgt'].sum()
         p_str = format_delta_p(delta_p)
         p_pct = ' ('+str(round((delta_p/cutA['pcwgt'].sum())*100.,2))+'% of population)'
 
-        plt.plot([pov_line,pov_line],[0,1.2*cf_heights[:-2].max()],'k-',lw=1.5,color='black',zorder=100,alpha=0.85)
-        ax.annotate('Poverty line',xy=(1.1*pov_line,1.20*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
-        ax.annotate(r'$\Delta$N$_p$ = +'+p_str+p_pct,xy=(1.1*pov_line,1.12*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=8,annotation_clip=False)
+        plt.plot([pov_line,pov_line],[0,1.2*cf_heights[:-2].max()],'k-',lw=2.5,color=greys_pal[7],zorder=100,alpha=0.85)
+        ax.annotate('Poverty line',xy=(1.1*pov_line,1.20*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+        ax.annotate(r'$\Delta$N$_p$ = +'+p_str+p_pct,xy=(1.1*pov_line,1.12*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
+
+        # Change in subsistence incidence
+        if sub_line:
+            delta_s = cutA.loc[(cutA.affected_cat =='a')&(cutA.c_initial > sub_line)&(cutA.c_final <= sub_line),'pcwgt'].sum()
+            s_str = format_delta_p(delta_s)
+            s_pct = ' ('+str(round((delta_s/cutA['pcwgt'].sum())*100.,2))+'% of population)'
+
+            plt.plot([sub_line,sub_line],[0,1.41*cf_heights[:-2].max()],'k-',lw=2.5,color=greys_pal[7],zorder=100,alpha=0.85)
+            ax.annotate('Subsistence line',xy=(1.1*sub_line,1.41*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
+            ax.annotate(r'$\Delta$N$_s$ = +'+s_str+s_pct,xy=(sub_line*1.1,1.34*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
 
         fig = ax.get_figure()
-        plt.xlabel(r'Income ['+get_currency(myCountry)[0]+' yr$^{-1}$]')
-        plt.ylabel('Population')
+        plt.xlabel(r'Income ['+get_currency(myCountry)[0].replace('b.','')+' per person, per year]')
+        plt.ylabel('Population'+get_pop_scale_fac(myCountry)[1].lower())
         #plt.ylim(0,400000)
-        plt.legend(loc='best')
+        leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
         print('poverty_k_aff_'+myDis+'_'+str(myRP)+'.pdf\n')
         fig.savefig('../output_plots/'+myCountry+'/poverty_k_aff_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
         fig.savefig('../output_plots/'+myCountry+'/png/poverty_k_aff_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',format='pdf')
         plt.cla()
-
-        if myCountry != 'FJ':
-            make_map_from_svg(
-                disaster_n_pov.disaster_n_pov, 
-                svg_file,
-                outname='new_poverty_incidence_'+myDis+'_'+str(myRP),
-                color_maper=plt.cm.get_cmap('RdYlGn_r'), 
-                label='Number of '+dem+' pushed into poverty by '+myDis+' (RP = '+str(myRP)+')',
-                new_title='Number of '+dem+' pushed into poverty by '+myDis+' (RP = '+str(myRP)+')',
-                do_qualitative=False,
-                res=800)
-            
-            make_map_from_svg(
-                disaster_n_pov.disaster_n_pov_pct, 
-                svg_file,
-                outname='new_poverty_incidence_pct_'+myDis+'_'+str(myRP),
-                color_maper=plt.cm.get_cmap('RdYlGn_r'), 
-                label=dem+' pushed into poverty by '+myDis+' (RP = '+str(myRP)+') [%]',
-                new_title=dem+' pushed into poverty by '+myDis+' (RP = '+str(myRP)+') [%]',
-                do_qualitative=False,
-                res=800)
 
 df_out_sum = pd.DataFrame()
 df_out = pd.DataFrame()
@@ -796,7 +746,7 @@ for myRP in myHaz[2]:
 
                 plt.title(myDis+' in '+myProv+' (rp = '+str(myRP)+') - '+istr)
                 plt.xlabel(istr,fontsize=12)
-                plt.legend(loc='best')
+                leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
                 
                 fig = ax.get_figure()
                 print('Saving: hists/'+istr+'_'+myProv+'_'+myDis+'_'+str(myRP)+'.pdf')
@@ -822,7 +772,7 @@ for myRP in myHaz[2]:
             ax1.annotate('Well-being loss',              xy=(24,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
             ax1.annotate('Net cost \nof help',           xy=(30,1.5*np.array(nrh_mean).min()),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
             ax1.annotate('Well-being loss\npost-support',xy=(36,label_y_val),xycoords='data',ha='left',va='top',weight='bold',fontsize=8,annotation_clip=False)
-            ax1.legend(loc='best')
+            leg = ax1.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
 
             plt.xlim(5.5,41.5)
             #plt.ylim(-50,250)
@@ -844,7 +794,7 @@ natl_df['dw_all'] = np.array(dw_all).T
 natl_df['dk_q1'] = np.array(dk_q1).T
 natl_df['dw_q1'] = np.array(dw_q1).T
 
-summed = sum_with_rp('FJ',natl_df,['dk_all','dw_all','dk_q1','dw_q1'],sum_provinces=True,economy=economy,national=True)
+summed,_ = average_over_rp(natl_df[['dk_all','dw_all','dk_q1','dw_q1']])
 
 df = df.reset_index()
 natl_gdp = df.loc[(df.rp==1)&(df.hazard==myHaz[1][0]),['gdp_pc_prov','pop']].prod(axis=1).sum()
