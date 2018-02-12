@@ -11,7 +11,7 @@ import numpy as np
 #my_clip.write_gif('../output_plots/FJ/sectoral/food_inc_vs_income.gif')
 
 file_dir = '/Users/brian/Desktop/BANK/hh_resilience_model/output_plots/PH/png/'
-for haz in ['flood','wind','earthquake']:
+for haz in ['PF','HU','EQ']:
     file_list = []
     for rp in ['1','10','25','30','50','100','200','250','500','1000']:
         file_list.append(file_dir+'npr_poverty_k_NCR_'+haz+'_'+rp+'.png')

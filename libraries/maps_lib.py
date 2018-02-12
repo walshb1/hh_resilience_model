@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import glob
 
 ############################################################################# 
 #######################         FROM SVG              ####################### 
@@ -13,124 +14,9 @@ from IPython.display import Image, display, HTML, SVG
 import os, shutil
 from subprocess import Popen, PIPE, call 
 
-def sum_with_rp(myC,df,columns,sum_provinces,economy,national=False):
-
-    if myC == 'FJ':
-
-        if national == True: df = df.reset_index()
-        else:
-            df = df.sum(level=[economy,'rp']).fillna(0)
-            df = df.reset_index().set_index(economy)
-
-
-        freq = {'1'   :float(  1./1  -    1./5),
-                '5'   :float(  1./5  -   1./10),
-                '10'  :float( 1./10  -   1./20),
-                '20'  :float( 1./20  -   1./22),
-                '22'  :float( 1./22  -   1./50),
-                '50'  :float( 1./50  -   1./72),
-                '72'  :float( 1./72  -   1./75),
-                '75'  :float( 1./75  -  1./100),
-                '100' :float(1./100  -  1./200),
-                '200' :float(1./200  -  1./224),
-                '224' :float(1./224  -  1./250),
-                '250' :float(1./250  -  1./475),
-                '475' :float(1./475  -  1./500),
-                '500' :float(1./500  -  1./975),
-                '975' :float(1./975  - 1./1000),
-                '1000':float(1./1000 - 1./2475),
-                '2475':float(1/2475.)}
-
-        for aCol in columns:
-            df.loc[(df.rp ==    1),aCol] *= freq[   '1']
-            df.loc[(df.rp ==    5),aCol] *= freq[   '5']
-            df.loc[(df.rp ==   10),aCol] *= freq[  '10']
-            df.loc[(df.rp ==   20),aCol] *= freq[  '20']
-            df.loc[(df.rp ==   22),aCol] *= freq[  '22']
-            df.loc[(df.rp ==   50),aCol] *= freq[  '50']
-            df.loc[(df.rp ==   72),aCol] *= freq[  '72']
-            df.loc[(df.rp ==   75),aCol] *= freq[  '75']
-            df.loc[(df.rp ==  100),aCol] *= freq[ '100']
-            df.loc[(df.rp ==  200),aCol] *= freq[ '200']
-            df.loc[(df.rp ==  224),aCol] *= freq[ '224']
-            df.loc[(df.rp ==  250),aCol] *= freq[ '250']
-            df.loc[(df.rp ==  475),aCol] *= freq[ '475']
-            df.loc[(df.rp ==  500),aCol] *= freq[ '500']
-            df.loc[(df.rp ==  975),aCol] *= freq[ '975']
-            df.loc[(df.rp == 1000),aCol] *= freq['1000']
-            df.loc[(df.rp == 2475),aCol] *= freq['2475']
-
-        if national == True: 
-            return df.sum()
-        if sum_provinces == False:
-            return df.sum(level=economy)
-        else:
-            return df.sum()
-
-    if myC == 'PH':
-        df = df.sum(level=[economy,'rp']).fillna(0)
-        df = df.reset_index().set_index(economy)
-
-        freq = {'1'   :float(  1./1  -   1./10),
-                '10'  :float( 1./10  -   1./25),
-                '25'  :float( 1./25  -   1./30),
-                '30'  :float( 1./30  -   1./50),
-                '50'  :float( 1./50  -  1./100),
-                '100' :float(1./100  -  1./200),
-                '200' :float(1./200  -  1./250),
-                '250' :float(1./250  -  1./500),
-                '500' :float(1./500  - 1./1000),
-                '1000':float(1./1000 - 1./2000),
-                '2000':float(1./2000)}
-
-        for aCol in columns:
-            df.loc[(df.rp ==    1),aCol] *= freq[   '1']        
-            df.loc[(df.rp ==   10),aCol] *= freq[  '10'] 
-            df.loc[(df.rp ==   25),aCol] *= freq[  '25'] 
-            df.loc[(df.rp ==   30),aCol] *= freq[  '30']
-            df.loc[(df.rp ==   50),aCol] *= freq[  '50'] 
-            df.loc[(df.rp ==  100),aCol] *= freq[ '100'] 
-            df.loc[(df.rp ==  200),aCol] *= freq[ '200'] 
-            df.loc[(df.rp ==  250),aCol] *= freq[ '250'] 
-            df.loc[(df.rp ==  500),aCol] *= freq[ '500'] 
-            df.loc[(df.rp == 1000),aCol] *= freq['1000']
-            df.loc[(df.rp == 2000),aCol] *= freq['2000']
-
-        if sum_provinces == False:
-            return df.sum(level=economy)
-        else:
-            return df.sum()
-
-    if myC == 'SL':
-        
-        df = df.sum(level=[economy,'rp']).fillna(0)
-        df = df.reset_index().set_index(economy)
-
-        freq = {'1'   :float(  1./1  -    1./5),
-                '5'   :float(  1./5  -   1./10),
-                '10'  :float( 1./10  -   1./25),
-                '25'  :float( 1./25  -   1./50),
-                '50'  :float( 1./50  -  1./100),
-                '100' :float(1./100  -  1./250),
-                '250' :float(1./250  -  1./500),
-                '500' :float(1./500  - 1./1000),
-                '1000':float(1./1000)}
-
-        for aCol in columns:
-            df.loc[(df.rp ==    1),aCol] *= freq[   '1']
-            df.loc[(df.rp ==    5),aCol] *= freq[   '5']
-            df.loc[(df.rp ==   10),aCol] *= freq[  '10']
-            df.loc[(df.rp ==   25),aCol] *= freq[  '25']
-            df.loc[(df.rp ==   50),aCol] *= freq[  '50']
-            df.loc[(df.rp ==  100),aCol] *= freq[ '100']
-            df.loc[(df.rp ==  250),aCol] *= freq[ '250']
-            df.loc[(df.rp ==  500),aCol] *= freq[ '500']
-            df.loc[(df.rp == 1000),aCol] *= freq['1000']
-
-        if sum_provinces == False:
-            return df.sum(level=economy)
-        else:
-            return df.sum()
+def purge(dir, pattern):
+    for f in glob.glob(dir+pattern):
+        os.remove(f)
 
 def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_cmap("Blues"), label = "", outfolder ="img/" ,
                       svg_handle='class',new_title=None, do_qualitative=False, res=1000, verbose=True):

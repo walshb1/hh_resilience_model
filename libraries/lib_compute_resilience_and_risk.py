@@ -528,7 +528,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
 
         # Reco threshold
         global reco_thresh
-        reco_thresh = 1.05
+        reco_thresh = 1.01
         hh_reco_rate_init = '(c-@reco_thresh*c_min-di0)/dk_private'
         # ^ fraction of c_min at which hh start to reconstruct. 
         # --> this is useful because hh won't save anything meaningful if you set hh_reco_rate as soon as they cross c_min
@@ -1365,7 +1365,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         if (counter <= 200 and counter%2 == 0) or (counter>200 and counter%12 == 0):
 
             start_criteria  = '(welf_class==3) & (hh_reco_rate==0) & (dk_prv_t > 0) & ((c-dc_t) >= @reco_thresh*c_min)'
-            recalc_criteria = '(dk_prv_t > 0) & (hh_reco_rate!=0) & (c-di_t > c_min) & ((c-dc_t < c_min) | (dc_t < 0))'
+            recalc_criteria = '(dk_prv_t > 0) & (hh_reco_rate!=0) & (c-di_t > c_min) & ((c-dc_t < c_min) | (dc_t < 0) | ((welf_class==3)&(c-dc_t>=1.05*c_min)) )'
             stop_criteria   = '(welf_class==3) & (hh_reco_rate!=0) & ((c-di_t) < c_min) & (sav_f < 50.)'
 
             print('('+optionPDS+' - t = '+str(round(i_dt*52,1))+' weeks after disaster; '
