@@ -265,7 +265,7 @@ plt.draw()
 fig=plt.gcf()
 fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/dk.pdf',format='pdf')
 
-summary_df = pd.read_csv('/Users/brian/Desktop/BANK/hh_resilience_model/model/debug/my_summary_no.csv').reset_index()
+summary_df = pd.read_csv('debug/my_summary_no.csv').reset_index()
 summary_df = summary_df.loc[summary_df.rp!=2000].sort_values(by=['hazard','region','rp'])
 
 all_regions = np.unique(summary_df['region'].dropna())
@@ -277,8 +277,10 @@ for iHaz in ['SS','PF','HU','EQ']:
 
     regions = _.groupby('region')
     
-    fig, ax = plt.subplots()
-    ax.margins(0.05) # Optional, just adds 5% padding to the autoscaling
+    fig = plt.figure(1)
+    ax = plt.gcf()
+
+    #ax.margins(0.05) # Optional, just adds 5% padding to the autoscaling
     col_ix = 0
     for name, iReg in regions:
 
@@ -315,3 +317,5 @@ for iHaz in ['SS','PF','HU','EQ']:
 
     fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/reg_resilience_'+iHaz+'.pdf',format='pdf')
     plt.clf()
+
+    

@@ -338,7 +338,8 @@ hazard_ratios = hazard_ratios.drop([i for i in ['index'] if i in hazard_ratios.c
 fa_threshold = 0.95
 
 # Calculate avg vulnerability at event level, and use that to find fa
-v_mean = hazard_ratios[['pcwgt','v']].prod(axis=1).sum(level=event_level)/hazard_ratios['pcwgt'].sum(level=event_level)
+# --> v_mean is weighted by capital & pc_weight 
+v_mean = hazard_ratios[['pcwgt','k','v']].prod(axis=1).sum(level=event_level)/hazard_ratios[['pcwgt','k']].prod(axis=1).sum(level=event_level)
 v_mean.name = 'v_mean'
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),v_mean.reset_index(),on=[i for i in event_level]).reset_index().set_index([i for i in event_level]+['hhid']).sort_index()
 
