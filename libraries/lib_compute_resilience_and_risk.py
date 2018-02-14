@@ -530,10 +530,10 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
 
         # Reco threshold
         global reco_thresh
-        reco_thresh = 1.01
-        hh_reco_rate_init = '(c-@reco_thresh*c_min-di0)/dk_private'
+        reco_thresh = 1.005
         # ^ fraction of c_min at which hh start to reconstruct. 
-        # --> this is useful because hh won't save anything meaningful if you set hh_reco_rate as soon as they cross c_min
+        # --> not that important, because hh will recalibrate on basis of recalc_sub_crit
+        hh_reco_rate_init = '(c-@reco_thresh*c_min-di0)/dk_private'
 
         _c2 = cats_event_ia.query('(welf_class==0)&((c-di0)>@reco_thresh*c_min)&(dk_private!=0)')[['c','c_min','dk_private','di0_prv',
                                                                                                    'di0','dc0_prv','dc0_pub','dc0']].copy()
@@ -1360,20 +1360,23 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
 
         ####################################
         # Let the hh optimize (pause or re-/start) its reconstruction
-        # NB: only applies to hh in subsistence immediately after the disaster (welf_class == 3)
-        hh_reco_rate_t_sub = '(c-@reco_thresh*c_min-di_t)/dk_prv_t'
         hh_reco_rate_t_pov = '(c-@reco_thresh*pov_line-di_t)/dk_prv_t'
-
+        hh_reco_rate_t_sub = '(c-@reco_thresh*c_min-di_t)/dk_prv_t'
+        
         if (counter <= 200 and counter%2 == 0) or (counter>200 and counter%12 == 0):
-
+            
             start_criteria  = '(welf_class==3) & (hh_reco_rate==0) & (dk_prv_t > 0) & ((c-dc_t) >= @reco_thresh*c_min)'
-            recalc_criteria_sub = '(welf_class==3)&(dk_prv_t>0)&(hh_reco_rate!=0)&(c-di_t > c_min)&( (c-dc_t<c_min)|(dc_t<0)|((c-dc_t>=1.05*c_min)&(dk_prv_t/dk_private>0.90)))'
-            stop_criteria   = '(welf_class==3) & (hh_reco_rate!=0) & ((c-di_t) < c_min) & (sav_f < 50.)'
+            stop_criteria   = '(welf_class==3) & (hh_reco_rate!=0) & (c-di_t < c_min) & (sav_f < 50.)'
+            
+            recalc_pov_crit = '(welf_class==1)&(dk_prv_t>0)&(hh_reco_rate<@math.log(1/0.05)/10)&(c-di_t>pov_line)&( (c-dc_t<pov_line)|(dc_t<0)|(c-dc_t>=1.05*pov_line) )'
+            recalc_sub_crit = '((welf_class==2)|(welf_class==3))&(dk_prv_t>0)&(hh_reco_rate<@math.log(1/0.05)/10)&(c-di_t>c_min)&( (c-dc_t<c_min)|(dc_t<0)|(c-dc_t>=1.05*c_min) )'
+            #recalc_sub_crit = '(welf_class==3)&(dk_prv_t>0)&(hh_reco_rate!=0)&(c-di_t > c_min)&( (c-dc_t<c_min)|(dc_t<0)|((c-dc_t>=1.05*c_min)&(dk_prv_t/dk_private>0.90)))'
 
             print('('+optionPDS+' - t = '+str(round(i_dt*52,1))+' weeks after disaster; '
                   +str(round(100*i_dt/x_max,1))+'% through reco): '
                   +str(temp.query(start_criteria).shape[0])+' hh escape subs & '
-                  +str(temp.query(recalc_criteria_sub).shape[0])+' recalculate & '
+                  +str(temp.query(recalc_pov_crit).shape[0])+' recalc to pov & '
+                  +str(temp.query(recalc_sub_crit).shape[0])+' recalc to sub & '
                   +str(temp.query(stop_criteria).shape[0])+' stop reco\n')
             #temp.loc[temp.eval(start_criteria)].head(1000).to_csv(debug+'start_'+str(counter)+'.csv')
             
@@ -1381,9 +1384,10 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
             temp.loc[temp.eval(start_criteria),'hh_reco_rate'] = (temp.loc[temp.eval(start_criteria)].eval(hh_reco_rate_t_sub)).clip(upper=6.*const_nom_reco_rate)
             temp.loc[temp.eval(start_criteria),'t_start_prv_reco'] = i_dt
             
-            # Find hh that need to accelerate or scale back their reconstruction b/c of PDS 
-            temp.loc[temp.eval(recalc_criteria_sub),'hh_reco_rate'] = (temp.loc[temp.eval(recalc_criteria_sub)].eval(hh_reco_rate_t_sub)).clip(upper=6.*const_nom_reco_rate)
-            assert(temp.loc[temp.hh_reco_rate<0].shape[0] ==0)
+            # Find hh that need to accelerate or scale back their reconstruction as they progress, or b/c of PDS 
+            temp.loc[temp.eval(recalc_pov_crit),'hh_reco_rate'] = (temp.loc[temp.eval(recalc_pov_crit)].eval(hh_reco_rate_t_pov)).clip(upper=6.*const_nom_reco_rate)
+            temp.loc[temp.eval(recalc_sub_crit),'hh_reco_rate'] = (temp.loc[temp.eval(recalc_sub_crit)].eval(hh_reco_rate_t_sub)).clip(upper=6.*const_nom_reco_rate)
+            assert(temp.loc[temp.hh_reco_rate<0].shape[0] == 0)
             
             # hh stops reco when its *income* drops below subsistence and it has no more savings...
             temp.loc[temp.eval(stop_criteria),'hh_reco_rate'] = 0
