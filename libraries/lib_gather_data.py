@@ -304,7 +304,7 @@ def get_hh_savings(df, myC, pol, fstr):
         _s = _s.mean(level='index')
 
         #_s *= np.random.normal(1,
-        _s['avg_savings'] = _s['avg_savings'].clip(lower=0.,upper=0.5*_s['c'])
+        _s['avg_savings'] = _s['avg_savings'].clip(lower=0.)
     
     else:
         # Without data: we tried giving hh savings = 6 months' income if they report spending on savings or investments, 1 month if not

@@ -280,7 +280,7 @@ for iHaz in ['SS','PF','HU','EQ']:
     fig = plt.figure(1)
     ax = plt.gcf()
 
-    #ax.margins(0.05) # Optional, just adds 5% padding to the autoscaling
+    ax.margins(0.05) # Optional, just adds 5% padding to the autoscaling
     col_ix = 0
     for name, iReg in regions:
 

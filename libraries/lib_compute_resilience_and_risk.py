@@ -498,7 +498,9 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         # Get subsistence line
         if 'sub_line' in cats_event_ia.columns: cats_event_ia['c_min'] = cats_event_ia.sub_line
         elif get_subsistence_line(myC): cats_event_ia['c_min'] = get_subsistence_line(myC)
-        else: cats_event_ia['c_min'] = cats_event_ia.c_5
+        else:
+            print('Cant find definition of subsistence!!')
+            cats_event_ia['c_min'] = cats_event_ia.c_5
         print('Using hh response: avoid subsistence '+str(round(float(cats_event_ia['c_min'].mean()),2)))
 
         # Policy str for understanding results: go back to the 3-yr reconstruction with a cap on hh_dw 
@@ -642,9 +644,8 @@ def distribute_public_costs(macro_event,rebuild_fees,event_level,transfer_type):
 
 def calc_dw_outside_affected_province(macro_event, cat_info, public_costs_pub, public_costs_pds, event_level, is_contemporaneous=False, is_local_welfare=False, is_revised_dw=True):
 
-    public_costs = pd.DataFrame(index=public_costs_pub.index)
-    public_costs[['contributer','transfer_pub','tot_k_recipient_BE','tot_k_recipient_PE','tot_k_contributer']] \
-        = public_costs_pub[['contributer','transfer_pub','tot_k_recipient_BE','tot_k_recipient_PE','tot_k_contributer']]
+    #public_costs = pd.DataFrame(index=public_costs_pub.index)
+    public_costs = public_costs_pub[['contributer','transfer_pub','tot_k_recipient_BE','tot_k_recipient_PE','tot_k_contributer']].copy()
     public_costs['transfer_pds'] = public_costs_pds['transfer_pds']
 
     ############################
@@ -1360,27 +1361,28 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         ####################################
         # Let the hh optimize (pause or re-/start) its reconstruction
         # NB: only applies to hh in subsistence immediately after the disaster (welf_class == 3)
-        hh_reco_rate_t = '(c-@reco_thresh*c_min-di_t)/dk_prv_t'
+        hh_reco_rate_t_sub = '(c-@reco_thresh*c_min-di_t)/dk_prv_t'
+        hh_reco_rate_t_pov = '(c-@reco_thresh*pov_line-di_t)/dk_prv_t'
 
         if (counter <= 200 and counter%2 == 0) or (counter>200 and counter%12 == 0):
 
             start_criteria  = '(welf_class==3) & (hh_reco_rate==0) & (dk_prv_t > 0) & ((c-dc_t) >= @reco_thresh*c_min)'
-            recalc_criteria = '(dk_prv_t > 0) & (hh_reco_rate!=0) & (c-di_t > c_min) & ((c-dc_t < c_min) | (dc_t < 0) | ((welf_class==3)&(c-dc_t>=1.05*c_min)) )'
+            recalc_criteria_sub = '(welf_class==3)&(dk_prv_t>0)&(hh_reco_rate!=0)&(c-di_t > c_min)&( (c-dc_t<c_min)|(dc_t<0)|((c-dc_t>=1.05*c_min)&(dk_prv_t/dk_private>0.90)))'
             stop_criteria   = '(welf_class==3) & (hh_reco_rate!=0) & ((c-di_t) < c_min) & (sav_f < 50.)'
 
             print('('+optionPDS+' - t = '+str(round(i_dt*52,1))+' weeks after disaster; '
                   +str(round(100*i_dt/x_max,1))+'% through reco): '
                   +str(temp.query(start_criteria).shape[0])+' hh escape subs & '
-                  +str(temp.query(recalc_criteria).shape[0])+' recalculate & '
+                  +str(temp.query(recalc_criteria_sub).shape[0])+' recalculate & '
                   +str(temp.query(stop_criteria).shape[0])+' stop reco\n')
             #temp.loc[temp.eval(start_criteria)].head(1000).to_csv(debug+'start_'+str(counter)+'.csv')
             
             # Find hh that climbed out of subsistence
-            temp.loc[temp.eval(start_criteria),'hh_reco_rate'] = (temp.loc[temp.eval(start_criteria)].eval(hh_reco_rate_t)).clip(upper=6.*const_nom_reco_rate)
+            temp.loc[temp.eval(start_criteria),'hh_reco_rate'] = (temp.loc[temp.eval(start_criteria)].eval(hh_reco_rate_t_sub)).clip(upper=6.*const_nom_reco_rate)
             temp.loc[temp.eval(start_criteria),'t_start_prv_reco'] = i_dt
             
             # Find hh that need to accelerate or scale back their reconstruction b/c of PDS 
-            temp.loc[temp.eval(recalc_criteria),'hh_reco_rate'] = (temp.loc[temp.eval(recalc_criteria)].eval(hh_reco_rate_t)).clip(upper=6.*const_nom_reco_rate)
+            temp.loc[temp.eval(recalc_criteria_sub),'hh_reco_rate'] = (temp.loc[temp.eval(recalc_criteria_sub)].eval(hh_reco_rate_t_sub)).clip(upper=6.*const_nom_reco_rate)
             assert(temp.loc[temp.hh_reco_rate<0].shape[0] ==0)
             
             # hh stops reco when its *income* drops below subsistence and it has no more savings...

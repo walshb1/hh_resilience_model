@@ -271,51 +271,42 @@ summary_df = summary_df.loc[summary_df.rp!=2000].sort_values(by=['hazard','regio
 all_regions = np.unique(summary_df['region'].dropna())
 
 haz_dict = {'SS':'Storm surge','PF':'Precipitation flood','HU':'Hurricane','EQ':'Earthquake'}
-for iHaz in ['SS','PF','HU','EQ']:
+xax = [['rp',' return period [years]'],['dk_tot',' asset losses [PhP]'],['dw_tot',' welfare losses [PhP]']]
 
-    _ = summary_df.loc[(summary_df.hazard==iHaz)]
+for ix in xax:
+    for iHaz in ['SS','PF','HU','EQ']:
 
-    regions = _.groupby('region')
+        _ = summary_df.loc[(summary_df.hazard==iHaz)]
+
+        regions = _.groupby('region')
     
-    fig = plt.figure(1)
-    ax = plt.gcf()
+        fig,ax = plt.subplots(1)
+        ax.margins(0.05) # Optional, just adds 5% padding to the autoscaling
+    
+        col_ix = 0
+        for name, iReg in regions:
 
-    #ax.margins(0.05) # Optional, just adds 5% padding to the autoscaling
-    col_ix = 0
-    for name, iReg in regions:
-
-        while name != all_regions[col_ix]:
-            col_ix += 1
+            while name != all_regions[col_ix]:
+                col_ix += 1
         
-        ax.semilogx(iReg.rp,(100*iReg.res_tot).clip(upper=200), marker='.', linestyle='', ms=9, label=name,color=reg_pal[col_ix])
-        col_ix+=1
+            ax.semilogx(iReg[ix[0]],(100*iReg.res_tot).clip(upper=200), marker='.', linestyle='', ms=9, label=name,color=reg_pal[col_ix])
+            col_ix+=1
 
-    plt.xlabel(haz_dict[iHaz]+' return period [years]',fontsize=16)
-    plt.ylabel('Socio-economic capacity [%]',fontsize=16)
-    plt.ylim(0,205)
+        plt.xlabel(haz_dict[iHaz]+ix[1],fontsize=16)
+        plt.ylabel('Socio-economic capacity [%]',fontsize=16)
+        plt.ylim(0,205)
 
-    #leg = ax.legend(loc='best',labelspacing=0.75,ncol=4,fontsize=6,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0,title='Region')
-    #export_legend(leg,'../check_plots/regional_legend.pdf')
+        #leg = ax.legend(loc='best',labelspacing=0.75,ncol=4,fontsize=6,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0,title='Region')
+        #export_legend(leg,'../check_plots/regional_legend.pdf')
 
-    #fig = pylab.figure()
-    #figlegend = pylab.figure(figsize=(3,2))
-    #ax = fig.add_subplot(111)
-    #lines = ax.plot(range(10), pylab.randn(10), range(10), pylab.randn(10))
-    #figlegend.legend(lines, ('one', 'two'), 'center')
-    #fig.show()
-    #figlegend.show()
-    #figlegend.savefig('legend.png')
+        col_ix = 0
+        for name, iReg in regions:
 
-    col_ix = 0
-    for name, iReg in regions:
+            while name != all_regions[col_ix]:
+                col_ix += 1
 
-        while name != all_regions[col_ix]:
-            col_ix += 1
+            ax.plot(iReg[ix[0]],(100*iReg.res_tot).clip(upper=200),color=reg_pal[col_ix])
+            col_ix+=1
 
-        ax.plot(iReg.rp,(100*iReg.res_tot).clip(upper=200),color=reg_pal[col_ix])
-        col_ix+=1
-
-    fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/reg_resilience_'+iHaz+'.pdf',format='pdf')
-    plt.clf()
-
-    
+        fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/reg_resilience_vs_'+ix[0]+'_'+iHaz+'.pdf',format='pdf')
+        plt.clf()
