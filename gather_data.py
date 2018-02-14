@@ -343,10 +343,6 @@ v_mean = hazard_ratios[['pcwgt','k','v']].prod(axis=1).sum(level=event_level)/ha
 v_mean.name = 'v_mean'
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),v_mean.reset_index(),on=[i for i in event_level]).reset_index().set_index([i for i in event_level]+['hhid']).sort_index()
 
-#Need to test: did using v_mean halve welfare losses in NCR?
-# --> was 7.1%, is now 3.9%
-#hazard_ratios['v_mean'] = hazard_ratios['v']
-
 hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v_mean']).fillna(1E-8)
 
 hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = (hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold).clip(upper=0.95)
