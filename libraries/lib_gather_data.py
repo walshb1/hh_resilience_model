@@ -253,7 +253,10 @@ def AIR_extreme_events(df_air,df_aal,sec='',per=''):
     
 def get_hh_savings(df, myC, pol, fstr):
 
-    _s = pd.DataFrame({'c':df.c,'province':df.province,'ispoor':df.ispoor},index=df.index)
+    _s = pd.DataFrame({'c':df.c,
+                       'pcwgt':df.pcwgt,
+                       'province':df.province,
+                       'ispoor':df.ispoor},index=df.index)
 
     if pol == '_nosavings': return 0
     elif pol == '_nosavingsdata': return df.eval('c/12')
@@ -295,19 +298,25 @@ def get_hh_savings(df, myC, pol, fstr):
         f = f.reset_index().set_index(['province','ispoor']).dropna()
 
         # Poor in some provinces report negative savings...
-        f['avg_savings'] = f['avg_savings'].mean(level=['province','ispoor'])
+        f['avg_savings'] = f['avg_savings'].mean(level=['province','ispoor']).clip(lower=0.)
+
+        f = f.reset_index().set_index('province')
+        _s = _s.reset_index().set_index('province')
+        f['c_mean'] = _s[['c','pcwgt']].prod(axis=1).sum(level='province')/_s['pcwgt'].sum(level='province')
+
         try: f.to_csv('debug/provincial_savings_avg.csv')
         except: pass
 
         # Put it back together
         _s = pd.merge(_s.reset_index(),f.reset_index(),on=['province','ispoor']).set_index('index').sort_index()
         _s = _s.mean(level='index')
-
-        #_s *= np.random.normal(1,
-        _s['avg_savings'] = _s['avg_savings'].clip(lower=0.)
     
+        _s['hh_savings'] = _s.eval('avg_savings*c/c_mean')
+
     else:
+        print('savings not implemented for this situation')
+        assert(False)
         # Without data: we tried giving hh savings = 6 months' income if they report spending on savings or investments, 1 month if not
         _s = (temp[['axfin','c']].prod(axis=1)/2.).clip(lower=temp['c']/12.)
     
-    return _s['avg_savings']
+    return _s['hh_savings']

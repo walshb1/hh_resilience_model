@@ -437,7 +437,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         
         # Transfer per capita fees back to cats_event_ia 
         cats_event_ia[['pc_fee_BE','pc_fee_PE']] = rebuild_fees[['pc_fee_BE','pc_fee_PE']]
-        rebuild_fees['dk0'] = cats_event_ia['dk0']
+        rebuild_fees['dk0'] = cats_event_ia['dk0'].copy()
         cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
 
         # Sanity Check: we know this works if hh_fee = 'dk_public_hh'*'frac_k'
@@ -453,12 +453,12 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         # --> the fraction of assets in the country does, because of destruction in the aff province. 
 
         # Uncomment these 2 lines for tax assessment before disaster
-        #public_costs = public_costs.rename(columns={'transfer_pub_BE':'transfer_pub','pc_fee_BE':'pc_fee'})
-        #cats_event_ia = cats_event_ia.rename(columns={'pc_fee_PE':'pc_fee'})
+        public_costs = public_costs.rename(columns={'transfer_pub_BE':'transfer_pub','pc_fee_BE':'pc_fee'})
+        cats_event_ia = cats_event_ia.rename(columns={'pc_fee_PE':'pc_fee'})
 
         # Uncomment these 2 lines for tax assessment after disaster
-        public_costs = public_costs.rename(columns={'transfer_pub_PE':'transfer_pub'})
-        cats_event_ia = cats_event_ia.rename(columns={'pc_fee_PE':'pc_fee'})
+        #public_costs = public_costs.rename(columns={'transfer_pub_PE':'transfer_pub'})
+        #cats_event_ia = cats_event_ia.rename(columns={'pc_fee_PE':'pc_fee'})
         
         cats_event_ia['scale_fac_soc'] = (rebuild_fees['dk_tot']/rebuild_fees['tot_k_BE']).mean(level=event_level)
 
@@ -981,9 +981,9 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     public_costs['transfer_pds_PE'] = public_costs[['pds_cost','frac_k_PE']].prod(axis=1)
 
     # Uncomment this line for tax assessment before disaster
-    #public_costs = public_costs.rename(columns={'transfer_pds_BE':'transfer_pds','pc_fee_BE':'pc_fee'})
+    public_costs = public_costs.rename(columns={'transfer_pds_BE':'transfer_pds','pc_fee_BE':'pc_fee'})
     # Uncomment this line for tax assessment after disaster
-    public_costs = public_costs.rename(columns={'transfer_pds_PE':'transfer_pds'})
+    #public_costs = public_costs.rename(columns={'transfer_pds_PE':'transfer_pds'})
 
     # this will do for hh in the affected province
     if optionFee=='tax':
@@ -1250,7 +1250,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     #############################
     # Upper limit for per cap dw (from micro, since temp is a subset)
     try: c_mean = micro[['pcwgt','c']].prod(axis=1).sum()/micro['pcwgt'].sum()
-    except: c_mean =  56676.89
+    except: print('could not calculate c_mean! HALP!'); assert(False)
 
     my_dw_limit = abs(20.*c_mean)
     my_natl_wprime = c_mean**(-const_ie)
@@ -1269,7 +1269,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
 
     #############################
     # Drop cols from temp, because it's huge...
-    temp = temp.drop([i for i in ['pcinc','hhwgt','pcinc_ae','hhsize','hhsize_ae','pov_line','help_fee','pc_fee_BE',
+    temp = temp.drop([i for i in ['pcinc','hhwgt','pcinc_ae','hhsize','hhsize_ae','help_fee','pc_fee_PE',
                                   'dk_other','k','gamma_SP','ew_expansion','hh_share','fa','v_with_ew','v','social','quintile','c_5'] if i in temp.columns],axis=1)
 
     # setup new df for illustrating reco dynamics
@@ -1298,30 +1298,32 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
 
     my_out_x, my_out_yA, my_out_yNA, my_out_yzero = [], [], [], []
     x_max = min((np.log(1/0.05)/float(temp['hh_reco_rate'].min())),10.)
+
     x_min, n_steps = 0.,52.*x_max # <-- time step = week
     if study == True: x_min, x_max, n_steps = 0.,1.,2 # <-- time step = 1 year
+    max_treco = math.log(1/0.05)/x_max
 
     print('\n ('+optionPDS+') Integrating well-being losses over '+str(x_max)+' years after disaster ('+pol_str+')') 
     # ^ make sure that, if T_recon changes, so does x_max!
     
     temp['t_start_prv_reco'] = 0.
-    try:
-        my_avg_prod_k = macro.avg_prod_k.mean()
-        my_tau_tax = macro['tau_tax'].mean()
-    except:
-        my_avg_prod_k = 0.337; my_tau_tax = 0.07      
+    my_avg_prod_k = macro.avg_prod_k.mean()
+    my_tau_tax = macro['tau_tax'].mean()
 
     temp['dk_prv_t'] = temp['dk_private']
     # use this to count down as hh rebuilds
-
-    # First, assign savings, and use it to pay pc_fee:
-    temp['sav_i'] = get_hh_savings(temp[['c','province','ispoor']],myC,pol_str,'../inputs/PH/Socioeconomic Resilience (Provincial)_Print Version_rev1.xlsx')
-    temp['sav_f'] = temp['sav_i']-temp['pc_fee']
+    
+    # First, assign savings
+    temp['sav_f'] = get_hh_savings(temp[['pcwgt','c','province','ispoor']],myC,pol_str,'../inputs/PH/Socioeconomic Resilience (Provincial)_Print Version_rev1.xlsx')
+    # ^ sav_f = intial savings (just at initialization; will decrement as hh spend savings)
+    temp['sav_i'] = temp.eval('sav_f+pc_fee')
+    # ^ add pc_fee to sav_f to get sav_i
+    # --> this is assuming the government covers the costs for now, and assesses taxes much, much later
 
     print(temp.loc[temp.sav_f<0].shape[0],' hh borrow to pay their fees...')
-    temp.loc[temp.sav_f<0,['pc_fee','sav_i','sav_f']].to_csv(debug+'borrow_to_pay_fees.csv')
+    #temp.loc[temp.sav_f<0,['pc_fee','sav_i','sav_f']].to_csv(debug+'borrow_to_pay_fees.csv')
     # debit pc_fee... what happens if pc_fee > sav_i?
-    # --> for now, I will let this go...assume that hh are able to borrow in order to pay that fee
+    # --> let this go...assume that hh will be able to borrow in order to pay that fee
 
     temp['sav_offset_to'] = smart_savers(temp,my_avg_prod_k,const_pub_reco_rate,const_pds_rate)
     # ^ Use savings (until they run out) to offset dc to what level?
@@ -1368,17 +1370,15 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
             start_criteria  = '(welf_class==3) & (hh_reco_rate==0) & (dk_prv_t > 0) & ((c-dc_t) >= @reco_thresh*c_min)'
             stop_criteria   = '(welf_class==3) & (hh_reco_rate!=0) & (c-di_t < c_min) & (sav_f < 50.)'
             
-            recalc_pov_crit = '(welf_class==1)&(dk_prv_t>0)&(hh_reco_rate<@math.log(1/0.05)/10)&(c-di_t>pov_line)&( (c-dc_t<pov_line)|(dc_t<0)|(c-dc_t>=1.05*pov_line) )'
-            recalc_sub_crit = '((welf_class==2)|(welf_class==3))&(dk_prv_t>0)&(hh_reco_rate<@math.log(1/0.05)/10)&(c-di_t>c_min)&( (c-dc_t<c_min)|(dc_t<0)|(c-dc_t>=1.05*c_min) )'
-            #recalc_sub_crit = '(welf_class==3)&(dk_prv_t>0)&(hh_reco_rate!=0)&(c-di_t > c_min)&( (c-dc_t<c_min)|(dc_t<0)|((c-dc_t>=1.05*c_min)&(dk_prv_t/dk_private>0.90)))'
-
+            recalc_pov_crit = 'welf_class==1 & dk_prv_t>0 & hh_reco_rate!=0 & hh_reco_rate < @max_treco & c-di_t>pov_line & (c-dc_t<pov_line | dc_t<0 | c-dc_t>=1.05*pov_line)'
+            recalc_sub_crit = '(welf_class==2 | welf_class==3) & dk_prv_t>0 & hh_reco_rate!=0 & hh_reco_rate < @max_treco & c-di_t>c_min & (c-dc_t<c_min | dc_t<0 | c-dc_t>=1.05*c_min)'
+           
             print('('+optionPDS+' - t = '+str(round(i_dt*52,1))+' weeks after disaster; '
                   +str(round(100*i_dt/x_max,1))+'% through reco): '
-                  +str(temp.query(start_criteria).shape[0])+' hh escape subs & '
-                  +str(temp.query(recalc_pov_crit).shape[0])+' recalc to pov & '
-                  +str(temp.query(recalc_sub_crit).shape[0])+' recalc to sub & '
-                  +str(temp.query(stop_criteria).shape[0])+' stop reco\n')
-            #temp.loc[temp.eval(start_criteria)].head(1000).to_csv(debug+'start_'+str(counter)+'.csv')
+                  +str(temp.loc[temp.eval(start_criteria)].shape[0])+' hh escape subs & '
+                  +str(temp.loc[temp.eval(recalc_pov_crit)].shape[0])+' recalc to pov & '
+                  +str(temp.loc[temp.eval(recalc_sub_crit)].shape[0])+' recalc to sub & '
+                  +str(temp.loc[temp.eval(stop_criteria)].shape[0])+' stop reco\n')
             
             # Find hh that climbed out of subsistence
             temp.loc[temp.eval(start_criteria),'hh_reco_rate'] = (temp.loc[temp.eval(start_criteria)].eval(hh_reco_rate_t_sub)).clip(upper=6.*const_nom_reco_rate)
@@ -1400,7 +1400,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         #temp['di_pub_t'] = temp['di0_pub'].values*math.e**(-i_dt*const_pub_reco_rate)
         #temp['di_t'] = temp['di_prv_t'].values+temp['di_pub_t'].values-temp['help_received'].values*const_pds_rate*math.e**(-i_dt*const_pds_rate)
         # NB: these are unchanged from above...
-        temp['dc_t'] = temp['di_t'].values + temp[['hh_reco_rate','dk_prv_t']].prod(axis=1).values
+        temp['dc_t'] = temp.eval('di_t+hh_reco_rate*dk_prv_t')
         
         ########################
         # Now apply savings (if any left)
@@ -1472,19 +1472,14 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # 'revised' calculation of dw
 
     #temp['wprime'] = my_natl_wprime
-    temp['wprime_hh'] = temp['c']**(-const_ie)
+    temp['wprime_hh']       = temp.eval('c**(-@const_ie)')
+    temp['dw_curr_no_clip'] = temp.eval('const*integ/@my_natl_wprime')
 
-    temp['dw_curr_no_clip'] = temp[['const','integ']].prod(axis=1)/my_natl_wprime
-    
-    temp['dw'] = temp[['const','integ']].prod(axis=1) + (temp['sav_i']-temp['sav_f'])*temp['wprime_hh']*const_rho
-    #            ^ consumption losses                   ^ spent savings
+    temp['dw'] = temp.eval('const*integ+(sav_i-sav_f)*wprime_hh*@const_rho')
+    #                       ^ dw(dc)   ^ dw(spent savings)
     temp['dw'] = temp['dw'].clip(upper=my_dw_limit*my_natl_wprime)
     # apply upper limit to DW
- 
-    # Delete this, i think...
-    #temp.loc[(temp.dc0 >= temp.c),'dw'] = my_dw_limit*temp.loc[(temp.dc0 >= temp.c),'wprime']
-    # ^ assign dw = upper limit for all hh where dc0 > c
-    
+     
     # Re-merge temp and temp_na
     temp = pd.concat([temp,temp_na]).reset_index().set_index([i for i in mic_ix]).sort_index()
     assert(temp['dc_t'].shape[0] == temp['dc_t'].dropna().shape[0])
