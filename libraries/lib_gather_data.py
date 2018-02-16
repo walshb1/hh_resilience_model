@@ -302,10 +302,14 @@ def get_hh_savings(df, myC, pol, fstr):
 
         f = f.reset_index().set_index('province')
         _s = _s.reset_index().set_index('province')
-        f['c_mean'] = _s[['c','pcwgt']].prod(axis=1).sum(level='province')/_s['pcwgt'].sum(level='province')
+        
+        f['c_mean'] = 0
+        f.loc[f.ispoor==0,'c_mean'] = _s.loc[_s.ispoor==0,['c','pcwgt']].prod(axis=1).sum(level='province')/_s.loc[_s.ispoor==0,'pcwgt'].sum(level='province')
+        f.loc[f.ispoor==1,'c_mean'] = _s.loc[_s.ispoor==1,['c','pcwgt']].prod(axis=1).sum(level='province')/_s.loc[_s.ispoor==1,'pcwgt'].sum(level='province')
 
         try: f.to_csv('debug/provincial_savings_avg.csv')
         except: pass
+        assert(f['c_mean'].shape[0] != f['c_mean'].dropna().shape[0])
 
         # Put it back together
         _s = pd.merge(_s.reset_index(),f.reset_index(),on=['province','ispoor']).set_index('index').sort_index()
