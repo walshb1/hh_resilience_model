@@ -35,7 +35,8 @@ reds_pal = sns.color_palette('Reds', n_colors=9)
 q_labels = ['Q1 (Poorest)','Q2','Q3','Q4','Q5 (Wealthiest)']
 q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
-reg_pal = sns.color_palette(['#e6194b','#3cb44b','#ffe119','#0082c8','#f58231','#911eb4','#46f0f0','#f032e6','#d2f53c','#008080','#e6beff','#fabebe','#800000','#808000','#000080','#808080','#000000'],n_colors=17,desat=None)
+reg_pal = sns.color_palette(['#e6194b','#3cb44b','#ffe119','#0082c8','#f58231','#911eb4','#46f0f0','#f032e6','#d2f53c',
+                             '#008080','#e6beff','#fabebe','#800000','#808000','#000080','#808080','#000000'],n_colors=17,desat=None)
 
 params = {'savefig.bbox': 'tight', #or 'standard'
           #'savefig.pad_inches': 0.1 
@@ -47,12 +48,8 @@ params = {'savefig.bbox': 'tight', #or 'standard'
           'legend.fancybox': True,
           'savefig.facecolor': 'white',   # figure facecolor when saving
           #'savefig.edgecolor': 'white'    # figure edgecolor when saving
-          }
-plt.rcParams.update(params)
-
-font = {'family' : 'sans serif',
-    'size'   : 10}
-plt.rc('font', **font)
+          };plt.rcParams.update(params)
+font = {'family' : 'sans serif', 'size'   : 10};plt.rc('font', **font)
 
 import warnings
 warnings.filterwarnings('always',category=UserWarning)
@@ -72,6 +69,7 @@ def export_legend(legend, filename='../check_plots/legend.pdf', expand=[-5,-5,5,
     bbox = bbox.from_extents(*(bbox.extents + np.array(expand)))
     bbox = bbox.transformed(fig.dpi_scale_trans.inverted())
     fig.savefig(filename, dpi="figure", bbox_inches=bbox,format='pdf')
+    
 
 # Load output files
 pol_str = ''#'_v95'#could be {'_v95'}
@@ -266,7 +264,9 @@ fig=plt.gcf()
 fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/dk.pdf',format='pdf')
 
 summary_df = pd.read_csv('debug/my_summary_no.csv').reset_index()
-summary_df = summary_df.loc[summary_df.rp!=2000].sort_values(by=['hazard','region','rp'])
+summary_df['res_mean'] = summary_df.groupby(['region','hazard'])['res_tot'].transform('median')
+summary_df = summary_df.loc[(summary_df.dk_tot>=0.1)&(summary_df.res_tot<=1.25*summary_df.res_mean)].sort_values(by=['hazard','region','rp'])
+
 
 all_regions = np.unique(summary_df['region'].dropna())
 
@@ -280,7 +280,7 @@ for ix in xax:
 
         regions = _.groupby('region')
     
-        fig,ax = plt.subplots(1)
+        fig,ax = plt.subplots()
         ax.margins(0.05) # Optional, just adds 5% padding to the autoscaling
     
         col_ix = 0
@@ -296,8 +296,9 @@ for ix in xax:
         plt.ylabel('Socio-economic capacity [%]',fontsize=16)
         plt.ylim(0,205)
 
-        #leg = ax.legend(loc='best',labelspacing=0.75,ncol=4,fontsize=6,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0,title='Region')
-        #export_legend(leg,'../check_plots/regional_legend.pdf')
+        if True:
+            leg = ax.legend(loc='best',labelspacing=0.75,ncol=4,fontsize=6,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0,title='Region')
+            export_legend(leg,'../check_plots/regional_legend.pdf')
 
         col_ix = 0
         for name, iReg in regions:
@@ -308,5 +309,6 @@ for ix in xax:
             ax.plot(iReg[ix[0]],(100*iReg.res_tot).clip(upper=200),color=reg_pal[col_ix])
             col_ix+=1
 
-        fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/reg_resilience_vs_'+ix[0]+'_'+iHaz+'.pdf',format='pdf')
-        plt.clf()
+        fig.savefig('../check_plots/reg_resilience_vs_'+ix[0]+'_'+iHaz+'.pdf',format='pdf')
+        #plt.clf()
+        plt.close('all')
