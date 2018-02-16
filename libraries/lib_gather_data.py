@@ -14,10 +14,10 @@ def mystriper(string):
 def get_hhid_FIES(df):
     df['hhid'] =  df['w_regn'].astype('str')
     df['hhid'] += df['w_prov'].astype('str')    
-    df['hhid'] += df['w_mun'].astype('str')   
-    df['hhid'] += df['w_bgy'].astype('str')   
-    df['hhid'] += df['w_ea'].astype('str')   
-    df['hhid'] += df['w_shsn'].astype('str')   
+    df['hhid'] += df['w_mun'].astype('str')
+    df['hhid'] += df['w_bgy'].astype('str')
+    df['hhid'] += df['w_ea'].astype('str') 
+    df['hhid'] += df['w_shsn'].astype('str')
     df['hhid'] += df['w_hcn'].astype('str')   
 
 #weighted average		
@@ -320,3 +320,23 @@ def get_hh_savings(df, myC, pol, fstr):
         _s = (temp[['axfin','c']].prod(axis=1)/2.).clip(lower=temp['c']/12.)
     
     return _s['hh_savings']
+
+
+def get_subnational_gdp_macro(myCountry,_hr,avg_prod_k):
+    hr_init = _hr.shape[0]
+
+    if myCountry == 'PH':
+
+        grdp = pd.read_csv('../inputs/PH/phil_grdp.csv',usecols=['region','2015'])
+        grdp.columns = ['_region','grdp']
+        grdp['region_lower'] = grdp['_region'].str.lower()
+
+        grdp['grdp_assets'] = grdp['grdp'].str.replace(',','').astype('int')*1000./avg_prod_k
+
+        _hr = _hr.reset_index()
+        _hr['region_lower'] = _hr['region'].str.lower()
+        _hr = pd.merge(_hr.reset_index(),grdp.reset_index(),on=['region_lower']).reset_index().set_index(['region','hazard','rp']).sort_index()
+
+        print(_hr.shape[0],hr_init)
+        assert(_hr.shape[0] == hr_init)
+        return _hr['grdp_assets']

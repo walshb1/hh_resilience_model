@@ -304,9 +304,11 @@ cat_info = cat_info.reset_index().set_index([economy])
 hazard_ratios = cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy).to_frame(name='HIES_capital')
 hazard_ratios = hazard_ratios.join(df_haz,how='outer')
 
+hazard_ratios['grdp_to_assets'] = get_subnational_gdp_macro(myCountry,hazard_ratios,float(df['avg_prod_k'].mean()))
+
 if myCountry == 'PH':
-    hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['HIES_capital']
-    hazard_ratios = hazard_ratios.drop(['HIES_capital','value_destroyed','value_destroyed_prv','value_destroyed_pub'],axis=1)
+    hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['grdp_to_assets']
+    hazard_ratios = hazard_ratios.drop(['HIES_capital', 'value_destroyed','value_destroyed_prv','value_destroyed_pub'],axis=1)
 
 elif myCountry == 'FJ':
     pass
@@ -328,7 +330,7 @@ hazard_ratios.loc[hazard_ratios['v']<=0.1,'v'] *= np.random.uniform(.8,2,hazard_
 hazard_ratios.loc[hazard_ratios['v'] >0.1,'v'] *= np.random.uniform(.8,1.2,hazard_ratios.loc[hazard_ratios['v'] >0.1].shape[0])
 
 if 'hh_share' not in hazard_ratios.columns: hazard_ratios['hh_share'] = None
-hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])[['frac_destroyed','v','k','pcwgt','hh_share']]
+hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])[['frac_destroyed','v','k','pcwgt','hh_share','grdp_to_assets']]
 hazard_ratios = hazard_ratios.drop([i for i in ['index'] if i in hazard_ratios.columns])
 
 ###########################################
@@ -378,23 +380,21 @@ cat_info = cat_info.drop([icol for icol in ['level_0','index'] if icol in cat_in
 #cat_info = cat_info.drop([i for i in ['province'] if i != economy],axis=1)
 cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index=True)
 
-hazard_ratios= hazard_ratios.drop(['frac_destroyed'],axis=1).drop(["flood_fluv_def"],level="hazard")
-hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
-
 # If we have 2 sets of data on k, gdp, look at them now:
 try:
-    summary_df = pd.DataFrame({'macro_stats':df2[['gdp_pc_pp','pop']].prod(axis=1).sum(level=economy),
-                               'hies':df['avg_prod_k'].mean()*cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy)})
-    summary_df['macro_to_hh_ratio'] = summary_df['macro_stats'].divide(summary_df['hies'])
+    print(hazard_ratios.head())
+    summary_df = pd.DataFrame({'from hies':df['avg_prod_k'].mean()*cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy),
+                               'from grdp':df['avg_prod_k'].mean()*hazard_ratios['grdp_to_assets'].mean(level=economy)})
+    summary_df['hies_to_grdp_ratio'] = summary_df['from hies'].divide(summary_df['from grdp'])
     print(summary_df)
-
-    totals = summary_df[['macro_stats','hies']].sum().squeeze()
+    
+    totals = summary_df[['from hies','from grdp']].sum().squeeze()
     ratio = totals[0]/totals[1]
-
     print(totals, ratio)
+except: print('Dont have 2 datasets for GDP. Just using hh survey data.')  
 
-except:
-    print('Dont have 2 datasets for GDP. HH survey data:')  
+hazard_ratios= hazard_ratios.drop(['frac_destroyed','grdp_to_assets'],axis=1).drop(["flood_fluv_def"],level="hazard")
+hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
 
 # Compare assets from survey to assets from AIR-PCRAFI    
 if myCountry == 'FJ':
