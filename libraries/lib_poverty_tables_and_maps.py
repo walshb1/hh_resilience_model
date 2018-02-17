@@ -50,10 +50,10 @@ def run_poverty_tables_and_maps(pov_df,event_level=['region','hazard','rp'],myC=
                      [30,1E3,' (thousands)'],
                      [50,1E3,' (thousands)'],
                      [100,1E3,' (thousands)'],
-                     [200,1E6,' (millions)'],
-                     [250,1E6,' (millions)'],
-                     [500,1E6,' (millions)'],
-                     [1000,1E6,' (millions)']]:
+                     [200,1E3,' (thousands)'],
+                     [250,1E3,' (thousands)'],
+                     [500,1E3,' (thousands)'],
+                     [1000,1E3,' (thousands)']]:
 
             make_map_from_svg(
                 pov_df_event.loc[(pov_df_event.hazard==myDis)&(pov_df_event.rp==myRP[0]),['new_pov','new_sub']].sum(axis=1)/(myRP[1]*100.), 
@@ -132,4 +132,4 @@ def run_poverty_tables_and_maps(pov_df,event_level=['region','hazard','rp'],myC=
     purge('img/','map_of_*.svg')
     purge('img/','legend_of_*.svg')
     
-run_poverty_tables_and_maps(None)
+#run_poverty_tables_and_maps(None)

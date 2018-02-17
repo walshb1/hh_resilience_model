@@ -1,7 +1,7 @@
 ##################################
 #Import packages for data analysis
 from libraries.lib_compute_resilience_and_risk import get_weighted_mean
-#from libraries.lib_poverty_tables_and_maps import run_poverty_tables_and_maps
+from libraries.lib_poverty_tables_and_maps import run_poverty_tables_and_maps
 from libraries.replace_with_warning import *
 from libraries.lib_country_dir import *
 #from lib_gather_data import *
@@ -293,7 +293,7 @@ iah_ntl = iah_ntl.reset_index()
 
 myHaz = None
 if myCountry == 'FJ': myHaz = [['Ba','Lau','Tailevu'],get_all_hazards(myCountry,iah_res),[1,10,100,500,1000]]
-elif myCountry == 'PH': myHaz = [['NCR'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
+elif myCountry == 'PH': myHaz = [['NCR','IVA - CALABARZON'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
 
 ##################################################################
 # This code generates the histograms showing income before & after disaster
@@ -304,9 +304,9 @@ if myCountry == 'FJ':
     scale_fac = 2.321208
     upper_clip = 2E4
 
-#pov_df = iah_res.copy().reset_index().set_index(event_level)
-#print(pov_df.head())
-#run_poverty_tables_and_maps(pov_df,event_level)
+pov_df = iah_res.copy().reset_index().set_index(event_level)
+print(pov_df.head())
+run_poverty_tables_and_maps(pov_df,event_level)
 
 for aReg in myHaz[0]:
     for aDis in get_all_hazards(myCountry,iah_res):
