@@ -318,6 +318,7 @@ def plot_k_vs_dw(iah):
         leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9,title='Household status post-disaster')
         
         fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/reco_periods_'+str(irp)+'.pdf',format='pdf',bbox_inches='tight')
+        fig.savefig('/Users/brian/Desktop/Dropbox/Bank/hh_resilience_model/output_plots/PH/reco_periods_'+str(irp)+'.pdf',format='pdf',bbox_inches='tight')
         plt.clf()
         
         fig, axes = plt.subplots(nrows=3, ncols=2,figsize=(8,12))
@@ -335,7 +336,7 @@ iah['pcwgt'] = iah['pcwgt'].fillna(0)
 
 # Look at single event:
 if myCountry == 'PH':
-    myHaz = [['NCR'],['EQ','TC'],[1,10,25,30,50,100,200,250,500,1000]]
+    myHaz = [['NCR','IVA - CALABARZON'],['EQ','TC','PF'],[1,10,25,30,50,100,200,250,500,1000]]
 elif myCountry == 'FJ':
     myHaz = [['Ba'],['TC'],[1,5,10,20,22,50,72,75,100,200,224,250,475,500,975,1000,2475]]
     #myHaz = [['Lau'],['earthquake','tsunami','typhoon'],[1,10,20,50,100,250,500,1000]]
@@ -343,7 +344,7 @@ elif myCountry == 'FJ':
 iah = iah.reset_index()
 
 # PH and SL hazards
-allDis = ['EQ','TC']
+allDis = ['EQ','TC','PF']
 upper_clip = 100000
 
 if myCountry == 'FJ': 

@@ -1517,6 +1517,9 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     tmp_out['pct_subs']           = temp.loc[(temp.affected_cat=='a')&(temp.hh_reco_rate==0),'pcwgt'].sum(level=[i for i in mac_ix])/temp.loc[(temp.affected_cat=='a'),'pcwgt'].sum(level=[i for i in mac_ix])
 
     tmp_out.loc[tmp_out.dw_tot!=0].to_csv(debug+'my_summary_'+optionPDS+pol_str+'.csv')
+    tmp_out_aal,_ = average_over_rp(tmp_out[['dk_tot','dw_tot']])
+    tmp_out_aal['resilience'] = tmp_out_aal['dk_tot']/tmp_out_all['dw_tot']
+    tmp_out_aal.to_csv(debug+'my_sumary_aal_'+optionPDS+pol_str+'.csv')
     print('Wrote out summary stats for dw ('+optionPDS+'/'+pol_str+')')
 
     print(temp['dc_t'].mean())

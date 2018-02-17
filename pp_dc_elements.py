@@ -11,6 +11,7 @@ from libraries.replace_with_warning import *
 from libraries.lib_country_dir import *
 from libraries.lib_gather_data import *
 from libraries.maps_lib import *
+from libraries.lib_average_over_rp import average_over_rp
 
 from scipy.stats import norm
 import matplotlib.mlab as mlab
@@ -272,6 +273,8 @@ all_regions = np.unique(summary_df['region'].dropna())
 
 haz_dict = {'SS':'Storm surge','PF':'Precipitation flood','HU':'Hurricane','EQ':'Earthquake'}
 xax = [['rp',' return period [years]'],['dk_tot',' asset losses [PhP]'],['dw_tot',' welfare losses [PhP]']]
+plotz = []
+regz = []
 
 for ix in xax:
     for iHaz in ['SS','PF','HU','EQ']:
@@ -289,16 +292,17 @@ for ix in xax:
             while name != all_regions[col_ix]:
                 col_ix += 1
         
-            ax.semilogx(iReg[ix[0]],(100*iReg.res_tot).clip(upper=200), marker='.', linestyle='', ms=9, label=name,color=reg_pal[col_ix])
+            plotz.append(ax.semilogx(iReg[ix[0]],(100*iReg.res_tot), marker='.', linestyle='', ms=9, label=name,color=reg_pal[col_ix]))
+            regz.append(name)
             col_ix+=1
 
         plt.xlabel(haz_dict[iHaz]+ix[1],fontsize=16)
         plt.ylabel('Socio-economic capacity [%]',fontsize=16)
-        plt.ylim(0,205)
+        plt.ylim(0,250)
 
-        if True:
+        if False:
             leg = ax.legend(loc='best',labelspacing=0.75,ncol=4,fontsize=6,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0,title='Region')
-            export_legend(leg,'../check_plots/regional_legend.pdf')
+            export_legend(leg,'../check_plots/regional_legend.pdf')            
 
         col_ix = 0
         for name, iReg in regions:
@@ -306,9 +310,14 @@ for ix in xax:
             while name != all_regions[col_ix]:
                 col_ix += 1
 
-            ax.plot(iReg[ix[0]],(100*iReg.res_tot).clip(upper=200),color=reg_pal[col_ix])
+            ax.plot(iReg[ix[0]],(100*iReg.res_tot),color=reg_pal[col_ix])
             col_ix+=1
 
         fig.savefig('../check_plots/reg_resilience_vs_'+ix[0]+'_'+iHaz+'.pdf',format='pdf')
         #plt.clf()
         plt.close('all')
+
+
+summary_df = pd.read_csv('debug/my_summary_no.csv').reset_index().set_index(['region','hazard','rp'])
+rp_sum,_ = average_over_rp(summary_df)
+rp_sum.to_csv('debug/my_summary_no_rp_aal.csv')
