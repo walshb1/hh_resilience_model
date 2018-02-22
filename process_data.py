@@ -75,6 +75,8 @@ if myCountry == 'PH' and economy == 'region':
 # Toggle subtraction or addition of dK to affected people's incomes
 drm_pov_sign = -1 
 
+haz_dict = {'EQ':'earthquake','HU':'hurricane','TC':'tropical cyclone','PF':'precipitation flood','SS':'storm surge'}
+
 #######################
 # Get poverty & subsistence thresholds
 pov_line = get_poverty_line(myCountry,'Rural')
@@ -344,7 +346,7 @@ elif myCountry == 'FJ':
 iah = iah.reset_index()
 
 # PH and SL hazards
-allDis = ['EQ','TC','PF']
+allDis = ['EQ','HU','PF']
 upper_clip = 100000
 
 if myCountry == 'FJ': 
@@ -534,12 +536,12 @@ for myDis in allDis:
             plt.plot([sub_line,sub_line],[0,1.41*cf_heights[:-2].max()],'k-',lw=2.5,color=greys_pal[7],zorder=100,alpha=0.85)
             ax.annotate('Subsistence line',xy=(1.1*sub_line,1.41*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
             ax.annotate(r'$\Delta$N$_s$ = +'+s_str+s_pct,xy=(sub_line*1.1,1.34*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
-
+    
         fig = ax.get_figure()
         plt.xlabel(r'Income ['+get_currency(myCountry)[0].replace('b.','')+' per person, per year]')
-        plt.ylabel('Population'+get_pop_scale_fac(myCountry)[1].lower())
+        plt.ylabel('Affected population'+get_pop_scale_fac(myCountry)[1].lower())
         #plt.ylim(0,400000)
-        leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
+        leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9,title=str(myRP)+'-year '+haz_dict[myDis])
         print('poverty_k_aff_'+myDis+'_'+str(myRP)+'.pdf\n')
         fig.savefig('../output_plots/'+myCountry+'/poverty_k_aff_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
         fig.savefig('../output_plots/'+myCountry+'/png/poverty_k_aff_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',format='pdf')

@@ -155,17 +155,30 @@ if myCountry == 'FJ':
     cat_info.loc[cat_info.Sector=='Urban','pov_line'] = get_poverty_line(myCountry,'Urban')
     cat_info.loc[cat_info.Sector=='Rural','pov_line'] = get_poverty_line(myCountry,'Rural')
 else: cat_info['pov_line'] = get_poverty_line(myCountry)
+try: cat_info['sub_line'] = get_subsistence_line(myCountry)
+except: pass
 
 print(cat_info.columns)
 print(cat_info.head())
 
 print('Total population:',cat_info.pcwgt.sum())
 print('Total n households:',cat_info.hhwgt.sum())
-print('--> Individuals in poverty:', cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line),'pcwgt'].sum())
-print('-----> Families in poverty:', cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line), 'hhwgt'].sum())
+print('--> Individuals in poverty (inc):', cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line),'pcwgt'].sum())
+print('-----> Families in poverty (inc):', cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line), 'hhwgt'].sum())
+
+try:
+    print('------> Individuals in poverty (exclusive):', cat_info.loc[cat_info.eval('pcinc_ae<=pov_line & pcinc_ae>sub_line'),'pcwgt'].sum())
+    print('---------> Families in poverty (exclusive):', cat_info.loc[cat_info.eval('pcinc_ae<=pov_line & pcinc_ae>sub_line'),'hhwgt'].sum())
+    print('--> Individuals in subsistence (exclusive):', cat_info.loc[cat_info.eval('pcinc_ae<=sub_line'),'pcwgt'].sum())
+    print('-----> Families in subsistence (exclusive):', cat_info.loc[cat_info.eval('pcinc_ae<=sub_line'),'hhwgt'].sum())
+except: print('No subsistence info...')
+
 print('--> Number in poverty (flagged poor):',cat_info.loc[(cat_info.ispoor==1),'pcwgt'].sum())
 print('--> Poverty rate (flagged poor):',round(100.*cat_info.loc[(cat_info.ispoor==1),'pcwgt'].sum()/cat_info['pcwgt'].sum(),1),'%')
-pd.DataFrame({'nPoor':cat_info.loc[cat_info.ispoor==1,'pcwgt'].sum(level=economy),
+pd.DataFrame({'population':cat_info['pcwgt'].sum(level=economy),
+              'nPoor':cat_info.loc[cat_info.ispoor==1,'pcwgt'].sum(level=economy),
+              'n_pov':cat_info.loc[cat_info.eval('pcinc_ae<=pov_line & pcinc_ae>sub_line'),'pcwgt'].sum(level=economy),
+              'n_sub':cat_info.loc[cat_info.eval('pcinc_ae<=sub_line'),'pcwgt'].sum(level=economy),
               'pctPoor':100.*cat_info.loc[cat_info.ispoor==1,'pcwgt'].sum(level=economy)/cat_info['pcwgt'].sum(level=economy)}).to_csv('debug/poverty_rate.csv')
 # Could also look at urban/rural if we have that divide
 
