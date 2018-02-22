@@ -137,72 +137,72 @@ iah['c_post_reco']  = (iah['c_initial'] + drm_pov_sign*iah['dc_post_reco'])
 # Create additional dfs
 #
 # Clone index of iah with just one entry/hhid
-iah_res = pd.DataFrame(index=(iah.sum(level=[economy,'hazard','rp','hhid'])).index)
+#iah_res = pd.DataFrame(index=(iah.sum(level=[economy,'hazard','rp','hhid'])).index)
 
 ## Translate from iah by summing over hh categories [(a,na)x(helped,not_helped)]
 # These are special--pcwgt has been distributed among [(a,na)x(helped,not_helped)] categories
-iah_res['pcwgt']    =    iah['pcwgt'].sum(level=[economy,'hazard','rp','hhid'])
-iah_res['pcwgt_ae'] = iah['pcwgt_ae'].sum(level=[economy,'hazard','rp','hhid'])
-iah_res['hhwgt']    =    iah['hhwgt'].sum(level=[economy,'hazard','rp','hhid'])
+#iah_res['pcwgt']    =    iah['pcwgt'].sum(level=[economy,'hazard','rp','hhid'])
+#iah_res['pcwgt_ae'] = iah['pcwgt_ae'].sum(level=[economy,'hazard','rp','hhid'])
+#iah_res['hhwgt']    =    iah['hhwgt'].sum(level=[economy,'hazard','rp','hhid'])
 
 #These are the same across [(a,na)x(helped,not_helped)] categories 
-iah_res['k']         = iah['k'].mean(level=[economy,'hazard','rp','hhid'])
-iah_res['c']         = iah['c'].mean(level=[economy,'hazard','rp','hhid'])
-#iah_res['c_ae']      = iah['pcinc_ae'].mean(level=[economy,'hazard','rp','hhid'])
-#iah_res['hhsize_ae'] = iah['hhsize_ae'].mean(level=[economy,'hazard','rp','hhid'])
-iah_res['quintile']  = iah['quintile'].mean(level=[economy,'hazard','rp','hhid'])
-iah_res['pov_line']  = iah['pov_line'].mean(level=[economy,'hazard','rp','hhid'])
+#iah_res['k']         = iah['k'].mean(level=[economy,'hazard','rp','hhid'])
+#iah_res['c']         = iah['c'].mean(level=[economy,'hazard','rp','hhid'])
+##iah_res['c_ae']      = iah['pcinc_ae'].mean(level=[economy,'hazard','rp','hhid'])
+##iah_res['hhsize_ae'] = iah['hhsize_ae'].mean(level=[economy,'hazard','rp','hhid'])
+#iah_res['quintile']  = iah['quintile'].mean(level=[economy,'hazard','rp','hhid'])
+#iah_res['pov_line']  = iah['pov_line'].mean(level=[economy,'hazard','rp','hhid'])
 
 # Get subsistence line
 if get_subsistence_line(myCountry) != None: 
     iah['sub_line'] = get_subsistence_line(myCountry)
-    iah_res['sub_line'] = get_subsistence_line(myCountry)
+    #iah_res['sub_line'] = get_subsistence_line(myCountry)
 
 # These need to be averaged across [(a,na)x(helped,not_helped)] categories (weighted by pcwgt)
 # ^ values still reported per capita
-iah_res['dk0']           = iah[[  'dk0','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
-iah_res['dc0']           = iah[[  'dc0','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
-iah_res['help_received'] = iah[['help_received','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
-iah_res['pc_fee']        = iah[['pc_fee','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
-iah_res['dc_npv_pre']    = iah[['dc_npv_pre','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+#iah_res['dk0']           = iah[[  'dk0','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+#iah_res['dc0']           = iah[[  'dc0','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+#iah_res['help_received'] = iah[['help_received','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+#iah_res['pc_fee']        = iah[['pc_fee','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+#iah_res['dc_npv_pre']    = iah[['dc_npv_pre','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
 
 # These are the other policies (scorecard)
 # NB: already weighted by pcwgt from their respective files
-for iPol in all_policies:
-    print('dk0'+iPol)
-    iah_res['dk0'+iPol] = iah['dk0'+iPol].sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
-    iah_res['dw'+iPol] = iah['dw'+iPol].sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+#for iPol in all_policies:
+#    print('dk0'+iPol)
+#    iah_res['dk0'+iPol] = iah['dk0'+iPol].sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
+#    iah_res['dw'+iPol] = iah['dw'+iPol].sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt']
 
 # Note that we're pulling dw in from iah_base and  here
-iah_res['dw']     = (iah_base[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt'])/df.wprime.mean()
-iah_res['pds_dw'] = (iah[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt'])/df.wprime.mean()
-try: iah_res['pds_plus_dw'] = (iah_SP2[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt'])/df_SP2.wprime.mean()
-except: pass
+#iah_res['dw']     = (iah_base[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt'])/df.wprime.mean()
+#iah_res['pds_dw'] = (iah[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt'])/df.wprime.mean()
+#try: iah_res['pds_plus_dw'] = (iah_SP2[['dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt'])/df_SP2.wprime.mean()
+#except: pass
 
 # Huge file
 del iah_base
 
-iah_res['c_initial']   = iah[['c_initial'  ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c per AE
-iah_res['di_pre_reco'] = iah[['di_pre_reco','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # di per AE
-iah_res['dc_pre_reco'] = iah[['dc_pre_reco','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # dc per AE
-iah_res['pds_nrh']     = iah[['pds_nrh'    ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # nrh per AE
-iah_res['i_pre_reco']  = iah[['i_pre_reco' ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # i pre-reco per AE
-iah_res['c_pre_reco']  = iah[['c_pre_reco' ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c pre-reco per AE
-iah_res['c_post_reco'] = iah[['c_post_reco','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c post-reco per AE
-#iah_res['c_final_pds'] = iah[['c_final_pds','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c per AE
+#iah_res['c_initial']   = iah[['c_initial'  ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c per AE
+#iah_res['di_pre_reco'] = iah[['di_pre_reco','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # di per AE
+#iah_res['dc_pre_reco'] = iah[['dc_pre_reco','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # dc per AE
+#iah_res['pds_nrh']     = iah[['pds_nrh'    ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # nrh per AE
+#iah_res['i_pre_reco']  = iah[['i_pre_reco' ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # i pre-reco per AE
+#iah_res['c_pre_reco']  = iah[['c_pre_reco' ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c pre-reco per AE
+#iah_res['c_post_reco'] = iah[['c_post_reco','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c post-reco per AE
+##iah_res['c_final_pds'] = iah[['c_final_pds','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c per AE
 
 # Calc people who fell into povery on the regional level for each disaster
-iah_res['delta_pov_pre_reco']  = iah.loc[(iah.c_initial > iah.pov_line)&(iah.i_pre_reco <= iah.pov_line),'pcwgt'].sum(level=[economy,'hazard','rp'])
-iah_res['delta_pov_post_reco'] = iah.loc[(iah.c_initial > iah.pov_line)&(iah.c_post_reco <= iah.pov_line),'pcwgt'].sum(level=[economy,'hazard','rp'])
+#iah_res['delta_pov_pre_reco']  = iah.loc[(iah.c_initial > iah.pov_line)&(iah.c_pre_reco <= iah.pov_line),'pcwgt'].sum(level=[economy,'hazard','rp'])
+#iah_res['delta_pov_post_reco'] = iah.loc[(iah.c_initial > iah.pov_line)&(iah.c_post_reco <= iah.pov_line),'pcwgt'].sum(level=[economy,'hazard','rp'])
 
-iah = iah.reset_index()
-iah_res  = iah_res.reset_index().set_index([economy,'hazard','rp','hhid'])
+iah = iah.reset_index().set_index([economy,'hazard','rp','hhid'])
+#iah_res  = iah_res.reset_index().set_index([economy,'hazard','rp','hhid'])
 
 # Save out iah by economic unit
-iah_out = pd.DataFrame(index=iah_res.sum(level=[economy,'hazard','rp']).index)
+iah_out = pd.DataFrame(index=iah.sum(level=[economy,'hazard','rp']).index)
 for iPol in ['']+all_policies:
-    iah_out['Asset risk'+iPol] = iah_res[['dk0'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
-    iah_out['Well-being risk'+iPol] = iah_res[['dw'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp']) 
+    iah_out['Asset risk'+iPol] = iah[['dk0'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
+    iah_out['Well-being risk'+iPol] = iah[['dw'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp']) 
 
 print(iah_out.head(10))
 
@@ -210,9 +210,9 @@ print(iah_out.head(10))
 public_costs_prov_sum = (public_costs.loc[(public_costs.contributer != public_costs[economy])]).reset_index().set_index(event_level).sum(level=event_level)
 iah_out['Well-being risk'] += public_costs_prov_sum[['dw','dw_soc']].sum(axis=1)
 
-#iah_out['pds_dw']      = iah_res[['pds_dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
-#iah_out['pc_fee']      = iah_res[['pc_fee','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
-#iah_out['pds_plus_dw'] = iah_res[['pds_plus_dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
+##iah_out['pds_dw']      = iah_res[['pds_dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
+##iah_out['pc_fee']      = iah_res[['pc_fee','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
+##iah_out['pds_plus_dw'] = iah_res[['pds_plus_dw','pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
 iah_out['SE capacity']  = iah_out['Asset risk']/iah_out['Well-being risk']
 iah_out.to_csv(output+'geo_sums.csv')
 
@@ -237,10 +237,10 @@ iah_out[['Asset risk','SE capacity','Well-being risk']].sort_values(['Well-being
 print('Wrote latex! Sums:\n',iah_out[['Asset risk','Well-being risk']].sum())
 
 # Save out iah by economic unit, *only for poorest quintile*
-iah_out_q1 = pd.DataFrame(index=iah_res.sum(level=[economy,'hazard','rp']).index)
+iah_out_q1 = pd.DataFrame(index=iah.sum(level=[economy,'hazard','rp']).index)
 for iPol in ['']+all_policies:
-    iah_out_q1['Asset risk'+iPol] = iah_res.loc[(iah_res.quintile==1),['dk0'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
-    iah_out_q1['Well-being risk'+iPol] = iah_res.loc[(iah_res.quintile==1),['dw'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
+    iah_out_q1['Asset risk'+iPol] = iah.loc[(iah.quintile==1),['dk0'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
+    iah_out_q1['Well-being risk'+iPol] = iah.loc[(iah.quintile==1),['dw'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
 
 iah_out_q1.to_csv(output+'geo_sums_q1.csv')
 iah_out_q1,_ = average_over_rp(iah_out_q1,'default_rp')
@@ -264,13 +264,14 @@ iah_out_q1[['Asset risk','% total RA','SE capacity','Well-being risk','% total R
 print('Wrote latex! Q1 sums: ',iah_out_q1.sum())
 
 # Save out iah
-iah_out = pd.DataFrame(index=iah_res.sum(level=['hazard','rp']).index)
+iah_out = pd.DataFrame(index=iah.sum(level=['hazard','rp']).index)
 for iPol in ['']+all_policies:
-    iah_out['dk0'+iPol] = iah_res[['dk0'+iPol,'pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
-    iah_out['dw'+iPol] = iah_res[['dw'+iPol,'pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
-iah_out['pds_dw'] = iah_res[['pds_dw','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
-iah_out['pc_fee'] = iah_res[['pc_fee','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
-try: iah_out['pds_plus_dw'] = iah_res[['pds_plus_dw','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
+    iah_out['dk0'+iPol] = iah[['dk0'+iPol,'pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
+    iah_out['dw'+iPol] = iah[['dw'+iPol,'pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
+try:
+    iah_out['pds_dw'] = iah[['pds_dw','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
+    iah_out['pc_fee'] = iah[['pc_fee','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
+    iah_out['pds_plus_dw'] = iah[['pds_plus_dw','pcwgt']].prod(axis=1).sum(level=['hazard','rp'])
 except: pass
 
 iah_out.to_csv(output+'haz_sums.csv')
@@ -279,17 +280,17 @@ iah_out,_ = average_over_rp(iah_out,'default_rp')
 iah_out.to_csv(output+'sums.csv')
 
 # Clone index of iah at national level
-iah_ntl = pd.DataFrame(index=(iah_res.sum(level=['hazard','rp'])).index)
+iah_ntl = pd.DataFrame(index=(iah.sum(level=['hazard','rp'])).index)
 #
-iah_ntl['pop'] = iah_res.pcwgt.sum(level=['hazard','rp'])
-iah_ntl['pov_pc_i'] = iah_res.loc[(iah_res.c_initial <= iah_res.pov_line),'pcwgt'].sum(level=['hazard','rp'])
-iah_ntl['pov_hh_i'] = iah_res.loc[(iah_res.c_initial <= iah_res.pov_line),'hhwgt'].sum(level=['hazard','rp'])
-iah_ntl['pov_pc_f'] = iah_res.loc[(iah_res.i_pre_reco <= iah_res.pov_line),'pcwgt'].sum(level=['hazard','rp'])
-iah_ntl['pov_hh_f'] = iah_res.loc[(iah_res.i_pre_reco <= iah_res.pov_line),'hhwgt'].sum(level=['hazard','rp'])
+iah_ntl['pop'] = iah.pcwgt.sum(level=['hazard','rp'])
+iah_ntl['pov_pc_i'] = iah.loc[(iah.c_initial <= iah.pov_line),'pcwgt'].sum(level=['hazard','rp'])
+iah_ntl['pov_hh_i'] = iah.loc[(iah.c_initial <= iah.pov_line),'hhwgt'].sum(level=['hazard','rp'])
+iah_ntl['pov_pc_f'] = iah.loc[(iah.c_pre_reco <= iah.pov_line),'pcwgt'].sum(level=['hazard','rp'])
+iah_ntl['pov_hh_f'] = iah.loc[(iah.c_pre_reco <= iah.pov_line),'hhwgt'].sum(level=['hazard','rp'])
 iah_ntl['pov_pc_D'] = iah_ntl['pov_pc_f'] - iah_ntl['pov_pc_i']
 iah_ntl['pov_hh_D'] = iah_ntl['pov_hh_f'] - iah_ntl['pov_hh_i']
-#iah_ntl['pov_pc_pds_f'] = iah_res.loc[(iah_res.c_final_pds < iah_res.pov_line),'pcwgt'].sum(level=['hazard','rp'])
-#iah_ntl['pov_hh_pds_f'] = iah_res.loc[(iah_res.c_final_pds < iah_res.pov_line),'hhwgt'].sum(level=['hazard','rp'])
+#iah_ntl['pov_pc_pds_f'] = iah.loc[(iah.c_final_pds < iah.pov_line),'pcwgt'].sum(level=['hazard','rp'])
+#iah_ntl['pov_hh_pds_f'] = iah.loc[(iah.c_final_pds < iah.pov_line),'hhwgt'].sum(level=['hazard','rp'])
 #iah_ntl['pov_pc_pds_D'] = iah_ntl['pov_pc_pds_f'] - iah_ntl['pov_pc_i']
 #iah_ntl['pov_hh_pds_D'] = iah_ntl['pov_hh_pds_f'] - iah_ntl['pov_hh_i']
 print('\n\nInitial poverty incidence:\n',iah_ntl[['pov_pc_i','pov_hh_i']].mean())
@@ -298,16 +299,16 @@ print('\n\nInitial poverty incidence:\n',iah_ntl[['pov_pc_i','pov_hh_i']].mean()
 #iah_ntl['eff_pds'] = iah_ntl['pov_pc_pds_D'] - iah_ntl['pov_pc_D']
 
 # Print out plots for iah_res
-iah_res = iah_res.reset_index()
+#iah_res = iah_res.reset_index()
 iah_ntl = iah_ntl.reset_index()
 
 myHaz = None
-if myCountry == 'FJ': myHaz = [['Ba','Lau','Tailevu'],get_all_hazards(myCountry,iah_res),[1,10,100,500,1000]]
-elif myCountry == 'PH': myHaz = [['NCR','IVA - CALABARZON','II - Cagayan Valley'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
+if myCountry == 'FJ': myHaz = [['Ba','Lau','Tailevu'],get_all_hazards(myCountry,iah),[1,10,100,500,1000]]
+elif myCountry == 'PH': myHaz = [['NCR','IVA - CALABARZON'],get_all_hazards(myCountry,iah),get_all_rps(myCountry,iah)]
 
 ##################################################################
 # This code generates the histograms showing income before & after disaster
-# ^ this is nationally, so we'll use iah
+# ^ this is nationally, so we'll use iah 
 upper_clip = 2E5
 scale_fac = 1.0
 if myCountry == 'FJ': 
@@ -326,21 +327,21 @@ for aReg in myHaz[0]:
             ax=plt.gca()
 
             # Income dist immediately after disaster
-            cf_heights, cf_bins = np.histogram((iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'i_pre_reco']/scale_fac).clip(upper=upper_clip), bins=c_bins[1],
+            cf_heights, cf_bins = np.histogram((iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'i_pre_reco']/scale_fac).clip(upper=upper_clip), bins=c_bins[1], 
                                                weights=iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'pcwgt']/get_pop_scale_fac(myCountry)[0])
             if c_bins[0] == None: c_bins = [cf_bins,cf_bins]
             
             # Income dist before disaster
-            ci_heights, _bins = np.histogram((iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'c_initial']/scale_fac).clip(upper=upper_clip), bins=c_bins[1],
+            ci_heights, _bins = np.histogram((iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'c_initial']/scale_fac).clip(upper=upper_clip), bins=c_bins[1], 
                                              weights=iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'pcwgt']/get_pop_scale_fac(myCountry)[0])
 
             # Income dist after reconstruction
-            cf_reco_hgt, _bins = np.histogram((iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'c_post_reco']/scale_fac).clip(upper=upper_clip), bins=c_bins[1],
+            cf_reco_hgt, _bins = np.histogram((iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'c_post_reco']/scale_fac).clip(upper=upper_clip), bins=c_bins[1], 
                                               weights=iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'pcwgt']/get_pop_scale_fac(myCountry)[0])
             
-            ax.bar(c_bins[1][:-1], cf_heights, width=(c_bins[1][1]-c_bins[1][0]), label=aReg+' - post-disaster', facecolor=q_colors[0],edgecolor=q_colors[0],alpha=0.45)
-            #ax.bar(c_bins[1][:-1], cf_reco_hgt, width=(c_bins[1][1]-c_bins[1][0]), label=aReg+' - post-reconstruction', facecolor=q_colors[2],edgecolor=q_colors[2],alpha=0.45)
-            ax.step(c_bins[1][1:], ci_heights, label=aReg+' - FIES income', linewidth=1.2,color=greys_pal[8])            
+            ax.bar(c_bins[1][:-1], cf_heights, width=(c_bins[1][1]-c_bins[1][0]), label=aReg+' - Post-disaster', facecolor=q_colors[0],edgecolor=q_colors[0],alpha=0.45)
+            ax.bar(c_bins[1][:-1], cf_reco_hgt, width=(c_bins[1][1]-c_bins[1][0]), label=aReg+' - Post-reconstruction', facecolor=q_colors[2],edgecolor=q_colors[2],alpha=0.45)
+            ax.step(c_bins[1][1:], ci_heights, label=aReg+' - Initial', linewidth=1.2,color=greys_pal[8])            
 
             #if myC_ylim == None: myC_ylim = ax.get_ylim()
             #plt.ylim(myC_ylim[0],2.5*myC_ylim[1])
@@ -366,10 +367,10 @@ for aReg in myHaz[0]:
             ax.annotate('Natl. well-being losses: '+str(round(float(public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),['dw']].sum()/mny[1]),1))+mny[0],
                         xy=(0.03,-1.24), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
 
-            new_pov_c = int(iah.loc[iah.eval('region==@aReg & hazard==@aDis & rp==@anRP & c_initial > pov_line & c_pre_reco >= sub_line & c_pre_reco < pov_line'),'pcwgt'].sum())
-            new_pov_i = int(iah.loc[iah.eval('region==@aReg & hazard==@aDis & rp==@anRP & c_initial > pov_line & i_pre_reco >= sub_line & i_pre_reco < pov_line'),'pcwgt'].sum())
-            new_pov = new_pov_i
-            print('c:',new_pov_c,' i:',new_pov_i)
+            new_pov = int(iah.loc[((iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP)
+                                   &(iah.c_initial > iah.pov_line)
+                                   &(iah.c_pre_reco  > iah.sub_line)
+                                   &(iah.c_pre_reco <= iah.pov_line)),'pcwgt'].sum())
 
             try: new_pov_pct = round(100.*float(new_pov)/float(iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'pcwgt'].sum()),1)
             except: new_pov_pct = 0
@@ -382,7 +383,7 @@ for aReg in myHaz[0]:
             sub_line, new_sub = get_subsistence_line(myCountry), None
             if sub_line is not None:
                 new_sub = int(iah.loc[((iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP)
-                                           &(iah.c_initial > sub_line)&(iah.i_pre_reco <= sub_line)),'pcwgt'].sum())
+                                           &(iah.c_initial > sub_line)&(iah.c_pre_reco <= sub_line)),'pcwgt'].sum())
                 new_sub_pct = round(100.*float(new_sub)/float(iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'pcwgt'].sum()),1)
                 plt.plot([sub_line,sub_line],[0,1.41*cf_heights[:-2].max()],'k-',lw=2.5,color=greys_pal[7],zorder=100,alpha=0.85)
                 ax.annotate('Subsistence line',xy=(1.1*sub_line,1.41*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False,weight='bold')
@@ -392,8 +393,8 @@ for aReg in myHaz[0]:
             print(aReg,aDis,anRP,new_pov,'people into poverty &',new_sub,'into subsistence') 
 
             fig = ax.get_figure()
-            fig.savefig(output_plots+'npr_poverty_k_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')
-            fig.savefig(output_plots+'png/npr_poverty_k_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'.png',format='png')
+            fig.savefig(output_plots+'npr_poverty_k_'+aReg+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')
+            fig.savefig(output_plots+'png/npr_poverty_k_'+aReg+'_'+aDis+'_'+str(anRP)+'.png',format='png')
             plt.clf()
             plt.close('all')
             print(aReg+'_poverty_k_'+aDis+'_'+str(anRP)+'.pdf')
@@ -413,29 +414,29 @@ for aProv in myHaz[0]:
 
             for myQ in range(1,6): #nQuintiles
     
-                print(aProv,aDis,anRP,'shape:',iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].shape[0])
+                print(aProv,aDis,anRP,'shape:',iah.loc[(iah[economy]==aProv)&(iah.hazard==aDis)&(iah.rp==anRP)&(iah.quintile==myQ),'pcwgt'].shape[0])
                 
-                k = (0.01*iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['k','pcwgt']].prod(axis=1).sum()/
-                     iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
+                k = (0.01*iah.loc[(iah[economy]==aProv)&(iah.hazard==aDis)&(iah.rp==anRP)&(iah.quintile==myQ),['k','pcwgt']].prod(axis=1).sum()/
+                     iah.loc[(iah[economy]==aProv)&(iah.hazard==aDis)&(iah.rp==anRP)&(iah.quintile==myQ),'pcwgt'].sum())
                 
-                dk = (iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['dk0','pcwgt']].prod(axis=1).sum()/
-                      iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
+                dk = (iah.loc[(iah[economy]==aProv)&(iah.hazard==aDis)&(iah.rp==anRP)&(iah.quintile==myQ),['dk0','pcwgt']].prod(axis=1).sum()/
+                      iah.loc[(iah[economy]==aProv)&(iah.hazard==aDis)&(iah.rp==anRP)&(iah.quintile==myQ),'pcwgt'].sum())
                 
-                dc = (iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['dc_npv_pre','pcwgt']].prod(axis=1).sum()/
-                      iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
+                dc = (iah.loc[(iah[economy]==aProv)&(iah.hazard==aDis)&(iah.rp==anRP)&(iah.quintile==myQ),['dc_npv_pre','pcwgt']].prod(axis=1).sum()/
+                      iah.loc[(iah[economy]==aProv)&(iah.hazard==aDis)&(iah.rp==anRP)&(iah.quintile==myQ),'pcwgt'].sum())
                 
-                dw = (iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['dw','pcwgt']].prod(axis=1).sum()/
-                      iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
+                dw = (iah.loc[(iah[economy]==aProv)&(iah.hazard==aDis)&(iah.rp==anRP)&(iah.quintile==myQ),['dw','pcwgt']].prod(axis=1).sum()/
+                      iah.loc[(iah[economy]==aProv)&(iah.hazard==aDis)&(iah.rp==anRP)&(iah.quintile==myQ),'pcwgt'].sum())
                 
-                pds_nrh = (iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['pds_nrh','pcwgt']].prod(axis=1).sum()/
-                           iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
+                pds_nrh = (iah.loc[(iah[economy]==aProv)&(iah.hazard==aDis)&(iah.rp==anRP)&(iah.quintile==myQ),['pds_nrh','pcwgt']].prod(axis=1).sum()/
+                           iah.loc[(iah[economy]==aProv)&(iah.hazard==aDis)&(iah.rp==anRP)&(iah.quintile==myQ),'pcwgt'].sum())
 
-                pds_dw = (iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['pds_dw','pcwgt']].prod(axis=1).sum()/
-                          iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
+                pds_dw = (iah.loc[(iah[economy]==aProv)&(iah.hazard==aDis)&(iah.rp==anRP)&(iah.quintile==myQ),['pds_dw','pcwgt']].prod(axis=1).sum()/
+                          iah.loc[(iah[economy]==aProv)&(iah.hazard==aDis)&(iah.rp==anRP)&(iah.quintile==myQ),'pcwgt'].sum())
 
                 try:
-                    pds_plus_dw = (iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['pds_plus_dw','pcwgt']].prod(axis=1).sum()/
-                                   iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
+                    pds_plus_dw = (iah.loc[(iah[economy]==aProv)&(iah.hazard==aDis)&(iah.rp==anRP)&(iah.quintile==myQ),['pds_plus_dw','pcwgt']].prod(axis=1).sum()/
+                                   iah.loc[(iah[economy]==aProv)&(iah.hazard==aDis)&(iah.rp==anRP)&(iah.quintile==myQ),'pcwgt'].sum())
                 except: pds_plus_dw = 0
 
                 ax.bar([6*ii+myQ for ii in range(1,6)],[dk,dc,dw,pds_nrh,pds_dw],
