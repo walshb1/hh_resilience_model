@@ -646,8 +646,8 @@ def get_to_USD(myC):
 
 def get_pop_scale_fac(myC):
     
-    if myC == 'PH': return [1.E6,' (Millions)']
-    elif myC == 'FJ': return [1.E3,' (Thousands)']
+    if myC == 'PH': return [1.E3,' [Thousands]']
+    elif myC == 'FJ': return [1.E3,' [Thousands]']
     else: return [1,'']
 
 def get_avg_prod(myC):
