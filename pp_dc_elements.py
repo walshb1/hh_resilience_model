@@ -41,7 +41,7 @@ reg_pal = sns.color_palette(['#e6194b','#3cb44b','#ffe119','#0082c8','#f58231','
 
 params = {'savefig.bbox': 'tight', #or 'standard'
           #'savefig.pad_inches': 0.1 
-          'xtick.labelsize': 14,
+          'xtick.labelsize': 8,
           'ytick.labelsize': 14,
           'legend.fontsize': 12,
           'legend.facecolor': 'white',
@@ -50,7 +50,7 @@ params = {'savefig.bbox': 'tight', #or 'standard'
           'savefig.facecolor': 'white',   # figure facecolor when saving
           #'savefig.edgecolor': 'white'    # figure edgecolor when saving
           };plt.rcParams.update(params)
-font = {'family' : 'sans serif', 'size'   : 10};plt.rc('font', **font)
+font = {'family' : 'sans serif', 'size'   : 8};plt.rc('font', **font)
 
 import warnings
 warnings.filterwarnings('always',category=UserWarning)
@@ -151,24 +151,58 @@ plt.cla()
 # Lost income from capital
 plt.fill_between(t_lins,c_t,[i-j for i,j in zip(c_t,dc_k_t)],facecolor=reds_pal[3],alpha=0.45)
 plt.scatter(0,c_t[0]-dc_k_t[0],color=reds_pal[3],zorder=100)
-plt.annotate('Income\nlosses',[-0.50,(c_t[0]+(c_t[0]-dc_k_t[0]))/2.],fontsize=8,ha='center',va='center')
+plt.annotate('Income\nlosses',[-0.50,(c_t[0]+(c_t[0]-dc_k_t[0]))/2.],fontsize=9,ha='center',va='center',weight='bold')
 
 # Reconstruction costs
 plt.fill_between(t_lins,[i-j for i,j in zip(c_t,dc_k_t)],[i-j-k for i,j,k in zip(c_t,dc_k_t,dc_reco_t)],facecolor=reds_pal[4],alpha=0.45)
 plt.scatter(0,c_t[0]-dc_k_t[0]-dc_reco_t[0],color=reds_pal[4],zorder=100)
-plt.annotate('Reconstruction\ncosts',[-0.50,((c_t[0]-dc_k_t[0])+(c_t[0]-dc_k_t[0]-dc_reco_t[0]))/2.],fontsize=8,ha='center',va='center')
+plt.annotate('Reconstruction\ncosts',[-0.50,((c_t[0]-dc_k_t[0])+(c_t[0]-dc_k_t[0]-0.5*dc_reco_t[0]))/2.],fontsize=9,ha='center',va='center',weight='bold')
+
+plt.gca().add_patch(patches.Rectangle((1.13,c_t[0]-1.12*dc_reco_t[15]),2.03,15000,facecolor='white',zorder=98,clip_on=False))
+plt.gca().annotate(r'Area = total value of destroyed assets',
+                   xy=(0.50,c_t[0]-dc_reco_t[15]), xycoords='data',
+                   xytext=(1.20,c_t[0]-dc_reco_t[15]), textcoords='data', fontsize=10,
+                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.05",lw=1.5),
+                   ha='left',va='center',zorder=99)
 
 # PDS
 plt.fill_between(t_lins,c_t,[i+j for i,j in zip(c_t,dc_pds_t)],facecolor=sns_pal[2],alpha=0.45)
-plt.annotate('PDS\nspend down',[-0.50,(c_t[0]+(c_t[0]+dc_pds_t[0]))/2.],fontsize=8,ha='center',va='center')
+plt.annotate('PDS\nspend down',[-0.50,(c_t[0]+(c_t[0]+dc_pds_t[0]))/2.],fontsize=9,ha='center',va='center',weight='bold')
 
+plt.gca().add_patch(patches.Rectangle((0.73,c_t[0]+0.50*dc_pds_t[0]),1.40,15000,facecolor='white',zorder=98,clip_on=False))
+plt.gca().annotate(r'Area = total value of PDS',
+                   xy=(0.10,c_t[0]+0.50*dc_pds_t[0]), xycoords='data',
+                   xytext=(0.80,c_t[0]+0.75*dc_pds_t[0]), textcoords='data', fontsize=10,
+                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=0.05",lw=1.5),
+                   ha='left',va='center',zorder=99)
+
+# C net of everything except savings 
 net_c_t = [i-j-k+l for i,j,k,l in zip(c_t,dc_k_t,dc_reco_t,dc_pds_t)]
-plt.plot(t_lins,net_c_t,ls=':',color=reds_pal[8])
 
 # savings usage
 plt.plot([t_lins[0],t_lins[10]],[savings_usage,savings_usage],color=greys_pal[7])
 plt.fill_between(t_lins[:7],[savings_usage for i in t_lins[:7]],net_c_t[:7],facecolor=greys_pal[4])
 
+plt.gca().add_patch(patches.Rectangle((0.73,0.84*savings_usage),1.65,15000,facecolor='white',zorder=98,clip_on=False))
+plt.gca().annotate(r'Area = total household savings',
+                   xy=(0.10,0.9*savings_usage), xycoords='data',
+                   xytext=(0.80,0.9*savings_usage), textcoords='data', fontsize=10,
+                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.05",lw=1.5),
+                   ha='left',va='center',zorder=99)
+
+plt.gca().annotate('Savings\nexpenditure',
+                   xy=(0.09,0.82*savings_usage), xycoords='data',
+                   xytext=(-0.5,0.52*savings_usage), textcoords='data', fontsize=9,
+                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.10",lw=1.5),
+                   ha='center',va='center',zorder=99,weight='bold')
+
+
+_c_net = []
+for i in net_c_t:
+    _c_net.append(max(savings_usage,i))
+
+plt.plot(t_lins,_c_net,color=reds_pal[8],ls='--',lw=2.5,zorder=100,label='Household consumption')
+leg = plt.gca().legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0)
 
 # poverty line
 plt.plot([-10,t_lins[-1]],[_hh.pov_line,_hh.pov_line])
@@ -243,7 +277,9 @@ plt.gca().annotate(r'$\Delta k_h|_{t=\tau_h}$ = 0.05$\times\Delta k_0$',
                    arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.05",lw=1.5),
                    ha='left',va='center',zorder=99)
 
-plt.plot(t_lins,dk0_t,color=reds_pal[8],ls='--',lw=0.75)
+plt.plot(t_lins,dk0_t,color=reds_pal[8],ls='--',lw=2.5,label='Household capital')
+leg = plt.gca().legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0)
+
 plt.gca().add_patch(patches.Rectangle((1.40,dk0_t[10]*1.003),1.50,11000,facecolor='white',zorder=98))
 plt.gca().annotate(r'$\Delta k_h(t) = \Delta k_0e^{-R_{\tau}\cdot t}$',
                    xy=(t_lins[20],dk0_t[20]), xycoords='data',
@@ -318,6 +354,50 @@ for ix in xax:
         plt.close('all')
 
 
-summary_df = pd.read_csv('debug/my_summary_no.csv').reset_index().set_index(['region','hazard','rp'])
-rp_sum,_ = average_over_rp(summary_df)
-rp_sum.to_csv('debug/my_summary_no_rp_aal.csv')
+summary_df = pd.read_csv('debug/my_summary_no.csv').reset_index().set_index(['region','hazard','rp'])[['dk_tot','dw_tot','res_tot']]
+v_df = pd.read_csv('debug/fa_v.csv').reset_index().set_index(['region','hazard','rp'])
+summary_df['fa'] = v_df['fa'].round(2).clip(upper=0.95)
+
+summary_df.loc[summary_df.fa==0.95,'dk_famax'] = summary_df.loc[summary_df.fa==0.95,'dk_tot']
+summary_df.loc[summary_df.fa==0.95,'dw_famax'] = summary_df.loc[summary_df.fa==0.95,'dw_tot']
+
+summary_df['dk_famax'] = summary_df['dk_famax'].fillna(0)
+summary_df['dw_famax'] = summary_df['dw_famax'].fillna(0)
+
+summary_df.to_csv('debug/my_summary_no_AUGMENTED.csv')
+
+rp_sum,_ = average_over_rp(summary_df[['dk_tot','dw_tot','dk_famax','dw_famax']])
+
+rp_sum['res_tot'] = rp_sum['dk_tot']/rp_sum['dw_tot']
+rp_sum['res_fa095'] = (rp_sum['dk_famax']/rp_sum['dw_famax']).fillna(rp_sum['res_tot'])
+rp_sum['res_fa_less_095'] = (rp_sum['dk_tot']-rp_sum['dk_famax'])/(rp_sum['dw_tot']-rp_sum['dw_famax'])
+
+rp_sum.to_csv('debug/my_summary_no_rp_AAL.csv')
+
+_df = rp_sum[['res_tot','res_fa095','res_fa_less_095']].stack()
+_df = _df.reset_index()
+_df.columns = ['region','hazard','res_type','res']
+
+_df = _df.reset_index().set_index(['region','hazard'])
+_df['res_sort'] = _df.loc[_df.res_type=='res_tot','res']
+_df = _df.reset_index()
+
+print(_df.head())
+
+for _,_h in _df.groupby('hazard'):
+
+    ax = _h.boxplot('res',by='region')
+    fig = plt.gcf()
+    plt.title('Regional resilience to '+_)
+    plt.xlabel('Region')
+
+    for tick in ax.xaxis.get_major_ticks():
+        tick.label.set_fontsize(8) 
+        tick.label.set_rotation('vertical')
+
+    plt.ylabel('Resilience')
+
+    fig.savefig('../check_plots/resilience_'+_+'.pdf',format='pdf')
+
+    plt.cla()
+    plt.close('all')
