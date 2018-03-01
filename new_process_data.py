@@ -223,7 +223,7 @@ iah_out.to_csv(output+'geo_haz_aal_sums.csv')
 
 _ = (iah_out['Asset risk']/1.E6).round(1).unstack().copy();
 _['Total'] = _.sum(axis=1); _.loc['Total'] = _.sum()
-_.to_latex(output+'reg_haz_asset_risk.tex')
+_.to_latex('latex/reg_haz_asset_risk.tex')
 
 iah_out = iah_out.sum(level=economy)
 
@@ -237,7 +237,7 @@ iah_out['SE capacity']  = 100.*iah_out['Asset risk']/iah_out['Well-being risk']
 iah_out.to_csv(output+'geo_aal_sums.csv')
 iah_out[['Asset risk','Well-being risk']]/=1.E6
 
-iah_out[['Asset risk','SE capacity','Well-being risk']].sort_values(['Well-being risk'],ascending=False).astype(int).to_latex(output+'geo_aal_sums.tex')
+iah_out[['Asset risk','SE capacity','Well-being risk']].sort_values(['Well-being risk'],ascending=False).astype(int).to_latex('latex/geo_aal_sums.tex')
 print('Wrote latex! Sums:\n',iah_out[['Asset risk','Well-being risk']].sum())
 
 # Save out iah by economic unit, *only for poorest quintile*
@@ -264,7 +264,7 @@ iah_out_q1[['Asset risk','Well-being risk']]/=1.E6
 iah_out_q1['% total RA'] = 100.*(iah_out_q1['Asset risk']/iah_out['Asset risk'])
 iah_out_q1['% total RW'] = 100.*(iah_out_q1['Well-being risk']/iah_out['Well-being risk'])
 iah_out_q1[['SE capacity']]*=100.
-iah_out_q1[['Asset risk','% total RA','SE capacity','Well-being risk','% total RW']].sort_values(['Well-being risk'],ascending=False).astype(int).to_latex(output+'geo_aal_sums_q1.tex',bold_rows=True)
+iah_out_q1[['Asset risk','% total RA','SE capacity','Well-being risk','% total RW']].sort_values(['Well-being risk'],ascending=False).astype(int).to_latex('latex/geo_aal_sums_q1.tex',bold_rows=True)
 print('Wrote latex! Q1 sums: ',iah_out_q1.sum())
 
 # Save out iah

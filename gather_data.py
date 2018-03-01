@@ -44,8 +44,8 @@ df = get_places(myCountry,economy)
 prov_code,region_code = get_places_dict(myCountry)
 
 # Secondary dataframe, if necessary
-# For PH: this is GDP per cap info:
-df2 = get_df2(myCountry)
+# For PH: this is GDP per cap info from FIES2013
+#df2 = get_df2(myCountry)
 
 ###Define parameters
 df['rho']                    = discount_rate           # discount rate
@@ -87,15 +87,15 @@ if myCountry == 'PH':
     df = df.mean(level=economy)
 
     # There's no region info in df2--put that in...
-    df2 = df2.reset_index().set_index('province')
-    df2['region'] = cat_info[~cat_info.index.duplicated(keep='first')].region
-    df2 = df2.reset_index().set_index(economy)    
+    #df2 = df2.reset_index().set_index('province')
+    #df2['region'] = cat_info[~cat_info.index.duplicated(keep='first')].region
+    #df2 = df2.reset_index().set_index(economy)    
 
-    df2['gdp_pc_pp'] = df2[['gdp_pc_pp','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)
+    #df2['gdp_pc_pp'] = df2[['gdp_pc_pp','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)
 
-    df2['pop'] = df2['pop'].sum(level=economy)
-    df2['gdp_pp'] = df2['gdp_pp'].sum(level=economy)
-    df2 = df2.mean(level=economy)
+    #df2['pop'] = df2['pop'].sum(level=economy)
+    #df2['gdp_pp'] = df2['gdp_pp'].sum(level=economy)
+    #df2 = df2.mean(level=economy)
 
     cat_info = cat_info.reset_index().set_index(economy)
 
@@ -151,12 +151,16 @@ cat_info['social'] = (cat_info['pcsoc']/cat_info['pcinc']).fillna(0)#.clip(upper
 # --> Excluding international remittances ('cash_abroad')
 
 print('Getting pov line')
-if myCountry == 'FJ': 
+try: 
     cat_info.loc[cat_info.Sector=='Urban','pov_line'] = get_poverty_line(myCountry,'Urban')
     cat_info.loc[cat_info.Sector=='Rural','pov_line'] = get_poverty_line(myCountry,'Rural')
-else: cat_info['pov_line'] = get_poverty_line(myCountry)
-try: cat_info['sub_line'] = get_subsistence_line(myCountry)
-except: pass
+    cat_info['sub_line'] = get_subsistence_line(myCountry)
+except: 
+    try:
+        cat_info['pov_line'] = get_poverty_line(myCountry)
+        cat_info['sub_line'] = get_subsistence_line(myCountry)
+    except: 
+        cat_info['pov_line'] = get_poverty_line(myCountry)
 
 print(cat_info.columns)
 print(cat_info.head())
@@ -302,7 +306,7 @@ if myCountry == 'PH':
     df_haz = df_haz.reset_index().set_index([economy,'hazard','rp']).sum(level=[economy,'hazard','rp']).drop(['index'],axis=1)
 
     df_haz['value_destroyed'] = df_haz[['value_destroyed_prv','value_destroyed_pub']].sum(axis=1)
-    df_haz['hh_share'] = df_haz['value_destroyed_prv']/df_haz['value_destroyed']
+    df_haz['hh_share'] = (df_haz['value_destroyed_prv']/df_haz['value_destroyed']).fillna(1.)
     # Weird things can happen for rp=2000 (negative losses), but they're < 10E-5, so we don't worry much about them
     #df_haz.loc[df_haz.hh_share>1.].to_csv('~/Desktop/hh_share.csv')
 
@@ -365,7 +369,7 @@ hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=1E-8,upper=fa_threshold)
 
 hazard_ratios[['fa','v']].mean(level=event_level).to_csv('debug/fa_v.csv')
 
-while True:
+while False:
     _path = '/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/'
     _ = hazard_ratios.reset_index().copy()
     
@@ -395,13 +399,16 @@ cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index
 
 # If we have 2 sets of data on k, gdp, look at them now:
 try:
-    print(hazard_ratios.head())
-    summary_df = pd.DataFrame({'from hies':df['avg_prod_k'].mean()*cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy),
-                               'from grdp':df['avg_prod_k'].mean()*hazard_ratios['grdp_to_assets'].mean(level=economy)})
-    summary_df['hies_to_grdp_ratio'] = summary_df['from hies'].divide(summary_df['from grdp'])
-    print(summary_df)
+    summary_df = pd.DataFrame({'FIES':df['avg_prod_k'].mean()*cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy)/1E9,
+                               'GRDP':df['avg_prod_k'].mean()*hazard_ratios['grdp_to_assets'].mean(level=economy)/1E9})
+    summary_df.loc['Total'] = summary_df.sum()
+    summary_df['Ratio'] = 100.*summary_df['FIES'].divide(summary_df['GRDP'])
+
+    print(summary_df.round(1))
+
+    summary_df.round(1).to_latex('latex/grdp_table.tex')
     
-    totals = summary_df[['from hies','from grdp']].sum().squeeze()
+    totals = summary_df[['FIES','GRDP']].sum().squeeze()
     ratio = totals[0]/totals[1]
     print(totals, ratio)
 except: print('Dont have 2 datasets for GDP. Just using hh survey data.')  

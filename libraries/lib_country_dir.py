@@ -635,7 +635,9 @@ def get_subsistence_line(myC):
     if myC == 'PH':
         return 14832.0962*(22302.6775/21240.2924)
     
-    else: return None
+    else: 
+        print('No subsistence info. Returning 0')
+        return 0
 
 def get_to_USD(myC):
 
