@@ -267,6 +267,33 @@ iah_out_q1[['SE capacity']]*=100.
 iah_out_q1[['Asset risk','% total RA','SE capacity','Well-being risk','% total RW']].sort_values(['Well-being risk'],ascending=False).astype(int).to_latex('latex/geo_aal_sums_q1.tex',bold_rows=True)
 print('Wrote latex! Q1 sums: ',iah_out_q1.sum())
 
+#_grdp = pd.read_csv('../intermediate/'+myCountry+'/gdp.csv')
+#iah_out_q1['pop']  = iah_res['pcwgt'].sum(level=event_level).mean(level=event_level[0])/1.E6
+#iah_out_q1['grdp'] = iah_res[['pcwgt','c']].prod(axis=1).sum(level=event_level).mean(level=event_level[0])/1.E6
+
+iah_out_q1['pop_q1']  = iah_res.loc[iah_res.quintile==1,'pcwgt'].sum(level=event_level).mean(level=event_level[0])/1.E3
+iah_out_q1['grdp_q1'] = iah_res.loc[iah_res.quintile==1,['pcwgt','c']].prod(axis=1).sum(level=event_level).mean(level=event_level[0])/1.E6
+
+#iah_out_q1['reg_wprime'] = (iah_res[['pcwgt','c']].prod(axis=1).sum(level=event_level).mean(level=event_level[0])
+#                            /iah_res['pcwgt'].sum(level=event_level).mean(level=event_level[0]))**(-1.5)
+
+#iah_out_q1['reg_q1_wprime'] = (iah_res.loc[iah_res.quintile==1,['pcwgt','c']].prod(axis=1).sum(level=event_level).mean(level=event_level[0])
+#                               /iah_res.loc[iah_res.quintile==1,'pcwgt'].sum(level=event_level).mean(level=event_level[0]))**(-1.5)
+
+_ = iah_out_q1.drop('Total',axis=0)[['pop_q1','Asset risk','Well-being risk']].copy()
+_['Asset risk pc'] = iah_out_q1['Asset risk']*1.E3/iah_out_q1['pop_q1']
+_['Well-being risk pc'] = iah_out_q1['Well-being risk']*1.E3/iah_out_q1['pop_q1']
+_.loc['Total'] = [_['pop_q1'].sum(),
+                  _['Asset risk'].sum(),
+                  _['Well-being risk'].sum(),
+                  _['Asset risk'].sum()*1.E3/_['pop_q1'].sum(),
+                  _['Well-being risk'].sum()*1.E3/_['pop_q1'].sum()]
+print(_)
+
+_[['pop_q1','Asset risk pc','Well-being risk pc']].round(0).astype(int).sort_values('Well-being risk pc',ascending=False).to_latex('latex/risk_q1.tex')
+_.to_csv('debug/q1_figs.csv')
+assert(False)
+
 # Save out iah
 iah_out = pd.DataFrame(index=iah_res.sum(level=['hazard','rp']).index)
 for iPol in ['']+all_policies:
