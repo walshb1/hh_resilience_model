@@ -407,7 +407,8 @@ try:
     print(summary_df.round(1))
 
     summary_df.round(1).to_latex('latex/grdp_table.tex')
-    
+    summary_df.to_csv(intermediate+'/gdp.csv')
+
     totals = summary_df[['FIES','GRDP']].sum().squeeze()
     ratio = totals[0]/totals[1]
     print(totals, ratio)
