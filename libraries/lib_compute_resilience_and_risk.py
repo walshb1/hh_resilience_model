@@ -161,8 +161,7 @@ def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,ev
     #cat_info = cat_info[cat_info.c>0]
     hazard_ratios = pd.read_csv(fname, index_col=event_level+[income_cats])
     
-    print(hazard_ratios.head())
-    assert(False)
+    print('\nHR',hazard_ratios.head())
 
     cat_info['ew_expansion'] = 0
     macro,cat_info,hazard_ratios = apply_policies(pol_str,macro,cat_info,hazard_ratios)
@@ -184,7 +183,8 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
         else: hazard_ratios = hazard_ratios.fillna(0)
             
         common_places = [c for c in macro.index if c in cat_info.index and c in hazard_ratios.index]
-        print(common_places)
+        print('common places',common_places)
+        
 
         hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])
 
