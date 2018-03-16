@@ -58,6 +58,7 @@ df['pi']                     = reduction_vul           # how much early warning 
 
 # Protected from events with RP < 'protection'
 df['protection'] = 1
+if myCountry == 'SL': df['protection'] = 5
 
 inc_sf = None
 if myCountry =='FJ': inc_sf = (4.632E9/0.48) # GDP in USD (2016, WDI) -> FJD
@@ -151,6 +152,7 @@ cat_info['social'] = (cat_info['pcsoc']/cat_info['pcinc']).fillna(0)#.clip(upper
 # --> Excluding international remittances ('cash_abroad')
 
 print('Getting pov line')
+cat_info = cat_info.reset_index().set_index('hhid')
 try: 
     cat_info.loc[cat_info.Sector=='Urban','pov_line'] = get_poverty_line(myCountry,'Urban')
     cat_info.loc[cat_info.Sector=='Rural','pov_line'] = get_poverty_line(myCountry,'Rural')
@@ -158,27 +160,29 @@ try:
 except: 
     try:
         cat_info['pov_line'] = get_poverty_line(myCountry)
-        cat_info['sub_line'] = get_subsistence_line(myCountry)
+        cat_info['sub_line'] = get_subsistence_line(myCountry)        
     except: 
         cat_info['pov_line'] = get_poverty_line(myCountry)
+cat_info = cat_info.reset_index().set_index(event_level[0])
 
-print(cat_info.columns)
-print(cat_info.head())
+print('Total population:',int(cat_info.pcwgt.sum()))
+print('Total n households:',int(cat_info.hhwgt.sum()))
 
-print('Total population:',cat_info.pcwgt.sum())
-print('Total n households:',cat_info.hhwgt.sum())
-print('--> Individuals in poverty (inc):', cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line),'pcwgt'].sum())
-print('-----> Families in poverty (inc):', cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line), 'hhwgt'].sum())
+print('\nae',cat_info[['pcinc_ae','pcwgt_ae']].prod(axis=1).sum()/cat_info[['pcwgt_ae']].sum())
+print('-',cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info[['pcwgt']].sum())
+
+print('--> Individuals in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line),'pcwgt'].sum()/1.E6,3)),'million')
+print('-----> Families in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line),'hhwgt'].sum()/1.E6,3)),'million')
 
 try:
-    print('------> Individuals in poverty (exclusive):', cat_info.loc[cat_info.eval('pcinc_ae<=pov_line & pcinc_ae>sub_line'),'pcwgt'].sum())
-    print('---------> Families in poverty (exclusive):', cat_info.loc[cat_info.eval('pcinc_ae<=pov_line & pcinc_ae>sub_line'),'hhwgt'].sum())
-    print('--> Individuals in subsistence (exclusive):', cat_info.loc[cat_info.eval('pcinc_ae<=sub_line'),'pcwgt'].sum())
-    print('-----> Families in subsistence (exclusive):', cat_info.loc[cat_info.eval('pcinc_ae<=sub_line'),'hhwgt'].sum())
+    print('------> Individuals in poverty (exclusive):', float(round(cat_info.loc[cat_info.eval('pcinc_ae<=pov_line & pcinc_ae>sub_line'),'pcwgt'].sum()/1E6,3)),'million')
+    print('---------> Families in poverty (exclusive):', float(round(cat_info.loc[cat_info.eval('pcinc_ae<=pov_line & pcinc_ae>sub_line'),'hhwgt'].sum()/1E6,3)),'million')
+    print('--> Individuals in subsistence (exclusive):', float(round(cat_info.loc[cat_info.eval('pcinc_ae<=sub_line'),'pcwgt'].sum()/1E6,3)),'million')
+    print('-----> Families in subsistence (exclusive):', float(round(cat_info.loc[cat_info.eval('pcinc_ae<=sub_line'),'hhwgt'].sum()/1E6,3)),'million')
 except: print('No subsistence info...')
 
-print('--> Number in poverty (flagged poor):',cat_info.loc[(cat_info.ispoor==1),'pcwgt'].sum())
-print('--> Poverty rate (flagged poor):',round(100.*cat_info.loc[(cat_info.ispoor==1),'pcwgt'].sum()/cat_info['pcwgt'].sum(),1),'%')
+print('\n--> Number in poverty (flagged poor):',float(round(cat_info.loc[(cat_info.ispoor==1),'pcwgt'].sum()/1E6,3)),'million')
+print('--> Poverty rate (flagged poor):',round(100.*cat_info.loc[(cat_info.ispoor==1),'pcwgt'].sum()/cat_info['pcwgt'].sum(),1),'%\n\n\n')
 pd.DataFrame({'population':cat_info['pcwgt'].sum(level=economy),
               'nPoor':cat_info.loc[cat_info.ispoor==1,'pcwgt'].sum(level=economy),
               'n_pov':cat_info.loc[cat_info.eval('pcinc_ae<=pov_line & pcinc_ae>sub_line'),'pcwgt'].sum(level=economy),
@@ -309,6 +313,9 @@ if myCountry == 'PH':
     df_haz['hh_share'] = (df_haz['value_destroyed_prv']/df_haz['value_destroyed']).fillna(1.)
     # Weird things can happen for rp=2000 (negative losses), but they're < 10E-5, so we don't worry much about them
     #df_haz.loc[df_haz.hh_share>1.].to_csv('~/Desktop/hh_share.csv')
+
+elif myCountry == 'SL':
+    df_haz['hh_share'] = 1.
 
     
 elif myCountry == 'FJ':

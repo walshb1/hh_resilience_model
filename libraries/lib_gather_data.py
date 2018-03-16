@@ -261,6 +261,8 @@ def get_hh_savings(df, myC, pol, fstr):
     if pol == '_nosavings': return 0
     elif pol == '_nosavingsdata': return df.eval('c/12')
         
+    elif myC == 'SL': _s['hh_savings'] = _s['c']/12.
+
     elif myC == 'PH':
 
         # Load PSA file with average savings
@@ -318,8 +320,6 @@ def get_hh_savings(df, myC, pol, fstr):
         _s['hh_savings'] = _s.eval('avg_savings*c/c_mean')
 
     else:
-        print('savings not implemented for this situation')
-        assert(False)
         # Without data: we tried giving hh savings = 6 months' income if they report spending on savings or investments, 1 month if not
         _s = (temp[['axfin','c']].prod(axis=1)/2.).clip(lower=temp['c']/12.)
     
