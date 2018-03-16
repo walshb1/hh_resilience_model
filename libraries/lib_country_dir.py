@@ -268,28 +268,46 @@ def load_survey_data(myC,inc_sf=None):
 
     elif myC == 'SL':
         
-        df = pd.read_csv(inputs+'finalhhframe.csv').set_index('hhid')
+        #df = pd.read_csv(inputs+'finalhhframe.csv').set_index('hhid')
+        df = pd.read_csv(inputs+'hhdata_samurdhi.csv',usecols=['district','hhid','poor','pov_line','rpccons',
+                                                               'weight','hhsize','income_other_income_pc',
+                                                               'income_local_pc','walls','floor','roof']).set_index('hhid')
+
+        df['has_ew'] = pd.read_csv(inputs+'hhdata_samurdhi.csv',usecols=['hhid','asset_telephone_mobile',
+                                                                         'asset_telephone','asset_radio',
+                                                                         'asset_tv','asset_computers'],index_col='hhid').sum(axis=1).clip(lower=0,upper=1)
+
         pmt = pd.read_csv(inputs+'pmt_2012_hh_model1_score.csv').set_index('hhid')
-        df2 = pd.read_csv(inputs+'hhdata_samurdhi.csv').set_index('hhid')
+        df[['pmt','pmt_rpccons']] = pmt[['score','rpccons']]
 
-        df[['score','rpccons']] = pmt[['score','rpccons']]
-
-        df['ispoor'] = df2['poor']
-        df['pov_line'] = df2['pov_line']        
-
-        df = df.rename(columns={'rpccons':'pcinc','weight':'hhwgt','np':'hhsize'})
+        df = df.rename(columns={'rpccons':'pcinc',
+                                'pmt_rpccons':'pcinc_pmt',
+                                'weight':'hhwgt',
+                                'income_other_income_pc':'other_inc',
+                                'income_local_pc':'income_local',
+                                'poor':'ispoor'})
 
         df['pcinc'] *= 12.
+        # pcinc is monthly
+        
+        hies_gdp_lkr = round(df[['pcinc','hhsize','hhwgt']].prod(axis=1).sum()/1E9,3)
+        
+        lkr_to_usd = 1./156.01
+        print('hies GPD = ',hies_gdp_lkr,'billion LKR and',round(hies_gdp_lkr*lkr_to_usd,3),'billion USD')
 
-        df['pcinc_ae'] = df['pcinc']
+        #test_df = pd.read_csv(inputs+'finalhhframe.csv').set_index('hhid')
+        #print(test_df.head())
+        #print(round(test_df[['exp','weight','np']].prod(axis=1).sum()/1E9,3)*lkr_to_usd)
+
+        df['pcinc_ae'] = df['pcinc'].copy()
         df['pcwgt'] = df[['hhwgt','hhsize']].prod(axis=1)
+        print('avg income per cap & month = ',int(df[['pcinc','pcwgt']].prod(axis=1).sum()/df['pcwgt'].sum()/12.))
+        print('avg income per hh & month = ',int(df[['pcinc','hhsize','hhwgt']].prod(axis=1).sum()/df['hhwgt'].sum()/12.))
 
         df['hhsize_ae'] = df['hhsize']
         df['pcwgt_ae'] = df['pcwgt']
 
         df['pcsoc'] = df[['other_inc','income_local']].sum(axis=1)
-
-        df['has_ew'] = df2[['asset_telephone_mobile','asset_telephone','asset_radio','asset_tv','asset_computers']].sum(axis=1).clip(lower=0,upper=1)
         
         df = df.reset_index().set_index('district')
         
@@ -623,8 +641,11 @@ def get_poverty_line(myC,sec=None):
             return 0.0    
 
     elif myC == 'SL':
-        # $1.90 x ( GDP_pc(PPP) x population ) / GDP
-        return 1.90*(11417.30*19880090.52663231)/81.32E9
+        if sec: assert(False)
+
+        pov_line = float(pd.read_csv('../inputs/SL/hhdata_samurdhi.csv',index_col='hhid')['pov_line'].mean())*12.
+        print('\n--> poverty line:',pov_line,'\n')
+        return pov_line
     
     else:
         print('There is no poverty info for this country. Returning pov_line = 0') 
@@ -635,6 +656,11 @@ def get_subsistence_line(myC):
     if myC == 'PH':
         return 14832.0962*(22302.6775/21240.2924)
     
+    elif myC == 'SL':
+        sub_line = float(pd.read_csv('../inputs/SL/hhdata_samurdhi.csv',index_col='hhid')['pline_125'].mean())*12.
+        print('--> subsistence line:',sub_line,'\n')
+        return sub_line
+
     else: 
         print('No subsistence info. Returning 0')
         return 0

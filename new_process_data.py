@@ -292,7 +292,6 @@ print(_)
 
 _[['pop_q1','Asset risk pc','Well-being risk pc']].round(0).astype(int).sort_values('Well-being risk pc',ascending=False).to_latex('latex/risk_q1.tex')
 _.to_csv('debug/q1_figs.csv')
-assert(False)
 
 # Save out iah
 iah_out = pd.DataFrame(index=iah_res.sum(level=['hazard','rp']).index)
@@ -335,6 +334,7 @@ iah_ntl = iah_ntl.reset_index()
 myHaz = None
 if myCountry == 'FJ': myHaz = [['Ba','Lau','Tailevu'],get_all_hazards(myCountry,iah_res),[1,10,100,500,1000]]
 elif myCountry == 'PH': myHaz = [['II - Cagayan Valley','NCR','IVA - CALABARZON'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
+elif myCountry == 'SL': myHaz = [['Ampara'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
 
 ##################################################################
 # This code generates the histograms showing income before & after disaster
@@ -397,8 +397,13 @@ for aReg in myHaz[0]:
             ax.annotate('Natl. well-being losses: '+str(round(float(public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),['dw']].sum()/mny[1]),1))+mny[0],
                         xy=(0.03,-1.24), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
 
-            new_pov_c = int(iah.loc[iah.eval('region==@aReg & hazard==@aDis & rp==@anRP & c_initial > pov_line & c_pre_reco >= sub_line & c_pre_reco < pov_line'),'pcwgt'].sum())
-            new_pov_i = int(iah.loc[iah.eval('region==@aReg & hazard==@aDis & rp==@anRP & c_initial > pov_line & i_pre_reco >= sub_line & i_pre_reco < pov_line'),'pcwgt'].sum())
+            try:
+                new_pov_c = int(iah.loc[iah.eval('region==@aReg & hazard==@aDis & rp==@anRP & c_initial>pov_line & c_pre_reco>=sub_line & c_pre_reco<pov_line'),'pcwgt'].sum())
+                new_pov_i = int(iah.loc[iah.eval('region==@aReg & hazard==@aDis & rp==@anRP & c_initial>pov_line & i_pre_reco>=sub_line & i_pre_reco<pov_line'),'pcwgt'].sum())
+            except:
+                new_pov_c = int(iah.loc[iah.eval('district==@aReg & hazard==@aDis & rp==@anRP & c_initial>pov_line & c_pre_reco>=sub_line & c_pre_reco<pov_line'),'pcwgt'].sum())
+                new_pov_i = int(iah.loc[iah.eval('district==@aReg & hazard==@aDis & rp==@anRP & c_initial>pov_line & i_pre_reco>=sub_line & i_pre_reco<pov_line'),'pcwgt'].sum())
+
             new_pov = new_pov_i
             print('c:',new_pov_c,' i:',new_pov_i)
 
@@ -485,7 +490,7 @@ for aProv in myHaz[0]:
                 
             out_str = None
             if myCountry == 'FJ': out_str = ['Asset loss','Consumption\nloss (NPV)','Well-being\nloss','Net cost of\nWinston-like\nsupport','Well-being loss\npost support']
-            elif myCountry == 'PH': out_str = ['Asset loss','Consumption\nloss','Well-being\nloss','Net cost of\nsupport','Well-being loss\npost support']
+            else: out_str = ['Asset loss','Consumption\nloss','Well-being\nloss','Net cost of\nsupport','Well-being loss\npost support']
 
             for ni, ii in enumerate(range(1,6)):
                 ax.annotate(out_str[ni],xy=(6*ii+1,ax.get_ylim()[0]/4.),xycoords='data',ha='left',va='top',weight='bold',fontsize=9,annotation_clip=False)
