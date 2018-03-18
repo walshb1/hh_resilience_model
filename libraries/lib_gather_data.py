@@ -251,11 +251,11 @@ def AIR_extreme_events(df_air,df_aal,sec='',per=''):
 
     return df_air
     
-def get_hh_savings(df, myC, pol, fstr):
+def get_hh_savings(df, myC, econ_unit, pol, fstr):
 
     _s = pd.DataFrame({'c':df.c,
                        'pcwgt':df.pcwgt,
-                       'province':df.province,
+                       econ_unit:df[econ_unit],
                        'ispoor':df.ispoor},index=df.index)
 
     if pol == '_nosavings': return 0
@@ -266,7 +266,7 @@ def get_hh_savings(df, myC, pol, fstr):
     elif myC == 'PH':
 
         # Load PSA file with average savings
-        f = pd.read_excel(fstr,sheetname='Average Savings',skiprows=3).rename(columns={'Unnamed: 0':'province','Estimate':'p','Estimate.1':'np'})[['province','p','np']]
+        f = pd.read_excel(fstr,sheetname='Average Savings',skiprows=3).rename(columns={'Unnamed: 0':econ_unit,'Estimate':'p','Estimate.1':'np'})[[econ_unit,'p','np']]
 
         # Load dictionaries so that these province names match those in df
         ph_prov_lookup = pd.read_excel('../inputs/PH/FIES_provinces.xlsx',usecols=['province_upper','province_AIR'],index_col='province_upper')['province_AIR'].to_dict()

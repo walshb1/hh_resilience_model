@@ -231,7 +231,6 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
         hazard_ratios_event = hazard_ratios_event.reset_index().set_index(['Division','hazard','rp','hhid'])
 
     # This value of provincial GDP is derived from hh consumption in HIES
-    # --> Overall, it's 85% of the PSA macroeconomic stats 
     avg_c = round(np.average(macro['gdp_pc_prov'],weights=macro['pop'])/get_to_USD(myCountry),2)
     print('\nMean consumption: ',avg_c,' USD.\nMean GDP pc ',round(np.average(macro['gdp_pc_prov'],weights=macro['pop'])/get_to_USD(myCountry),2),' USD.\n')
 
@@ -1080,12 +1079,12 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
     # ^ dK and dK_tot include both public and private losses
 
     df_out['average_aid_cost_pc'] = (cats_event_iah[['pcwgt','help_fee']].prod(axis=1).sum(level=event_level))/cats_event_iah['pcwgt'].sum(level=event_level)
-    
+
     if return_stats:
         if not 'has_received_help_from_PDS_cat' in cats_event_iah.columns:
-            stats = np.setdiff1d(cats_event_iah.columns,event_level+['helped_cat','affected_cat','hhid']+[i for i in ['province'] if i in cats_event_iah.columns])
+            stats = np.setdiff1d(cats_event_iah.columns,event_level+['helped_cat','affected_cat','hhid']+[i for i in event_level[0] if i in cats_event_iah.columns])
         else:
-            stats = np.setdiff1d(cats_event_iah.columns,event_level+['helped_cat','affected_cat','hhid','has_received_help_from_PDS_cat']+[i for i in ['province'] if i in cats_event_iah.columns])
+            stats = np.setdiff1d(cats_event_iah.columns,event_level+['helped_cat','affected_cat','hhid','has_received_help_from_PDS_cat']+[i for i in event_level[0] if i in cats_event_iah.columns])
 		
         print('stats are '+','.join(stats))
         df_stats = agg_to_event_level(cats_event_iah,stats,event_level)
@@ -1225,27 +1224,17 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # If running in 'study' mode, just load the file from my desktop
     # ^ grab one hh in the poorest quintile, and one in the wealthiest
     temp, c_mean = None, None
-    if study == True:
-        temp = pd.read_csv(debug+'temp_NCR.csv',index_col=['region','hazard','rp','hhid','affected_cat','helped_cat'])
 
-        #temp['dc']/=1.E5
-        # ^ uncomment here if we want to make sure that (dw/wprime) converges to dc for small losses among wealthy
+    mac_ix = macro.index.names
+    mic_ix = micro.index.names
 
-        mac_ix = ['region','hazard','rp']
-        mic_ix = temp.index.names
-
-    else:
-
-        mac_ix = macro.index.names
-        mic_ix = micro.index.names
-
-        # Going to separate into a & na now, for speed
-        micro = micro.reset_index('affected_cat')
-        temp = micro.loc[(micro.pcwgt!=0)&((micro.affected_cat=='a')|(micro.help_received!=0)|(micro.dc0!=0))].reset_index().copy()
-        # ^ ALL HH that are: affected OR received help OR receive social
+    # Going to separate into a & na now, for speed
+    micro = micro.reset_index('affected_cat')
+    temp = micro.loc[(micro.pcwgt!=0)&((micro.affected_cat=='a')|(micro.help_received!=0)|(micro.dc0!=0))].reset_index().copy()
+    # ^ ALL HH that are: affected OR received help OR receive social
         
-        temp_na = micro.loc[(micro.pcwgt!=0)&(micro.affected_cat=='na')&(micro.help_received==0)&(micro.dc0==0),['affected_cat','pcwgt','c','dk0','dc0','pc_fee']].reset_index().copy()
-        # ^ ALL HH that are: not affected AND didn't receive help AND don't have any social income
+    temp_na = micro.loc[(micro.pcwgt!=0)&(micro.affected_cat=='na')&(micro.help_received==0)&(micro.dc0==0),['affected_cat','pcwgt','c','dk0','dc0','pc_fee']].reset_index().copy()
+    # ^ ALL HH that are: not affected AND didn't receive help AND don't have any social income
 
     #############################
     # Upper limit for per cap dw (from micro, since temp is a subset)
@@ -1254,7 +1243,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
 
     my_dw_limit = abs(20.*c_mean)
     my_natl_wprime = c_mean**(-const_ie)
-    print('\n\nc_mean = ',c_mean,' dw_lim = ',my_dw_limit,' wprime_nat = ',my_natl_wprime,'\n')
+    print('\n\nc_mean = ',int(c_mean/1E3),'K LKR\ndw_lim = ',int(my_dw_limit/1E3),'K LKR wprime_nat = ',round(my_natl_wprime,3),'\n')
 
     #############################
     # First debit savings for temp_na
@@ -1299,7 +1288,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     my_out_x, my_out_yA, my_out_yNA, my_out_yzero = [], [], [], []
     x_max = min((np.log(1/0.05)/float(temp['hh_reco_rate'].min())),10.)
 
-    x_min, n_steps = 0.,2.*x_max # <-- time step = week
+    x_min, n_steps = 0.,52.*x_max # <-- time step = week
     if study == True: x_min, x_max, n_steps = 0.,1.,2 # <-- time step = 1 year
     max_treco = math.log(1/0.05)/x_max
 
@@ -1317,10 +1306,11 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     if myC == 'PH': sav_dir = '../inputs/PH/Socioeconomic Resilience (Provincial)_Print Version_rev1.xlsx'
     elif myC == 'SL': sav_dir = '../inputs/SL/'
 
-    try: temp['sav_f'] = get_hh_savings(temp[['pcwgt','c','province','ispoor']],myC,pol_str,sav_dir)
-    except: temp['sav_f'] = 0.
+    print(temp.head())
+    temp['sav_f'] = get_hh_savings(temp[['pcwgt','c',mac_ix[0],'ispoor']],myC,mac_ix[0],pol_str,sav_dir)
+    #temp['sav_f'] = 0.
     # ^ sav_f = intial savings (just at initialization; will decrement as hh spend savings)
-
+    
     temp['sav_i'] = temp.eval('sav_f+pc_fee')
     # ^ add pc_fee to sav_f to get sav_i
     # --> this is assuming the government covers the costs for now, and assesses taxes much, much later
@@ -1507,7 +1497,6 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
      
     # Re-merge temp and temp_na
     temp = pd.concat([temp,temp_na]).reset_index().set_index([i for i in mic_ix]).sort_index()
-    temp.to_csv('~/Desktop/.csv')
     assert(temp['dc_t'].shape[0] == temp['dc_t'].dropna().shape[0])
     
     #print(temp['dw'].shape[0],temp.dropna(subset=['dw']).shape[0])
