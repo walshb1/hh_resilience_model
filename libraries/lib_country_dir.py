@@ -48,9 +48,9 @@ def get_economic_unit(myC):
 
 def get_currency(myC):
     
-    if myC == 'PH': return ['b. PhP',1.E9]
+    if myC == 'PH': return ['b. PhP',1.E9,1./50.]
     elif myC == 'FJ': return ['k. F\$',1.E3]
-    elif myC == 'SL': return ['LKR',1.E0]
+    elif myC == 'SL': return ['b. LKR',1.E9,1./153.]
     else: return ['XXX',1.E0]
 
 def get_places(myC,economy):
@@ -641,8 +641,6 @@ def get_poverty_line(myC,sec=None):
             return 0.0    
 
     elif myC == 'SL':
-        if sec: assert(False)
-
         pov_line = float(pd.read_csv('../inputs/SL/hhdata_samurdhi.csv',index_col='hhid')['pov_line'].mean())*12.
         print('\n--> poverty line:',pov_line,'\n')
         return pov_line
