@@ -1354,22 +1354,20 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         temp['di_t'] = temp['di_prv_t'].values+temp['di_pub_t'].values-temp['help_received'].values*const_pds_rate*math.e**(-_t*const_pds_rate)
         
         # If PDS is too great...transfer it to savings
-        if _t == 0: _init_help_received = temp.loc[(temp.di_t<0) & (temp.help_received>0),'help_received']
-
+        if _t == 0: temp['init_help_received'] = temp['help_received'].copy()
         _pds_hh = temp.loc[(temp.di_t<0) & (temp.help_received>0)].shape[0]
+
         while _pds_hh != 0:
             print(optionPDS+': transferring PDS into savings for',_pds_hh,'hh at t =',_t)
 
-            #if _t != 0:
-            #    _init_help_received.to_csv('~/Desktop/init_help_received.csv')
-            #    temp.loc[(temp.help_received>0) & (temp.di_t<0)].to_csv('~/Desktop/pds_emergency.csv')
-            #    assert(_t == 0)# probably won't work if dt != 0
+            lexus_pds = '(di_t<0)&(help_received>0)'
+            temp.loc[temp.eval(lexus_pds),        'sav_f'] += (0.25*temp.loc[temp.eval(lexus_pds),'init_help_received']).clip(upper=temp.loc[temp.eval(lexus_pds),'help_received'])
+            temp.loc[temp.eval(lexus_pds),'help_received'] -= (0.25*temp.loc[temp.eval(lexus_pds),'init_help_received']).clip(upper=temp.loc[temp.eval(lexus_pds),'help_received'])
 
-            temp.loc[(temp.di_t<0)&(temp.help_received>0),        'sav_f'] += 0.25*_init_help_received
-            temp.loc[(temp.di_t<0)&(temp.help_received>0),'help_received'] -= 0.25*_init_help_received
-
-            temp.loc[(temp.di_t<0)&(temp.help_received>0),'di_t'] = temp.loc[(temp.di_t<0)&(temp.help_received>0)].eval('di_prv_t+di_pub_t-help_received*@const_pds_rate*@math.e**(-@_t*@const_pds_rate)')
-            _pds_hh = temp.loc[(temp.di_t<0)&(temp.help_received>0)].shape[0]
+            temp.loc[temp.eval(lexus_pds),'di_t'] = temp.loc[temp.eval(lexus_pds)].eval('di_prv_t+di_pub_t-help_received*@const_pds_rate*@math.e**(-@_t*@const_pds_rate)')
+            _pds_hh = temp.loc[temp.eval(lexus_pds)].shape[0]
+            
+            _pds_hh.head(1000).to_csv('~/Desktop/pds_'+str(round(_t,3))+'.csv')
       
         temp['dc_t'] = temp['di_t'].values + temp[['hh_reco_rate','dk_prv_t']].prod(axis=1).values
 

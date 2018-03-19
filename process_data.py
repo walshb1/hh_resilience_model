@@ -71,6 +71,9 @@ dem = get_demonym(myCountry)
 svg_file = '../map_files/'+myCountry+'/BlankSimpleMap.svg'
 if myCountry == 'PH' and economy == 'region':
     svg_file = '../map_files/'+myCountry+'/BlankSimpleMapRegional.svg'
+elif myCountry == 'SL':
+    svg_file = '../map_files/'+myCountry+'/lk.svg'
+    
 
 # Toggle subtraction or addition of dK to affected people's incomes
 drm_pov_sign = -1 
@@ -341,7 +344,8 @@ if myCountry == 'PH':
     myHaz = [['NCR','IVA - CALABARZON'],['EQ','TC','PF'],[1,10,25,30,50,100,200,250,500,1000]]
 elif myCountry == 'FJ':
     myHaz = [['Ba'],['TC'],[1,5,10,20,22,50,72,75,100,200,224,250,475,500,975,1000,2475]]
-    #myHaz = [['Lau'],['earthquake','tsunami','typhoon'],[1,10,20,50,100,250,500,1000]]
+elif myCountry == 'SL':
+    myHaz = [['Colombo'],['PF'],[5,10,25,50,100,250,500,1000]]
 
 iah = iah.reset_index()
 
@@ -651,8 +655,7 @@ for myRP in myHaz[2]:
             cut = None
             if myCountry == 'PH':
                 cut = iah.loc[(((iah.affected_cat == 'a')&(iah.helped_cat == 'helped'))|((iah.affected_cat == 'na')&(iah.helped_cat == 'not_helped')))&(iah[economy] == myProv) & (iah.hazard == myDis) & (iah.rp == myRP)].set_index([economy,'hazard','rp'])
-            elif myCountry == 'FJ':
-                cut = iah.loc[(iah.helped_cat == 'helped') & (iah.Division == myProv) & (iah.hazard == myDis) & (iah.rp == myRP)].set_index([economy,'hazard','rp'])
+            else: cut = iah.loc[(iah.helped_cat == 'helped') & (iah[economy] == myProv) & (iah.hazard == myDis) & (iah.rp == myRP)].set_index([economy,'hazard','rp'])
 
             if cut.shape[0] == 0: 
                 print('Nothing here!')
@@ -785,8 +788,8 @@ for myRP in myHaz[2]:
             plt.savefig('../output_plots/'+myCountry+'/png/means_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',bbox_inches='tight',format='pdf')
             plt.cla()
 
-df_out.to_csv('~/Desktop/my_plots/my_means_'+myCountry+pol_str+'.csv')
-df_out_sum.to_csv('~/Desktop/my_plots/my_means_ntl_'+myCountry+pol_str+'.csv')
+df_out.to_csv('debug/my_means_'+myCountry+pol_str+'.csv')
+df_out_sum.to_csv('debug/my_means_ntl_'+myCountry+pol_str+'.csv')
 
 print('rp:',rp_all,'\ndk:',dk_all,'\ndw:',dw_all,'\ndk_q1:',dk_q1,'\ndw_q1:',dw_q1)
 
