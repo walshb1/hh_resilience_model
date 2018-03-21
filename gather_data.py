@@ -129,9 +129,9 @@ for thecat in vul_curve.desc.unique():
     # Fiji doesn't have info on roofing, but it does have info on the condition of outer walls. Include that as a multiplier?
     if myCountry == 'SL': cat_info.ix[cat_info.walls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
 
-print('Getting roof info')
 # Get roofing data (but Fiji doesn't have this info)
 if myCountry != 'FJ':
+    print('Getting roof info')
     vul_curve = get_vul_curve(myCountry,'roof')
     for thecat in vul_curve.desc.unique():
         cat_info.ix[cat_info.roof.values == thecat,'v'] += vul_curve.loc[vul_curve.desc.values == thecat].v.values
@@ -314,9 +314,7 @@ if myCountry == 'PH':
     # Weird things can happen for rp=2000 (negative losses), but they're < 10E-5, so we don't worry much about them
     #df_haz.loc[df_haz.hh_share>1.].to_csv('~/Desktop/hh_share.csv')
 
-elif myCountry == 'SL':
-    df_haz['hh_share'] = 1.
-
+elif myCountry == 'SL': df_haz['hh_share'] = 1.
     
 elif myCountry == 'FJ':
     df_haz = df_haz.reset_index().set_index([economy,'hazard','rp']).sum(level=[economy,'hazard','rp'])
@@ -340,7 +338,10 @@ elif myCountry == 'FJ':
     #hazard_ratios['frac_destroyed'] = hazard_ratios['fa'] 
 
 elif myCountry == 'SL':
-    hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
+    pass
+    # For SL, 'fa' is fa, not frac_destroyed
+    #hazard_ratios['frac_destroyed'] = hazard_ratios.pop('fa')
+
 
 # Have frac destroyed, need fa...
 # Frac value destroyed = SUM_i(k*v*fa)
@@ -353,8 +354,11 @@ hazard_ratios.loc[hazard_ratios.hazard!='EQ','v'] *= (1-reduction_vul*hazard_rat
 hazard_ratios.loc[hazard_ratios['v']<=0.1,'v'] *= np.random.uniform(.8,2,hazard_ratios.loc[hazard_ratios['v']<=0.1].shape[0])
 hazard_ratios.loc[hazard_ratios['v'] >0.1,'v'] *= np.random.uniform(.8,1.2,hazard_ratios.loc[hazard_ratios['v'] >0.1].shape[0])
 
+# Calculate frac_destroyed for SL, since we don't have that in this case
+if myCountry == 'SL': hazard_ratios['frac_destroyed'] = hazard_ratios[['v','fa']].prod(axis=1)
+
 if 'hh_share' not in hazard_ratios.columns: hazard_ratios['hh_share'] = None
-hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])[['frac_destroyed','v','k','pcwgt','hh_share','grdp_to_assets']]
+hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])[[i for i in ['frac_destroyed','v','k','pcwgt','hh_share','grdp_to_assets','fa'] if i in hazard_ratios.columns]]
 hazard_ratios = hazard_ratios.drop([i for i in ['index'] if i in hazard_ratios.columns])
 
 ###########################################
@@ -367,12 +371,15 @@ fa_threshold = 0.95
 # --> v_mean is weighted by capital & pc_weight 
 v_mean = hazard_ratios[['pcwgt','k','v']].prod(axis=1).sum(level=event_level)/hazard_ratios[['pcwgt','k']].prod(axis=1).sum(level=event_level)
 v_mean.name = 'v_mean'
-hazard_ratios = pd.merge(hazard_ratios.reset_index(),v_mean.reset_index(),on=[i for i in event_level]).reset_index().set_index([i for i in event_level]+['hhid']).sort_index()
+hazard_ratios = pd.merge(hazard_ratios.reset_index(),v_mean.reset_index(),on=event_level).reset_index().set_index(event_level+['hhid']).sort_index()
 
-hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v_mean']).fillna(1E-8)
-
-hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = (hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold).clip(upper=0.95)
-hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=1E-8,upper=fa_threshold)
+if myCountry != 'SL':
+    # Normally, we pull fa out of frac_destroyed.
+    # --> for SL, I think we have fa (not frac_destroyed) from HIES
+    hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v_mean']).fillna(1E-8)
+    
+    hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = (hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold).clip(upper=0.95)
+    hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=1E-8,upper=fa_threshold)    
 
 hazard_ratios[['fa','v']].mean(level=event_level).to_csv('debug/fa_v.csv')
 
