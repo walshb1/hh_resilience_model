@@ -55,10 +55,14 @@ font = {'family' : 'sans serif', 'size'   : 8};plt.rc('font', **font)
 import warnings
 warnings.filterwarnings('always',category=UserWarning)
 
-myCountry = 'PH'
+myCountry = 'SL'
+economy = 'district'
 if len(sys.argv) < 2:
-    print('Could list country. Using PH.')
-else: myCountry = sys.argv[1]
+    print('Could list country. Using SL.')
+else: 
+    myCountry = sys.argv[1]
+    economy = {'PH':'region','SL':'district','FJ':'division'}[myCountry]
+print('Running at',economy,'level in',myCountry)
 
 model  = os.getcwd() #get current directory
 output = model+'/../output_country/'+myCountry+'/'
@@ -301,11 +305,10 @@ fig=plt.gcf()
 fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/dk.pdf',format='pdf')
 
 summary_df = pd.read_csv('debug/my_summary_no.csv').reset_index()
-summary_df['res_mean'] = summary_df.groupby(['region','hazard'])['res_tot'].transform('median')
-summary_df = summary_df.loc[(summary_df.dk_tot>=0.1)&(summary_df.res_tot<=1.25*summary_df.res_mean)].sort_values(by=['hazard','region','rp'])
+summary_df['res_mean'] = summary_df.groupby([economy,'hazard'])['res_tot'].transform('median')
+summary_df = summary_df.loc[(summary_df.dk_tot>=0.1)&(summary_df.res_tot<=1.25*summary_df.res_mean)].sort_values(by=['hazard',economy,'rp'])
 
-
-all_regions = np.unique(summary_df['region'].dropna())
+all_regions = np.unique(summary_df[economy].dropna())
 
 haz_dict = {'SS':'Storm surge','PF':'Precipitation flood','HU':'Hurricane','EQ':'Earthquake'}
 xax = [['rp',' return period [years]'],['dk_tot',' asset losses [PhP]'],['dw_tot',' welfare losses [PhP]']]
@@ -317,7 +320,7 @@ for ix in xax:
 
         _ = summary_df.loc[(summary_df.hazard==iHaz)]
 
-        regions = _.groupby('region')
+        regions = _.groupby(economy)
     
         fig,ax = plt.subplots()
         ax.margins(0.05) # Optional, just adds 5% padding to the autoscaling
@@ -328,7 +331,9 @@ for ix in xax:
             while name != all_regions[col_ix]:
                 col_ix += 1
         
-            plotz.append(ax.semilogx(iReg[ix[0]],(100*iReg.res_tot), marker='.', linestyle='', ms=9, label=name,color=reg_pal[col_ix]))
+            try: plotz.append(ax.semilogx(iReg[ix[0]],(100*iReg.res_tot), marker='.', linestyle='', ms=9, label=name,color=reg_pal[col_ix]))
+            except: plotz.append(ax.semilogx(iReg[ix[0]],(100*iReg.res_tot), marker='.', linestyle='', ms=9, label=name))
+            
             regz.append(name)
             col_ix+=1
 
@@ -337,7 +342,7 @@ for ix in xax:
         plt.ylim(0,250)
 
         if False:
-            leg = ax.legend(loc='best',labelspacing=0.75,ncol=4,fontsize=6,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0,title='Region')
+            leg = ax.legend(loc='best',labelspacing=0.75,ncol=4,fontsize=6,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0,title=economy[0].upper()+economy[1:])
             export_legend(leg,'../check_plots/regional_legend.pdf')            
 
         col_ix = 0
@@ -346,7 +351,8 @@ for ix in xax:
             while name != all_regions[col_ix]:
                 col_ix += 1
 
-            ax.plot(iReg[ix[0]],(100*iReg.res_tot),color=reg_pal[col_ix])
+            try: ax.plot(iReg[ix[0]],(100*iReg.res_tot),color=reg_pal[col_ix])
+            except: ax.plot(iReg[ix[0]],(100*iReg.res_tot))
             col_ix+=1
 
         fig.savefig('../check_plots/reg_resilience_vs_'+ix[0]+'_'+iHaz+'.pdf',format='pdf')
@@ -354,8 +360,8 @@ for ix in xax:
         plt.close('all')
 
 
-summary_df = pd.read_csv('debug/my_summary_no.csv').reset_index().set_index(['region','hazard','rp'])[['dk_tot','dw_tot','res_tot']]
-v_df = pd.read_csv('debug/fa_v.csv').reset_index().set_index(['region','hazard','rp'])
+summary_df = pd.read_csv('debug/my_summary_no.csv').reset_index().set_index([economy,'hazard','rp'])[['dk_tot','dw_tot','res_tot']]
+v_df = pd.read_csv('debug/fa_v.csv').reset_index().set_index([economy,'hazard','rp'])
 summary_df['fa'] = v_df['fa'].round(2).clip(upper=0.95)
 
 summary_df.loc[summary_df.fa==0.95,'dk_famax'] = summary_df.loc[summary_df.fa==0.95,'dk_tot']
@@ -376,9 +382,9 @@ rp_sum.to_csv('debug/my_summary_no_rp_AAL.csv')
 
 _df = rp_sum[['res_tot','res_fa095','res_fa_less_095']].stack()
 _df = _df.reset_index()
-_df.columns = ['region','hazard','res_type','res']
+_df.columns = [economy,'hazard','res_type','res']
 
-_df = _df.reset_index().set_index(['region','hazard'])
+_df = _df.reset_index().set_index([economy,'hazard'])
 _df['res_sort'] = _df.loc[_df.res_type=='res_tot','res']
 _df = _df.reset_index()
 
@@ -386,10 +392,10 @@ print(_df.head())
 
 for _,_h in _df.groupby('hazard'):
 
-    ax = _h.boxplot('res',by='region')
+    ax = _h.boxplot('res',by=economy)
     fig = plt.gcf()
     plt.title('Regional resilience to '+_)
-    plt.xlabel('Region')
+    plt.xlabel(economy[0].upper()+economy[1:])
 
     for tick in ax.xaxis.get_major_ticks():
         tick.label.set_fontsize(8) 

@@ -221,9 +221,17 @@ iah_out,_ = average_over_rp(iah_out)
 iah_out['SE capacity']  = iah_out['Asset risk']/iah_out['Well-being risk']
 iah_out.to_csv(output+'geo_haz_aal_sums.csv')
 
-_ = (iah_out['Asset risk']/1.E6).round(1).unstack().copy();
-_['Total'] = _.sum(axis=1); _.loc['Total'] = _.sum()
-_.to_latex('latex/reg_haz_asset_risk.tex')
+_ = (iah_out['Asset risk']/1.E6).round(1).unstack().copy()
+
+if myCountry == 'SL': to_usd = 1./153.
+
+if len(_.columns) > 1:
+    _['Total'] = _.sum(axis=1)
+else:
+    _['usd'] = (_*to_usd*1.E3).round(1)
+
+_.loc['Total'] = _.sum()
+_.sort_values('PF',ascending=False).to_latex('latex/reg_haz_asset_risk.tex')
 
 iah_out = iah_out.sum(level=economy)
 
@@ -344,9 +352,9 @@ scale_fac = 1.0
 if myCountry == 'FJ': 
     scale_fac = 2.321208
     upper_clip = 2E4
-if myCountry == 'SL': upper_clip = 2.5E5
+if myCountry == 'SL': upper_clip = 4.0E5
 
-#run_poverty_tables_and_maps(iah.reset_index().set_index(event_level),event_level)
+run_poverty_tables_and_maps(iah.reset_index().set_index(event_level),event_level,myCountry)
 
 for aReg in myHaz[0]:
     for aDis in get_all_hazards(myCountry,iah):
@@ -393,9 +401,9 @@ for aReg in myHaz[0]:
                         xy=(0.03,-0.18), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
             ax.annotate('Reg. well-being losses: '+str(round(iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),['pcwgt','dw']].prod(axis=1).sum()/(df.wprime.mean()*mny[1]),1))+mny[0],
                         xy=(0.03,-0.50), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
-            ax.annotate('Natl. liability: '+str(round(float(public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),['transfer_pub']].sum()/mny[1]),1))+mny[0],
+            ax.annotate('Natl. liability: '+str(round(float(public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),['transfer_pub']].sum()*1.E3/mny[1]),1))+mny[0],
                         xy=(0.03,-0.92), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
-            ax.annotate('Natl. well-being losses: '+str(round(float(public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),['dw','dw_soc']].sum(axis=1).sum()/mny[1]),1))+mny[0],
+            ax.annotate('Natl. well-being losses: '+str(round(float(public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),['dw','dw_soc']].sum(axis=1).sum()*1.E3/mny[1]),1))+mny[0].replace('b','m'),
                         xy=(0.03,-1.24), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
 
             try:
