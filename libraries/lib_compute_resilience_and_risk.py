@@ -1351,23 +1351,26 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         temp['di_prv_t'] = (temp['dk_prv_t'].values*my_avg_prod_k*(1-my_tau_tax)
                             + temp[['pcsoc','scale_fac_soc']].prod(axis=1).values*math.e**(-_t*const_pub_reco_rate))
         temp['di_pub_t'] = temp['di0_pub'].values*math.e**(-_t*const_pub_reco_rate)
-        temp['di_t'] = temp['di_prv_t'].values+temp['di_pub_t'].values-temp['help_received'].values*const_pds_rate*math.e**(-_t*const_pds_rate)
-        
+        temp['di_t'] = temp.eval('di_prv_t+di_pub_t-help_received*@const_pds_rate*@math.e**(-@_t*@const_pds_rate)')
+
+        ####################################
         # If PDS is too great...transfer it to savings
-        if _t == 0: temp['init_help_received'] = temp['help_received'].copy()
-        _pds_hh = temp.loc[(temp.di_t<0) & (temp.help_received>0)].shape[0]
+        lexus_pds = 'di_t<-1'
 
-        while _pds_hh != 0:
-            print(optionPDS+': transferring PDS into savings for',_pds_hh,'hh at t =',_t)
+        __ = 0 
+        while temp.loc[temp.eval(lexus_pds)].shape[0] != 0:
 
-            lexus_pds = '(di_t<0)&(help_received>0)'
-            temp.loc[temp.eval(lexus_pds),        'sav_f'] += (0.25*temp.loc[temp.eval(lexus_pds),'init_help_received']).clip(upper=temp.loc[temp.eval(lexus_pds),'help_received'])
-            temp.loc[temp.eval(lexus_pds),'help_received'] -= (0.25*temp.loc[temp.eval(lexus_pds),'init_help_received']).clip(upper=temp.loc[temp.eval(lexus_pds),'help_received'])
-
-            temp.loc[temp.eval(lexus_pds),'di_t'] = temp.loc[temp.eval(lexus_pds)].eval('di_prv_t+di_pub_t-help_received*@const_pds_rate*@math.e**(-@_t*@const_pds_rate)')
-            _pds_hh = temp.loc[temp.eval(lexus_pds)].shape[0]
+            print(optionPDS+': transferring PDS into savings for',int(temp.loc[temp.eval(lexus_pds)].shape[0]),'hh at t =',_t)
             
-            _pds_hh.head(1000).to_csv('~/Desktop/pds_'+str(round(_t,3))+'.csv')
+            _tr = temp.loc[temp.eval(lexus_pds)]
+            
+            temp.loc[_tr.index.tolist(),        'sav_f'] += temp.loc[_tr.index.tolist()].eval('help_received*@math.e**(-@_t*@const_pds_rate)')
+            temp.loc[_tr.index.tolist(),'help_received']  = 0.            
+            temp.loc[_tr.index.tolist(),'di_t'] = temp.loc[_tr.index.tolist()].eval('di_prv_t+di_pub_t-help_received*@const_pds_rate*@math.e**(-@_t*@const_pds_rate)')
+            temp.loc[_tr.index.tolist(),'sav_offset_to'] *= 0.5
+
+            if __ != 0: assert(False)            
+            __+=1
       
         temp['dc_t'] = temp['di_t'].values + temp[['hh_reco_rate','dk_prv_t']].prod(axis=1).values
 
@@ -1381,22 +1384,21 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
             start_criteria  = '(welf_class==3) & (hh_reco_rate==0) & (dk_prv_t > 0) & ((c-dc_t) >= @reco_thresh*c_min)'
             stop_criteria   = '(welf_class==3) & (hh_reco_rate!=0) & (c-di_t < c_min) & (sav_f < 50.)'
             
-            recalc_pov_crit = 'welf_class==1 & dk_prv_t>0 & hh_reco_rate!=0 & hh_reco_rate < @max_treco & c-di_t>pov_line & (c-dc_t<pov_line | dc_t<0 | c-dc_t>=1.05*pov_line)'
-            recalc_sub_crit = '(welf_class==2 | welf_class==3) & dk_prv_t>0 & hh_reco_rate!=0 & hh_reco_rate < @max_treco & c-di_t>c_min & (c-dc_t<c_min | dc_t<0 | c-dc_t>=1.05*c_min)'
+            recalc_pov_crit = 'welf_class==1 & dk_prv_t>0 & hh_reco_rate!=0 & hh_reco_rate < @max_treco & c-di_t>pov_line & (dc_t<0 | c-dc_t>=1.05*pov_line)'
+            recalc_sub_crit = '(welf_class==2 | welf_class==3) & dk_prv_t>0 & hh_reco_rate!=0 & hh_reco_rate < @max_treco & c-di_t>c_min & (dc_t<0 | c-dc_t>=1.05*c_min)'
            
-            temp.loc[temp.eval(recalc_sub_crit)].to_csv('~/Desktop/recalc_sub.csv')
-
+            #temp.loc[temp.eval(recalc_sub_crit)].to_csv('~/Desktop/recalc_sub.csv')
             print('('+optionPDS+' - t = '+str(round(_t*52,1))+' weeks after disaster; '
                   +str(round(100*_t/x_max,1))+'% through reco): '
                   +str(temp.loc[temp.eval(start_criteria)].shape[0])+' hh escape subs & '
                   +str(temp.loc[temp.eval(recalc_pov_crit)].shape[0])+' recalc to pov & '
                   +str(temp.loc[temp.eval(recalc_sub_crit)].shape[0])+' recalc to sub & '
                   +str(temp.loc[temp.eval(stop_criteria)].shape[0])+' stop reco\n')
-            
+       
             # Find hh that climbed out of subsistence
             temp.loc[temp.eval(start_criteria),'hh_reco_rate'] = (temp.loc[temp.eval(start_criteria)].eval(hh_reco_rate_t_sub)).clip(upper=6.*const_nom_reco_rate)
-            temp.loc[temp.eval(start_criteria),'t_start_prv_reco'] = _t
-            
+            temp.loc[temp.eval(start_criteria),'t_start_prv_reco'] = _t      
+
             # Find hh that need to accelerate or scale back their reconstruction as they progress, or b/c of PDS 
             temp.loc[temp.eval(recalc_pov_crit),'hh_reco_rate'] = (temp.loc[temp.eval(recalc_pov_crit)].eval(hh_reco_rate_t_pov)).clip(upper=6.*const_nom_reco_rate)
             temp.loc[temp.eval(recalc_sub_crit),'hh_reco_rate'] = (temp.loc[temp.eval(recalc_sub_crit)].eval(hh_reco_rate_t_sub)).clip(upper=6.*const_nom_reco_rate)
@@ -1411,7 +1413,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         #temp['di_prv_t'] = (temp['dk_prv_t'].values*my_avg_prod_k*(1-my_tau_tax)
         #                    + temp[['pcsoc','scale_fac_soc']].prod(axis=1).values*math.e**(-_t*const_pub_reco_rate))
         #temp['di_pub_t'] = temp['di0_pub'].values*math.e**(-_t*const_pub_reco_rate)
-        #temp['di_t'] = temp['di_prv_t'].values+temp['di_pub_t'].values-temp['help_received'].values*const_pds_rate*math.e**(-_t*const_pds_rate)
+        #temp['di_t'] = 
         # NB: these are unchanged from above...
         temp['dc_t'] = temp.eval('di_t+hh_reco_rate*dk_prv_t')
         
