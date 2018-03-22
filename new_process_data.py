@@ -299,8 +299,7 @@ _.loc['Total'] = [_['pop_q1'].sum(),
 print(_)
 
 _[['pop_q1','Asset risk pc','Well-being risk pc']].round(0).astype(int).sort_values('Well-being risk pc',ascending=False).to_latex('latex/risk_q1.tex')
-_.to_csv('debug/q1_figs.csv')
-assert(False)
+_.to_csv('tmp/q1_figs.csv')
 
 # Save out iah
 iah_out = pd.DataFrame(index=iah_res.sum(level=['hazard','rp']).index)

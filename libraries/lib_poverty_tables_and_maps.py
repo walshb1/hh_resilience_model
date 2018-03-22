@@ -38,15 +38,16 @@ def run_poverty_tables_and_maps(pov_df,event_level=['region','hazard','rp'],myC=
 
         pov_df_event['reg_pop'] = pov_df['pcwgt'].sum(level=event_level)
                                              
-        pov_df_event.to_csv('debug/new_pov_reg_haz_rp.csv')
+        pov_df_event.to_csv('tmp/new_pov_reg_haz_rp.csv')
         
         # Count up the hh still in poverty or subsistence after reconstruction (10 years)
         pov_df_later,_ = average_over_rp(pov_df.loc[pov_df.eval('(c_initial>pov_line)&(c_post_reco<=pov_line)'),'pcwgt'].sum(level=event_level).to_frame(name='new_pov_perm'),'default_rp')
-        pov_df_later.sum().to_csv('debug/permanent_poverty.csv')
+        pov_df_later.to_csv('tmp/permanent_poverty_by_reg.csv')
+        pov_df_later.sum().to_csv('tmp/permanent_poverty.csv')
 
     except:
         try: 
-            pov_df_event = pd.read_csv('debug/new_pov_reg_haz_rp.csv', index_col=event_level)
+            pov_df_event = pd.read_csv('tmp/new_pov_reg_haz_rp.csv', index_col=event_level)
             print('working with saved file')
         except: print('\n\n***Could not load poverty info***\n\n'); return False
  
@@ -65,7 +66,7 @@ def run_poverty_tables_and_maps(pov_df,event_level=['region','hazard','rp'],myC=
     pov_df_reg_haz['pct_pop_pov'] = 1000.*pov_df_reg_haz['new_pov']/pov_df_reg_haz['reg_pop'].astype('float')# Remember to divide by 10 later
     pov_df_reg_haz['pct_pop_sub'] = 1000.*pov_df_reg_haz['new_sub']/pov_df_reg_haz['reg_pop'].astype('float')# Remember to divide by 10 later
 
-    pov_df_reg_haz.to_csv('debug/new_pov_reg_haz.csv')
+    pov_df_reg_haz.to_csv('tmp/new_pov_reg_haz.csv')
 
     # Write out latex tables by hazard
     for _typ, _haz in pov_df_reg_haz.reset_index().set_index(event_level[0]).groupby(['hazard']):
@@ -83,7 +84,7 @@ def run_poverty_tables_and_maps(pov_df,event_level=['region','hazard','rp'],myC=
     pov_df_region['pct_pop_sub'] = 1000.*pov_df_region['new_sub']/pov_df_region['reg_pop']# Remember to divide by 10 later
     pov_df_region['pct_increase_pov'] = 1000.*pov_df_region['new_pov']/pov_df_region['init_pov']# Remember to divide by 10 later
     pov_df_region['pct_increase_sub'] = 1000.*pov_df_region['new_sub']/pov_df_region['init_sub']# Remember to divide by 10 later
-    pov_df_region.to_csv('debug/new_pov_reg.csv')
+    pov_df_region.to_csv('tmp/new_pov_reg.csv')
 
     pov_df_region.loc['Total'] = pov_df_region.sum()
     pov_df_region.loc['Total',['pct_pop_pov']] = round(1000.*pov_df_region['new_pov'].sum()/pov_df_region['reg_pop'].sum(),0)# Remember to divide by 10 later
@@ -100,7 +101,7 @@ def run_poverty_tables_and_maps(pov_df,event_level=['region','hazard','rp'],myC=
     pov_df_total['pct_pop_sub'] = 100*pov_df_total['new_sub']/pov_df_total['reg_pop']
     pov_df_total['pct_increase_pov'] = 100*pov_df_total['new_pov']/pov_df_total['init_pov']
     pov_df_total['pct_increase_sub'] = 100*pov_df_total['new_sub']/pov_df_total['init_sub']
-    pov_df_total.to_csv('debug/new_pov.csv')
+    pov_df_total.to_csv('tmp/new_pov.csv')
 
     # Plot poverty incidence for specific RPs
     pov_df_event = pov_df_event.reset_index(['hazard','rp'])
