@@ -304,7 +304,7 @@ plt.draw()
 fig=plt.gcf()
 fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/dk.pdf',format='pdf')
 
-summary_df = pd.read_csv('debug/my_summary_no.csv').reset_index()
+summary_df = pd.read_csv('../output_country/'+myCountry+'/my_summary_no.csv').reset_index()
 summary_df['res_mean'] = summary_df.groupby([economy,'hazard'])['res_tot'].transform('median')
 summary_df = summary_df.loc[(summary_df.dk_tot>=0.1)&(summary_df.res_tot<=1.25*summary_df.res_mean)].sort_values(by=['hazard',economy,'rp'])
 
@@ -360,8 +360,8 @@ for ix in xax:
         plt.close('all')
 
 
-summary_df = pd.read_csv('debug/my_summary_no.csv').reset_index().set_index([economy,'hazard','rp'])[['dk_tot','dw_tot','res_tot']]
-v_df = pd.read_csv('debug/fa_v.csv').reset_index().set_index([economy,'hazard','rp'])
+summary_df = pd.read_csv('../output_country/'+myCountry+'/my_summary_no.csv').reset_index().set_index([economy,'hazard','rp'])[['dk_tot','dw_tot','res_tot']]
+v_df = pd.read_csv('../output_country/'+myCountry+'/fa_v.csv').reset_index().set_index([economy,'hazard','rp'])
 summary_df['fa'] = v_df['fa'].round(2).clip(upper=0.95)
 
 summary_df.loc[summary_df.fa==0.95,'dk_famax'] = summary_df.loc[summary_df.fa==0.95,'dk_tot']
@@ -370,15 +370,11 @@ summary_df.loc[summary_df.fa==0.95,'dw_famax'] = summary_df.loc[summary_df.fa==0
 summary_df['dk_famax'] = summary_df['dk_famax'].fillna(0)
 summary_df['dw_famax'] = summary_df['dw_famax'].fillna(0)
 
-summary_df.to_csv('debug/my_summary_no_AUGMENTED.csv')
-
 rp_sum,_ = average_over_rp(summary_df[['dk_tot','dw_tot','dk_famax','dw_famax']])
 
 rp_sum['res_tot'] = rp_sum['dk_tot']/rp_sum['dw_tot']
 rp_sum['res_fa095'] = (rp_sum['dk_famax']/rp_sum['dw_famax']).fillna(rp_sum['res_tot'])
 rp_sum['res_fa_less_095'] = (rp_sum['dk_tot']-rp_sum['dk_famax'])/(rp_sum['dw_tot']-rp_sum['dw_famax'])
-
-rp_sum.to_csv('debug/my_summary_no_rp_AAL.csv')
 
 _df = rp_sum[['res_tot','res_fa095','res_fa_less_095']].stack()
 _df = _df.reset_index()

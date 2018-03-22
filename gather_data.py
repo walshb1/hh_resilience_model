@@ -187,7 +187,7 @@ pd.DataFrame({'population':cat_info['pcwgt'].sum(level=economy),
               'nPoor':cat_info.loc[cat_info.ispoor==1,'pcwgt'].sum(level=economy),
               'n_pov':cat_info.loc[cat_info.eval('pcinc_ae<=pov_line & pcinc_ae>sub_line'),'pcwgt'].sum(level=economy),
               'n_sub':cat_info.loc[cat_info.eval('pcinc_ae<=sub_line'),'pcwgt'].sum(level=economy),
-              'pctPoor':100.*cat_info.loc[cat_info.ispoor==1,'pcwgt'].sum(level=economy)/cat_info['pcwgt'].sum(level=economy)}).to_csv('debug/poverty_rate.csv')
+              'pctPoor':100.*cat_info.loc[cat_info.ispoor==1,'pcwgt'].sum(level=economy)/cat_info['pcwgt'].sum(level=economy)}).to_csv('../output_country/'+myCountry+'/poverty_rate.csv')
 # Could also look at urban/rural if we have that divide
 
 # Change the name: district to code, and create an multi-level index 
@@ -381,7 +381,7 @@ if myCountry != 'SL':
     hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = (hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold).clip(upper=0.95)
     hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=1E-8,upper=fa_threshold)    
 
-hazard_ratios[['fa','v']].mean(level=event_level).to_csv('debug/fa_v.csv')
+hazard_ratios[['fa','v']].mean(level=event_level).to_csv('../output_country/'+myCountry+'/fa_v.csv')
 
 while False:
     _path = '/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/'

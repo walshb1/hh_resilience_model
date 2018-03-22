@@ -103,11 +103,11 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     gc.collect()
     print('A')
     #verbose_replace=True by default, replace common columns in macro_event and cats_event with those in hazard_ratios_event
-
+    
     # compute_dK does the following:
     # -- adds dk_event column to macro_event
     # -- adds affected/na categories to cats_event
-    macro_event, cats_event_ia, pub_costs_inf = compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myCountry,share_public_assets) 
+    macro_event, cats_event_ia, pub_costs_inf = compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myCountry,optionPDS,share_public_assets) 
     # ^ calculate the actual vulnerability, the potential damange to capital, income, and consumption
     print('B\n\n')
     
@@ -120,7 +120,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     pub_costs_inf.to_csv(output+'pub_costs_inf_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     pub_costs_pds.to_csv(output+'pub_costs_pds_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
 
-    if False:
+    if True:
         is_contemporaneous = False 
         # For people outside affected province, do the collections for public asset reco & PDS happen at the same time?
         public_costs = calc_dw_outside_affected_province(macro_event, cat_info, pub_costs_inf, pub_costs_pds,event_level,is_contemporaneous,is_local_welfare,is_rev_dw)
@@ -194,14 +194,18 @@ if __name__ == '__main__':
         # --> develop market insurance for rich
         # --> universal access to finance
         # --> 
-    
-    if myCountry == 'PH' or myCountry == 'SL':
+
+    if myCountry == 'PH':
         pds_str = ['no','unif_poor']
+        pol_str = ['']
+    
+    if myCountry == 'SL':
+        pds_str = ['no','unif_poor','unif_poor_only']
         pol_str = ['']
             
     if debug == True:
         print('Running in debug mode!')
-        launch_compute_resilience_and_risk_thread(myCountry,'','fiji_SPS')
+        launch_compute_resilience_and_risk_thread(myCountry,'','unif_poor')
     else:
         with Pool() as pool:
             print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))

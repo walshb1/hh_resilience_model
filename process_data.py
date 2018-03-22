@@ -513,7 +513,7 @@ for myDis in allDis:
         cf_heights /= get_pop_scale_fac(myCountry)[0]
         cr_heights /= get_pop_scale_fac(myCountry)[0]
 
-        cutA.loc[(cutA.affected_cat=='a'),['c','di0','dc_post_reco']].to_csv('debug/c_aff_'+str(myRP)+'.csv')
+        cutA.loc[(cutA.affected_cat=='a'),['c','di0','dc_post_reco']].to_csv('tmp/c_aff_'+str(myRP)+'.csv')
 
         #ax.bar(cf_bins[:-1], ci_heights, width=(cf_bins[1]-cf_bins[0]), label='Initial', facecolor=q_colors[1],alpha=0.4)
         ax.bar(cf_bins[:-1], cf_heights, width=(cf_bins[1]-cf_bins[0]), label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
@@ -788,8 +788,8 @@ for myRP in myHaz[2]:
             plt.savefig('../output_plots/'+myCountry+'/png/means_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',bbox_inches='tight',format='pdf')
             plt.cla()
 
-df_out.to_csv('debug/my_means_'+myCountry+pol_str+'.csv')
-df_out_sum.to_csv('debug/my_means_ntl_'+myCountry+pol_str+'.csv')
+df_out.to_csv('tmp/my_means_'+myCountry+pol_str+'.csv')
+df_out_sum.to_csv('tmp/my_means_ntl_'+myCountry+pol_str+'.csv')
 
 print('rp:',rp_all,'\ndk:',dk_all,'\ndw:',dw_all,'\ndk_q1:',dk_q1,'\ndw_q1:',dw_q1)
 

@@ -24,7 +24,7 @@ const_nom_reco_rate, const_pub_reco_rate = None, None
 const_rho, const_ie = None, None
 const_pds_rate = None
 
-debug = '~/Desktop/BANK/hh_resilience_model/model/debug/'
+tmp = '~/Desktop/BANK/hh_resilience_model/model/tmp/'
 
 def get_weighted_mean(q1,q2,q3,q4,q5,key,weight_key='pcwgt'):
     
@@ -321,7 +321,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 
     return macro_event, cats_event, hazard_ratios_event 
 
-def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,share_public_assets=True):
+def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,optionPDS,share_public_assets=True):
 
     #counts affected and non affected
     cats_event_ia=concat_categories(cats_event,cats_event,index= affected_cats)
@@ -449,7 +449,8 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         #print(rebuild_fees[['hh_fee_PE','frac_k_PE']].sum(level=event_level).head(17))
         
         public_costs = distribute_public_costs(macro_event,rebuild_fees,event_level,'dk_public')
-                
+        public_costs.to_csv('../output_country/'+myC+'/public_costs_'+optionPDS+'.csv')
+
         ############################
         # Choose whether to assess tax on k (BE='before event') or (PE='post event')
         # --> the total k in non-aff provinces doesn't change, either way
@@ -478,7 +479,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         # Sanity check: (C-di) does not bankrupt
         _ = cats_event_ia.loc[(cats_event_ia.c-cats_event_ia.di0)<0]
         if _.shape[0] != 0:
-            _.to_csv(debug+'bankrupt.csv')
+            _.to_csv(tmp+'bankrupt.csv')
             assert(_.shape[0] == 0)
 
         # Leaving out all terms without time-dependence
@@ -557,14 +558,13 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,shar
         _c3['hh_reco_rate'] = 0.             # No Reconstruction
         _c3['dc0_prv']      = _c3['di0_prv'] # No Reconstruction
         _c3['dc0']          = _c3['dc0_prv'] + _c3['dc0_pub']
-        #_c3.head(50000).to_csv(debug+'my_tmp_welfclass3.csv')
+        #_c3.head(50000).to_csv(tmp+'my_tmp_welfclass3.csv')
         if _c3.shape[0]!=0: cats_event_ia.loc[_c3.index.tolist(),['dc0','dc0_prv','hh_reco_rate','welf_class']] = _c3[['dc0','dc0_prv','hh_reco_rate','welf_class']]
         print('C3: '+str(round(float(100*cats_event_ia.loc[(cats_event_ia.welf_class==3)].shape[0])
                                /float(cats_event_ia.loc[cats_event_ia.dk0!=0].shape[0]),2))+'% of hh do not reconstruct')
 
         # make plot here: (income vs. length of reco)
         if cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.c)].shape[0] != 0:
-            cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.c)].to_csv(debug+'excess.csv')
             hh_extinction = str(round(float(cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.c)].shape[0]/cats_event_ia.shape[0])*100.,2))
             print('\n\n***ISSUE: '+hh_extinction+'% of (hh x event) combos face dc0 > i0. Could mean extinction!\n--> SOLUTION: capping dw at 20xGDPpc \n\n')
         
@@ -638,8 +638,7 @@ def distribute_public_costs(macro_event,rebuild_fees,event_level,transfer_type):
     #                                                                               'transfer_pub_BE','transfer_pub_PE','PE_to_BE']],axis=1)
     
     public_costs['dw'] = None
-    public_costs.to_csv(debug+'public_costs.csv')
-
+    
     return public_costs
 
 def calc_dw_outside_affected_province(macro_event, cat_info, public_costs_pub, public_costs_pds, event_level, is_contemporaneous=False, is_local_welfare=False, is_revised_dw=True):
@@ -822,48 +821,39 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     # --> If this much were distributed to everyone in the country, it would be 5% of GDP
     macro_event['max_aid'] = macro_event['max_increased_spending'].mean()*macro_event[['gdp_pc_prov','pop']].prod(axis=1).sum(level=['hazard','rp']).mean()/macro_event['pop'].sum(level=['hazard','rp']).mean()
 
-    #if optionFee == 'insurance_premium':
-    #    temp = cats_event_iah.copy()
-	
+    ############################
+    # Calculate SP payout
+    cats_event_iah['help_received'] = 0
+
     if optionPDS=='no':
         macro_event['aid'] = 0
-        cats_event_iah['help_received']=0
         optionB='no'
 
-    if optionPDS == 'fiji_SPP': cats_event_iah = run_fijian_SPP(macro_event,cats_event_iah)        
-    if optionPDS=='fiji_SPS': cats_event_iah = run_fijian_SPS(macro_event,cats_event_iah)   
+    elif optionPDS == 'fiji_SPP': cats_event_iah = run_fijian_SPP(macro_event,cats_event_iah)        
+    elif optionPDS=='fiji_SPS': cats_event_iah = run_fijian_SPS(macro_event,cats_event_iah)   
 
     elif optionPDS=='unif_poor':
-
-        cats_event_iah['help_received'] = 0        
-
-        # For this policy:
-        # --> help_received = 0.8*average losses of lowest quintile (households)
-        cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')&(cats_event_iah.affected_cat=='a'),'help_received'] = macro_event['shareable']*cats_event_iah.loc[(cats_event_iah.affected_cat=='a')&(cats_event_iah.quintile==1),[loss_measure,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah.loc[(cats_event_iah.affected_cat=='a')&(cats_event_iah.quintile==1),'pcwgt'].sum(level=event_level)
-
-        # This should be zero here, but just to make sure...
-        cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped'),'help_received']=0
+        # For this policy: help_received by all helped hh = shareable (0.8) * average losses (dk) of lowest quintile
+        cats_event_iah.loc[cats_event_iah.eval('helped_cat=="helped"'),'help_received'] = macro_event['shareable'] * cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),[loss_measure,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),'pcwgt'].sum(level=event_level)
 
     elif optionPDS=='unif_poor_only':
-        cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')&(cats_event_iah.affected_cat=='a')&(cats_event_iah.quintile==1),'help_received']=macro_event['shareable']*cats_event_iah.loc[(cats_event_iah.affected_cat=='a')&(cats_event_iah.quintile==1),[loss_measure,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah.loc[(cats_event_iah.affected_cat=='a')&(cats_event_iah.quintile==1),'pcwgt'].sum(level=event_level)
-
-        # These should be zero here, but just to make sure...
-        cats_event_iah.ix[(cats_event_iah.helped_cat=='not_helped')|(cats_event_iah.quintile > 1),'help_received']=0
-        print('Calculating loss measure\n')
+        # For this policy: help_received by all helped hh in 1st quintile = shareable (0.8) * average losses (dk) of lowest quintile
+        cats_event_iah.loc[cats_event_iah.eval('(helped_cat=="helped")&(quintile==1)'),'help_received']=macro_event['shareable']*cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),[loss_measure,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),'pcwgt'].sum(level=event_level)
 
     elif optionPDS=='prop':
+        cats_event_iah = cats_event_iah.reset_index().set_index(event_level+['affected_cat'])
+
         if not 'has_received_help_from_PDS_cat' in cats_event_iah.columns:
-            cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a'),'help_received']= macro_event['shareable']*cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a'),loss_measure]
-            cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='na'),'help_received']= macro_event['shareable']*cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a'),loss_measure]
-            cats_event_iah.ix[cats_event_iah.helped_cat=='not_helped','help_received']=0		
+            cats_event_iah.loc[(cats_event_iah.helped_cat=='helped'),'help_received']= macro_event['shareable']*cats_event_iah.loc[(cats_event_iah.helped_cat=='helped'),loss_measure]		
 
         else:
             cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a')  & (cats_event_iah.has_received_help_from_PDS_cat=='helped'),'help_received']= macro_event['shareable']*cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a')  & (cats_event_iah.has_received_help_from_PDS_cat=='helped'),loss_measure]
             cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='na')  & (cats_event_iah.has_received_help_from_PDS_cat=='helped'),'help_received']= macro_event['shareable']*cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a')  & (cats_event_iah.has_received_help_from_PDS_cat=='helped'),loss_measure]			
             cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a')  & (cats_event_iah.has_received_help_from_PDS_cat=='not_helped'),'help_received']= macro_event['shareable']*cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a')  & (cats_event_iah.has_received_help_from_PDS_cat=='helped'),loss_measure]
-            cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='na')  & (cats_event_iah.has_received_help_from_PDS_cat=='not_helped'),'help_received']= macro_event['shareable']*cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a')  & (cats_event_iah.has_received_help_from_PDS_cat=='helped'),loss_measure]			
-            cats_event_iah.ix[cats_event_iah.helped_cat=='not_helped','help_received']=0
-		
+            cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='na')  & (cats_event_iah.has_received_help_from_PDS_cat=='not_helped'),'help_received']= macro_event['shareable']*cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a')  & (cats_event_iah.has_received_help_from_PDS_cat=='helped'),loss_measure]
+    
+        cats_event_iah = cats_event_iah.reset_index('affected_cat',drop=False)
+
     #actual aid reduced by capacity
     # ^ Not implemented for now
 		
@@ -1153,7 +1143,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     temp_na['dc_t'] = 0.
     # wprime, dk0
 
-    temp_na.head(100000).to_csv(debug+'temp_na.csv')
+    temp_na.head(100000).to_csv(tmp+'temp_na.csv')
     # Will re-merge temp_na with temp at the bottom...trying to optimize here!
 
     #############################
@@ -1216,7 +1206,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # --> this is assuming the government covers the costs for now, and assesses taxes much, much later
 
     print(temp.loc[temp.sav_f<0].shape[0],' hh borrow to pay their fees...')
-    #temp.loc[temp.sav_f<0,['pc_fee','sav_i','sav_f']].to_csv(debug+'borrow_to_pay_fees.csv')
+    #temp.loc[temp.sav_f<0,['pc_fee','sav_i','sav_f']].to_csv(tmp+'borrow_to_pay_fees.csv')
     # debit pc_fee... what happens if pc_fee > sav_i?
     # --> let this go...assume that hh will be able to borrow in order to pay that fee
 
@@ -1243,7 +1233,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         #    temp.loc[temp.welf_class==3,    'sav_f'] -= _t4.clip(upper=0.5*temp.loc[temp.welf_class==3,'sav_f'])
         #    # SANITY CHECK: min(dk_prv_t) should still be >= 0:
         #    if temp['dk_prv_t'].min()<0:
-        #        temp.loc[(temp.dk_prv_t<0)].to_csv(debug+'bug_savings_to_pos_cons.csv')
+        #        temp.loc[(temp.dk_prv_t<0)].to_csv(tmp+'bug_savings_to_pos_cons.csv')
         #        assert(temp['dk_prv_t'].min()>=0)
         ###################################
 
@@ -1340,7 +1330,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         savings_check = '(sav_i>0.)&(sav_f+0.01<0.)'
         if temp.loc[temp.eval(savings_check)].shape[0] != 0:
             print('Some hh overdraft their savings!')
-            temp.loc[temp.eval(savings_check)].to_csv(debug+'bug_negative_savings_'+str(counter)+'.csv')
+            temp.loc[temp.eval(savings_check)].to_csv(tmp+'bug_negative_savings_'+str(counter)+'.csv')
             #assert(False)
       
         ########################  
@@ -1356,11 +1346,11 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         # Sanity check: dk_prv_t should not be higher than dk_private (initial value)
         if temp.loc[(temp.dk_prv_t>temp.dk_private+0.01)].shape[0] > 0:
             print('Some hh lose more at the end than in the disaster!')
-            temp.loc[(temp.dk_prv_t>temp.dk_private+0.01)].to_csv(debug+'bug_ghost_losses'+optionPDS+'_'+str(counter)+'.csv')
+            temp.loc[(temp.dk_prv_t>temp.dk_private+0.01)].to_csv(tmp+'bug_ghost_losses'+optionPDS+'_'+str(counter)+'.csv')
             #assert(False)  
 
         # Save out the files for debugging
-        if ((counter<=10) or (counter%50 == 0)): temp.head(10000).to_csv(debug+'temp_'+optionPDS+pol_str+'_'+str(counter)+'.csv')
+        if ((counter<=10) or (counter%50 == 0)): temp.head(10000).to_csv(tmp+'temp_'+optionPDS+pol_str+'_'+str(counter)+'.csv')
         if (counter <= 3*52 and counter%52==0) or (counter==52*10):
             affected_year_step['dk_'+str(int(counter/52))] = temp['dk_prv_t']
             affected_year_step['dc_'+str(int(counter/52))] = temp['dc_net']
@@ -1401,7 +1391,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
 
     print('Applying upper limit for dw = ',round(my_dw_limit,0))
     temp['dw_tot'] = temp[['dw_curr','pcwgt']].prod(axis=1)
-    temp.loc[(temp.pcwgt!=0)&(temp.dw_curr==my_dw_limit)].to_csv(debug+'my_late_excess'+optionPDS+'.csv')
+    temp.loc[(temp.pcwgt!=0)&(temp.dw_curr==my_dw_limit)].to_csv(tmp+'my_late_excess'+optionPDS+'.csv')
 
     print('\n ('+optionPDS+' Total well-being losses ('+pol_str+'):',round(float(temp[['dw_curr_no_clip','pcwgt']].prod(axis=1).sum())/1.E6,3))
     
@@ -1426,11 +1416,11 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     tmp_out['sub_avg_reco_t']     = (np.log(1/0.05)/temp.loc[(temp.affected_cat=='a')&(temp.welf_class==3)&(temp.hh_reco_rate!=0),'hh_reco_rate']).mean(skipna=True,level=[i for i in mac_ix])
     tmp_out['non_sub_avg_reco_t'] = (np.log(1/0.05)/temp.loc[(temp.affected_cat=='a')&(temp.welf_class!=3)&(temp.hh_reco_rate!=0),'hh_reco_rate']).mean(skipna=True,level=[i for i in mac_ix])
     tmp_out['pct_subs']           = temp.loc[(temp.affected_cat=='a')&(temp.hh_reco_rate==0),'pcwgt'].sum(level=[i for i in mac_ix])/temp.loc[(temp.affected_cat=='a'),'pcwgt'].sum(level=[i for i in mac_ix])
-
-    tmp_out.loc[tmp_out.dw_tot!=0].to_csv(debug+'my_summary_'+optionPDS+pol_str+'.csv')
+    
+    tmp_out.to_csv('../output_country/'+myC+'/my_summary_'+optionPDS+pol_str+'.csv')
     tmp_out_aal,_ = average_over_rp(tmp_out[['dk_tot','dw_tot']])
     tmp_out_aal['resilience'] = tmp_out_aal['dk_tot']/tmp_out_aal['dw_tot']
-    tmp_out_aal.to_csv(debug+'my_sumary_aal_'+optionPDS+pol_str+'.csv')
+    tmp_out_aal.to_csv('../output_country/'+myC+'/my_summary_aal_'+optionPDS+pol_str+'.csv')
     print('Wrote out summary stats for dw ('+optionPDS+'/'+pol_str+')')
 
     print(temp['dc_t'].mean())
