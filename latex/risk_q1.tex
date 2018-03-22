@@ -1,30 +1,40 @@
-\begin{tabular}{lrrr}
+\documentclass[10pt]{article}
+\usepackage[usenames]{color} %used for font color
+\usepackage{amssymb} %maths
+\usepackage{amsmath} %maths
+\usepackage[utf8]{inputenc} %useful to type directly diacritic characters
+\usepackage{booktabs}
+\begin{document}
+\[\begin{tabular}{@{}lrrr@{}}
 \toprule
-{} &  pop\_q1 &  Asset risk pc &  Well-being risk pc \\
-district     &         &                &                     \\
+& & \multicolumn{2}{c}{\bf Per capita risk}\\
+{} &  \bf Q1 population &  Asset &  Well-being \\
+\bf Region  & \footnotesize [thousands]  &  \multicolumn{2}{@{}c@{}}{\footnotesize [LKR per cap., per year]}\\
 \midrule
-Rathnapura   &     214 &            446 &                6191 \\
-Mannar       &      19 &            237 &                5726 \\
-Colombo      &     444 &            729 &                3773 \\
-Polonnaruwa  &      78 &            309 &                3233 \\
-Puttalam     &     150 &            246 &                2761 \\
-Kalutara     &     239 &            269 &                2366 \\
-Trincomalee  &      74 &            177 &                2016 \\
-Batticaloa   &     104 &             76 &                1703 \\
-Total        &    3663 &            193 &                1613 \\
-Hambantota   &     117 &            123 &                1396 \\
-Kurunegala   &     315 &             74 &                 882 \\
-Gampaha      &     449 &            144 &                 863 \\
-Mullaitivu   &      18 &             28 &                 818 \\
-Kegalle      &     164 &             65 &                 705 \\
-Galle        &     206 &             26 &                 359 \\
-Ampara       &     127 &             30 &                 305 \\
-Anuradhapura &     165 &             27 &                 300 \\
-Badulla      &     159 &             18 &                 273 \\
-Vavuniya     &      32 &             23 &                 253 \\
-Matale       &      94 &             17 &                 193 \\
-Kandy        &     266 &             15 &                 149 \\
-Moneragala   &      88 &              5 &                  95 \\
-Nuwara Eliya &     139 &              0 &                   2 \\
+Rathnapura   &   213,715 &         446 &       6,191 \\
+Mannar       &    19,005 &         237 &       5,726 \\
+Colombo      &   444,247 &         729 &       3,773 \\
+Polonnaruwa  &    78,227 &         309 &       3,233 \\
+Puttalam     &   150,034 &         246 &       2,761 \\
+Kalutara     &   239,396 &         269 &       2,366 \\
+Trincomalee  &    74,361 &         177 &       2,016 \\
+Batticaloa   &   103,772 &          76 &       1,703 \\
+\bf{All districts} & \bf{3,663,183}&\bf{193}&\bf{1,613}\\
+Hambantota   &   116,978 &         123 &       1,396 \\
+Kurunegala   &   315,372 &          74 &         882 \\
+Gampaha      &   448,722 &         144 &         863 \\
+Mullaitivu   &    18,032 &          28 &         818 \\
+Kegalle      &   163,776 &          65 &         705 \\
+Galle        &   206,484 &          26 &         359 \\
+Ampara       &   127,207 &          30 &         305 \\
+Anuradhapura &   165,358 &          27 &         300 \\
+Badulla      &   158,997 &          18 &         273 \\
+Vavuniya     &    32,097 &          23 &         253 \\
+Matale       &    94,303 &          17 &         193 \\
+Kandy        &   265,749 &          15 &         149 \\
+Moneragala   &    87,908 &           5 &          95 \\
+Nuwara Eliya &   139,442 &           0 &           2 \\
 \bottomrule
 \end{tabular}
+\]
+\end{document}
