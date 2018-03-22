@@ -236,6 +236,7 @@ _.sort_values('PF',ascending=False).to_latex('latex/reg_haz_asset_risk.tex')
 iah_out = iah_out.sum(level=economy)
 
 print(iah_out.head())
+iah_out[['Asset risk','Well-being risk']]*=to_usd/1.E3 # iah_out is thousands [1E3]
 
 iah_out.loc['Total'] = [float(iah_out['Asset risk'].sum()),
                         float(iah_out['Well-being risk'].sum()),
@@ -243,7 +244,6 @@ iah_out.loc['Total'] = [float(iah_out['Asset risk'].sum()),
 iah_out['SE capacity']  = 100.*iah_out['Asset risk']/iah_out['Well-being risk']
 
 iah_out.to_csv(output+'geo_aal_sums.csv')
-iah_out[['Asset risk','Well-being risk']]/=1.E6
 
 iah_out[['Asset risk','SE capacity','Well-being risk']].sort_values(['Well-being risk'],ascending=False).astype(int).to_latex('latex/geo_aal_sums.tex')
 print('Wrote latex! Sums:\n',iah_out[['Asset risk','Well-being risk']].sum())
@@ -251,8 +251,8 @@ print('Wrote latex! Sums:\n',iah_out[['Asset risk','Well-being risk']].sum())
 # Save out iah by economic unit, *only for poorest quintile*
 iah_out_q1 = pd.DataFrame(index=iah_res.sum(level=[economy,'hazard','rp']).index)
 for iPol in ['']+all_policies:
-    iah_out_q1['Asset risk'+iPol] = iah_res.loc[(iah_res.quintile==1),['dk0'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
-    iah_out_q1['Well-being risk'+iPol] = iah_res.loc[(iah_res.quintile==1),['dw'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])
+    iah_out_q1['Asset risk'+iPol] = iah_res.loc[(iah_res.quintile==1),['dk0'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])*to_usd/1.E3
+    iah_out_q1['Well-being risk'+iPol] = iah_res.loc[(iah_res.quintile==1),['dw'+iPol,'pcwgt']].prod(axis=1).sum(level=[economy,'hazard','rp'])*to_usd/1.E3
 
 iah_out_q1.to_csv(output+'geo_sums_q1.csv')
 iah_out_q1,_ = average_over_rp(iah_out_q1,'default_rp')
@@ -267,7 +267,6 @@ iah_out_q1.loc['Total'] = [float(iah_out_q1['Asset risk'].sum()),
 iah_out_q1['SE capacity']  = iah_out_q1['Asset risk']/iah_out_q1['Well-being risk']
 
 iah_out_q1.to_csv(output+'geo_aal_sums_q1.csv')
-iah_out_q1[['Asset risk','Well-being risk']]/=1.E6
 
 iah_out_q1['% total RA'] = 100.*(iah_out_q1['Asset risk']/iah_out['Asset risk'])
 iah_out_q1['% total RW'] = 100.*(iah_out_q1['Well-being risk']/iah_out['Well-being risk'])
@@ -279,8 +278,8 @@ print('Wrote latex! Q1 sums: ',iah_out_q1.sum())
 #iah_out_q1['pop']  = iah_res['pcwgt'].sum(level=event_level).mean(level=event_level[0])/1.E6
 #iah_out_q1['grdp'] = iah_res[['pcwgt','c']].prod(axis=1).sum(level=event_level).mean(level=event_level[0])/1.E6
 
-iah_out_q1['pop_q1']  = iah_res.loc[iah_res.quintile==1,'pcwgt'].sum(level=event_level).mean(level=event_level[0])/1.E3
-iah_out_q1['grdp_q1'] = iah_res.loc[iah_res.quintile==1,['pcwgt','c']].prod(axis=1).sum(level=event_level).mean(level=event_level[0])/1.E6
+iah_out_q1['pop_q1']  = iah_res.loc[iah_res.quintile==1,'pcwgt'].sum(level=event_level).mean(level=event_level[0])
+iah_out_q1['grdp_q1'] = iah_res.loc[iah_res.quintile==1,['pcwgt','c']].prod(axis=1).sum(level=event_level).mean(level=event_level[0])
 
 #iah_out_q1['reg_wprime'] = (iah_res[['pcwgt','c']].prod(axis=1).sum(level=event_level).mean(level=event_level[0])
 #                            /iah_res['pcwgt'].sum(level=event_level).mean(level=event_level[0]))**(-1.5)
@@ -289,8 +288,9 @@ iah_out_q1['grdp_q1'] = iah_res.loc[iah_res.quintile==1,['pcwgt','c']].prod(axis
 #                               /iah_res.loc[iah_res.quintile==1,'pcwgt'].sum(level=event_level).mean(level=event_level[0]))**(-1.5)
 
 _ = iah_out_q1.drop('Total',axis=0)[['pop_q1','Asset risk','Well-being risk']].copy()
-_['Asset risk pc'] = iah_out_q1['Asset risk']*1.E3/iah_out_q1['pop_q1']
-_['Well-being risk pc'] = iah_out_q1['Well-being risk']*1.E3/iah_out_q1['pop_q1']
+_[['Asset risk','Well-being risk']]/=to_usd
+_['Asset risk pc'] = iah_out_q1['Asset risk']*1.E3/(to_usd*iah_out_q1['pop_q1'])
+_['Well-being risk pc'] = iah_out_q1['Well-being risk']*1.E3/(to_usd*iah_out_q1['pop_q1'])
 _.loc['Total'] = [_['pop_q1'].sum(),
                   _['Asset risk'].sum(),
                   _['Well-being risk'].sum(),
@@ -300,6 +300,7 @@ print(_)
 
 _[['pop_q1','Asset risk pc','Well-being risk pc']].round(0).astype(int).sort_values('Well-being risk pc',ascending=False).to_latex('latex/risk_q1.tex')
 _.to_csv('debug/q1_figs.csv')
+assert(False)
 
 # Save out iah
 iah_out = pd.DataFrame(index=iah_res.sum(level=['hazard','rp']).index)

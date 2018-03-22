@@ -67,7 +67,7 @@ def run_poverty_tables_and_maps(pov_df,event_level=['region','hazard','rp'],myC=
 
     pov_df_reg_haz.to_csv('debug/new_pov_reg_haz.csv')
 
-    # Write out latex tabels by hazard
+    # Write out latex tables by hazard
     for _typ, _haz in pov_df_reg_haz.reset_index().set_index(event_level[0]).groupby(['hazard']):
         _haz = _haz.copy()
         _haz.loc['Total'] = _haz.sum()
@@ -86,10 +86,10 @@ def run_poverty_tables_and_maps(pov_df,event_level=['region','hazard','rp'],myC=
     pov_df_region.to_csv('debug/new_pov_reg.csv')
 
     pov_df_region.loc['Total'] = pov_df_region.sum()
-    pov_df_region.loc['Total',['pct_pop_pov']] = 1000.*pov_df_region['new_pov'].sum()/pov_df_region['reg_pop'].sum()# Remember to divide by 10 later
-    pov_df_region.loc['Total',['pct_pop_sub']] = 1000.*pov_df_region['new_sub'].sum()/pov_df_region['reg_pop'].sum()# Remember to divide by 10 later
-    pov_df_region.loc['Total',['pct_increase_pov']] = 1000.*pov_df_region['new_pov'].sum()/pov_df_region['init_pov'].sum()# Remember to divide by 10 later
-    pov_df_region.loc['Total',['pct_increase_sub']] = 1000.*pov_df_region['new_sub'].sum()/pov_df_region['init_sub'].sum()# Remember to divide by 10 later
+    pov_df_region.loc['Total',['pct_pop_pov']] = round(1000.*pov_df_region['new_pov'].sum()/pov_df_region['reg_pop'].sum(),0)# Remember to divide by 10 later
+    pov_df_region.loc['Total',['pct_pop_sub']] = round(1000.*pov_df_region['new_sub'].sum()/pov_df_region['reg_pop'].sum(),0)# Remember to divide by 10 later
+    pov_df_region.loc['Total',['pct_increase_pov']] = round(1000.*pov_df_region['new_pov'].sum()/pov_df_region['init_pov'].sum(),0)# Remember to divide by 10 later
+    pov_df_region.loc['Total',['pct_increase_sub']] = round(1000.*pov_df_region['new_sub'].sum()/pov_df_region['init_sub'].sum(),0)# Remember to divide by 10 later
 
     pov_df_region[['new_pov','pct_increase_pov','new_sub','pct_increase_sub']].fillna(0).sort_values(['new_pov'],ascending=False).astype('int').to_latex('latex/poverty_all_haz.tex')
 
