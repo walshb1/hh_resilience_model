@@ -381,7 +381,7 @@ if myCountry != 'SL':
     hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = (hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold).clip(upper=0.95)
     hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=1E-8,upper=fa_threshold)    
 
-hazard_ratios[['fa','v']].mean(level=event_level).to_csv('../output_country/'+myCountry+'/fa_v.csv')
+hazard_ratios[['fa','v']].mean(level=event_level).to_csv('tmp/fa_v.csv')
 
 while False:
     _path = '/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/'

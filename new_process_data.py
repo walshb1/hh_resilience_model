@@ -331,6 +331,7 @@ iah_ntl['pov_hh_D'] = iah_ntl['pov_hh_f'] - iah_ntl['pov_hh_i']
 #iah_ntl['pov_pc_pds_D'] = iah_ntl['pov_pc_pds_f'] - iah_ntl['pov_pc_i']
 #iah_ntl['pov_hh_pds_D'] = iah_ntl['pov_hh_pds_f'] - iah_ntl['pov_hh_i']
 print('\n\nInitial poverty incidence:\n',iah_ntl[['pov_pc_i','pov_hh_i']].mean())
+print('--> THIS IS NOT RIGHT! Maybe because of the 3 provinces that dropped off?')
 #iah_ntl[['pov_pc_i','pov_hh_i']].to_csv('~/Desktop/my_out.csv')
 
 #iah_ntl['eff_pds'] = iah_ntl['pov_pc_pds_D'] - iah_ntl['pov_pc_D']
@@ -539,8 +540,8 @@ for aProv in myHaz[0]:
             plt.xlim(3,26)
             plt.plot([i for i in ax2.get_xlim()],[0,0],'k-',lw=1.5,color=greys_pal[7],zorder=100,alpha=0.85)
             plt.ylabel('Well-being losses ['+get_currency(myCountry)[0][3:]+' per capita]')
-            #fig2.savefig(output_plots+'npr_pds_schemes_'+aProv+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')
-            #fig2.savefig(output_plots+'png/npr_pds_schemes_'+aProv+'_'+aDis+'_'+str(anRP)+'.png',format='png')
+            fig2.savefig(output_plots+'npr_pds_schemes_'+aProv+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')
+            fig2.savefig(output_plots+'png/npr_pds_schemes_'+aProv+'_'+aDis+'_'+str(anRP)+'.png',format='png')
         
             plt.clf()
             plt.close('all')
