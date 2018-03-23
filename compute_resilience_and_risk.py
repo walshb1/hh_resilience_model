@@ -200,12 +200,12 @@ if __name__ == '__main__':
         pol_str = ['']
     
     if myCountry == 'SL':
-        pds_str = ['no','unif_poor','unif_poor_only']
+        pds_str = ['no','prop_q1','prop_q12']#['no','unif_poor','unif_poor_only','unif_poor_q12','prop_q1','prop_q12']
         pol_str = ['']
             
     if debug == True:
         print('Running in debug mode!')
-        launch_compute_resilience_and_risk_thread(myCountry,'','unif_poor')
+        launch_compute_resilience_and_risk_thread(myCountry,'','unif_poor_q12')
     else:
         with Pool() as pool:
             print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))
