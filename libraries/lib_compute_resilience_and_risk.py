@@ -1149,7 +1149,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     temp_na['dc_t'] = 0.
     # wprime, dk0
 
-    temp_na.head(100000).to_csv(tmp+'temp_na.csv')
+    temp_na.head(10000).to_csv(tmp+'temp_na.csv')
     # Will re-merge temp_na with temp at the bottom...trying to optimize here!
 
     #############################
@@ -1356,7 +1356,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
             #assert(False)  
 
         # Save out the files for debugging
-        if ((counter<=10) or (counter%50 == 0)): temp.head(10000).to_csv(tmp+'temp_'+optionPDS+pol_str+'_'+str(counter)+'.csv')
+        if ((counter<=10) or (counter%50 == 0)): temp.head(100).to_csv(tmp+'temp_'+optionPDS+pol_str+'_'+str(counter)+'.csv')
         if (counter <= 3*52 and counter%52==0) or (counter==52*10):
             affected_year_step['dk_'+str(int(counter/52))] = temp['dk_prv_t']
             affected_year_step['dc_'+str(int(counter/52))] = temp['dc_net']
