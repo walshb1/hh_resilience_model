@@ -840,19 +840,27 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
         # For this policy: help_received by all helped hh in 1st quintile = shareable (0.8) * average losses (dk) of lowest quintile
         cats_event_iah.loc[cats_event_iah.eval('(helped_cat=="helped")&(quintile==1)'),'help_received']=macro_event['shareable']*cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),[loss_measure,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),'pcwgt'].sum(level=event_level)
 
-    elif optionPDS=='prop':
-        cats_event_iah = cats_event_iah.reset_index().set_index(event_level+['affected_cat'])
+    elif optionPDS=='unif_poor_q12':
+        # For this policy: help_received by all helped hh in 1st & 2nd quintiles = shareable (0.8) * average losses (dk) of lowest quintile
+        cats_event_iah.loc[cats_event_iah.eval('(helped_cat=="helped")&(quintile<=2)'),'help_received']=macro_event['shareable']*cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),[loss_measure,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),'pcwgt'].sum(level=event_level)
 
-        if not 'has_received_help_from_PDS_cat' in cats_event_iah.columns:
-            cats_event_iah.loc[(cats_event_iah.helped_cat=='helped'),'help_received']= macro_event['shareable']*cats_event_iah.loc[(cats_event_iah.helped_cat=='helped'),loss_measure]		
+    elif 'prop' in optionPDS:
+        # Assuming there is no inclusion error for prop, since it assumes demonstrated losses ... there can still be excl error, though
+        cats_event_iah = cats_event_iah.reset_index().set_index(event_level+['hhid','affected_cat'])        
 
-        else:
-            cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a')  & (cats_event_iah.has_received_help_from_PDS_cat=='helped'),'help_received']= macro_event['shareable']*cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a')  & (cats_event_iah.has_received_help_from_PDS_cat=='helped'),loss_measure]
-            cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='na')  & (cats_event_iah.has_received_help_from_PDS_cat=='helped'),'help_received']= macro_event['shareable']*cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a')  & (cats_event_iah.has_received_help_from_PDS_cat=='helped'),loss_measure]			
-            cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a')  & (cats_event_iah.has_received_help_from_PDS_cat=='not_helped'),'help_received']= macro_event['shareable']*cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a')  & (cats_event_iah.has_received_help_from_PDS_cat=='helped'),loss_measure]
-            cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='na')  & (cats_event_iah.has_received_help_from_PDS_cat=='not_helped'),'help_received']= macro_event['shareable']*cats_event_iah.ix[(cats_event_iah.helped_cat=='helped')& (cats_event_iah.affected_cat=='a')  & (cats_event_iah.has_received_help_from_PDS_cat=='helped'),loss_measure]
+        if optionPDS=='prop':
+            cats_event_iah.loc[(cats_event_iah.helped_cat=='helped'),'help_received']= 0.5*cats_event_iah.loc[(cats_event_iah.helped_cat=='helped'),loss_measure]
+
+        #if not 'has_received_help_from_PDS_cat' in cats_event_iah.columns: print('pds = prod with additional criteria not implemented')
+        #else: print('pds = prod with additional criteria not implemented')
     
-        cats_event_iah = cats_event_iah.reset_index('affected_cat',drop=False)
+        if optionPDS=='prop_q1':
+            cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')&(cats_event_iah.quintile==1),'help_received']= 0.5*cats_event_iah.loc[(cats_event_iah.helped_cat=='helped'),loss_measure]
+
+        if optionPDS=='prop_q12':
+            cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')&(cats_event_iah.quintile<=2),'help_received']= 0.5*cats_event_iah.loc[(cats_event_iah.helped_cat=='helped'),loss_measure]
+
+        cats_event_iah = cats_event_iah.reset_index(['hhid','affected_cat'],drop=False)
 
     #actual aid reduced by capacity
     # ^ Not implemented for now
@@ -967,8 +975,6 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
     df_out['dKtot']       =      df_out['dK']*cats_event_iah['pcwgt'].sum(level=event_level)#macro_event['pop']
     df_out['delta_W_tot'] = df_out['delta_W']*cats_event_iah['pcwgt'].sum(level=event_level)#macro_event['pop'] 
     # ^ dK and dK_tot include both public and private losses
-
-    df_out['average_aid_cost_pc'] = (cats_event_iah[['pcwgt','help_fee']].prod(axis=1).sum(level=event_level))/cats_event_iah['pcwgt'].sum(level=event_level)
 
     if return_stats:
         if not 'has_received_help_from_PDS_cat' in cats_event_iah.columns:
