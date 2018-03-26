@@ -862,6 +862,17 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
 
         cats_event_iah = cats_event_iah.reset_index(['hhid','affected_cat'],drop=False)
 
+    #######################################
+    # Save out info on the costs of these policies
+    my_sp_costs = pd.DataFrame({'event_cost':cats_event_iah[['help_received','pcwgt']].prod(axis=1).sum(level=event_level)},index=cats_event_iah.sum(level=event_level).index)
+    my_sp_costs=my_sp_costs.reset_index('rp')
+    my_sp_costs['avg_admin_cost'],_ = average_over_rp(my_sp_costs.reset_index().set_index(event_level)['event_cost'])
+
+    print(my_sp_costs['avg_admin_cost'].mean(level=event_level[:1]).sum())
+    
+    my_sp_costs['avg_natl_cost'] = my_sp_costs['avg_admin_cost'].mean(level=event_level[:1]).sum()
+    my_sp_costs.to_csv('../output_country/'+myCountry+'/sp_costs_'+optionPDS+'.csv')
+
     #actual aid reduced by capacity
     # ^ Not implemented for now
 		

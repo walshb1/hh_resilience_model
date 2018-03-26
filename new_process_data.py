@@ -35,6 +35,7 @@ font = {'family' : 'sans serif',
 plt.rc('font', **font)
 mpl.rcParams['xtick.labelsize'] = 14
 mpl.rcParams['ytick.labelsize'] = 14
+mpl.rcParams['legend.facecolor'] = 'white'
 
 import warnings
 warnings.filterwarnings('always',category=UserWarning)
