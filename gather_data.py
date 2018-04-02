@@ -25,8 +25,8 @@ from libraries.replace_with_warning import *
 warnings.filterwarnings('always',category=UserWarning)
 
 if len(sys.argv) < 2:
-    print('Need to list country. Could be PH, FJ, or SL')
-    myCountry = 'PH'
+    print('Need to list country. Currently implemented: MW, PH, FJ, SL')
+    myCountry = 'MW'
 else: myCountry = sys.argv[1]
 
 # Set up directories/tell code where to look for inputs & where to save outputs
