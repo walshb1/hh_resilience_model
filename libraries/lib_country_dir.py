@@ -43,14 +43,16 @@ def get_economic_unit(myC):
     
     if myC == 'PH': return 'region'#'province'
     elif myC == 'FJ': return 'Division'#'tikina'
-    elif myC == 'SL': return 'district'#'tikina'
+    elif myC == 'SL': return 'district'
+    elif myC == 'MW': return 'district'
     else: return None
 
 def get_currency(myC):
     
     if myC == 'PH': return ['b. PhP',1.E9,1./50.]
-    elif myC == 'FJ': return ['k. F\$',1.E3]
+    elif myC == 'FJ': return ['k. F\$',1.E3,1./2.]
     elif myC == 'SL': return ['b. LKR',1.E9,1./153.]
+    elif myC == 'MW': return ['MWK',1.E9,1./724.64]
     else: return ['XXX',1.E0]
 
 def get_places(myC,economy):
@@ -72,6 +74,25 @@ def get_places(myC,economy):
         df.columns = ['population']
         return df
 
+    if myC == 'MW':
+
+        df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_A_FILT.dta',columns=['district','HHID','hh_wgt']).set_index(['district','HHID']).dropna(how='all')
+        #df = pd.DataFrame({'population':df['hh_wgt'].sum(level='district')},index=df.sum(level='district').index)
+
+        # To get hhsize:
+        dfB = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_B.dta').dropna(how='all')
+
+        dfB['hhsize'] = dfB[['HHID','case_id']].groupby('HHID').transform('count')
+        dfB = dfB[['HHID','hhsize']].reset_index().set_index('HHID')
+        dfB = dfB.mean(level='HHID')
+
+        df = pd.merge(df.reset_index(),dfB.reset_index(),on='HHID').reset_index().set_index(['district','HHID'])
+
+        df = df[['hh_wgt','hhsize']].prod(axis=1)
+        df.columns = ['population']
+
+        return df       
+
     else: return None
 
 def get_places_dict(myC):
@@ -88,6 +109,14 @@ def get_places_dict(myC):
 
     elif myC == 'SL':
         p_code = pd.read_excel(inputs+'Admin_level_3__Districts.xls')[['DISTRICT_C','DISTRICT_N']].set_index('DISTRICT_C').squeeze()
+        p_code.index.name = 'district'
+
+    elif myC == 'MW':
+        p_code = pd.read_csv(inputs+'MW_code_region_district.csv',usecols=['code','district']).set_index('code').dropna(how='all')
+        p_code.index = p_code.index.astype(int)
+
+        r_code = pd.read_csv(inputs+'MW_code_region_district.csv',usecols=['code','region']).set_index('code').dropna(how='all')
+        r_code.index = r_code.index.astype(int)   
 
     return p_code,r_code
 
@@ -105,7 +134,45 @@ def load_survey_data(myC,inc_sf=None):
     # -> pcsoc
     # -> ispoor
 
-    if myC == 'PH':
+    if myC == 'MW':
+
+        #df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HouseholdGeovariables_stata11/HouseholdGeovariablesIHS4.dta').dropna(how='all')
+        # geovar ex: distance to market 
+
+        df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_A_FILT.dta',columns=['HHID','region','district','reside','hh_wgt']).dropna(how='all')
+        df = df.rename(columns={'HHID':'hhid','reside':'sector','hh_wgt':'hhwgt'})
+
+        # To get hhsize & pcwgt:
+        dfB = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_B.dta').dropna(how='all')
+        dfB = dfB.rename(columns={'HHID':'hhid'})       
+
+        dfB['hhsize'] = dfB[['hhid','case_id']].groupby('hhid').transform('count')
+        dfB = dfB[['hhid','hhsize']].reset_index().set_index('hhid')
+        dfB = dfB.mean(level='hhid')
+
+        df = pd.merge(df.reset_index(),dfB.reset_index(),on='hhid').reset_index().set_index(['district','hhid'])
+        df = df.drop([i for i in df.columns if 'index' in i],axis=1)
+
+        df['pcwgt'] = df[['hhwgt','hhsize']].prod(axis=1)
+
+        # Income (social & total)
+        # -> hhinc
+        dfE = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_E.dta',columns=['HHID',
+                                                                                       'hh_e25','hh_e26a','hh_e26b', # 
+                                                                                       'hh_e25','hh_e26a','hh_e26b'
+                                                                                       ],index='HHID').rename(index={'HHID':'hhid'}).dropna(how='all')
+
+        print(dfE.head())
+        assert(False)
+
+        # -> pcinc
+        # -> hhsoc
+        # -> pcsoc
+
+        # ispoor?
+        # -> ispoor
+
+    elif myC == 'PH':
         df = pd.read_csv(inputs+'fies2015.csv',usecols=['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn',
                                                         'walls','roof',
                                                         'totex','cash_abroad','cash_domestic','regft',
@@ -287,7 +354,7 @@ def load_survey_data(myC,inc_sf=None):
                                 'income_local_pc':'income_local',
                                 'poor':'ispoor'})
 
-        df['pcinc'] *= 12.
+        df[['pcinc','pcinc_pmt','other_inc','income_local']] *= 12.
         # pcinc is monthly
         
         hies_gdp_lkr = round(df[['pcinc','hhsize','hhwgt']].prod(axis=1).sum()/1E9,3)
