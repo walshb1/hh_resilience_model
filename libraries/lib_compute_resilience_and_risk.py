@@ -529,14 +529,14 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         # --> hh can still afford to avoid subsistence
         # *** HH response: keep consumption above subsistence
 
-        # Reco threshold
-        global reco_thresh
-        reco_thresh = 1.005
-        # ^ fraction of c_min at which hh start to reconstruct. 
-        # --> not that important, because hh will recalibrate on basis of recalc_sub_crit
-        hh_reco_rate_init = '(c-@reco_thresh*c_min-di0)/dk_private'
+        ## Reco threshold
+        ##global reco_thresh
+        ##reco_thresh = 1.005
+        ## ^ fraction of c_min at which hh start to reconstruct. 
+        ## --> not that important, because hh will recalibrate on basis of recalc_sub_crit
+        hh_reco_rate_init = '(c-c_min-di0)/dk_private'
 
-        _c2 = cats_event_ia.query('(welf_class==0)&((c-di0)>@reco_thresh*c_min)&(dk_private!=0)')[['c','c_min','dk_private','di0_prv',
+        _c2 = cats_event_ia.query('(welf_class==0)&((c-di0)>c_min)&(dk_private!=0)')[['c','c_min','dk_private','di0_prv',
                                                                                                    'di0','dc0_prv','dc0_pub','dc0']].copy()
         _c2['welf_class']   = 2
         _c2['dc_old']       = _c2['dc0']
@@ -552,7 +552,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         # --> hh are not in any other class
         # --> (c-di0) is below subsistence 
         # HH response: do not reconstruct
-        _c3 = cats_event_ia.query('(welf_class==0)&((c-di0)<=@reco_thresh*c_min)&(dk_private!=0)')[['dc0','di0_prv','dc0_prv','dc0_pub']].copy()
+        _c3 = cats_event_ia.query('(welf_class==0)&((c-di0)<c_min)&(dk_private!=0)')[['dc0','di0_prv','dc0_prv','dc0_pub']].copy()
         _c3['welf_class']   = 3
         _c3['dc_old']       = _c3['dc0']
         _c3['hh_reco_rate'] = 0.             # No Reconstruction
@@ -1212,19 +1212,16 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # First, assign savings
     if myC == 'PH': sav_dir = '../inputs/PH/Socioeconomic Resilience (Provincial)_Print Version_rev1.xlsx'
     elif myC == 'SL': sav_dir = '../inputs/SL/'
+    elif myC == 'MW': sav_dir = '../inputs/MW/'
 
-    print(temp.head())
     temp['sav_f'] = get_hh_savings(temp[['pcwgt','c',mac_ix[0],'ispoor']],myC,mac_ix[0],pol_str,sav_dir)
-    #temp['sav_f'] = 0.
-    # ^ sav_f = intial savings (just at initialization; will decrement as hh spend savings)
+    # ^ sav_f = intial savings at initialization. will decrement as hh spend savings.
     
     temp['sav_i'] = temp.eval('sav_f+pc_fee')
     # ^ add pc_fee to sav_f to get sav_i
     # --> this is assuming the government covers the costs for now, and assesses taxes much, much later
 
     print(temp.loc[temp.sav_f<0].shape[0],' hh borrow to pay their fees...')
-    #temp.loc[temp.sav_f<0,['pc_fee','sav_i','sav_f']].to_csv(tmp+'borrow_to_pay_fees.csv')
-    # debit pc_fee... what happens if pc_fee > sav_i?
     # --> let this go...assume that hh will be able to borrow in order to pay that fee
 
     temp['sav_offset_to'] = smart_savers(temp,my_avg_prod_k,const_pub_reco_rate,const_pds_rate)
@@ -1276,16 +1273,16 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
 
         ####################################
         # Let the hh optimize (pause or re-/start) its reconstruction
-        hh_reco_rate_t_pov = '(c-@reco_thresh*pov_line-di_t)/dk_prv_t'
-        hh_reco_rate_t_sub = '(c-@reco_thresh*c_min-di_t)/dk_prv_t'
+        hh_reco_rate_t_pov = '(c-pov_line-di_t)/dk_prv_t'
+        hh_reco_rate_t_sub = '(c-c_min-di_t)/dk_prv_t'
         
-        if (counter <= 200 and counter%2 == 0) or (counter>200 and counter%12 == 0):
+        if (counter <= n_steps/2 and counter%2 == 0) or (counter>n_steps/2 and counter%12 == 0):
             
-            start_criteria  = '(welf_class==3) & (hh_reco_rate==0) & (dk_prv_t > 0) & ((c-dc_t) >= @reco_thresh*c_min)'
-            stop_criteria   = '(welf_class==3) & (hh_reco_rate!=0) & (c-di_t < c_min) & (sav_f < 50.)'
+            start_criteria  = '(welf_class==3) & (hh_reco_rate==0) & (dk_prv_t > 0) & ((c-dc_t) >= c_min)'
+            stop_criteria   = '(welf_class==3) & (hh_reco_rate!=0) & (c-di_t < c_min) & (c-di_t+sav_f < c_min)'
             
-            recalc_pov_crit = 'welf_class==1 & dk_prv_t>0 & hh_reco_rate!=0 & hh_reco_rate < @max_treco & c-di_t>pov_line & (dc_t<0 | c-dc_t>=1.05*pov_line)'
-            recalc_sub_crit = '(welf_class==2 | welf_class==3) & dk_prv_t>0 & hh_reco_rate!=0 & hh_reco_rate < @max_treco & c-di_t>c_min & (dc_t<0 | c-dc_t>=1.05*c_min)'
+            recalc_pov_crit = 'welf_class==1 & dk_prv_t>0 & hh_reco_rate!=0 & hh_reco_rate < @max_treco & c-di_t>pov_line & (dc_t<0 | c-dc_t>pov_line)'
+            recalc_sub_crit = '(welf_class==2 | welf_class==3) & dk_prv_t>0 & hh_reco_rate!=0 & hh_reco_rate < @max_treco & c-di_t>c_min & (dc_t<0 | c-dc_t>c_min)'
            
             #temp.loc[temp.eval(recalc_sub_crit)].to_csv('~/Desktop/recalc_sub.csv')
             print('('+optionPDS+' - t = '+str(round(_t*52,1))+' weeks after disaster; '
