@@ -179,15 +179,21 @@ def load_survey_data(myC,inc_sf=None):
                                                         'hhwgt','fsize','poorhh','totdis','tothrec','pcinc_s','pcinc_ppp11','pcwgt',
                                                         'radio_qty','tv_qty','cellphone_qty','pc_qty',
                                                         'savings','invest'])
-        df = df.rename(columns={'tothrec':'hhsoc','pcinc_s':'pcinc','poorhh':'ispoor'})
-
-        df['pcinc_ae']   = df['pcinc']
-        df['pcwgt_ae']   = df['pcwgt']
-
+        df = df.rename(columns={'tothrec':'hhsoc','poorhh':'ispoor'})
         df['hhsize']     = df['pcwgt']/df['hhwgt']
         df['hhsize_ae']  = df['pcwgt']/df['hhwgt']
 
+        df['pcwgt_ae']   = df['pcwgt']
+
+        # These lines use income as income
+        df = df.rename(columns={'pcinc_s':'pcinc'})
         df['hhinc'] = df[['pcinc','hhsize']].prod(axis=1)
+
+        # These lines use disbursements as proxy for income
+        #df = df.rename(columns={'totdis':'hhinc'}) 
+        #df['pcinc'] = df['hhinc']/df['hhsize']
+
+        df['pcinc_ae']   = df['pcinc']
 
         df['pcsoc']  = df['hhsoc']/df['hhsize']
 
