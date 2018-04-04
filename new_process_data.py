@@ -1,10 +1,10 @@
 ##################################
 #Import packages for data analysis
 from libraries.lib_compute_resilience_and_risk import get_weighted_mean
-from libraries.lib_poverty_tables_and_maps import run_poverty_tables_and_maps
+from libraries.lib_poverty_tables_and_maps import run_poverty_duration_plot, run_poverty_tables_and_maps
 from libraries.replace_with_warning import *
 from libraries.lib_country_dir import *
-#from lib_gather_data import *
+from libraries.lib_common_plotting_functions import *
 from libraries.maps_lib import *
 
 from libraries.lib_average_over_rp import *
@@ -18,17 +18,7 @@ import numpy as np
 import os, time
 import sys
 
-##################################
-#Aesthetics
-import seaborn as sns
-import brewer2mpl as brew
-from matplotlib import colors
-sns.set_style('darkgrid')
-brew_pal = brew.get_map('Set1', 'qualitative', 8).mpl_colors
-sns_pal = sns.color_palette('Set1', n_colors=8, desat=.4)
-greys_pal = sns.color_palette('Greys', n_colors=9)
-q_labels = ['Q1 (Poorest)','Q2','Q3','Q4','Q5 (Wealthiest)']
-q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
+
 
 font = {'family' : 'sans serif',
     'size'   : 20}
@@ -366,7 +356,9 @@ if myCountry == 'FJ':
     upper_clip = 2E4
 if myCountry == 'SL': upper_clip = 4.0E5
 
-#run_poverty_tables_and_maps(iah.reset_index().set_index(event_level),event_level,myCountry)
+run_poverty_duration_plot(myCountry)
+assert(False)
+#run_poverty_tables_and_maps(myCountry,iah.reset_index().set_index(event_level),event_level)
 
 for aReg in myHaz[0]:
     for aDis in get_all_hazards(myCountry,iah):
