@@ -1,4 +1,4 @@
-# This script provides data input for the resilience indicator multihazard model for the Philippines. 
+# This script provides data input for the resilience indicator multihazard model for the Philippines, Fiji, Sri Lanka, and (eventually) Malawi. 
 # Restructured from the global model and developed by Jinqiang Chen and Brian Walsh
 
 # Magic

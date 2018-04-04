@@ -520,7 +520,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         _c1['dc0_prv']      = _c1['di0_prv'] + _c1[['hh_reco_rate','dk_private']].prod(axis=1)
         _c1['dc0']          = _c1['dc0_prv'] + _c1['dc0_pub']
         cats_event_ia.loc[_c1.index.tolist(),['dc0','dc0_prv','hh_reco_rate','welf_class']] = _c1[['dc0','dc0_prv','hh_reco_rate','welf_class']]
-        print('C0: '+str(round(float(100*cats_event_ia.loc[cats_event_ia.welf_class==1].shape[0])
+        print('C1: '+str(round(float(100*cats_event_ia.loc[cats_event_ia.welf_class==1].shape[0])
                                /float(cats_event_ia.loc[cats_event_ia.dk0!=0].shape[0]),2))+'% of hh accelerate reco to poverty')
 
         # Case 2: initial consumption is above or below poverty line
@@ -772,7 +772,7 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     # No factor of 2 in denominator affected households are counted twice in both the num & denom
     # --> at this point, each appears twice (helped & not_helped)
     # --> the weights haven't been adjusted to include targetng errors
-
+    
     ####targeting errors
     if optionPDS == 'fiji_SPS' or optionPDS == 'fiji_SPP':
         macro_event['error_incl'] = 1.0
@@ -868,7 +868,7 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     my_sp_costs=my_sp_costs.reset_index('rp')
     my_sp_costs['avg_admin_cost'],_ = average_over_rp(my_sp_costs.reset_index().set_index(event_level)['event_cost'])
 
-    print(my_sp_costs['avg_admin_cost'].mean(level=event_level[:1]).sum())
+    print('SP: avg admin costs:',my_sp_costs['avg_admin_cost'].mean(level=event_level[:1]).sum())
     
     my_sp_costs['avg_natl_cost'] = my_sp_costs['avg_admin_cost'].mean(level=event_level[:1]).sum()
     my_sp_costs.to_csv('../output_country/'+myCountry+'/sp_costs_'+optionPDS+'.csv')
@@ -988,10 +988,7 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
     # ^ dK and dK_tot include both public and private losses
 
     if return_stats:
-        if not 'has_received_help_from_PDS_cat' in cats_event_iah.columns:
-            stats = np.setdiff1d(cats_event_iah.columns,event_level+['helped_cat','affected_cat','hhid']+[i for i in event_level[0] if i in cats_event_iah.columns])
-        else:
-            stats = np.setdiff1d(cats_event_iah.columns,event_level+['helped_cat','affected_cat','hhid','has_received_help_from_PDS_cat']+[i for i in event_level[0] if i in cats_event_iah.columns])
+        stats = np.setdiff1d(cats_event_iah.columns,event_level+[i for i in ['helped_cat','affected_cat','hhid','has_received_help_from_PDS_cat'] if i in cats_event_iah.columns])
 		
         print('stats are '+','.join(stats))
         df_stats = agg_to_event_level(cats_event_iah,stats,event_level)
@@ -1001,7 +998,7 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
         return df_out,cats_event_iah
     else: 
         return df_out
-
+    
 	
 def process_output(pol_str,out,macro_event,economy,default_rp,return_iah=True,is_local_welfare=False,is_revised_dw=True):
 
@@ -1203,6 +1200,10 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # ^ make sure that, if T_recon changes, so does x_max!
     
     temp['t_start_prv_reco'] = 0.
+    temp['t_pov_inc'],temp['t_pov_cons'],temp['t_pov_bool'] = 0., 0., True
+    temp.loc[temp.eval('(welf_class==1)|(c<pov_line)'),'t_pov_bool'] = False
+    # ^ set these "timers" to collect info about when the hh starts reco, and when it exits poverty
+
     my_avg_prod_k = macro.avg_prod_k.mean()
     my_tau_tax = macro['tau_tax'].mean()
 
@@ -1210,12 +1211,13 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # use this to count down as hh rebuilds
 
     # First, assign savings
-    if myC == 'PH': sav_dir = '../inputs/PH/Socioeconomic Resilience (Provincial)_Print Version_rev1.xlsx'
-    elif myC == 'SL': sav_dir = '../inputs/SL/'
-    elif myC == 'MW': sav_dir = '../inputs/MW/'
-
-    temp['sav_f'] = get_hh_savings(temp[['pcwgt','c',mac_ix[0],'ispoor']],myC,mac_ix[0],pol_str,sav_dir)
-    # ^ sav_f = intial savings at initialization. will decrement as hh spend savings.
+    # --> sav_f = intial savings at initialization. will decrement as hh spend savings.
+    if myC == 'PH': 
+        sav_dir = '../inputs/PH/Socioeconomic Resilience (Provincial)_Print Version_rev1.xlsx'
+        temp['sav_f'] = get_hh_savings(temp[['pcwgt','c','province','region','ispoor']],myC,mac_ix[0],pol_str,sav_dir)    
+    else: 
+        sav_dir = '../inputs/'+myC+'/'
+        temp['sav_f'] = get_hh_savings(temp[['pcwgt','c',mac_ix[0],'ispoor']],myC,mac_ix[0],pol_str,sav_dir)
     
     temp['sav_i'] = temp.eval('sav_f+pc_fee')
     # ^ add pc_fee to sav_f to get sav_i
@@ -1272,7 +1274,8 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         temp['dc_t'] = temp['di_t'].values + temp[['hh_reco_rate','dk_prv_t']].prod(axis=1).values
 
         ####################################
-        # Let the hh optimize (pause or re-/start) its reconstruction
+        # Let the hh optimize (pause, (re-)start, or adjust) its reconstruction
+        # NB: this doesn't change income--just consumption
         hh_reco_rate_t_pov = '(c-pov_line-di_t)/dk_prv_t'
         hh_reco_rate_t_sub = '(c-c_min-di_t)/dk_prv_t'
         
@@ -1294,7 +1297,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
        
             # Find hh that climbed out of subsistence
             temp.loc[temp.eval(start_criteria),'hh_reco_rate'] = (temp.loc[temp.eval(start_criteria)].eval(hh_reco_rate_t_sub)).clip(upper=6.*const_nom_reco_rate)
-            temp.loc[temp.eval(start_criteria),'t_start_prv_reco'] = _t      
+            temp.loc[temp.eval(start_criteria),'t_start_prv_reco'] = _t
 
             # Find hh that need to accelerate or scale back their reconstruction as they progress, or b/c of PDS 
             temp.loc[temp.eval(recalc_pov_crit),'hh_reco_rate'] = (temp.loc[temp.eval(recalc_pov_crit)].eval(hh_reco_rate_t_pov)).clip(upper=6.*const_nom_reco_rate)
@@ -1304,7 +1307,6 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
             # hh stops reco when its *income* drops below subsistence and it has no more savings...
             temp.loc[temp.eval(stop_criteria),'hh_reco_rate'] = 0
     
-
         #########################################
         # Recalculate dc at this time step after hh make adjustments
         #temp['di_prv_t'] = (temp['dk_prv_t'].values*my_avg_prod_k*(1-my_tau_tax)
@@ -1321,7 +1323,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         if counter == 26: temp['sav_offset_to'] = 0.
  
         # Find dC net of savings (min = sav_offset_to if dc_t > 0  -OR-  min = dc_t if dc_t < 0 ie: na & received PDS)
-        temp['dc_net'] = temp['dc_t']
+        temp['dc_net'] = temp['dc_t'].copy()
         
         sav_criteria = '(sav_f>=0.10)&(dc_t>sav_offset_to)'
         sav_criteria_2a = sav_criteria+'&(dc_net!=dc_t)&(hh_reco_rate!=0)'
@@ -1338,7 +1340,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         temp.loc[temp.eval(sav_criteria_2b),'sav_delta'] = temp.loc[temp.eval(sav_criteria_2b)].eval(_dsav_b)
  
         # Adjust savings after spending    
-        temp['sav_f'] = temp['sav_f']-temp['sav_delta']
+        temp['sav_f'] -= temp['sav_delta']
 
         # Sanity check: savings should not go negative
         savings_check = '(sav_i>0.)&(sav_f+0.01<0.)'
@@ -1346,7 +1348,12 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
             print('Some hh overdraft their savings!')
             temp.loc[temp.eval(savings_check)].to_csv(tmp+'bug_negative_savings_'+str(counter)+'.csv')
             #assert(False)
-      
+        
+        ########################
+        # Increment time in poverty
+        temp.loc[temp.eval('c-di_t<=pov_line'),'t_pov_inc'] += step_dt
+        temp.loc[temp.eval('c-dc_net<=pov_line'),'t_pov_cons'] += step_dt
+    
         ########################  
         # Finally, calculate welfare losses
         temp['integ'] += step_dt*((1.-(temp['dc_net'].values/temp['c'].values))**(1-const_ie)-1.)*math.e**(-_t*const_rho)
@@ -1379,11 +1386,13 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # Write out year_step (dk, dc, dw)
     try: affected_year_step.to_csv('/Users/brian/Desktop/BANK/debug_off_git/annual_dkdcdw_'+optionPDS+pol_str+'.csv')
     except: pass
-
+    
+    # Write out the poverty duration info
+    temp[[mac_ix[0],'hazard','rp','pcwgt','c','dk0','t_pov_inc','t_pov_cons','t_pov_bool']].to_csv('../output_country/'+myC+'/poverty_duration_'+optionPDS+'.csv')
+    
     ################################
     # 'revised' calculation of dw
 
-    #temp['wprime'] = my_natl_wprime
     temp['wprime_hh']       = temp.eval('c**(-@const_ie)')
     temp['dw_curr_no_clip'] = temp.eval('const*integ/@my_natl_wprime')
 
@@ -1407,7 +1416,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     temp['dw_tot'] = temp[['dw_curr','pcwgt']].prod(axis=1)
     temp.loc[(temp.pcwgt!=0)&(temp.dw_curr==my_dw_limit)].to_csv(tmp+'my_late_excess'+optionPDS+'.csv')
 
-    print('\n ('+optionPDS+' Total well-being losses ('+pol_str+'):',round(float(temp[['dw_curr_no_clip','pcwgt']].prod(axis=1).sum())/1.E6,3))
+    print('\n ('+optionPDS+' Total well-being losses ('+pol_str+'):',temp[['dw_curr_no_clip','pcwgt']].prod(axis=1).sum(level=[i for i in mac_ix])/1.E6)
     
     temp = temp.reset_index().set_index([i for i in mic_ix]).reset_index(level='affected_cat')
     tmp_out = pd.DataFrame(index=temp.sum(level=[i for i in mac_ix]).index)

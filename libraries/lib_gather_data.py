@@ -253,10 +253,9 @@ def AIR_extreme_events(df_air,df_aal,sec='',per=''):
     
 def get_hh_savings(df, myC, econ_unit, pol, fstr):
 
-    _s = pd.DataFrame({'c':df.c,
-                       'pcwgt':df.pcwgt,
-                       econ_unit:df[econ_unit],
-                       'ispoor':df.ispoor},index=df.index)
+    if myC == 'PH' and econ_unit == 'region': econ_unit = 'province'
+    
+    _s = pd.DataFrame({'c':df.c,'pcwgt':df.pcwgt,econ_unit:df[econ_unit],'ispoor':df.ispoor},index=df.index)
 
     if pol == '_nosavings': return 0
     elif pol == '_nosavingsdata': return df.eval('c/12')
@@ -266,7 +265,7 @@ def get_hh_savings(df, myC, econ_unit, pol, fstr):
     elif myC == 'PH':
 
         # Load PSA file with average savings
-        f = pd.read_excel(fstr,sheetname='Average Savings',skiprows=3).rename(columns={'Unnamed: 0':econ_unit,'Estimate':'p','Estimate.1':'np'})[[econ_unit,'p','np']]
+        f = pd.read_excel(fstr,sheetname='Average Savings',skiprows=3).rename(columns={'Unnamed: 0':'province','Estimate':'p','Estimate.1':'np'})[['province','p','np']]
 
         # Load dictionaries so that these province names match those in df
         ph_prov_lookup = pd.read_excel('../inputs/PH/FIES_provinces.xlsx',usecols=['province_upper','province_AIR'],index_col='province_upper')['province_AIR'].to_dict()
@@ -309,9 +308,9 @@ def get_hh_savings(df, myC, econ_unit, pol, fstr):
         f.loc[f.ispoor==0,'c_mean'] = _s.loc[_s.ispoor==0,['c','pcwgt']].prod(axis=1).sum(level='province')/_s.loc[_s.ispoor==0,'pcwgt'].sum(level='province')
         f.loc[f.ispoor==1,'c_mean'] = _s.loc[_s.ispoor==1,['c','pcwgt']].prod(axis=1).sum(level='province')/_s.loc[_s.ispoor==1,'pcwgt'].sum(level='province')
 
-        try: f.to_csv('debug/provincial_savings_avg.csv')
+        try: f.to_csv('tmp/provincial_savings_avg.csv')
         except: pass
-        assert(f['c_mean'].shape[0] != f['c_mean'].dropna().shape[0])
+        assert(f['c_mean'].shape[0] == f['c_mean'].dropna().shape[0])
 
         # Put it back together
         _s = pd.merge(_s.reset_index(),f.reset_index(),on=['province','ispoor']).set_index('index').sort_index()

@@ -120,7 +120,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     pub_costs_inf.to_csv(output+'pub_costs_inf_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     pub_costs_pds.to_csv(output+'pub_costs_pds_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
 
-    if True:
+    if False:
         is_contemporaneous = False 
         # For people outside affected province, do the collections for public asset reco & PDS happen at the same time?
         public_costs = calc_dw_outside_affected_province(macro_event, cat_info, pub_costs_inf, pub_costs_pds,event_level,is_contemporaneous,is_local_welfare,is_rev_dw)
@@ -139,7 +139,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     print('Step E:  NOT writing out '+output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv')
 
     #out = compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True,is_revised_dw=is_rev_dw)    
-    out = calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True,is_revised_dw=is_rev_dw)
+    out = calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cats_event_iah,event_level,option_CB,return_stats=False,return_iah=True,is_revised_dw=is_rev_dw)
     print('F')
 
     # Flag: running local welfare
@@ -205,7 +205,7 @@ if __name__ == '__main__':
             
     if debug == True:
         print('Running in debug mode!')
-        launch_compute_resilience_and_risk_thread(myCountry,'','unif_poor')
+        launch_compute_resilience_and_risk_thread(myCountry,'','no')
     else:
         with Pool() as pool:
             print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))
