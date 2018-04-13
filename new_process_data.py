@@ -19,7 +19,6 @@ import os, time
 import sys
 
 
-
 font = {'family' : 'sans serif',
     'size'   : 20}
 plt.rc('font', **font)
@@ -63,11 +62,14 @@ haz_dict = {'SS':'Storm surge','PF':'Precipitation flood','HU':'Hurricane','EQ':
 ##################################
 # Load base and PDS files
 iah_base = pd.read_csv(output+'iah_tax_'+base_str+'_.csv', index_col=[economy,'hazard','rp','hhid'])
-iah = pd.read_csv(output+'iah_tax_'+pds1_str+'_.csv', index_col=[economy,'hazard','rp','hhid'])
-df = pd.read_csv(output+'results_tax_'+pds1_str+'_.csv', index_col=[economy,'hazard','rp'])
 df_base = pd.read_csv(output+'results_tax_'+base_str+'_.csv', index_col=[economy,'hazard','rp'])
-macro = pd.read_csv(output+'macro_tax_'+pds1_str+'_.csv', index_col=[economy,'hazard','rp'])
 public_costs = pd.read_csv(output+'public_costs_tax_'+base_str+'_.csv', index_col=[economy,'hazard','rp']).reset_index()
+try:
+    iah = pd.read_csv(output+'iah_tax_'+pds1_str+'_.csv', index_col=[economy,'hazard','rp','hhid'])
+    df = pd.read_csv(output+'results_tax_'+pds1_str+'_.csv', index_col=[economy,'hazard','rp'])
+    macro = pd.read_csv(output+'macro_tax_'+pds1_str+'_.csv', index_col=[economy,'hazard','rp'])
+except: pass
+
 #try:
 #    iah_noPT = pd.read_csv(output+'iah_tax_'+base_str+'__noPT.csv', index_col=[economy,'hazard','rp','hhid'])
 #    # ^ Scenario: no public transfers to rebuild infrastructure
@@ -189,7 +191,7 @@ iah_res['c_pre_reco']  = iah[['c_pre_reco' ,'pcwgt_ae']].prod(axis=1).sum(level=
 iah_res['c_post_reco'] = iah[['c_post_reco','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c post-reco per AE
 #iah_res['c_final_pds'] = iah[['c_final_pds','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c per AE
 
-# Calc people who fell into povery on the regional level for each disaster
+# Calc people who fell into poverty on the regional level for each disaster
 iah_res['delta_pov_pre_reco']  = iah.loc[(iah.c_initial > iah.pov_line)&(iah.i_pre_reco <= iah.pov_line),'pcwgt'].sum(level=[economy,'hazard','rp'])
 iah_res['delta_pov_post_reco'] = iah.loc[(iah.c_initial > iah.pov_line)&(iah.c_post_reco <= iah.pov_line),'pcwgt'].sum(level=[economy,'hazard','rp'])
 
@@ -222,7 +224,7 @@ iah_out.to_csv(output+'geo_haz_aal_sums.csv')
 
 _ = (iah_out['Asset risk']/1.E6).round(1).unstack().copy()
 
-if myCountry == 'SL': to_usd = 1./153.
+to_usd = get_currency(myCountry)[2]
 
 if len(_.columns) > 1:
     _['Total'] = _.sum(axis=1)
