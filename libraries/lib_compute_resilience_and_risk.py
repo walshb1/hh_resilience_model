@@ -969,12 +969,6 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
     cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dc_post_reco'], cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dw'] = calc_delta_welfare(myCountry,cats_event_iah,macro_event,
                                                                                                                                       pol_str,optionPDS,is_revised_dw)
     assert(cats_event_iah['dc_post_reco'].shape[0] == cats_event_iah['dc_post_reco'].dropna().shape[0])
-
-    print(cats_event_iah.head())
-    cats_event_iah['dw'] = cats_event_iah['dw'].fillna(-500)
-    cats_event_iah.loc[cats_event_iah.dw==-500].head(50000).to_csv('~/Desktop/tmp/cats_event_iah_dw.csv')
-    print(cats_event_iah['dw'].shape[0],cats_event_iah['dw'].dropna().shape[0])
-
     assert(cats_event_iah['dw'].shape[0] == cats_event_iah['dw'].dropna().shape[0])
 
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level)
@@ -1430,8 +1424,9 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
 
     if temp['dw'].shape[0] != temp.dropna(subset=['dw']).shape[0]:
         temp['dw'] = temp['dw'].fillna(-500)
-        temp.loc[temp.dw==-500].to_csv('tmp/debug0.csv')
+        temp.loc[temp.dw==-500].to_csv('tmp/fatal_dw_null.csv')
         print(temp.loc[temp.dw==-500].shape[0],' hh have NaN dw')
+        assert(False)
 
     print('dw:',temp['dw'].shape[0],'dw.dropna:',temp.dropna(subset=['dw']).shape[0])
     assert(temp['dc_t'].shape[0] == temp['dc_t'].dropna().shape[0])
