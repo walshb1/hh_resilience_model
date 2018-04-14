@@ -20,13 +20,12 @@ col_cast_dict = {'new_pov':'int',
 
 def run_poverty_duration_plot(myC):
 
-    if myC == 'SL': focus = ['Rathnapura','Colombo','Kandy','Gampaha']
-    elif myC == 'PH': focus = ['NCR']
-
     # Load file with geographical (region/province/district) as index
     df = pd.read_csv('../output_country/'+myC+'/poverty_duration_no.csv')
     df = df.reset_index().set_index(df.columns[1])
+    
     geo = df.index.name
+    all_geo = np.array(df[~df.index.duplicated(keep='first')].index)
 
     # used in groupby  
     df['country'] = myC
@@ -58,8 +57,8 @@ def run_poverty_duration_plot(myC):
     # Populate the df_dec dataframe now, while its index is set to ['hazard','rp','decile']
 
     # Number of individuals who face income or consumption poverty
-    df_dec['n_new_pov_inc']  = df.loc[df.t_pov_inc !=0,'pcwgt'].sum(level=['hazard','rp','decile'])
-    df_dec['n_new_pov_cons'] = df.loc[df.t_pov_cons!=0,'pcwgt'].sum(level=['hazard','rp','decile'])
+    df_dec['n_new_pov_inc']  = df.loc[df.t_pov_bool==True,'pcwgt'].sum(level=['hazard','rp','decile'])
+    df_dec['n_new_pov_cons'] = df.loc[df.t_pov_bool==True,'pcwgt'].sum(level=['hazard','rp','decile'])
 
     # Individuals who face income or consumption poverty as fraction of all individuals
     df_dec['frac_new_pov_inc'] = df_dec['n_new_pov_inc']/df['pcwgt'].sum(level=['hazard','rp','decile'])
@@ -72,18 +71,37 @@ def run_poverty_duration_plot(myC):
         df_dec['t_pov_cons_avg'+iSP] = 12.*(df.loc[df.eval('t_pov_bool'+iSP+'==True'),['pcwgt','t_pov_cons'+iSP]].prod(axis=1).sum(level=['hazard','rp','decile'])
                                             /df.loc[df.eval('t_pov_bool'+iSP+'==True'),'pcwgt'].sum(level=['hazard','rp','decile']))
 
-    for iloc in focus:
-        df_dec['t_pov_inc_avg_'+iloc] = 12.*(df.loc[df.eval('(t_pov_bool==True)&(@geo==@iloc)'),['pcwgt','t_pov_inc']].prod(axis=1).sum(level=['hazard','rp','decile'])
-                                             /df.loc[df.eval('(t_pov_bool==True)&(@geo==@iloc)'),'pcwgt'].sum(level=['hazard','rp','decile']))
+    for iloc in all_geo:
+        df_dec['t_pov_inc_avg_'+iloc] = 12.*(df.loc[df.eval('(t_pov_bool==True)&('+geo+'==@iloc)'),['pcwgt','t_pov_inc']].prod(axis=1).sum(level=['hazard','rp','decile'])
+                                             /df.loc[df.eval('(t_pov_bool==True)&('+geo+'==@iloc)'),'pcwgt'].sum(level=['hazard','rp','decile']))
 
-        df_dec['t_pov_cons_avg_'+iloc] = 12.*(df.loc[df.eval('(t_pov_bool==True)&(@geo==@iloc)'),['pcwgt','t_pov_cons']].prod(axis=1).sum(level=['hazard','rp','decile'])
-                                              /df.loc[df.eval('(t_pov_bool==True)&(@geo==@iloc)'),'pcwgt'].sum(level=['hazard','rp','decile']))
+        df_dec['t_pov_cons_avg_'+iloc] = 12.*(df.loc[df.eval('(t_pov_bool==True)&('+geo+'==@iloc)'),['pcwgt','t_pov_cons']].prod(axis=1).sum(level=['hazard','rp','decile'])
+                                              /df.loc[df.eval('(t_pov_bool==True)&('+geo+'==@iloc)'),'pcwgt'].sum(level=['hazard','rp','decile']))
 
-    df_dec = df_dec.reset_index()
     df_dec.to_csv('../output_country/'+myC+'/poverty_by_decile.csv')
 
     ######################
+    # Latex table of poorest quintile poverty time
+
+    _cons_to_tex = df_dec.drop([i for i in df_dec.columns if i not in ['t_pov_cons_avg_'+j for j in all_geo]],axis=1)
+    _inc_to_tex = df_dec.drop([i for i in df_dec.columns if i not in ['t_pov_inc_avg_'+j for j in all_geo]],axis=1)
+
+    _cons_to_tex = _cons_to_tex.rename(columns={'t_pov_cons_avg_'+j:j for j in all_geo}).stack()
+    _inc_to_tex  =  _inc_to_tex.rename(columns={'t_pov_inc_avg_'+j:j for j in all_geo}).stack()
+
+    _to_tex = pd.DataFrame(index=df_dec.index)
+    _to_tex['Income'] = _inc_to_tex    
+    _to_tex['Consumption'] = _cons_to_tex
+  
+    print(_to_tex.head())
+    assert(False)
+
+    #df_dec[['new_pov','new_sub']].fillna(0).sort_values(['new_pov'],ascending=False).astype('int').to_latex('latex/poverty_by_haz_'+str(_typ)+'.tex')
+
+    ######################
     # Plot consumption and income poverty (separately)
+    df_dec = df_dec.reset_index()
+
     _lab = {'t_pov_cons_avg':'Average time to exit poverty\n(income net of reconstruction & savings) [months]',
             't_pov_inc_avg':'Average time to exit poverty (income only) [months]'}
 
@@ -96,6 +114,11 @@ def run_poverty_duration_plot(myC):
         df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==1000)')].plot('decile',ipov,color=sns_pal[3],zorder=96,label='',ax=ax)
 
         icol = 4
+
+        # Which areas to plot?
+        if myC == 'SL': focus = ['Rathnapura','Colombo','Kandy','Gampaha']
+        elif myC == 'PH': focus = ['NCR']
+
         for iloc in focus:
             df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot.scatter('decile',ipov+'_'+iloc,color=sns_pal[icol],lw=0,label=iloc+' (RP = 5 years)',zorder=95,ax=ax)
             df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot('decile',ipov+'_'+iloc,color=sns_pal[icol],zorder=94,label='',ax=ax)

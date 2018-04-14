@@ -1283,14 +1283,14 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         
         start_criteria  = '(welf_class==3) & (hh_reco_rate==0) & (dk_prv_t > 0) & (c-di_t >= c_min)'
         stop_criteria   = '(welf_class==3) & (hh_reco_rate!=0) & (c-di_t < c_min)'
-        
+
         recalc_pov_crit = 'welf_class==1 & hh_reco_rate!=0 & dk_prv_t>0 & hh_reco_rate < @max_treco & c-di_t>pov_line & (dc_t<0 | c-dc_t>pov_line)'
         recalc_sub_crit = '(welf_class==2 | welf_class==3) & hh_reco_rate!=0 & dk_prv_t>0 & (dc_t>c | (hh_reco_rate < @max_treco & c-di_t>c_min & (dc_t<0 | c-dc_t>c_min)))'   
 
         hh_reco_rate_t_pov = '(c-pov_line-di_t)/dk_prv_t'
         hh_reco_rate_t_sub = '(c-c_min-di_t)/dk_prv_t'
         
-        if flag_recalc or (counter <= n_steps/2 and counter % 2) or (counter>n_steps/2 and counter%12 == 0):
+        if flag_recalc or (counter <= 200 and counter%2 == 0) or (counter>n_steps/2 and counter%12 == 0):
                        
             #temp.loc[temp.eval(recalc_sub_crit)].to_csv('~/Desktop/recalc_sub.csv')
             print('('+optionPDS+' - t = '+str(round(_t*52,1))+' weeks after disaster; '
@@ -1310,7 +1310,6 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
             # Find hh that need to accelerate or scale back their reconstruction as they progress, or b/c of PDS 
             temp.loc[temp.eval(recalc_pov_crit),'hh_reco_rate'] = (temp.loc[temp.eval(recalc_pov_crit)].eval(hh_reco_rate_t_pov)).clip(upper=6.*const_nom_reco_rate)
             temp.loc[temp.eval(recalc_sub_crit),'hh_reco_rate'] = (temp.loc[temp.eval(recalc_sub_crit)].eval(hh_reco_rate_t_sub)).clip(upper=6.*const_nom_reco_rate)
-
     
         ####################################        
         # Calculate dc(t) 
@@ -1321,10 +1320,10 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
             temp.loc[temp.hh_reco_rate<0].to_csv('tmp/fatal_neg_hh_reco_rate.csv')
             assert(False)
 
-        if temp.loc[temp.eval('dc_t>c')].shape[0] != 0:
-            print('Finding hh with dc_t > c !! Fatal error!!')
-            temp.loc[temp.eval('dc_t>c')].to_csv('tmp/fatal_neg_c.csv')
-            assert(False)
+        #if temp.loc[temp.eval('dc_t>c')].shape[0] != 0:
+        #    print('Finding hh with dc_t > c !! Fatal error!!')
+        #    temp.loc[temp.eval('dc_t>c')].to_csv('tmp/fatal_neg_c.csv')
+        #    assert(False)
 
         ########################
         # Now apply savings (if any left)
@@ -1369,9 +1368,14 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         temp['integ'] += temp.eval('@step_dt*((1.-dc_net/c)**(1.-@const_ie)-1.)*@math.e**(-@_t*@const_rho)')
         #temp['integ'] += step_dt*((1.-(temp['dc_net'].values/temp['c'].values))**(1-const_ie)-1.)*math.e**(-_t*const_rho)
 
+        if temp.loc[temp.integ<0].shape[0] != 0:
+            temp.loc[temp.integ<0].to_csv('tmp/negative_integ.csv')
+            assert(False)
+                                      
+
         if temp.shape[0] != temp.dropna(subset=['integ']).shape[0]:
-            temp['integ'] = temp['integ'].fillna(-500)
-            temp.loc[temp.integ==-500].to_csv('tmp/fatal_integ_null.csv')
+            temp['integ'] = temp['integ'].fillna(-1E9)
+            temp.loc[temp.integ==-1E9].to_csv('tmp/fatal_integ_null.csv')
             assert(False)
 
         # NB: no expansion here because dc_net already gives the instantateous value at t = _t
@@ -1423,9 +1427,9 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     temp['dc_net'] = temp['dc_net'].fillna(temp['dc_t'])
 
     if temp['dw'].shape[0] != temp.dropna(subset=['dw']).shape[0]:
-        temp['dw'] = temp['dw'].fillna(-500)
-        temp.loc[temp.dw==-500].to_csv('tmp/fatal_dw_null.csv')
-        print(temp.loc[temp.dw==-500].shape[0],' hh have NaN dw')
+        temp['dw'] = temp['dw'].fillna(-1E9)
+        temp.loc[temp.dw==-1E9].to_csv('tmp/fatal_dw_null.csv')
+        print(temp.loc[temp.dw==-1E9].shape[0],' hh have NaN dw')
         assert(False)
 
     print('dw:',temp['dw'].shape[0],'dw.dropna:',temp.dropna(subset=['dw']).shape[0])
@@ -1473,7 +1477,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     tmp_out_aal.to_csv('../output_country/'+myC+'/my_summary_aal_'+optionPDS+pol_str+'.csv')
     print('Wrote out summary stats for dw ('+optionPDS+'/'+pol_str+')')
     ##################################
-    
+
     temp = temp.reset_index().set_index([i for i in mic_ix])
     return temp['dc_net'], temp['dw']
 
