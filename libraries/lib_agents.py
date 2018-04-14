@@ -14,5 +14,7 @@ def smart_savers(temp,avg_prod_k,const_pub_reco_rate,const_pds_rate):
     # sav_offset_to is going to be used to determine dc_net
     # Lower clip = 0: dc can't go negative
     # Upper clip = (c-c_min): hh is obliged to stay out of subsistence if at all possible
-    return _a['sav_offset_to'].clip(lower=0., upper=(temp.eval('c-c_min')))
+
+    _a['max'] = temp.eval('c-c_min').clip(lower=0.)
+    return _a['sav_offset_to'].clip(lower=0., upper=_a['max'])
 
