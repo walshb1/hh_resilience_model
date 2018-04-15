@@ -88,14 +88,21 @@ def run_poverty_duration_plot(myC):
 
     _cons_to_tex = _cons_to_tex.rename(columns={'t_pov_cons_avg_'+j:j for j in all_geo}).stack()
     _inc_to_tex  =  _inc_to_tex.rename(columns={'t_pov_inc_avg_'+j:j for j in all_geo}).stack()
+    _cons_to_tex.index.names = ['hazard','rp','decile',geo]
+    _inc_to_tex.index.names = ['hazard','rp','decile',geo]
 
-    _to_tex = pd.DataFrame(index=df_dec.index)
-    _to_tex['Income'] = _inc_to_tex    
-    _to_tex['Consumption'] = _cons_to_tex
+    _to_tex = pd.DataFrame(index=_cons_to_tex.index)
+    _to_tex['Income'] = _inc_to_tex.round(1)
+    _to_tex['Consumption'] = _cons_to_tex.round(1)
   
+    _to_tex = _to_tex.reset_index().set_index(geo)
+    _to_tex = _to_tex.loc[_to_tex.eval('(hazard=="PF")&(rp==10)&(decile==1)')].sort_values('Consumption',ascending=False)
+    
     print(_to_tex.head())
-    assert(False)
 
+    _to_tex[['Income','Consumption']].to_latex('latex/'+myC+'_poverty_duration.tex')
+    assert(False)
+    
     #df_dec[['new_pov','new_sub']].fillna(0).sort_values(['new_pov'],ascending=False).astype('int').to_latex('latex/poverty_by_haz_'+str(_typ)+'.tex')
 
     ######################
