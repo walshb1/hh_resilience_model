@@ -9,12 +9,12 @@ def smart_savers(temp,avg_prod_k,const_pub_reco_rate,const_pds_rate):
 
     savings_offset = '((dc0_prv+dc0_pub-help_received*@const_pds_rate-sav_f*((help_received*(@const_pds_rate)**2-dc0_prv*hh_reco_rate-dc0_pub*@const_pub_reco_rate)/(help_received*@const_pds_rate-dc0_prv-dc0_pub)))/(1.-sav_f*((help_received*(@const_pds_rate)**2-dc0_prv*hh_reco_rate-dc0_pub*@const_pub_reco_rate)/(help_received*@const_pds_rate-dc0_prv-dc0_pub)**2)))'
 
-    _a.loc[(_a.hh_reco_rate!=0),'sav_offset_to'] = 0.50*_a.loc[(_a.hh_reco_rate!=0)].eval(savings_offset)
+    _a.loc[(_a.hh_reco_rate!=0),'sav_offset_to'] = 0.65*_a.loc[(_a.hh_reco_rate!=0)].eval(savings_offset)
     
     # sav_offset_to is going to be used to determine dc_net
     # Lower clip = 0: dc can't go negative
     # Upper clip = (c-c_min): hh is obliged to stay out of subsistence if at all possible
 
     _a['max'] = temp.eval('c-c_min').clip(lower=0.)
-    return _a['sav_offset_to'].clip(lower=0., upper=_a['max'])
+    return _a['sav_offset_to'].clip(lower=0.)#, upper=_a['max'])
 
