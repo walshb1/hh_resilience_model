@@ -966,8 +966,7 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
     
     cats_event_iah['dc_post_reco'] = 0
     cats_event_iah['dw'] = 0.
-    cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dc_post_reco'], cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dw'] = calc_delta_welfare(myCountry,cats_event_iah,macro_event,
-                                                                                                                                      pol_str,optionPDS,is_revised_dw)
+    cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dc_post_reco'], cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dw'] = calc_delta_welfare(myCountry,cats_event_iah,macro_event,pol_str,optionPDS,is_revised_dw)
     assert(cats_event_iah['dc_post_reco'].shape[0] == cats_event_iah['dc_post_reco'].dropna().shape[0])
     assert(cats_event_iah['dw'].shape[0] == cats_event_iah['dw'].dropna().shape[0])
 
@@ -1148,7 +1147,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
 
     my_dw_limit = abs(20.*c_mean)
     my_natl_wprime = c_mean**(-const_ie)
-    print('\n\nc_mean = ',int(c_mean/1E3),'K \ndw_lim = ',int(my_dw_limit/1E3),'K\nwprime_nat = ',my_natl_wprime,'\n')
+    print('\n\nc_mean = ',int(c_mean/1E3),'K LKR\ndw_lim = ',int(my_dw_limit/1E3),'K LKR wprime_nat = ',round(my_natl_wprime,3),'\n')
 
     #############################
     # First debit savings for temp_na
@@ -1158,7 +1157,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     temp_na['dc_t'] = 0.
     # wprime, dk0
 
-    temp_na.head(1000).to_csv(tmp+'temp_na.csv')
+    temp_na.head(10000).to_csv(tmp+'temp_na.csv')
     # Will re-merge temp_na with temp at the bottom...trying to optimize here!
 
     #############################
@@ -1177,8 +1176,13 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     #temp['wprime'] =(welf(temp['gdp_pc_prov']/const_rho+h,const_ie)-welf(temp['gdp_pc_prov']/const_rho-h,const_ie))/(2*h) <-- Missing a factor of (1-eta) in denom here?
     #temp['dw_curr'] = temp['dw_dep']/temp['wprime']
 
+    #if is_revised_dw == False: 
+    #    print('using legacy calculation of dw')
+    #    temp = temp.reset_index().set_index([i for i in mic_ix])
+    #    return temp['dw_dep']
+
     ########################################
-    # Calculates the revised ('rev') definition of dw
+    # Returns the revised ('rev') definition of dw
     print('using revised calculation of dw')
 
     # Set-up to be able to calculate integral
@@ -1195,7 +1199,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     print('\n ('+optionPDS+') Integrating well-being losses over '+str(x_max)+' years after disaster ('+pol_str+')') 
     # ^ make sure that, if T_recon changes, so does x_max!
     
-    temp['t_start_prv_reco'] = -1
+    temp['t_start_prv_reco'] = 0.
     temp['t_pov_inc'],temp['t_pov_cons'],temp['t_pov_bool'] = 0., 0., True
     temp.loc[temp.eval('(welf_class==1)|(c<pov_line)'),'t_pov_bool'] = False
     # ^ set these "timers" to collect info about when the hh starts reco, and when it exits poverty
@@ -1234,7 +1238,6 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     counter = 0
     # Calculate integral
     for _t in int_dt:
-        print('..',_t)
 
         ###################################
         ## Option: if a hh is in poverty after a disaster, they take their savings (50%) and buy a productive thing
@@ -1258,39 +1261,31 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         ####################################
         # If PDS is so great it pushes di_t negative: transfer it to savings
         lexus_pds = 'di_t<0'
-        flag_recalc = False
-
-        if temp.loc[temp.eval(lexus_pds)].shape[0] != 0:
+        while temp.loc[temp.eval(lexus_pds)].shape[0] != 0:
             #print(optionPDS+': transferring PDS into savings for',int(temp.loc[temp.eval(lexus_pds)].shape[0]),'hh at t =',_t)
             
-            _tr = temp.loc[temp.eval(lexus_pds)].copy()
+            _tr = temp.loc[temp.eval(lexus_pds)]
             temp.loc[_tr.index.tolist(),        'sav_f'] += temp.loc[_tr.index.tolist()].eval('help_received*@math.e**(-@_t*@const_pds_rate)')
-            temp.loc[_tr.index.tolist(),'help_received']  = 0.0
+            temp.loc[_tr.index.tolist(),'help_received']  = 0.            
+            temp.loc[_tr.index.tolist(),'di_t'] = temp.loc[_tr.index.tolist()].eval('di_prv_t+di_pub_t-help_received*@const_pds_rate*@math.e**(-@_t*@const_pds_rate)')
             temp.loc[_tr.index.tolist(),'sav_offset_to'] *= 0.5
+      
+        temp['dc_t'] = temp['di_t'].values + temp[['hh_reco_rate','dk_prv_t']].prod(axis=1).values
 
-            flag_recalc = True
-            
-        ####################################        
-        # Calculate di(t) & dc(t) 
-        # di(t) won't change again within this time step, but dc(c) could
-        temp['di_t'] = temp.eval('di_prv_t+di_pub_t-help_received*@const_pds_rate*@math.e**(-@_t*@const_pds_rate)')      
-        temp['dc_t'] = temp.eval('di_t+hh_reco_rate*dk_prv_t')
-        assert(temp.loc[temp.di_t<0].shape[0] == 0)
-        
         ####################################
         # Let the hh optimize (pause, (re-)start, or adjust) its reconstruction
         # NB: this doesn't change income--just consumption
         
-        start_criteria  = '(welf_class==3) & (hh_reco_rate==0) & (dk_prv_t > 0) & (c-di_t >= c_min)'
-        stop_criteria   = '(welf_class==3) & (hh_reco_rate!=0) & (c-di_t < c_min)'
-
-        recalc_pov_crit = 'welf_class==1 & hh_reco_rate!=0 & dk_prv_t>0 & hh_reco_rate < @max_treco & c-di_t>pov_line & (dc_t<0 | c-dc_t>pov_line)'
-        recalc_sub_crit = '(welf_class==2 | welf_class==3) & hh_reco_rate!=0 & dk_prv_t>0 & (dc_t>c | (hh_reco_rate < @max_treco & c-di_t>c_min & (dc_t<0 | c-dc_t>c_min)))'   
+        start_criteria  = '(welf_class==3) & (hh_reco_rate==0) & (dk_prv_t > 0) & ((c-dc_t) >= c_min)'
+        stop_criteria   = '(welf_class==3) & (hh_reco_rate!=0) & (c-di_t < c_min) & (c-di_t+sav_f < c_min)'
+        
+        recalc_pov_crit = 'welf_class==1 & dk_prv_t>0 & hh_reco_rate!=0 & hh_reco_rate < @max_treco & c-di_t>pov_line & (dc_t<0 | c-dc_t>pov_line)'
+        recalc_sub_crit = '(welf_class==2 | welf_class==3) & dk_prv_t>0 & hh_reco_rate!=0 & hh_reco_rate < @max_treco & c-di_t>c_min & (dc_t<0 | c-dc_t>c_min)'
 
         hh_reco_rate_t_pov = '(c-pov_line-di_t)/dk_prv_t'
         hh_reco_rate_t_sub = '(c-c_min-di_t)/dk_prv_t'
         
-        if flag_recalc or (counter <= n_steps/2 and counter%2 == 0) or (counter>n_steps/2 and counter%12 == 0):
+        if (counter <= n_steps/2 and counter%2 == 0) or (counter>n_steps/2 and counter%12 == 0):
                        
             #temp.loc[temp.eval(recalc_sub_crit)].to_csv('~/Desktop/recalc_sub.csv')
             print('('+optionPDS+' - t = '+str(round(_t*52,1))+' weeks after disaster; '
@@ -1310,9 +1305,16 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
             # Find hh that need to accelerate or scale back their reconstruction as they progress, or b/c of PDS 
             temp.loc[temp.eval(recalc_pov_crit),'hh_reco_rate'] = (temp.loc[temp.eval(recalc_pov_crit)].eval(hh_reco_rate_t_pov)).clip(upper=6.*const_nom_reco_rate)
             temp.loc[temp.eval(recalc_sub_crit),'hh_reco_rate'] = (temp.loc[temp.eval(recalc_sub_crit)].eval(hh_reco_rate_t_sub)).clip(upper=6.*const_nom_reco_rate)
+            assert(temp.loc[temp.hh_reco_rate<0].shape[0] == 0)
+            
     
-        ####################################        
-        # Calculate dc(t) 
+        #########################################
+        # Recalculate dc at this time step after hh make adjustments
+        #temp['di_prv_t'] = (temp['dk_prv_t'].values*my_avg_prod_k*(1-my_tau_tax)
+        #                    + temp[['pcsoc','scale_fac_soc']].prod(axis=1).values*math.e**(-_t*const_pub_reco_rate))
+        #temp['di_pub_t'] = temp['di0_pub'].values*math.e**(-_t*const_pub_reco_rate)
+        #temp['di_t'] = 
+        # NB: these are unchanged from above...
         temp['dc_t'] = temp.eval('di_t+hh_reco_rate*dk_prv_t')
 
         if temp.loc[temp.hh_reco_rate<0].shape[0] != 0:
@@ -1320,11 +1322,11 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
             temp.loc[temp.hh_reco_rate<0].to_csv('tmp/fatal_neg_hh_reco_rate.csv')
             assert(False)
 
-        #if temp.loc[temp.eval('dc_t>c')].shape[0] != 0:
-        #    print('Finding hh with dc_t > c !! Fatal error!!')
-        #    temp.loc[temp.eval('dc_t>c')].to_csv('tmp/fatal_neg_c.csv')
-        #    assert(False)
-
+        if temp.loc[temp.eval('dc_t>c')].shape[0] != 0:
+            print('Finding hh with dc_t > c !! Fatal error!!')
+            temp.loc[temp.eval('dc_t>c')].to_csv('tmp/fatal_neg_c.csv')
+            assert(False)
+        
         ########################
         # Now apply savings (if any left)
         #
@@ -1334,7 +1336,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         # Find dC net of savings (min = sav_offset_to if dc_t > 0  -OR-  min = dc_t if dc_t < 0 ie: na & received PDS)
         temp['dc_net'] = temp['dc_t'].copy()
         
-        sav_criteria = '(sav_f>=0.0)&(dc_t>sav_offset_to)'
+        sav_criteria = '(sav_f>0.)&(dc_t>sav_offset_to)'
         sav_criteria_2a = sav_criteria+'&(dc_net!=dc_t)&(hh_reco_rate!=0)'
         sav_criteria_2b = sav_criteria+'&(dc_net!=dc_t)&(hh_reco_rate==0)'
 
@@ -1350,7 +1352,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
  
         # Adjust savings after spending    
         temp['sav_f'] -= temp['sav_delta']
-        
+
         # Sanity check: savings should not go negative
         savings_check = '(sav_i>0.)&(sav_f+0.01<0.)'
         if temp.loc[temp.eval(savings_check)].shape[0] != 0:
@@ -1365,18 +1367,16 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     
         ########################  
         # Finally, calculate welfare losses
+        #temp['integ'] += step_dt*((1.-(temp['dc_net'].values/temp['c'].values))**(1-const_ie)-1.)*math.e**(-_t*const_rho)
+
         temp['integ'] += temp.eval('@step_dt*((1.-dc_net/c)**(1.-@const_ie)-1.)*@math.e**(-@_t*@const_rho)')
         #temp['integ'] += step_dt*((1.-(temp['dc_net'].values/temp['c'].values))**(1-const_ie)-1.)*math.e**(-_t*const_rho)
 
-        if temp.loc[temp.integ<0].shape[0] != 0:
-            temp.loc[temp.integ<0].to_csv('tmp/negative_integ.csv')
-            assert(False)
-                                      
-
         if temp.shape[0] != temp.dropna(subset=['integ']).shape[0]:
-            temp['integ'] = temp['integ'].fillna(-1E9)
-            temp.loc[temp.integ==-1E9].to_csv('tmp/fatal_integ_null.csv')
+            temp['integ'] = temp['integ'].fillna(-500)
+            temp.loc[temp.integ==-500].to_csv('tmp/fatal_integ_null.csv')
             assert(False)
+
 
         # NB: no expansion here because dc_net already gives the instantateous value at t = _t
         # --> Could take the average within each time step (step_dt)
@@ -1411,9 +1411,9 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # Write out the poverty duration info
     temp[[mac_ix[0],'hazard','rp','pcwgt','c','dk0','t_pov_inc','t_pov_cons','t_pov_bool']].to_csv('../output_country/'+myC+'/poverty_duration_'+optionPDS+'.csv')
     
-
     ################################
     # 'revised' calculation of dw
+
     temp['wprime_hh']       = temp.eval('c**(-@const_ie)')
     temp['dw_curr_no_clip'] = temp.eval('const*integ/@my_natl_wprime')
 
@@ -1424,18 +1424,22 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
      
     # Re-merge temp and temp_na
     temp = pd.concat([temp,temp_na]).reset_index().set_index([i for i in mic_ix]).sort_index()
+
     temp['dc_net'] = temp['dc_net'].fillna(temp['dc_t'])
 
     if temp['dw'].shape[0] != temp.dropna(subset=['dw']).shape[0]:
-        temp['dw'] = temp['dw'].fillna(-1E9)
-        temp.loc[temp.dw==-1E9].to_csv('tmp/fatal_dw_null.csv')
-        print(temp.loc[temp.dw==-1E9].shape[0],' hh have NaN dw')
-        assert(False)
+        temp['dw'] = temp['dw'].fillna(-500)
+        temp.loc[temp.dw==-500].to_csv('tmp/debug0.csv')
+        print(temp.loc[temp.dw==-500].shape[0],' hh have NaN dw')
 
     print('dw:',temp['dw'].shape[0],'dw.dropna:',temp.dropna(subset=['dw']).shape[0])
     assert(temp['dc_t'].shape[0] == temp['dc_t'].dropna().shape[0])
+    
+    #print(temp['dw'].shape[0],temp.dropna(subset=['dw']).shape[0])
+    #assert(temp['dw'].shape[0] == temp.dropna(subset=['dw']).shape[0])
+    
     assert(temp['dc_net'].shape[0] == temp['dc_net'].dropna().shape[0])
-    assert(temp['dw'].shape[0] == temp.dropna(subset=['dw']).shape[0])    
+    assert(temp['dw'].shape[0] == temp.dropna(subset=['dw']).shape[0])  
 
     # Divide by dw'
     temp['dw_curr'] = temp['dw']/my_natl_wprime
@@ -1445,13 +1449,10 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     temp.loc[(temp.pcwgt!=0)&(temp.dw_curr==my_dw_limit)].to_csv(tmp+'my_late_excess'+optionPDS+'.csv')
 
     print('\n ('+optionPDS+' Total well-being losses ('+pol_str+'):',temp[['dw_curr_no_clip','pcwgt']].prod(axis=1).sum(level=[i for i in mac_ix])/1.E6)
-        
-    ##################################
-    # Write summary stats
+    
     temp = temp.reset_index().set_index([i for i in mic_ix]).reset_index(level='affected_cat')
     tmp_out = pd.DataFrame(index=temp.sum(level=[i for i in mac_ix]).index)
     
-
     tmp_out['dk_tot'] = temp[['dk0','pcwgt']].prod(axis=1).sum(level=[i for i in mac_ix])/1.E6
     tmp_out['dw_tot'] = temp[['dw_curr','pcwgt']].prod(axis=1).sum(level=[i for i in mac_ix])/1.E6
     tmp_out['res_tot'] = tmp_out['dk_tot']/tmp_out['dw_tot']
@@ -1469,17 +1470,17 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     tmp_out['avg_reco_t']         = (np.log(1/0.05)/temp.loc[(temp.affected_cat=='a')&(temp.hh_reco_rate!=0),'hh_reco_rate']).mean(skipna=True,level=[i for i in mac_ix])
     tmp_out['sub_avg_reco_t']     = (np.log(1/0.05)/temp.loc[(temp.affected_cat=='a')&(temp.welf_class==3)&(temp.hh_reco_rate!=0),'hh_reco_rate']).mean(skipna=True,level=[i for i in mac_ix])
     tmp_out['non_sub_avg_reco_t'] = (np.log(1/0.05)/temp.loc[(temp.affected_cat=='a')&(temp.welf_class!=3)&(temp.hh_reco_rate!=0),'hh_reco_rate']).mean(skipna=True,level=[i for i in mac_ix])
-    tmp_out['pct_subs'] = temp.loc[(temp.affected_cat=='a')&(temp.hh_reco_rate==0),'pcwgt'].sum(level=[i for i in mac_ix])/temp.loc[(temp.affected_cat=='a'),'pcwgt'].sum(level=[i for i in mac_ix])
+    tmp_out['pct_subs']           = temp.loc[(temp.affected_cat=='a')&(temp.hh_reco_rate==0),'pcwgt'].sum(level=[i for i in mac_ix])/temp.loc[(temp.affected_cat=='a'),'pcwgt'].sum(level=[i for i in mac_ix])
     
     tmp_out.to_csv('../output_country/'+myC+'/my_summary_'+optionPDS+pol_str+'.csv')
     tmp_out_aal,_ = average_over_rp(tmp_out[['dk_tot','dw_tot']])
     tmp_out_aal['resilience'] = tmp_out_aal['dk_tot']/tmp_out_aal['dw_tot']
     tmp_out_aal.to_csv('../output_country/'+myC+'/my_summary_aal_'+optionPDS+pol_str+'.csv')
     print('Wrote out summary stats for dw ('+optionPDS+'/'+pol_str+')')
-    ##################################
 
+    print(temp['dc_t'].mean())
     temp = temp.reset_index().set_index([i for i in mic_ix])
-    return temp['dc_net'], temp['dw']
+    return temp['dc_t'], temp['dw']
 
 
 def welf1(c,elast,comp):
