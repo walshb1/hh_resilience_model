@@ -1334,7 +1334,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         # Find dC net of savings (min = sav_offset_to if dc_t > 0  -OR-  min = dc_t if dc_t < 0 ie: na & received PDS)
         temp['dc_net'] = temp['dc_t'].copy()
         
-        sav_criteria = '(sav_f>=0.0)&(dc_t>sav_offset_to)'
+        sav_criteria = '(sav_f>0.1)&(dc_t>sav_offset_to)'
         sav_criteria_2a = sav_criteria+'&(dc_net!=dc_t)&(hh_reco_rate!=0)'
         sav_criteria_2b = sav_criteria+'&(dc_net!=dc_t)&(hh_reco_rate==0)'
 
@@ -1383,7 +1383,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
 
         # Decrement dk(t)
         _dk_prv = 'dk_prv_t*(@math.e**(-hh_reco_rate*@step_dt)-1)'
-        temp.loc[temp.eval(sav_criteria_2a),'dk_prv_t'] += temp.eval(_dk_prv)
+        temp['dk_prv_t'] += temp.eval(_dk_prv)
 
         # Sanity check: dk_prv_t should not be higher than dk_private (initial value)
         if temp.loc[(temp.dk_prv_t>temp.dk_private+0.01)].shape[0] > 0:
