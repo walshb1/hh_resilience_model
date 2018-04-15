@@ -16,5 +16,5 @@ def smart_savers(temp,avg_prod_k,const_pub_reco_rate,const_pds_rate):
     # Upper clip = (c-c_min): hh is obliged to stay out of subsistence if at all possible
 
     _a['max'] = temp.eval('c-c_min').clip(lower=0.)
-    return _a['sav_offset_to'].clip(lower=0.)#, upper=_a['max'])
+    return _a['sav_offset_to'].clip(lower=0., upper=_a['max'])
 
