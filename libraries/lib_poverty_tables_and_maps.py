@@ -13,10 +13,8 @@ purge('img/','legend_of_*.png')
 purge('img/','map_of_*.svg')
 purge('img/','legend_of_*.svg')
 
-col_cast_dict = {'new_pov':'int',
-                 'pct_pov':'float64',
-                 'new_sub':'int',
-                 'pct_sub':'float64'}
+col_cast_dict = {'new_pov':'int', 'pct_pov':'float64',
+                 'new_sub':'int', 'pct_sub':'float64'}
 
 def run_poverty_duration_plot(myC):
 
@@ -34,23 +32,31 @@ def run_poverty_duration_plot(myC):
     listofdeciles=np.arange(0.10, 1.01, 0.10)
     df = df.reset_index().groupby('country',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),listofdeciles),'decile'))
 
-    # Load additional SP runs
-    _pols = ['','unif_poor']#,'prop_q1']
-    for iSP in _pols[1:]:
+    # Load additional SP runs    
+    _sp = []
+    for f in glob.glob('/Users/brian/Desktop/BANK/hh_resilience_model/output_country/'+myC+'/poverty_duration_*.csv'):
+        _ = f.replace('/Users/brian/Desktop/BANK/hh_resilience_model/output_country/'+myC+'/poverty_duration_','').replace('.csv','')
+        _sp.append(_)
+        
+    for iSP in _sp:
         _ = pd.read_csv('../output_country/'+myC+'/poverty_duration_'+iSP+'.csv')
         df[['t_pov_inc'+iSP,'t_pov_cons'+iSP,'t_pov_bool'+iSP]] = _[['t_pov_inc','t_pov_cons','t_pov_bool']]
 
+
+    ############################
     # Do some plotting
-    plot_crit = '(t_pov_bool>0)&(hazard=="PF")&(rp==500)'
+    #plot_crit = '(t_pov_bool)&(hazard=="PF")&(rp==500)'
 
-    df.loc[df.eval(plot_crit)].plot.hexbin('dk0','t_pov_cons')
+    #df.loc[df.eval(plot_crit)].plot.hexbin('dk0','t_pov_cons')
     #plt.gca().get_figure().savefig('../output_plots/'+myC+'/poverty_duration_hexbin_no.pdf',format='pdf')
-    plt.cla()
+    #plt.cla()
 
-    df.loc[df.eval(plot_crit)].plot.scatter('dk0','t_pov_cons')
+    #df.loc[df.eval(plot_crit)].plot.scatter('dk0','t_pov_cons')
     #plt.gca().get_figure().savefig('../output_plots/'+myC+'/poverty_duration_scatter_no.pdf',format='pdf')
-    plt.cla()    
+    #plt.cla()    
 
+
+    ############################
     df = df.reset_index().set_index(['hazard','rp','decile'])
 
     df_dec = pd.DataFrame(index=df.sum(level=['hazard','rp','decile']).index)
@@ -65,7 +71,7 @@ def run_poverty_duration_plot(myC):
     df_dec['frac_new_pov_cons'] = df_dec['n_new_pov_cons']/df['pcwgt'].sum(level=['hazard','rp','decile'])
 
     # Among people pushed into pov: average time in poverty (months)
-    for iSP in _pols:
+    for iSP in _sp:
         df_dec['t_pov_inc_avg'+iSP] = 12.*(df.loc[df.eval('t_pov_bool'+iSP+'==True'),['pcwgt','t_pov_inc'+iSP]].prod(axis=1).sum(level=['hazard','rp','decile'])
                                            /df.loc[df.eval('t_pov_bool'+iSP+'==True'),'pcwgt'].sum(level=['hazard','rp','decile']))
         df_dec['t_pov_cons_avg'+iSP] = 12.*(df.loc[df.eval('t_pov_bool'+iSP+'==True'),['pcwgt','t_pov_cons'+iSP]].prod(axis=1).sum(level=['hazard','rp','decile'])
@@ -79,6 +85,28 @@ def run_poverty_duration_plot(myC):
                                               /df.loc[df.eval('(t_pov_bool==True)&('+geo+'==@iloc)'),'pcwgt'].sum(level=['hazard','rp','decile']))
 
     df_dec.to_csv('../output_country/'+myC+'/poverty_by_decile.csv')
+
+    ######################
+    # Scatter plot of hh that have to delay reconstruction
+    df['t_reco'] = (np.log(1.0/0.05)/df['hh_reco_rate']).clip(upper=10)
+
+    means = []
+    xmax = 2.5E5
+    step = xmax/10.
+    for i in np.linspace(0,10,10):        
+        means.append(df.loc[df.eval('(c>@i*@step)&(c<=(@i+1)*@step)&(t_reco!=10)'),['pcwgt','t_reco']].prod(axis=1).sum()/
+                     df.loc[df.eval('(c>@i*@step)&(c<=(@i+1)*@step)&(t_reco!=10)'),['pcwgt']].sum())
+
+    ax = df.loc[df.eval('c<@xmax')].plot.hexbin('c','t_reco',gridsize=25,mincnt=1)
+    plt.plot(step*np.linspace(0,10,10),means,zorder=100)
+
+    # Do the formatting
+    ax = title_legend_labels(ax,'Precipitation flood in '+myC,lab_x='Pre-disaster consumption [PhP per cap]',lab_y='Time to reconstruct [years]',leg_fs=9)
+    
+    # Do the saving
+    plt.draw()
+    plt.gca().get_figure().savefig('../output_plots/'+myC+'/t_start_reco_scatter.pdf',format='pdf')
+    plt.cla()
 
     ######################
     # Latex table of poorest quintile poverty time
@@ -101,9 +129,6 @@ def run_poverty_duration_plot(myC):
     print(_to_tex.head())
 
     _to_tex[['Income','Consumption']].to_latex('latex/'+myC+'_poverty_duration.tex')
-    assert(False)
-    
-    #df_dec[['new_pov','new_sub']].fillna(0).sort_values(['new_pov'],ascending=False).astype('int').to_latex('latex/poverty_by_haz_'+str(_typ)+'.tex')
 
     ######################
     # Plot consumption and income poverty (separately)
@@ -112,13 +137,15 @@ def run_poverty_duration_plot(myC):
     _lab = {'t_pov_cons_avg':'Average time to exit poverty\n(income net of reconstruction & savings) [months]',
             't_pov_inc_avg':'Average time to exit poverty (income only) [months]'}
 
+    print(df_dec.columns)
+
     for ipov in ['t_pov_cons_avg','t_pov_inc_avg']:
         # Do the plotting
-        ax = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot.scatter('decile',ipov,color=sns_pal[1],lw=0,label='Natl. average (RP = 5 years)',zorder=99)
-        df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==1000)')].plot.scatter('decile',ipov,color=sns_pal[3],lw=0,label='Natl. average (RP = 1000 years)',zorder=98,ax=ax)
+        #ax = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot.scatter('decile',ipov+'no',color=sns_pal[1],lw=0,label='Natl. average (RP = 5 years)',zorder=99)
+        #df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==1000)')].plot.scatter('decile',ipov+'no',color=sns_pal[3],lw=0,label='Natl. average (RP = 1000 years)',zorder=98,ax=ax)
 
-        df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot('decile',ipov,color=sns_pal[1],zorder=97,label='',ax=ax)
-        df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==1000)')].plot('decile',ipov,color=sns_pal[3],zorder=96,label='',ax=ax)
+        ax = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot('decile',ipov+'no',color=sns_pal[1],zorder=97,label='')
+        df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==1000)')].plot('decile',ipov+'no',color=sns_pal[3],zorder=96,label='',ax=ax)
 
         icol = 4
 
@@ -152,15 +179,15 @@ def run_poverty_duration_plot(myC):
         _df_5 = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].copy()
         _df_1000 = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==1000)')].copy()
 
-        for iSP in _pols:
+        for iSP in _sp:
 
-            plt.fill_between(_df_5['decile'].values,_df_5[ipov+iSP],_df_1000[ipov+iSP],color=sns_pal[icol],alpha=0.3)
+            plt.fill_between(_df_5['decile'].values,_df_5[ipov+iSP],_df_1000[ipov+iSP],alpha=0.3)
 
-            _df_5.plot.scatter('decile',ipov+iSP,color=sns_pal[icol],lw=0,label='',zorder=99,ax=ax)
-            _df_1000.plot.scatter('decile',ipov+iSP,color=sns_pal[icol],lw=0,label='',zorder=98,ax=ax)
+            _df_5.plot.scatter('decile',ipov+iSP,lw=0,label='',zorder=99,ax=ax)
+            _df_1000.plot.scatter('decile',ipov+iSP,lw=0,label='',zorder=98,ax=ax)
             
-            _df_5.plot('decile',ipov+iSP,color=sns_pal[icol],zorder=97,linestyle=':',label=iSP+' natl. average (RP = 5 years)',ax=ax)
-            _df_1000.plot('decile',ipov+iSP,color=sns_pal[icol],zorder=96,label=iSP+' natl. average (RP = 1000 years)',ax=ax)
+            _df_5.plot('decile',ipov+iSP,zorder=97,linestyle=':',label=iSP+' natl. average (RP = 5 years)',ax=ax)
+            _df_1000.plot('decile',ipov+iSP,zorder=96,label=iSP+' natl. average (RP = 1000 years)',ax=ax)
             
             icol+=1
 
