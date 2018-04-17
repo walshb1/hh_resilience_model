@@ -1320,10 +1320,10 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
             temp.loc[temp.hh_reco_rate<0].to_csv('tmp/fatal_neg_hh_reco_rate.csv')
             assert(False)
 
-        #if temp.loc[temp.eval('dc_t>c')].shape[0] != 0:
-        #    print('Finding hh with dc_t > c !! Fatal error!!')
-        #    temp.loc[temp.eval('dc_t>c')].to_csv('tmp/fatal_neg_c.csv')
-        #    assert(False)
+        if temp.loc[temp.eval('dc_t>c')].shape[0] != 0:
+            print('Finding hh with dc_t > c !! Fatal error!!')
+            temp.loc[temp.eval('dc_t>c')].to_csv('tmp/fatal_neg_c.csv')
+            assert(False)
 
         ########################
         # Now apply savings (if any left)
@@ -1372,7 +1372,6 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
             temp.loc[temp.integ<0].to_csv('tmp/negative_integ.csv')
             assert(False)
                                       
-
         if temp.shape[0] != temp.dropna(subset=['integ']).shape[0]:
             temp['integ'] = temp['integ'].fillna(-1E9)
             temp.loc[temp.integ==-1E9].to_csv('tmp/fatal_integ_null.csv')
@@ -1409,7 +1408,8 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     except: pass
     
     # Write out the poverty duration info
-    temp[[mac_ix[0],'hazard','rp','pcwgt','c','dk0','t_pov_inc','t_pov_cons','t_pov_bool']].to_csv('../output_country/'+myC+'/poverty_duration_'+optionPDS+'.csv')
+    temp[[mac_ix[0],'hazard', 'rp', 'pcwgt', 'c', 'dk0', 't_pov_inc', 't_pov_cons', 
+          't_pov_bool', 't_start_prv_reco', 'hh_reco_rate']].to_csv('../output_country/'+myC+'/poverty_duration_'+optionPDS+'.csv')
     
 
     ################################
