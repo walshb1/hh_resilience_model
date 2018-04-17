@@ -512,16 +512,17 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         # --> income losses do not push hh into poverty 
         # --> standard reco costs do not push into poverty
         # --> hh did lose some assets
-        # *** HH response: reconstruct as quickly as possible (cap of 0.5 yrs/6 months) while keeping consumption above poverty
-        _c1 = cats_event_ia.query('(c>pov_line)&((c-dc0)>pov_line)&(dk_private!=0)')[['c','pov_line','dk_private','di0_prv','di0','dc0_prv','dc0_pub','dc0']].copy()
+        # *** HH response: reconstruct as quickly as possible (cap of 0.5 yrs/6 months) while keeping consumption above subsistence
+
+        _c1 = cats_event_ia.query('(c>pov_line)&((c-di0)>c_min)&(dk_private!=0)')[['c','c_min','dk_private','di0_prv','di0','dc0_prv','dc0_pub','dc0']].copy()
         _c1['welf_class']   = 1
         _c1['dc_old']       = _c1['dc0']
-        _c1['hh_reco_rate'] = ((_c1['c']-_c1['pov_line']-_c1['di0'])/_c1['dk_private']).clip(lower=0,upper=6.*const_nom_reco_rate)
-        _c1['dc0_prv']      = _c1['di0_prv'] + _c1[['hh_reco_rate','dk_private']].prod(axis=1)
-        _c1['dc0']          = _c1['dc0_prv'] + _c1['dc0_pub']
+        _c1['hh_reco_rate'] = _c1.eval('(c-c_min-di0)/dk_private').clip(lower=0,upper=6.*const_nom_reco_rate)
+        _c1['dc0_prv']      = _c1.eval('di0_prv+hh_reco_rate*dk_private')
+        _c1['dc0']          = _c1.eval('dc0_prv+dc0_pub')
         cats_event_ia.loc[_c1.index.tolist(),['dc0','dc0_prv','hh_reco_rate','welf_class']] = _c1[['dc0','dc0_prv','hh_reco_rate','welf_class']]
         print('C1: '+str(round(float(100*cats_event_ia.loc[cats_event_ia.welf_class==1].shape[0])
-                               /float(cats_event_ia.loc[cats_event_ia.dk0!=0].shape[0]),2))+'% of hh accelerate reco to poverty')
+                               /float(cats_event_ia.loc[cats_event_ia.dk0!=0].shape[0]),2))+'% of hh accelerate reco to subsistence')
 
         # Case 2: initial consumption is above or below poverty line
         # --> hh are not in any other class (initially above or below poverty line)
@@ -534,13 +535,12 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         ##reco_thresh = 1.005
         ## ^ fraction of c_min at which hh start to reconstruct. 
         ## --> not that important, because hh will recalibrate on basis of recalc_sub_crit
-        hh_reco_rate_init = '(c-c_min-di0)/dk_private'
 
         _c2 = cats_event_ia.query('(welf_class==0)&((c-di0)>c_min)&(dk_private!=0)')[['c','c_min','dk_private','di0_prv',
                                                                                                    'di0','dc0_prv','dc0_pub','dc0']].copy()
         _c2['welf_class']   = 2
         _c2['dc_old']       = _c2['dc0']
-        _c2['hh_reco_rate'] = (_c2.eval(hh_reco_rate_init)).clip(lower=0.,upper=6.*const_nom_reco_rate)
+        _c2['hh_reco_rate'] = _c2.eval('(c-c_min-di0)/dk_private').clip(lower=0.,upper=6.*const_nom_reco_rate)
         assert(_c2['hh_reco_rate'].min()>=0)
         _c2['dc0_prv']      = _c2['di0_prv'] + _c2[['hh_reco_rate','dk_private']].prod(axis=1)
         _c2['dc0']          = _c2['dc0_prv'] + _c2['dc0_pub']
@@ -1197,7 +1197,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     
     temp['t_start_prv_reco'] = -1
     temp['t_pov_inc'],temp['t_pov_cons'],temp['t_pov_bool'] = 0., 0., True
-    temp.loc[temp.eval('(welf_class==1)|(c<pov_line)'),'t_pov_bool'] = False
+    temp.loc[temp.eval('c<pov_line'),'t_pov_bool'] = False
     # ^ set these "timers" to collect info about when the hh starts reco, and when it exits poverty
 
     my_avg_prod_k = macro.avg_prod_k.mean()
@@ -1284,10 +1284,10 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         start_criteria  = '(welf_class==3) & (hh_reco_rate==0) & (dk_prv_t > 0) & (c-di_t >= c_min)'
         stop_criteria   = '(welf_class==3) & (hh_reco_rate!=0) & (c-di_t < c_min)'
 
-        recalc_pov_crit = 'welf_class==1 & hh_reco_rate!=0 & dk_prv_t>0 & hh_reco_rate < @max_treco & c-di_t>pov_line & (dc_t<0 | c-dc_t>pov_line)'
+        recalc_pov_crit = 'welf_class==1 & hh_reco_rate!=0 & dk_prv_t>0 & (dc_t>c | (hh_reco_rate < @max_treco & c-di_t>c_min & (dc_t<0 | c-dc_t>c_min)))'
         recalc_sub_crit = '(welf_class==2 | welf_class==3) & hh_reco_rate!=0 & dk_prv_t>0 & (dc_t>c | (hh_reco_rate < @max_treco & c-di_t>c_min & (dc_t<0 | c-dc_t>c_min)))'   
 
-        hh_reco_rate_t_pov = '(c-pov_line-di_t)/dk_prv_t'
+        hh_reco_rate_t_pov = '(c-c_min-di_t)/dk_prv_t'
         hh_reco_rate_t_sub = '(c-c_min-di_t)/dk_prv_t'
         
         if flag_recalc or (counter <= n_steps/2 and counter%2 == 0) or (counter>n_steps/2 and counter%12 == 0):
@@ -1366,7 +1366,6 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         ########################  
         # Finally, calculate welfare losses
         temp['integ'] += temp.eval('@step_dt*((1.-dc_net/c)**(1.-@const_ie)-1.)*@math.e**(-@_t*@const_rho)')
-        #temp['integ'] += step_dt*((1.-(temp['dc_net'].values/temp['c'].values))**(1-const_ie)-1.)*math.e**(-_t*const_rho)
 
         if temp.loc[temp.integ<0].shape[0] != 0:
             temp.loc[temp.integ<0].to_csv('tmp/negative_integ.csv')
