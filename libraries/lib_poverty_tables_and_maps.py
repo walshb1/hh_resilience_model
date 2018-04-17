@@ -88,16 +88,17 @@ def run_poverty_duration_plot(myC):
 
     ######################
     # Scatter plot of hh that have to delay reconstruction
-    df['t_reco'] = (np.log(1.0/0.05)/df['hh_reco_rate']).clip(upper=10)
+    upper_lim = 1E15
+    df['t_reco'] = (np.log(1.0/0.05)/df['hh_reco_rate']).clip(upper=upper_lim)
 
     means = []
     xmax = 2.5E5
     step = xmax/10.
     for i in np.linspace(0,10,10):        
-        means.append(df.loc[df.eval('(c>@i*@step)&(c<=(@i+1)*@step)&(t_reco!=10)'),['pcwgt','t_reco']].prod(axis=1).sum()/
-                     df.loc[df.eval('(c>@i*@step)&(c<=(@i+1)*@step)&(t_reco!=10)'),['pcwgt']].sum())
+        means.append(df.loc[df.eval('(rp==1000)&(c>@i*@step)&(c<=(@i+1)*@step)&(t_reco!=@upper_lim)'),['pcwgt','t_reco']].prod(axis=1).sum()/
+                     df.loc[df.eval('(rp==1000)&(c>@i*@step)&(c<=(@i+1)*@step)&(t_reco!=@upper_lim)'),['pcwgt']].sum())
 
-    ax = df.loc[df.eval('c<@xmax')].plot.hexbin('c','t_reco',gridsize=25,mincnt=1)
+    ax = df.loc[df.eval('(c<@xmax)&(t_reco<12)')].plot.hexbin('c','t_reco',gridsize=25,mincnt=1)
     plt.plot(step*np.linspace(0,10,10),means,zorder=100)
 
     # Do the formatting
