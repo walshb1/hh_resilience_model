@@ -456,11 +456,11 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         # --> the total k in non-aff provinces doesn't change, either way
         # --> the fraction of assets in the country does, because of destruction in the aff province. 
 
-        # Uncomment these 2 lines for tax assessment before disaster
+        # Uncomment these 2 lines for tax assessment before disaster (or *long* after)
         public_costs = public_costs.rename(columns={'transfer_pub_BE':'transfer_pub','pc_fee_BE':'pc_fee'})
         cats_event_ia = cats_event_ia.rename(columns={'pc_fee_PE':'pc_fee'})
 
-        # Uncomment these 2 lines for tax assessment after disaster
+        # Uncomment these 2 lines for tax assessment *immediately* after disaster
         #public_costs = public_costs.rename(columns={'transfer_pub_PE':'transfer_pub'})
         #cats_event_ia = cats_event_ia.rename(columns={'pc_fee_PE':'pc_fee'})
         
@@ -982,7 +982,7 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
     df_out['dK']        = cats_event_iah[['dk0'    ,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah['pcwgt'].sum(level=event_level)
     #df_out['dK_public'] = cats_event_iah[['dk_public','pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah['pcwgt'].sum(level=event_level)
     df_out['delta_W']   = cats_event_iah[['dw'     ,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah['pcwgt'].sum(level=event_level)
-
+    
     # dktot is already summed with RP -- just add them normally to get losses
     df_out['dKtot']       =      df_out['dK']*cats_event_iah['pcwgt'].sum(level=event_level)#macro_event['pop']
     df_out['delta_W_tot'] = df_out['delta_W']*cats_event_iah['pcwgt'].sum(level=event_level)#macro_event['pop'] 
@@ -1138,8 +1138,13 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     temp = micro.loc[(micro.pcwgt!=0)&((micro.affected_cat=='a')|(micro.help_received!=0)|(micro.dc0!=0))].reset_index().copy()
     # ^ ALL HH that are: affected OR received help OR receive social
         
-    temp_na = micro.loc[(micro.pcwgt!=0)&(micro.affected_cat=='na')&(micro.help_received==0)&(micro.dc0==0),['affected_cat','pcwgt','c','dk0','dc0','pc_fee']].reset_index().copy()
+    temp_na = micro.loc[(micro.pcwgt!=0)&(micro.affected_cat=='na')&(micro.help_received==0)&(micro.dc0==0),['affected_cat','pcwgt','k','dk0','c','dc0','pc_fee']].reset_index().copy()
     # ^ ALL HH that are: not affected AND didn't receive help AND don't have any social income
+
+    macro['tot_k'] = (micro[['pcwgt','k']].prod(axis=1).sum(level=mac_ix)).groupby(level=['hazard','rp']).transform('sum')
+    # ^ We're going to recalculate scale_fac_soc at every step
+    # --> This couples the success of rich & poor households
+    # --> ^ It's a small effect, but the poor do better if the rich recover more quickly
 
     #############################
     # Upper limit for per cap dw (from micro, since temp is a subset)
@@ -1158,7 +1163,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     temp_na['dc_t'] = 0.
     # wprime, dk0
 
-    temp_na.head(1000).to_csv(tmp+'temp_na.csv')
+    temp_na.head(10).to_csv(tmp+'temp_na.csv')
     # Will re-merge temp_na with temp at the bottom...trying to optimize here!
 
     #############################
@@ -1203,7 +1208,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     my_avg_prod_k = macro.avg_prod_k.mean()
     my_tau_tax = macro['tau_tax'].mean()
 
-    temp['dk_prv_t'] = temp['dk_private']
+    temp['dk_prv_t'] = temp['dk_private'].copy()
     # use this to count down as hh rebuilds
 
     # First, assign savings
@@ -1234,7 +1239,7 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     counter = 0
     # Calculate integral
     for _t in int_dt:
-        print('..',_t)
+        print('..'+str(round(10*_t,1))+'%')
 
         ###################################
         ## Option: if a hh is in poverty after a disaster, they take their savings (50%) and buy a productive thing
@@ -1250,8 +1255,14 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         #        assert(temp['dk_prv_t'].min()>=0)
         ###################################
 
+        # Recalculate scale_fac_soc based on reconstruction of all assets
+        # NB: scale_fac_soc was initialized above
+        temp = temp.reset_index().set_index(mac_ix).drop([_ for _ in ['scale_fac_soc','level_0','index'] if _ in temp.columns],axis=1)
+        macro['scale_fac_soc'] = temp.eval('pcwgt*(dk_prv_t+dk_public*@math.e**(-@_t*@const_pub_reco_rate))').sum(level=mac_ix)/macro['tot_k']
+        temp = pd.merge(temp.reset_index(),macro['scale_fac_soc'].reset_index(),on=mac_ix)
+
         # BELOW: this is value of dc at time _t (duration = step_dt), assuming no savings
-        temp['di_prv_t'] = temp.eval('dk_prv_t*@my_avg_prod_k*(1-@my_tau_tax) + pcsoc*scale_fac_soc*@math.e**(-@_t*@const_pub_reco_rate)')
+        temp['di_prv_t'] = temp.eval('dk_prv_t*@my_avg_prod_k*(1-@my_tau_tax) + pcsoc*scale_fac_soc')
         temp['di_pub_t'] = temp.eval('di0_pub*@math.e**(-@_t*@const_pub_reco_rate)')
         temp['di_t'] = temp.eval('di_prv_t + di_pub_t - help_received*@const_pds_rate*@math.e**(-@_t*@const_pds_rate)')
 

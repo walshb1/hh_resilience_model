@@ -205,7 +205,7 @@ if __name__ == '__main__':
             
     if debug == True:
         print('Running in debug mode!')
-        launch_compute_resilience_and_risk_thread(myCountry,'','no')
+        launch_compute_resilience_and_risk_thread(myCountry,'','unif_poor')
     else:
         with Pool() as pool:
             print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))
