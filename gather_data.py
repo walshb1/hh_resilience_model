@@ -48,13 +48,17 @@ prov_code,region_code = get_places_dict(myCountry)
 #df2 = get_df2(myCountry)
 
 ###Define parameters
-df['rho']                    = discount_rate           # discount rate
-df['shareable']              = asset_loss_covered      # target of asset losses to be covered by scale up
 df['avg_prod_k']             = get_avg_prod(myCountry) # average productivity of capital, value from the global resilience model
+df['shareable']              = asset_loss_covered      # target of asset losses to be covered by scale up
 df['T_rebuild_K']            = reconstruction_time     # Reconstruction time
 df['income_elast']           = inc_elast               # income elasticity
 df['max_increased_spending'] = max_support             # 5% of GDP in post-disaster support maximum, if everything is ready
 df['pi']                     = reduction_vul           # how much early warning reduces vulnerability
+
+#df['rho']                    = discount_rate           # discount rate
+df['rho']                    = 0.3*df['avg_prod_k']    # discount rate
+# ^ We have been using a constant discount rate = 0.06
+# --> BUT: this breaks the assumption that hh are in steady-state equilibrium before the hazard
 
 # Protected from events with RP < 'protection'
 df['protection'] = 1
