@@ -402,6 +402,7 @@ while False:
     break
 
 cat_info = cat_info.reset_index().set_index([economy,'hhid'])
+
 #cat_info['v'] = hazard_ratios.reset_index().set_index([economy,'hhid'])['v'].mean(level=[economy,'hhid']).clip(upper=0.99)
 # ^ I think this is throwing off the losses!! Average vulnerability isn't going to cut it
 # --> Use hazard-specific vulnerability for each hh (in hazard_ratios instead of in cats_event)

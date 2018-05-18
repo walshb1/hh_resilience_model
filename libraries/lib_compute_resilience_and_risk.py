@@ -162,7 +162,7 @@ def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,ev
     #cat_info = cat_info[cat_info.c>0]
     hazard_ratios = pd.read_csv(fname, index_col=event_level+[income_cats])
     
-    print('\nHR',hazard_ratios.head())
+    print('\nHazRatios:\n',hazard_ratios.head())
 
     cat_info['ew_expansion'] = 0
     macro,cat_info,hazard_ratios = apply_policies(pol_str,macro,cat_info,hazard_ratios)
@@ -354,7 +354,6 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
     # Calculate capital losses (public, private, & other) 
     # --> Each household's capital losses is the sum of their private losses and public infrastructure losses
     # --> 'hh_share' recovers fraction that is private property
-    
     cats_event_ia['dk_private'] = cats_event_ia[['k','v_with_ew','hh_share']].prod(axis=1, skipna=False).fillna(0)
     cats_event_ia['dk_public']  = (cats_event_ia[['k','v_with_ew']].prod(axis=1, skipna=False)*(1-cats_event_ia['hh_share'])).fillna(0).clip(lower=0.)
     cats_event_ia['dk_other']   = 0. 
@@ -518,7 +517,8 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         # --> income losses do not push hh into subsistence
         # --> optimum reco costs do not push into subsistence
         # *** HH response: forego reco_frac of post-disaster consumption to fund reconstruction, while also keeping consumption above subsistence
-        _c1 = cats_event_ia.query('(dk_private!=0)&(c>c_min)&((1.+@macro_reco_frac)*(c-di0)>=c_min)')[['c','c_min','dk_private','di0_prv','di0','dc0_prv','dc0_pub','dc0']].copy()
+        c1_crit = '(dk_private!=0)&(c-di0>c_min)&((1.-@macro_reco_frac)*(c-di0)>c_min)'
+        _c1 = cats_event_ia.query(c1_crit)[['c','c_min','dk_private','di0_prv','di0','dc0_prv','dc0_pub','dc0']].copy()
         _c1['welf_class']   = 1
 
         # --> Households fund reco at optimal value:
@@ -534,11 +534,11 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         # --> income losses do not push hh into subsistence
         # --> optimum reco costs DO PUSH into subsistence
         # *** HH response: forego all consumption in excess of subsistence line to fund reconstruction
-        _c2 = cats_event_ia.query('(welf_class==0)&(dk_private!=0)&(c>c_min)&(c-di0>c_min)&((1.+@macro_reco_frac)*(c-di0)<c_min)')[['c','c_min','dk_private','di0_prv',
-                                                                                                                                    'di0','dc0_prv','dc0_pub','dc0']].copy()
+        c2_crit = '(dk_private!=0)&(c-di0>c_min)&((1.-@macro_reco_frac)*(c-di0)<=c_min)'
+        _c2 = cats_event_ia.query(c2_crit)[['c','c_min','dk_private','di0_prv','di0','dc0_prv','dc0_pub','dc0']].copy()
         _c2['welf_class']   = 2
-        
-        # --> Households can't afford to fund reco at optimal value, so they go to subsistence:
+
+        # --> Households can't afford to fund reco at optimal value, so they stop at the subsistence line:
         _c2['hh_reco_rate'] = _c2.eval('(c-di0-c_min)/dk_private')
 
         _c2['dc0_prv']      = _c2['di0_prv'] + _c2[['hh_reco_rate','dk_private']].prod(axis=1)
@@ -554,7 +554,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         # --> hh are not in any other class
         # --> c OR (c-di0) is below subsistence 
         # HH response: do not reconstruct
-        _c3 = cats_event_ia.query('(welf_class==0)&(dk_private!=0)&((c<c_min)|(c-di0<c_min))')[['dc0','di0_prv','dc0_prv','dc0_pub']].copy()
+        _c3 = cats_event_ia.query('(dk_private!=0)&(c-di0<c_min)')[['dc0','di0_prv','dc0_prv','dc0_pub']].copy()
         _c3['welf_class']   = 3
         _c3['hh_reco_rate'] = 0.             # No Reconstruction
         _c3['dc0_prv']      = _c3['di0_prv'] # No Reconstruction
@@ -1125,35 +1125,36 @@ def agg_to_event_level (df, seriesname,event_level):
 def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,study=False):
     # welfare cost from consumption before (c) and after (dc_npv_post) event. Line by line
 
-    #####################################
-    # If running in 'study' mode, just load the file from my desktop
-    # ^ grab one hh in the poorest quintile, and one in the wealthiest
-    temp, c_mean = None, None
-
     mac_ix = macro.index.names
     mic_ix = micro.index.names
 
-    # Going to separate into a & na now, for speed
-    micro = micro.reset_index('affected_cat')
-    temp = micro.loc[(micro.pcwgt!=0)&((micro.affected_cat=='a')|(micro.help_received!=0)|(micro.dc0!=0))].reset_index().copy()
-    # ^ ALL HH that are: affected OR received help OR receive social
-        
-    temp_na = micro.loc[(micro.pcwgt!=0)&(micro.affected_cat=='na')&(micro.help_received==0)&(micro.dc0==0),['affected_cat','pcwgt','k','dk0','c','dc0','pc_fee']].reset_index().copy()
-    # ^ ALL HH that are: not affected AND didn't receive help AND don't have any social income
-
-    macro['tot_k'] = (micro[['pcwgt','k']].prod(axis=1).sum(level=mac_ix)).groupby(level=['hazard','rp']).transform('sum')
-    # ^ We're going to recalculate scale_fac_soc at every step
-    # --> This couples the success of rich & poor households
-    # --> ^ It's a small effect, but the poor do better if the rich recover more quickly
-
-    #############################
+    #####################################
+    # Collect info from micro before I rewrite it...
     # Upper limit for per cap dw (from micro, since temp is a subset)
+    c_mean = None
     try: c_mean = micro[['pcwgt','c']].prod(axis=1).sum()/micro['pcwgt'].sum()
     except: print('could not calculate c_mean! HALP!'); assert(False)
 
     my_dw_limit = abs(20.*c_mean)
     my_natl_wprime = c_mean**(-const_ie)
     print('\n\nc_mean = ',int(c_mean/1E3),'K \ndw_lim = ',int(my_dw_limit/1E3),'K\nwprime_nat = ',my_natl_wprime,'\n')
+
+    macro['tot_k'] = (micro[['pcwgt','k']].prod(axis=1).sum(level=mac_ix)).groupby(level=['hazard','rp']).transform('sum')
+    # ^ We're going to recalculate scale_fac_soc at every step
+    # --> This couples the success of rich & poor households
+    # --> ^ It's a small effect, but the poor do better if the rich recover more quickly
+
+    # Going to separate into a & na now, for speed
+    micro = micro.reset_index('affected_cat')
+
+    temp = micro.loc[(micro.pcwgt!=0)&((micro.affected_cat=='a')|(micro.help_received!=0)|(micro.dc0!=0))].reset_index().copy()
+    # ^ ALL HH that are: affected OR received help OR receive social
+        
+    temp_na = micro.loc[(micro.pcwgt!=0)&(micro.affected_cat=='na')&(micro.help_received==0)&(micro.dc0==0),['affected_cat','pcwgt','k','dk0','c','dc0','pc_fee']].reset_index().copy()
+    # ^ ALL HH that are: not affected AND didn't receive help AND don't have any social income
+
+    print('\n--> length of temp:',temp.shape[0])
+    print('--> length of temp_na:',temp_na.shape[0],'\n')
 
     #############################
     # First debit savings for temp_na
@@ -1168,19 +1169,12 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
 
     #############################
     # Drop cols from temp, because it's huge...
-    temp = temp.drop([i for i in ['pcinc','hhwgt','pcinc_ae','hhsize','hhsize_ae','help_fee','pc_fee_PE',
-                                  'dk_other','k','gamma_SP','ew_expansion','hh_share','fa','v_with_ew','v','social','quintile','c_5'] if i in temp.columns],axis=1)
+    temp = temp.drop([i for i in ['pcinc','hhwgt','pcwgt_ae','pcinc_ae','hhsize','hhsize_ae','help_fee','pc_fee_PE','pc_fee_BE',
+                                  'index','level_0','axfin','has_ew','macro_multiplier','dc_npv_pre',#'k',
+                                  'dk_other','gamma_SP','ew_expansion','hh_share','fa','v_with_ew','v','social','quintile','c_5'] if i in temp.columns],axis=1)
 
     # setup new df for illustrating reco dynamics
     affected_year_step = pd.DataFrame(index=temp.index)
-
-    ######################################
-    # For comparison: this is the legacy definition of dw
-    #temp['w'] = welf1(temp['c']/const_rho, const_ie, temp['c_5']/const_rho)
-    #temp['dw_dep'] = (welf1(temp['c']/const_rho, const_ie, temp['c_5']/const_rho)
-    #              - welf1(temp['c']/const_rho-temp['dc_npv_post'], const_ie,temp['c_5']/const_rho))
-    #temp['wprime'] =(welf(temp['gdp_pc_prov']/const_rho+h,const_ie)-welf(temp['gdp_pc_prov']/const_rho-h,const_ie))/(2*h) <-- Missing a factor of (1-eta) in denom here?
-    #temp['dw_curr'] = temp['dw_dep']/temp['wprime']
 
     ########################################
     # Calculates the revised ('rev') definition of dw
@@ -1422,7 +1416,6 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # Write out the poverty duration info
     temp[[mac_ix[0],'hazard', 'rp', 'pcwgt', 'c', 'dk0', 't_pov_inc', 't_pov_cons', 
           't_pov_bool', 't_start_prv_reco', 'hh_reco_rate']].to_csv('../output_country/'+myC+'/poverty_duration_'+optionPDS+'.csv')
-    
 
     ################################
     # 'revised' calculation of dw

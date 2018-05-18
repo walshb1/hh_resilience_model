@@ -209,7 +209,7 @@ plt.plot(t_lins,_c_net,color=reds_pal[8],ls='--',lw=2.5,zorder=100,label='Househ
 leg = plt.gca().legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0)
 
 # poverty line
-plt.plot([-10,t_lins[-1]],[_hh.pov_line,_hh.pov_line])
+#plt.plot([-10,t_lins[-1]],[_hh.pov_line,_hh.pov_line])
 
 # Draw c
 plt.plot([-1,5],[c,c],color=greys_pal[8])
@@ -220,7 +220,7 @@ plt.xlim(-1,4)
 plt.xlabel(r'Time $t$ after disaster ($\tau_h \equiv$ '+str(round(const_dk_reco_time,2))+') [years]')
 plt.ylabel(r'Household consumption ($c_h$)')
 plt.xticks([-1,0,1,2,3,4],['-1',r'$t_0$','1','2','3','4'])
-plt.yticks([float(_hh['pov_line']),c_t[0]],['Poverty\nline',r'$c_0$'])
+plt.yticks([c_t[0]],[r'$c_0$'])
 
 plt.draw()
 fig=plt.gcf()
