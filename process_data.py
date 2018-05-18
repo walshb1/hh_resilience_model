@@ -210,6 +210,19 @@ make_map_from_svg(
     res=2000)
 
 #######################
+print('Map Resilience')
+make_map_from_svg(
+    df_prov.dKtot/df_prov.dWtot_currency, 
+    svg_file,
+    outname=myCountry+'_resilience',
+    color_maper=plt.cm.get_cmap('RdYlGn'),
+    #svg_handle = 'reg',
+    label='Resilience [%]',
+    new_title='Resilience',
+    do_qualitative=False,
+    res=2000)
+
+#######################
 # Apply the full index to iah for merging with iah_pds
 iah = iah.reset_index().set_index([economy,'hazard','rp','hhid','helped_cat','affected_cat'])
 
@@ -235,7 +248,7 @@ except:
 def plot_k_vs_dw(iah):
     iah = iah.reset_index()
 
-    for irp in get_all_rps(myCountry,iah)[2::4]:
+    for irp in get_all_rps(myCountry,iah):
         print('Running',irp)
         _iah = iah.loc[(iah.affected_cat=='a')&(iah.helped_cat=='helped')&(iah.hazard=='EQ')&(iah.rp==irp)].copy()
 
@@ -269,14 +282,17 @@ def plot_k_vs_dw(iah):
         fig = plt.figure(figsize=(15,6))
 
         cmap = colors.ListedColormap(sns.color_palette('Greens').as_hex())
-        ax = _iah.loc[(_iah.welf_class==1)].plot.hexbin('dk0','ratio',cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
-    
+        try: ax = _iah.loc[(_iah.welf_class==1)].plot.hexbin('dk0','ratio',cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+        except: pass
+
         cmap = colors.ListedColormap(sns.color_palette('Blues').as_hex())
-        ax = _iah.loc[(_iah.welf_class==2)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+        try: ax = _iah.loc[(_iah.welf_class==2)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+        except: pass
         
         cmap = colors.ListedColormap(sns.color_palette('Reds').as_hex())
-        ax = _iah.loc[(_iah.welf_class==3)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
-        
+        try: ax = _iah.loc[(_iah.welf_class==3)].plot.hexbin('dk0','ratio',ax=ax,cmap=cmap,alpha=0.4,mincnt=1,yscale='log')
+        except: pass        
+
         fig = plt.gcf()
         im=fig.get_axes() # this is a list of all images that have been plotted
         for iax in range(len(im))[1:]: im[iax].remove()
@@ -298,43 +314,45 @@ def plot_k_vs_dw(iah):
         ax = plt.gca()
         fig = ax.get_figure()
         fig.set_size_inches(6.5,5.5)
-        _iah['t_reco'] = (np.log(1/0.05)/_iah['hh_reco_rate']).fillna(25).clip(upper=25)
+        _iah['t_reco'] = (np.log(1/0.05)/_iah['hh_reco_rate']).fillna(25).clip(upper=10)
 
         # define binning using entire dataset
         _h,_b = np.histogram(_iah.t_reco,bins=   50,weights=_iah.pcwgt/1.E6)
 
-        heights2, bins2  = np.histogram(_iah.loc[(_iah.welf_class==2)&(_iah.c>pov_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==2)&(_iah.c>pov_line)].pcwgt/1.E6)
-        heights1, bins1  = np.histogram(_iah.loc[(_iah.welf_class==1)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==1)].pcwgt/1.E6)
+        heights1, bins1  = np.histogram(_iah.loc[_iah.welf_class==1].t_reco,bins=_b,weights=_iah.loc[_iah.welf_class==1].pcwgt/1.E6)
+        heights2, bins2  = np.histogram(_iah.loc[_iah.welf_class==2].t_reco,bins=_b,weights=_iah.loc[_iah.welf_class==2].pcwgt/1.E6)
         heights3, bins3  = np.histogram(_iah.loc[(_iah.welf_class==3)&(_iah.c>sub_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==3)&(_iah.c>sub_line)].pcwgt/1.E6)
-        heights2_pov, bins2_pov = np.histogram(_iah.loc[(_iah.welf_class==2)&(_iah.c<=pov_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==2)&(_iah.c<=pov_line)].pcwgt/1.E6)
         heights3_sub, bins3_sub = np.histogram(_iah.loc[(_iah.welf_class==3)&(_iah.c<=sub_line)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==3)&(_iah.c<=sub_line)].pcwgt/1.E6)
         #heights0, bins0 = np.histogram(_iah.loc[(_iah.welf_class==0)].t_reco,bins=_b,weights=_iah.loc[(_iah.welf_class==0)].pcwgt/1.E6)
         # ^ empty dataframe
         
-        ax.bar(bins2[:-1],heights1,      width=(bins2[1]-bins2[0]), facecolor=q_colors[1],alpha=0.8,label='Above poverty (Case 1)')
-        ax.bar(bins2[:-1],heights2_pov,  width=(bins2[1]-bins2[0]), facecolor=q_colors[0],alpha=0.8,bottom=heights1,label='Pushed into poverty (Case 2)')
-        ax.bar(bins2[:-1],heights2,      width=(bins2[1]-bins2[0]), facecolor=q_colors[2],alpha=0.8,bottom=(heights1+heights2_pov),label='Already in poverty (Case 2)')
-        ax.bar(bins2[:-1],heights3,      width=(bins2[1]-bins2[0]), facecolor=q_colors[3],alpha=0.8,bottom=(heights1+heights2_pov+heights2),label='Pushed into subsistence (Case 3)')
-        ax.bar(bins2[:-1],heights3_sub, width=(bins2[1]-bins2[0]), facecolor=q_colors[4],alpha=0.8,bottom=(heights1+heights2_pov+heights2+heights3),label='Already in subsistence (Case 3)')
+        ax.bar(bins2[:-1],heights1,  width=(bins2[1]-bins2[0]), facecolor=q_colors[1],alpha=0.8,label='Optimal reconstruction')
+        ax.bar(bins2[:-1],heights2,  width=(bins2[1]-bins2[0]), facecolor=q_colors[0],alpha=0.8,bottom=heights1,label='Sub-optimal reconstruction')
+        ax.bar(bins2[:-1],heights3,  width=(bins2[1]-bins2[0]), facecolor=q_colors[2],alpha=0.8,bottom=(heights1+heights2),label='No reconstruction')
+        #ax.bar(bins2[:-1],heights3,  width=(bins2[1]-bins2[0]), facecolor=q_colors[3],alpha=0.8,bottom=(heights1+heights2_pov+heights2),label='Pushed into subsistence (Case 3)')
+        #ax.bar(bins2[:-1],heights3_sub, width=(bins2[1]-bins2[0]), facecolor=q_colors[4],alpha=0.8,bottom=(heights1+heights2_pov+heights2+heights3),label='Already in subsistence (Case 3)')
     
         plt.xlabel(r'Household reconstruction time ($\tau_h$)')
         plt.ylabel(r'Households ($\times 10^6$)')
-        plt.ylim(0,1.0E1)
-        leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9,title='Household status post-disaster')
+        #plt.ylim(0,1.0E1)
+        leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=8,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9,title='Household status post-disaster')
         
         fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/reco_periods_'+str(irp)+'.pdf',format='pdf',bbox_inches='tight')
-        fig.savefig('/Users/brian/Desktop/Dropbox/Bank/hh_resilience_model/output_plots/PH/reco_periods_'+str(irp)+'.pdf',format='pdf',bbox_inches='tight')
+        fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/output_plots/PH/reco_periods_'+str(irp)+'.pdf',format='pdf',bbox_inches='tight')
         plt.clf()
         
         fig, axes = plt.subplots(nrows=3, ncols=2,figsize=(8,12))
 
-        _iah.loc[(_iah.welf_class==1)&(_iah.dk0<150000)&(_iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[0,0])
-        _iah.loc[(_iah.welf_class==2)&(_iah.dk0<150000)&(_iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[1,0])
-        _iah.loc[(_iah.welf_class==3)&(_iah.dk0<150000)&(_iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[2,0])
-    
-        plt.tight_layout()
-        fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil_'+str(irp)+'.pdf',format='pdf')
+        try:
+            _iah.loc[(_iah.welf_class==1)&(_iah.dk0<150000)&(_iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[0,0])
+            _iah.loc[(_iah.welf_class==2)&(_iah.dk0<150000)&(_iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[1,0])
+            _iah.loc[(_iah.welf_class==3)&(_iah.dk0<150000)&(_iah.ratio<250)].plot.hexbin('dk0','ratio',ax=axes[2,0])
+            plt.tight_layout()
+            fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil_'+str(irp)+'.pdf',format='pdf')
+        except: pass
         plt.close('all')
+
+plot_k_vs_dw(iah)
 
 iah['hhwgt'] = iah['hhwgt'].fillna(0)
 iah['pcwgt'] = iah['pcwgt'].fillna(0)
@@ -461,10 +479,16 @@ for myDis in allDis:
         cf_heights /= get_pop_scale_fac(myCountry)[0]
         cr_heights /= get_pop_scale_fac(myCountry)[0]
 
+        ax.step(cf_bins[1:], ci_heights, label='Initial', linewidth=1.2,color=greys_pal[8])  
+        ax.get_figure().savefig('../output_plots/'+myCountry+'/poverty_k_'+myDis+'_'+str(myRP)+'_1of3.pdf',format='pdf')
+
         #ax.bar(cf_bins[:-1], ci_heights, width=(cf_bins[1]-cf_bins[0]), label='Initial', facecolor=q_colors[1],alpha=0.4)
         ax.bar(cf_bins[:-1], cf_heights, width=(cf_bins[1]-cf_bins[0]), label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
-        ax.bar(cf_bins[:-1], cr_heights, width=(cf_bins[1]-cf_bins[0]), label='Post-reconstruction', facecolor=q_colors[2],alpha=0.4)
-        ax.step(cf_bins[1:], ci_heights, label='Initial', linewidth=1.2,color=greys_pal[8])     
+        #ax.bar(cf_bins[:-1], cr_heights, width=(cf_bins[1]-cf_bins[0]), label='Post-reconstruction', facecolor=q_colors[2],alpha=0.4)
+        #ax.step(cf_bins[1:], ci_heights, label='Initial', linewidth=1.2,color=greys_pal[8])     
+
+        ax.get_figure().savefig('../output_plots/'+myCountry+'/poverty_k_'+myDis+'_'+str(myRP)+'_2of3.pdf',format='pdf')
+        
 
         # Change in poverty incidence
         delta_p = cutA.loc[(cutA.c_initial > cutA.pov_line)&(cutA.c_final <= cutA.pov_line)&(cutA.c_final>sub_line),'pcwgt'].sum()
@@ -496,8 +520,8 @@ for myDis in allDis:
         leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
 
         print('poverty_k_'+myDis+'_'+str(myRP)+'.pdf')
-        fig.savefig('../output_plots/'+myCountry+'/poverty_k_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
-        fig.savefig('../output_plots/'+myCountry+'/png/poverty_k_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',format='pdf')
+        fig.savefig('../output_plots/'+myCountry+'/poverty_k_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')
+        fig.savefig('../output_plots/'+myCountry+'/png/poverty_k_'+myDis+'_'+str(myRP)+'.png',format='png')
         plt.cla()    
         
         ##

@@ -240,7 +240,8 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
             pov_df_event = pd.read_csv('tmp/new_pov_reg_haz_rp.csv', index_col=event_level)
             print('working with saved file')
         except: print('\n\n***Could not load poverty info***\n\n'); return False
- 
+
+    assert(False)
     # Average over RPs (index = region, hazard)
     pov_df_reg_haz,_ = average_over_rp(pov_df_event[['new_pov','new_sub']],'default_rp')
 
