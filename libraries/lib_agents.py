@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 def smart_savers(temp,avg_prod_k,const_pub_reco_rate,const_pds_rate):
 
@@ -18,3 +19,33 @@ def smart_savers(temp,avg_prod_k,const_pub_reco_rate,const_pds_rate):
     _a['max'] = temp.eval('c-c_min').clip(lower=0.)
     return _a['sav_offset_to'].clip(lower=0., upper=_a['max'])
 
+def optimize_reco(pi, rho, v, verbose=False):
+
+    eta = 1.5
+
+    last_integ = None
+    last_lambda = None
+    
+    _l = 0.0
+    while True:
+
+        if pi-(pi+_l)*v < 0: assert(False)
+        
+        x_max = 15
+        dt_step = 52*x_max
+
+        integ = 0
+        for _t in np.linspace(0,x_max,dt_step):
+
+            integ += np.e**(-_t*(rho+_l)) * ((pi+_l)*_t-1) * (pi-(pi+_l)*v*np.e**(-_l*_t))**(-eta)
+
+        if last_integ and ((last_integ < 0 and integ > 0) or (last_integ > 0 and integ < 0)):
+            #print('\n Found the Minimum!\n lambda = ',last_lambda,'--> integ = ',last_integ)
+            #print('lambda = ',_l,'--> integ = ',integ)
+            return (_l+last_lambda)/2
+            
+        last_integ = integ
+        last_lambda = _l
+        _l += 0.01
+        
+#print(optimize_reco())
