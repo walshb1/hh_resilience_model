@@ -15,12 +15,14 @@ from pandas import isnull
 import os, time
 import warnings
 import sys
+import pickle
 
 from libraries.lib_asset_info import *
 from libraries.lib_country_dir import *
 from libraries.lib_gather_data import *
 from libraries.lib_sea_level_rise import *
 from libraries.replace_with_warning import *
+from libraries.lib_agents import optimize_reco
 
 warnings.filterwarnings('always',category=UserWarning)
 
@@ -387,6 +389,34 @@ if myCountry != 'SL':
 
 hazard_ratios[['fa','v']].mean(level=event_level).to_csv('tmp/fa_v.csv')
 
+# Get optimal reconstruction rate
+_pi = df['avg_prod_k'].mean()
+_rho = df['rho'].mean()
+
+print('Running hh_reco_rate optimization')
+hazard_ratios['hh_reco_rate'] = -1
+
+try: 
+    v_to_reco_rate = pickle.load(open('../inputs/'+myCountry+'/v_to_reco_rate.p','rb'))
+except:
+    print('Was not able to load v to hh_reco_rate library from ../inputs/'+myCountry+'/v_to_reco_rate.p')
+    v_to_reco_rate = {}
+
+try: hazard_ratios['hh_reco_rate'] = hazard_ratios.apply(lambda x:v_to_reco_rate[round(x.v,2)],axis=1)
+except:
+    for _n, _i in enumerate(hazard_ratios.index):
+        if round(_n/len(hazard_ratios.index)*100,2)%1 == 0:
+            print(round(_n/len(hazard_ratios.index)*100,2),'% of way through')
+
+        _v = round(hazard_ratios.loc[_i,'v'],2)
+        try: hazard_ratios.loc[_i,'hh_reco_rate'] = v_to_reco_rate[_v]
+        except:
+            _opt = optimize_reco(_pi,_rho,_v)
+            hazard_ratios.loc[_i,'hh_reco_rate'] = _opt
+            v_to_reco_rate[_v] = _opt
+
+    pickle.dump(v_to_reco_rate, open('../inputs/'+myCountry+'/v_to_reco_rate.p', 'wb' ) )
+
 while False:
     _path = '/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/'
     _ = hazard_ratios.reset_index().copy()
@@ -435,6 +465,8 @@ except: print('Dont have 2 datasets for GDP. Just using hh survey data.')
 
 hazard_ratios= hazard_ratios.drop(['frac_destroyed','grdp_to_assets'],axis=1).drop(["flood_fluv_def"],level="hazard")
 hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
+
+print(hazard_ratios.head())
 
 # Compare assets from survey to assets from AIR-PCRAFI    
 if myCountry == 'FJ':
