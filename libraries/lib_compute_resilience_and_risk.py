@@ -308,7 +308,10 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 
     # Transfer vulnerability from haz_ratios to cats_event:
     cats_event['v'] = hazard_ratios_event['v']
+
     cats_event['optimal_hh_reco_rate'] = hazard_ratios_event['hh_reco_rate']
+    cats_event['optimal_hh_reco_rate'] = cats_event['optimal_hh_reco_rate'].fillna(0)
+
     hazard_ratios_event = hazard_ratios_event.drop(['v','hh_reco_rate'],axis=1)
 
     ###############
@@ -959,8 +962,9 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
         print('how does timing affect the appropriateness of this?')
         #cats_event_iah['dc_post_pds'] = cats_event_iah['dc0']-cats_event_iah['help_received']+cats_event_iah['help_fee']*option_CB
     
-    cats_event_iah['dc_post_reco'] = 0
-    cats_event_iah['dw'] = 0.
+    cats_event_iah['dc_post_reco'], cats_event_iah['dw'] = [0,0]
+    
+    #cats_event_iah = cats_event_iah.reset_index()
     cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dc_post_reco'], cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dw'] = calc_delta_welfare(myCountry,cats_event_iah,macro_event,
                                                                                                                                       pol_str,optionPDS,is_revised_dw)
     assert(cats_event_iah['dc_post_reco'].shape[0] == cats_event_iah['dc_post_reco'].dropna().shape[0])
@@ -1213,20 +1217,23 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
     # ^ add pc_fee to sav_f to get sav_i
     # --> this is assuming the government covers the costs for now, and assesses taxes much, much later
 
+    temp['sav_f'] += temp['help_received']
+    temp['help_received'] = 0
+
     print(temp.loc[temp.sav_f<0].shape[0],' hh borrow to pay their fees...')
     # --> let this go...assume that hh will be able to borrow in order to pay that fee
 
-    ##############################
-    # Recover info optimium hh_reco_rate for all hh:
-    #macro_reco_frac = float(macro['reco_frac'].mean())
-    #recalc_hh_reco_rate = '@macro_reco_frac*(c-di0)/dk_private'
-    # ^ set a float, since that's easier & quicker as long as reco_frac is the same for all hh & events
-
     ################################
-    temp['sav_offset_to'] = smart_savers(temp,my_avg_prod_k,const_pub_reco_rate,const_pds_rate)
+    temp['sav_offset_to'], temp['t_exhaust_sav'] = [0,0]
+    temp[['sav_offset_to','t_exhaust_sav']] = temp.apply(lambda x:pd.Series(smart_savers(x.c, x.dk0, x.hh_reco_rate,macro.avg_prod_k.mean(),x.sav_f)),axis=1)
+
+    #calc_t_exhaust_savings = '@np.log((dk0*(@macro.avg_prod_k.mean()+hh_reco_rate))/sav_offset_to)/hh_reco_rate'
+    #temp.loc[temp.eval('sav_offset_to!=0&hh_reco_rate!=0'),'t_exhaust_savings'] = temp.loc[temp.eval('sav_offset_to!=0&hh_reco_rate!=0')].eval(calc_t_exhaust_savings)
+    temp['t_exhaust_sav'] = temp['t_exhaust_sav'].fillna(10)
+
     # ^ Use savings (until they run out) to offset dc to what level?
     # --> hh will probably take some hit (ie, they will not keep consumption at c_init), 
-    # --> But how much will they be willing to take?
+    # --> But how much should they take?
 
     # Define parameters of welfare integration
     int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
@@ -1260,27 +1267,28 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         # BELOW: this is value of dc at time _t (duration = step_dt), assuming no savings
         temp['di_prv_t'] = temp.eval('dk_prv_t*@my_avg_prod_k*(1-@my_tau_tax) + pcsoc*scale_fac_soc')
         temp['di_pub_t'] = temp.eval('di0_pub*@math.e**(-@_t*@const_pub_reco_rate)')
-        temp['di_t'] = temp.eval('di_prv_t + di_pub_t - help_received*@const_pds_rate*@math.e**(-@_t*@const_pds_rate)')
+
+        temp['di_t'] = temp.eval('di_prv_t + di_pub_t')
+        #temp['di_t'] = temp.eval('di_prv_t + di_pub_t - help_received*@const_pds_rate*@math.e**(-@_t*@const_pds_rate)')
+        # DEPRECATED: ALL PDS TREATED AS SAVINGS
 
         ####################################
+        # DEPRECATED: ALL PDS TREATED AS SAVINGS
         # If PDS is so great it pushes di_t negative: transfer it to savings
-        lexus_pds = 'di_t<0'
-        flag_recalc = False
-
-        if temp.loc[temp.eval(lexus_pds)].shape[0] != 0:
-            #print(optionPDS+': transferring PDS into savings for',int(temp.loc[temp.eval(lexus_pds)].shape[0]),'hh at t =',_t)
-            
-            _tr = temp.loc[temp.eval(lexus_pds)].copy()
-            temp.loc[_tr.index.tolist(),        'sav_f'] += temp.loc[_tr.index.tolist()].eval('help_received*@math.e**(-@_t*@const_pds_rate)')
-            temp.loc[_tr.index.tolist(),'help_received']  = 0.0
-            temp.loc[_tr.index.tolist(),'sav_offset_to'] *= 0.5
-
-            flag_recalc = True
+        #lexus_pds = 'di_t<0'
+        #if temp.loc[temp.eval(lexus_pds)].shape[0] != 0:
+        #    #print(optionPDS+': transferring PDS into savings for',int(temp.loc[temp.eval(lexus_pds)].shape[0]),'hh at t =',_t)
+        #    
+        #    _tr = temp.loc[temp.eval(lexus_pds)].copy()
+        #    temp.loc[_tr.index.tolist(),        'sav_f'] += temp.loc[_tr.index.tolist()].eval('help_received*@math.e**(-@_t*@const_pds_rate)')
+        #    temp.loc[_tr.index.tolist(),'help_received']  = 0.0
+        #    #temp.loc[_tr.index.tolist(),'sav_offset_to'] *= 0.5
+        #    #flag_recalc = True
             
         ####################################        
         # Calculate di(t) & dc(t) 
         # di(t) won't change again within this time step, but dc(c) could
-        temp['di_t'] = temp.eval('di_prv_t+di_pub_t-help_received*@const_pds_rate*@math.e**(-@_t*@const_pds_rate)')      
+        #temp['di_t'] = temp.eval('di_prv_t+di_pub_t-help_received*@const_pds_rate*@math.e**(-@_t*@const_pds_rate)')      
         temp['dc_t'] = temp.eval('di_t+hh_reco_rate*dk_prv_t')
         assert(temp.loc[temp.di_t<0].shape[0] == 0)
         
@@ -1327,10 +1335,9 @@ def calc_delta_welfare(myC, micro, macro, pol_str,optionPDS,is_revised_dw=True,s
         ########################
         # Now apply savings (if any left)
         #
-        # After 6 months (26 weeks), use up the rest of savings
-        #temp['sav_offset_to'] = smart_savers(temp,my_avg_prod_k,const_pub_reco_rate,const_pds_rate)   
-        if counter == 26: temp['sav_offset_to'] = 0.
- 
+        # If there are still any savings after the hh was supposed to run out, use up the rest of savings
+        temp.loc[temp.t_exhaust_sav<=_t,'sav_offset_to'] = 0.
+    
         # Find dC net of savings (min = sav_offset_to if dc_t > 0  -OR-  min = dc_t if dc_t < 0 ie: na & received PDS)
         temp['dc_net'] = temp['dc_t'].copy()
         

@@ -394,12 +394,12 @@ _pi = df['avg_prod_k'].mean()
 _rho = df['rho'].mean()
 
 print('Running hh_reco_rate optimization')
-hazard_ratios['hh_reco_rate'] = -1
+hazard_ratios['hh_reco_rate'] = 0
 
 try: 
-    v_to_reco_rate = pickle.load(open('../inputs/'+myCountry+'/v_to_reco_rate.p','rb'))
+    v_to_reco_rate = pickle.load(open('optimization_libs/'+myCountry+'_v_to_reco_rate.p','rb'))
 except:
-    print('Was not able to load v to hh_reco_rate library from ../inputs/'+myCountry+'/v_to_reco_rate.p')
+    print('Was not able to load v to hh_reco_rate library from optimization_libs/'+myCountry+'_v_to_reco_rate.p')
     v_to_reco_rate = {}
 
 try: hazard_ratios['hh_reco_rate'] = hazard_ratios.apply(lambda x:v_to_reco_rate[round(x.v,2)],axis=1)
@@ -415,7 +415,7 @@ except:
             hazard_ratios.loc[_i,'hh_reco_rate'] = _opt
             v_to_reco_rate[_v] = _opt
 
-    pickle.dump(v_to_reco_rate, open('../inputs/'+myCountry+'/v_to_reco_rate.p', 'wb' ) )
+    pickle.dump(v_to_reco_rate, open('optimization_libs/'+myCountry+'_v_to_reco_rate.p', 'wb' ) )
 
 while False:
     _path = '/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/'
