@@ -19,8 +19,8 @@ def smart_savers(c,dk,lam,pi,Vsav):
     #_a['max'] = temp.eval('c-c_min').clip(lower=0.)
     #return _a['sav_offset_to'].clip(lower=0., upper=_a['max'])
 
-    if dk == 0: return 0
-    if lam == 0: return Vsav/10
+    if dk == 0: return 0,10
+    if lam == 0: return Vsav/10,10
 
     gamma = 0.02*dk*pi
     last_result = None
@@ -36,13 +36,13 @@ def smart_savers(c,dk,lam,pi,Vsav):
                 _t = -np.log(beta)/lam
                 #print('RESULT!:\ngamma = ',gamma,'& beta = ',beta,' & t = ',_t)
                 #print('CHECK:',-dk*(pi+lam)*np.e**(-lam*_t),' gamma = ',gamma)
-                return gamma,_t
+                return int(gamma),round(_t,3)
 
         except: pass
 
         last_result = result
         gamma += 0.02*dk*pi
-        if (gamma > c): return 0
+        if (gamma > c): return 0,10
 
 def optimize_reco(pi, rho, v, verbose=False):
 
