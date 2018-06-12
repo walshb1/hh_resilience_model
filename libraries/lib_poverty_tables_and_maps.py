@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from libraries.maps_lib import make_map_from_svg, purge
 from libraries.lib_average_over_rp import average_over_rp
-from libraries.lib_country_dir import get_demonym
+from libraries.lib_country_dir import get_demonym,get_poverty_line
 from libraries.lib_gather_data import match_percentiles,perc_with_spline,reshape_data
 from libraries.lib_common_plotting_functions import title_legend_labels,sns_pal
 import glob
@@ -40,6 +40,9 @@ def run_poverty_duration_plot(myC):
         
     for iSP in _sp:
         _ = pd.read_csv('../output_country/'+myC+'/poverty_duration_'+iSP+'.csv')
+        pov_line = get_poverty_line(myC)
+        _['t_pov_bool'] = False
+        _.loc[_.c>pov_line,'t_pov_bool'] = True
         df[['t_pov_inc'+iSP,'t_pov_cons'+iSP,'t_pov_bool'+iSP]] = _[['t_pov_inc','t_pov_cons','t_pov_bool']]
 
 
@@ -58,6 +61,8 @@ def run_poverty_duration_plot(myC):
 
     ############################
     df = df.reset_index().set_index(['hazard','rp','decile'])
+    df['t_pov_bool'] = False
+    df.loc[df.c > get_poverty_line(myC),'t_pov_bool'] = True
 
     df_dec = pd.DataFrame(index=df.sum(level=['hazard','rp','decile']).index)
     # Populate the df_dec dataframe now, while its index is set to ['hazard','rp','decile']
@@ -220,8 +225,8 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
     # Get the poverty headcount info
     try:
         # Count up the hh that fell into poverty & subsistence:
-        pov_df_event = pov_df.loc[pov_df.eval('(c_initial>pov_line)&(i_pre_reco<=pov_line)&(i_pre_reco>sub_line)'),'pcwgt'].sum(level=event_level).to_frame(name='new_pov')
-        pov_df_event['new_sub'] = pov_df.loc[pov_df.eval('(c_initial>sub_line)&(i_pre_reco<=sub_line)'),'pcwgt'].sum(level=event_level).fillna(0)
+        pov_df_event = pov_df.loc[pov_df.eval('(c_initial>pov_line)&(c_pre_reco<=pov_line)&(c_pre_reco>sub_line)'),'pcwgt'].sum(level=event_level).to_frame(name='new_pov')
+        pov_df_event['new_sub'] = pov_df.loc[pov_df.eval('(c_initial>sub_line)&(c_pre_reco<=sub_line)'),'pcwgt'].sum(level=event_level).fillna(0)
 
         pov_df_event['init_pov'] = pov_df.loc[pov_df.eval('(c_initial<=pov_line)&(c_initial>sub_line)'),'pcwgt'].sum(level=event_level).fillna(0)
         pov_df_event['init_sub'] = pov_df.loc[pov_df.eval('(c_initial<=sub_line)'),'pcwgt'].sum(level=event_level).fillna(0)        
@@ -241,7 +246,6 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
             print('working with saved file')
         except: print('\n\n***Could not load poverty info***\n\n'); return False
 
-    assert(False)
     # Average over RPs (index = region, hazard)
     pov_df_reg_haz,_ = average_over_rp(pov_df_event[['new_pov','new_sub']],'default_rp')
 
@@ -271,17 +275,17 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
     pov_df_region['init_pov'] = pov_df_event['init_pov'].mean(level=event_level[0])
     pov_df_region['init_sub'] = pov_df_event['init_sub'].mean(level=event_level[0])
 
-    pov_df_region['pct_pop_pov'] = 1000.*pov_df_region['new_pov']/pov_df_region['reg_pop']# Remember to divide by 10 later
-    pov_df_region['pct_pop_sub'] = 1000.*pov_df_region['new_sub']/pov_df_region['reg_pop']# Remember to divide by 10 later
-    pov_df_region['pct_increase_pov'] = 1000.*pov_df_region['new_pov']/pov_df_region['init_pov']# Remember to divide by 10 later
-    pov_df_region['pct_increase_sub'] = 1000.*pov_df_region['new_sub']/pov_df_region['init_sub']# Remember to divide by 10 later
+    pov_df_region['pct_pop_pov'] = 100.*pov_df_region['new_pov']/pov_df_region['reg_pop']# Remember to divide by 10 later
+    pov_df_region['pct_pop_sub'] = 100.*pov_df_region['new_sub']/pov_df_region['reg_pop']# Remember to divide by 10 later
+    pov_df_region['pct_increase_pov'] = 100.*pov_df_region['new_pov']/pov_df_region['init_pov']# Remember to divide by 10 later
+    pov_df_region['pct_increase_sub'] = 100.*pov_df_region['new_sub']/pov_df_region['init_sub']# Remember to divide by 10 later
     pov_df_region.to_csv('tmp/new_pov_reg.csv')
 
     pov_df_region.loc['Total'] = pov_df_region.sum()
-    pov_df_region.loc['Total',['pct_pop_pov']] = round(1000.*pov_df_region['new_pov'].sum()/pov_df_region['reg_pop'].sum(),0)# Remember to divide by 10 later
-    pov_df_region.loc['Total',['pct_pop_sub']] = round(1000.*pov_df_region['new_sub'].sum()/pov_df_region['reg_pop'].sum(),0)# Remember to divide by 10 later
-    pov_df_region.loc['Total',['pct_increase_pov']] = round(1000.*pov_df_region['new_pov'].sum()/pov_df_region['init_pov'].sum(),0)# Remember to divide by 10 later
-    pov_df_region.loc['Total',['pct_increase_sub']] = round(1000.*pov_df_region['new_sub'].sum()/pov_df_region['init_sub'].sum(),0)# Remember to divide by 10 later
+    pov_df_region.loc['Total',['pct_pop_pov']] = round(100.*pov_df_region['new_pov'].sum()/pov_df_region['reg_pop'].sum(),0)
+    pov_df_region.loc['Total',['pct_pop_sub']] = round(100.*pov_df_region['new_sub'].sum()/pov_df_region['reg_pop'].sum(),0)
+    pov_df_region.loc['Total',['pct_increase_pov']] = round(100.*pov_df_region['new_pov'].sum()/pov_df_region['init_pov'].sum(),0)
+    pov_df_region.loc['Total',['pct_increase_sub']] = round(100.*pov_df_region['new_sub'].sum()/pov_df_region['init_sub'].sum(),0)
 
     pov_df_region[['new_pov','pct_increase_pov','new_sub','pct_increase_sub']].fillna(0).sort_values(['new_pov'],ascending=False).astype('int').to_latex('latex/poverty_all_haz.tex')
 
