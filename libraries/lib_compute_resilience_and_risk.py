@@ -272,8 +272,8 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     macro_event = broadcast_simple(macro,event_level_index)	
     #rebuilding exponentially to 95% of initial stock in reconst_duration
     
-    #global const_nom_reco_rate
-    #const_nom_reco_rate = float(np.log(1/0.05) / macro_event['T_rebuild_K'].mean())
+    global const_nom_reco_rate
+    const_nom_reco_rate = float(np.log(1/0.05) / macro_event['T_rebuild_K'].mean())
     # ^ Won't have nominal reco rate any more
 
     global const_pub_reco_rate
@@ -681,20 +681,13 @@ def calc_dw_outside_affected_province(macro_event, cat_info, public_costs_pub, p
         c_mean         = float(cat_info[['pcwgt','c']].prod(axis=1).sum()/cat_info['pcwgt'].sum())
         h = 1.E-4
 
-        wprime = c_mean**(-const_ie)
-        # ^ these *could* vary by province/event, but don't (for now), so I'll use them outside the pandas dfs.
+        wprime_nat = c_mean**(-const_ie)
+        tmp_df['wprime_hh'] = tmp_df.eval('c**(-@const_ie)')
+        # ^ wprime_hh: by hh
             
         for iRecip in public_costs[event_level[0]].unique():
             for iHaz in public_costs.hazard.unique():
                 for iRP in public_costs.rp.unique():
-
-                    # Calculate wprime
-                    tmp_wp = None
-                    if is_local_welfare:
-                        tmp_gdp = macro_event.loc[(macro_event[event_level[0]]==iP),'gdp_pc_prov'].mean()
-                        tmp_wp =(welf(tmp_gdp/const_rho+h,const_ie)-welf(tmp_gdp/const_rho-h,const_ie))/(2*h)
-                    else: 
-                        tmp_wp =(welf(macro_event['gdp_pc_nat'].mean()/const_rho+h,const_ie)-welf(macro_event['gdp_pc_nat'].mean()/const_rho-h,const_ie))/(2*h)
 
                     tmp_cost_pub = float(public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer == iP)
                                                            &(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'transfer_pub'])
@@ -702,51 +695,39 @@ def calc_dw_outside_affected_province(macro_event, cat_info, public_costs_pub, p
                                                            &(public_costs.hazard == iHaz)&(public_costs.rp==iRP)),'transfer_pds'])
                     # ^ this identifies the amount that a province (iP, above) will contribute to another province when a disaster occurs
 
-                    if is_contemporaneous or not is_revised_dw: 
-                        tmp_df['dc_per_cap'] = (tmp_cost_pub+tmp_cost_pds)*tmp_df['pc_frac_k']
+                    # Here, we calculate the impact of transfers for public assets & PDS
+                    tmp_df['dw_pub'] = 0.
+                    for iT in [tmp_cost_pub,tmp_cost_pds]:
+                        tmp_df['dw_pub'] += iT*tmp_df[['pcwgt','pc_frac_k','wprime_hh']].prod(axis=1)
 
-                        if not is_revised_dw:
-                            tmp_df['dw'] = tmp_df['pcwgt']*(welf1(tmp_df['c']/const_rho, const_ie, tmp_df['c_5']/const_rho)
-                                                            - welf1((tmp_df['c']-tmp_df['dc_per_cap'])/const_rho, const_ie,tmp_df['c_5']/const_rho))/tmp_wp
-                            # ^ returns NPV
+                    # Also need to add impacts of social transfer decreases
+                    # Set-up to be able to calculate integral
+                    frac_dk_natl = float((public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.hazard==iHaz)&(public_costs.rp==iRP)
+                                                            &(public_costs.contributer == iP)),'tot_k_recipient_BE']-
+                                          public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.hazard==iHaz)&(public_costs.rp==iRP)
+                                                            &(public_costs.contributer == iP)),'tot_k_recipient_PE'])/
+                                         (public_costs.loc[(public_costs[event_level[0]]==iRecip)&(public_costs.hazard == iHaz)&(public_costs.rp==iRP),'tot_k_contributer']).sum())
 
-                        else:
-                            tmp_df['dw'] += tmp_df['pcwgt']*(welf1(tmp_df['c'], const_ie, tmp_df['c_5']) - welf1((tmp_df['c']-tmp_df['dc_per_cap']), const_ie,tmp_df['c_5']))/wprime
-                       
-                    else:                        
-                        # Here, we calculate the impact of transfers for public assets & PDS
-                        tmp_df['dw']     = 0.
-                        for iT in [tmp_cost_pub,tmp_cost_pds]:
-                            tmp_df['dw'] += tmp_df['pcwgt']*(welf1(tmp_df['c'], const_ie, tmp_df['c_5']) - welf1((tmp_df['c']-iT*tmp_df['pc_frac_k']), const_ie,tmp_df['c_5']))
-                            
-                        frac_dk_natl = float((public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.hazard==iHaz)&(public_costs.rp==iRP)
-                                                                &(public_costs.contributer == iP)),'tot_k_recipient_BE']-
-                                              public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.hazard==iHaz)&(public_costs.rp==iRP)
-                                                                &(public_costs.contributer == iP)),'tot_k_recipient_PE'])/
-                                             (public_costs.loc[(public_costs[event_level[0]]==iRecip)&(public_costs.hazard == iHaz)&(public_costs.rp==iRP),'tot_k_contributer']).sum())
-                        
-                        # Also need to add impacts of social transfer decreases
-                        # Set-up to be able to calculate integral
-                        tmp_df['const'] = -1.*tmp_df['c']**(1.-const_ie)/(1.-const_ie)
-                        tmp_df['integ'] = 0.
+                    tmp_df['const'] = -1.*tmp_df['c']**(1.-const_ie)/(1.-const_ie)
+                    tmp_df['integ'] = 0.
 
-                        x_min, x_max, n_steps = 0.5,tmp_t_reco+0.5,12.
-                        int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
-                        # ^ make sure that, if T_recon changes, so does x_max!
+                    x_min, x_max, n_steps = 0.5,tmp_t_reco+0.5,12.
+                    int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
+                    # ^ make sure that, if T_recon changes, so does x_max!
 
-                        # Calculate integral
-                        for _t in int_dt:
-                            # need total asset losses --> tax base reduction
-                            tmp_df['integ'] += step_dt*((1.-frac_dk_natl*tmp_df['social']*math.e**(-_t*const_nom_reco_rate))**(1-const_ie)-1)*math.e**(-_t*const_rho)
-                            # ^ const_nom_reco_rate doesn't get replaced by hh-dep values here, because this is aggregate reco
-                            
-                        # put it all together, including w_prime:
-                        tmp_df['dw_soc'] = tmp_df[['pcwgt','const','integ']].prod(axis=1)
+                    # Calculate integral
+                    for _t in int_dt:
+                        # need total asset losses --> tax base reduction
+                        tmp_df['integ'] += step_dt*((1.-frac_dk_natl*tmp_df['social']*math.e**(-_t*const_nom_reco_rate))**(1-const_ie)-1)*math.e**(-_t*const_rho)
+                        # ^ const_nom_reco_rate doesn't get replaced by hh-dep values here, because this is aggregate reco
 
-                    public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer==iP)&(public_costs.hazard==iHaz)&(public_costs.rp==iRP)),'dw'] = \
-                        abs(tmp_df['dw'].sum()/wprime)
+                    # put it all together, including w_prime:
+                    tmp_df['dw_soc'] = tmp_df[['pcwgt','const','integ']].prod(axis=1)
+
+                    public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer==iP)&(public_costs.hazard==iHaz)&(public_costs.rp==iRP)),'dw_pub'] = \
+                        abs(tmp_df['dw_pub'].sum())
                     public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer==iP)&(public_costs.hazard==iHaz)&(public_costs.rp==iRP)),'dw_soc'] = \
-                        abs(tmp_df['dw_soc'].sum()/wprime)
+                        abs(tmp_df['dw_soc'].sum())
 
     public_costs = public_costs.reset_index().set_index(event_level).drop('index',axis=1)
     
@@ -1183,7 +1164,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
 
     #############################
     # First debit savings for temp_na
-    temp_na['dw'] = temp_na['pc_fee']*(temp_na['c']**(-const_ie))*const_rho
+    temp_na['dw'] = temp_na['pc_fee']*(temp_na['c']**(-const_ie))
     # ^ assuming every hh has this much savings...
 
     temp_na['dc_t'] = 0.
@@ -1253,13 +1234,16 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
     ################################
     # Use savings (until they run out) to offset dc to optimum level
     temp['sav_offset_to'], temp['t_exhaust_sav'] = [0,0]
+    
     try: 
         print('TRY: load savings optima from file')
         opt_lib = pickle.load(open('optimization_libs/optimal_savings_rate.p','rb')).to_dict()
+        #pickle.dump(opt_lib.loc[opt_in.index.unique()], open('optimization_libs/optimal_savings_rate_proto2.p', 'wb' ),protocol=2)
+
         temp['sav_offset_to'] = temp.apply(lambda x:opt_lib['sav_offset_to'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
         temp['t_exhaust_sav'] = temp.apply(lambda x:opt_lib['t_exhaust_sav'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
         print('SUCCESS!')
-        del opt_lib
+
     except: 
         print('FAIL: finding optimal savings numerically')
         temp[['sav_offset_to','t_exhaust_sav']] = temp.apply(lambda x:pd.Series(smart_savers(x.c, x.dk0, x.hh_reco_rate,macro.avg_prod_k.mean(),x.sav_f)),axis=1)
@@ -1270,13 +1254,18 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
         opt_in[['c','dk0','sav_f']] = opt_in[['c','dk0','sav_f']].astype('int')
         opt_in[['hh_reco_rate','avg_prod_k']] = opt_in[['hh_reco_rate','avg_prod_k']].round(3)
 
+        # 2 dfs for merging
         opt_in = opt_in.reset_index().set_index(['c','dk0','hh_reco_rate','avg_prod_k','sav_f']).drop('index',axis=1)
-    
-        try:
-            opt_lib = pickle.load(open('optimization_libs/optimal_savings_rate.p','rb'))
-            opt_lib.append(opt_in)
-            pickle.dump(opt_lib.loc[opt_in.index.unique()], open('optimization_libs/optimal_savings_rate.p', 'wb' ) )
-        except: pickle.dump(opt_in.loc[opt_in.index.unique()], open('optimization_libs/optimal_savings_rate.p', 'wb' ))    
+        opt_lib = pickle.load(open('optimization_libs/optimal_savings_rate.p','rb'))
+        print(opt_lib.shape,' entries in optimization library.')
+
+        opt_lib = opt_lib.combine_first(opt_in)
+
+        pickle.dump(opt_lib.loc[opt_lib.index.unique()], open('optimization_libs/optimal_savings_rate.p', 'wb' ) )
+        pickle.dump(opt_lib.loc[opt_lib.index.unique()], open('optimization_libs/optimal_savings_rate_proto2.p', 'wb' ),protocol=2)
+        print(opt_lib.shape,' entries in optimization library.')
+
+        #except: pickle.dump(opt_in.loc[opt_in.index.unique()], open('optimization_libs/optimal_savings_rate.p', 'wb' ))    
         del opt_in; del opt_lib
 
     # Define parameters of welfare integration
@@ -1303,21 +1292,6 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
         temp['di_pub_t'].update(temp.eval('di0_pub*@math.e**(-@_t*@const_pub_reco_rate)').round(2))
         
         temp['di_t'].update(temp.eval('di_prv_t + di_pub_t').round(2))
-        #temp['di_t'] = temp.eval('di_prv_t + di_pub_t - help_received*@const_pds_rate*@math.e**(-@_t*@const_pds_rate)')
-        # DEPRECATED: ALL PDS TREATED AS SAVINGS
-
-        ####################################
-        # DEPRECATED: ALL PDS TREATED AS SAVINGS
-        # If PDS is so great it pushes di_t negative: transfer it to savings
-        #lexus_pds = 'di_t<0'
-        #if temp.loc[temp.eval(lexus_pds)].shape[0] != 0:
-        #    #print(optionPDS+': transferring PDS into savings for',int(temp.loc[temp.eval(lexus_pds)].shape[0]),'hh at t =',_t)
-        #    
-        #    _tr = temp.loc[temp.eval(lexus_pds)].copy()
-        #    temp.loc[_tr.index.tolist(),        'sav_f'] += temp.loc[_tr.index.tolist()].eval('help_received*@math.e**(-@_t*@const_pds_rate)')
-        #    temp.loc[_tr.index.tolist(),'help_received']  = 0.0
-        #    #temp.loc[_tr.index.tolist(),'sav_offset_to'] *= 0.5
-        #    #flag_recalc = True
             
         ####################################        
         # Calculate di(t) & dc(t) 
@@ -1450,7 +1424,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
     temp['wprime_hh']       = temp.eval('c**(-@const_ie)')
     temp['dw_curr_no_clip'] = temp.eval('const*integ/@my_natl_wprime')
 
-    temp['dw'] = temp.eval('const*integ+(sav_i-sav_f)*wprime_hh*@const_rho')
+    temp['dw'] = temp.eval('const*integ+(sav_i-sav_f)*wprime_hh')
     #                       ^ dw(dc)   ^ dw(spent savings)
     temp['dw'] = temp['dw'].clip(upper=my_dw_limit*my_natl_wprime)
     # apply upper limit to DW
