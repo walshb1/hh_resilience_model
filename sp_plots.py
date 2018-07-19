@@ -6,7 +6,7 @@ import os, glob
 from libraries.lib_common_plotting_functions import title_legend_labels
 
 import seaborn as sns
-sns.set_style('darkgrid')
+sns.set_style('whitegrid')
 mpl.rcParams['legend.facecolor'] = 'white'
 
 myCountry = 'SL'

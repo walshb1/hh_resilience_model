@@ -183,7 +183,7 @@ def make_legend(serie,cmap,label="",path=None,do_qualitative=False,res=1000):
     norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
     cb = mpl.colorbar.ColorbarBase(ax1, cmap=cmap, norm=norm, orientation='horizontal')
 
-    font_size = 17 # Adjust as appropriate.
+    font_size = 20 # Adjust as appropriate.
     cb.ax.tick_params(labelsize=font_size)
 
     if do_qualitative:
@@ -197,7 +197,7 @@ def make_legend(serie,cmap,label="",path=None,do_qualitative=False,res=1000):
 
         label = label[:label.find(" (")]
 
-    cb.set_label(label=label,size=16,weight='bold')
+    cb.set_label(label=label,size=24,weight='bold',labelpad=8)
     if path is not None:
         plt.savefig(path+".png",bbox_inches="tight",transparent=True,dpi=res)  
     plt.close(fig)    

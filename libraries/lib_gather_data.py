@@ -5,7 +5,7 @@ from scipy.interpolate import UnivariateSpline,interp1d
 from libraries.lib_average_over_rp import *
 
 def mystriper(string):
-    '''strip blanks and converts everythng to lower case''' 
+    '''strip blanks and converts everything to lower case''' 
     if type(string)==str:
         return str.strip(string).lower()
     else:
@@ -26,8 +26,8 @@ def wavg(data,weights):
     return (df_matched.data*df_matched.weights).sum()/df_matched.weights.sum()
 
 #gets share per agg category from the data in one of the sheets in PAGER_XL	
-def get_share_from_sheet(PAGER_XL,pager_code_to_aggcat,iso3_to_wb,sheetname='Rural_Non_Res'):
-    data = pd.read_excel(PAGER_XL,sheetname=sheetname).set_index('ISO-3digit') #data as provided in PAGER
+def get_share_from_sheet(PAGER_XL,pager_code_to_aggcat,iso3_to_wb,sheet_name='Rural_Non_Res'):
+    data = pd.read_excel(PAGER_XL,sheet_name=sheetname).set_index('ISO-3digit') #data as provided in PAGER
     #rename column to aggregate category
     data_agg =    data[pager_code_to_aggcat.index].rename(columns = pager_code_to_aggcat) 
     #only pick up the columns that are the indices in paper_code_to_aggcat, and change each name to median, fragile etc. based on pager_code_to_aggcat 
@@ -72,11 +72,11 @@ def perc_with_spline(data, wt, percentiles):
 	f = interp1d(np.append([0],w),np.append([0],sd))
 	return f(percentiles)	 
 	
-def match_percentiles(hhdataframe,quintiles,col_label):
+def match_percentiles(hhdataframe,quintiles,col_label,sort_val='c'):
     hhdataframe.loc[hhdataframe['c']<=quintiles[0],col_label]=1
 
     for j in np.arange(1,len(quintiles)):
-        hhdataframe.loc[(hhdataframe['c']<=quintiles[j])&(hhdataframe['c']>quintiles[j-1]),col_label]=j+1
+        hhdataframe.loc[(hhdataframe[sort_val]<=quintiles[j])&(hhdataframe[sort_val]>quintiles[j-1]),col_label]=j+1
         
     return hhdataframe
 	
@@ -93,7 +93,7 @@ def reshape_data(income):
 
 def get_AIR_data(fname,sname,keep_sec,keep_per):
     # AIR dataset province code to province name
-    AIR_prov_lookup = pd.read_excel(fname,sheetname='Lookup_Tables',usecols=['province_code','province'],index_col='province_code')
+    AIR_prov_lookup = pd.read_excel(fname,sheet_name='Lookup_Tables',usecols=['province_code','province'],index_col='province_code')
     AIR_prov_lookup = AIR_prov_lookup['province'].to_dict()
     # NOTE: the coding in AIR differs from the latest PSA coding for Zamboanga Peninsula 
     # --> AIR: 80: 'Zamboanga del Norte', 81: 'Zamboanga del Sur', 82: 'Zamboanga Sibugay'
@@ -106,11 +106,11 @@ def get_AIR_data(fname,sname,keep_sec,keep_per):
                             'North Cotabato':'Cotabato'}
     
     # AIR dataset peril code to peril name
-    AIR_peril_lookup_1 = pd.read_excel(fname,sheetname='Lookup_Tables',usecols=['perilsetcode','peril'],index_col='perilsetcode')
+    AIR_peril_lookup_1 = pd.read_excel(fname,sheet_name='Lookup_Tables',usecols=['perilsetcode','peril'],index_col='perilsetcode')
     AIR_peril_lookup_1 = AIR_peril_lookup_1['peril'].dropna().to_dict()
     #AIR_peril_lookup_2 = {'EQ':'EQ', 'HUSSPF':'TC', 'HU':'wind', 'SS':'surge', 'PF':'flood'}
 
-    AIR_value_destroyed = pd.read_excel(fname,sheetname='Loss_Results',
+    AIR_value_destroyed = pd.read_excel(fname,sheet_name='Loss_Results',
                                         usecols=['perilsetcode','province','Perspective','Sector','AAL','EP1','EP10','EP25','EP30','EP50','EP100','EP200','EP250','EP500','EP1000']).squeeze()
     AIR_value_destroyed.columns=['hazard','province','Perspective','Sector','AAL',1,10,25,30,50,100,200,250,500,1000]
 
@@ -260,15 +260,16 @@ def get_hh_savings(df, myC, econ_unit, pol, fstr):
     if pol == '_nosavings': return 0
     elif pol == '_nosavingsdata': return df.eval('c/12')
         
-    elif myC == 'SL': _s['hh_savings'] = _s['c']/12.
+    elif myC == 'SL': 
+        _s['hh_savings'] = _s['c']/12.    
 
     elif myC == 'PH':
 
         # Load PSA file with average savings
-        f = pd.read_excel(fstr,sheetname='Average Savings',skiprows=3).rename(columns={'Unnamed: 0':'province','Estimate':'p','Estimate.1':'np'})[['province','p','np']]
+        f = pd.read_excel(fstr,sheet_name='Average Savings',skiprows=3).rename(columns={'Unnamed: 0':'province','Estimate':'p','Estimate.1':'np'})[['province','p','np']]
 
         # Load dictionaries so that these province names match those in df
-        ph_prov_lookup = pd.read_excel('../inputs/PH/FIES_provinces.xlsx',usecols=['province_upper','province_AIR'],index_col='province_upper')['province_AIR'].to_dict()
+        ph_prov_lookup = pd.read_excel('../inputs/PH/FIES_provinces.xlsx',index_col='province_upper')['province_AIR'].to_dict()
         AIR_prov_corrections = {'Tawi-Tawi':'Tawi-tawi',
                                 'North Cotabato':'Cotabato',
                                 'COTABATO':'Cotabato',
