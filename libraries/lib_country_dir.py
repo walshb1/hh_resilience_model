@@ -6,7 +6,7 @@ from libraries.lib_gather_data import *
 from libraries.plot_hist import *
 
 import seaborn as sns
-sns.set_style('darkgrid')
+sns.set_style('whitegrid')
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
 
 global model

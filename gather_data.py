@@ -398,6 +398,7 @@ hazard_ratios['hh_reco_rate'] = 0
 
 try: 
     v_to_reco_rate = pickle.load(open('optimization_libs/'+myCountry+'_v_to_reco_rate.p','rb'))
+    pickle.dump(v_to_reco_rate, open('optimization_libs/'+myCountry+'_v_to_reco_rate_proto2.p', 'wb'),protocol=2)
 except:
     print('Was not able to load v to hh_reco_rate library from optimization_libs/'+myCountry+'_v_to_reco_rate.p')
     v_to_reco_rate = {}
@@ -417,18 +418,13 @@ except:
 
     pickle.dump(v_to_reco_rate, open('optimization_libs/'+myCountry+'_v_to_reco_rate.p', 'wb' ) )
 
-while False:
+while True:
     _path = '/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/'
     _ = hazard_ratios.reset_index().copy()
     
-    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==10)],['v'],[''],_path+'vulnerabilities_PF10_log.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=True)
-    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==10)],['v'],[''],_path+'vulnerabilities_PF10.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=False)
+    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==10)],['v'],[''],_path+'vulnerabilities_log.pdf',uclip=1,nBins=25,xlab='Asset vulnerability ($v_h$)',logy=True)
+    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==10)],['v'],[''],_path+'vulnerabilities.pdf',uclip=1,nBins=25,xlab='Asset vulnerability ($v_h$)',logy=False)
 
-    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==250)],['v'],[''],_path+'vulnerabilities_PF250_log.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=True)
-    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==250)],['v'],[''],_path+'vulnerabilities_PF250.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=False)  
-  
-    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==1000)],['v'],[''],_path+'vulnerabilities_PF1000_log.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=True)
-    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==1000)],['v'],[''],_path+'vulnerabilities_PF1000.pdf',uclip=1,nBins=25,xlab='Vulnerability ($v_h$)',logy=False)
     break
 
 cat_info = cat_info.reset_index().set_index([economy,'hhid'])

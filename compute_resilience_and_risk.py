@@ -1,7 +1,7 @@
-from IPython import get_ipython
-get_ipython().magic('reset -f')
-get_ipython().magic('load_ext autoreload')
-get_ipython().magic('autoreload 2')
+#from IPython import get_ipython
+#get_ipython().magic('reset -f')
+#get_ipython().magic('load_ext autoreload')
+#get_ipython().magic('autoreload 2')
 import matplotlib
 matplotlib.use('AGG')
 
@@ -179,7 +179,7 @@ if __name__ == '__main__':
         pds_str = ['no','unif_poor']
         pol_str = ['']
 
-        if debug: launch_compute_resilience_and_risk_thread(myCountry,'','no')
+        if debug: launch_compute_resilience_and_risk_thread(myCountry,'','unif_poor')
         else:
             for _pds in pds_str:
                 launch_compute_resilience_and_risk_thread(myCountry,'',_pds)
@@ -212,9 +212,9 @@ if __name__ == '__main__':
             
         if debug:
             print('Running in debug mode!')
-            launch_compute_resilience_and_risk_thread(myCountry,'','no')
+            launch_compute_resilience_and_risk_thread(myCountry,'','unif_poor')
         else:
-            with Pool() as pool:
+            with Pool(processes=3,maxtasksperchild=1) as pool:
                 print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))
                 pool.starmap(launch_compute_resilience_and_risk_thread, list(product([myCountry],pol_str,pds_str)))
             

@@ -1237,11 +1237,11 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
     
     try: 
         print('TRY: load savings optima from file')
-        opt_lib = pickle.load(open('optimization_libs/optimal_savings_rate.p','rb')).to_dict()
-        #pickle.dump(opt_lib.loc[opt_in.index.unique()], open('optimization_libs/optimal_savings_rate_proto2.p', 'wb' ),protocol=2)
-
-        temp['sav_offset_to'] = temp.apply(lambda x:opt_lib['sav_offset_to'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
-        temp['t_exhaust_sav'] = temp.apply(lambda x:opt_lib['t_exhaust_sav'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
+        with open('optimization_libs/optimal_savings_rate.p','rb') as p:        
+            opt_lib =  pickle.load(p).to_dict()
+    
+            temp['sav_offset_to'] = temp.apply(lambda x:opt_lib['sav_offset_to'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
+            temp['t_exhaust_sav'] = temp.apply(lambda x:opt_lib['t_exhaust_sav'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
         print('SUCCESS!')
 
     except: 
@@ -1256,18 +1256,23 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
 
         # 2 dfs for merging
         opt_in = opt_in.reset_index().set_index(['c','dk0','hh_reco_rate','avg_prod_k','sav_f']).drop('index',axis=1)
-        opt_lib = pickle.load(open('optimization_libs/optimal_savings_rate.p','rb'))
-        print(opt_lib.shape,' entries in optimization library.')
 
-        opt_lib = opt_lib.combine_first(opt_in)
+        try:
+            with open('optimization_libs/optimal_savings_rate.p','rb') as p:
+                opt_lib = pickle.load(p)
+                print(opt_lib.shape,' entries in optimization library.')
+                opt_in = opt_in.combine_first(opt_lib)
+                print(opt_in.shape,' entries in optimization library.')
 
-        pickle.dump(opt_lib.loc[opt_lib.index.unique()], open('optimization_libs/optimal_savings_rate.p', 'wb' ) )
-        pickle.dump(opt_lib.loc[opt_lib.index.unique()], open('optimization_libs/optimal_savings_rate_proto2.p', 'wb' ),protocol=2)
-        print(opt_lib.shape,' entries in optimization library.')
+            with open('optimization_libs/optimal_savings_rate.p','wb') as pout:
+                pickle.dump(opt_in.loc[opt_in.index.unique()],pout)
+            with open('optimization_libs/optimal_savings_rate_proto2.p','wb') as pout2:
+                pickle.dump(opt_in.loc[opt_in.index.unique()],pout2,protocol=2)
 
-        #except: pickle.dump(opt_in.loc[opt_in.index.unique()], open('optimization_libs/optimal_savings_rate.p', 'wb' ))    
-        del opt_in; del opt_lib
-
+        except: 
+            with open('optimization_libs/optimal_savings_rate.p','wb') as pout:
+                pickle.dump(opt_in.loc[opt_in.index.unique()], pout)    
+        
     # Define parameters of welfare integration
     int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
     print('using time step = ',step_dt)
@@ -1374,6 +1379,10 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
             #assert(False)
         
         ########################
+        # Mark dc_net at time t=0
+        if _t == 0: temp['dc_net_t0'] = temp['dc_net'].copy()
+            
+        ########################
         # Increment time in poverty
         temp.loc[temp.eval('c-di_t<=pov_line'),'t_pov_inc'] += step_dt
         temp.loc[temp.eval('c-dc_net<=pov_line'),'t_pov_cons'] += step_dt
@@ -1416,7 +1425,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
 
     ################################
     # Write out the poverty duration info
-    temp[[mac_ix[0],'hazard', 'rp', 'pcwgt', 'c', 'dk0', 't_pov_inc', 't_pov_cons', 
+    temp[[mac_ix[0],'hazard', 'rp', 'pcwgt', 'c', 'dk0','dc_net_t0','dc_net','t_pov_inc', 't_pov_cons', 
           't_start_prv_reco', 'hh_reco_rate', 'optimal_hh_reco_rate']].to_csv('../output_country/'+myC+'/poverty_duration_'+optionPDS+'.csv')
 
     ################################

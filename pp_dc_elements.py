@@ -1,8 +1,8 @@
 #This script processes data outputs for the resilience indicator multihazard model for the Philippines. Developed by Brian Walsh.
-from IPython import get_ipython
-get_ipython().magic('reset -f')
-get_ipython().magic('load_ext autoreload')
-get_ipython().magic('autoreload 2')
+#from IPython import get_ipython
+#get_ipython().magic('reset -f')
+#get_ipython().magic('load_ext autoreload')
+#get_ipython().magic('autoreload 2')
 
 #Import packages for data analysis
 #from libraries.lib_compute_resilience_and_risk import 
@@ -28,13 +28,14 @@ import sys
 import seaborn as sns
 import brewer2mpl as brew
 from matplotlib import colors
-sns.set_style('darkgrid')
+sns.set_style('whitegrid')
 brew_pal = brew.get_map('Set1', 'qualitative', 8).mpl_colors
 sns_pal = sns.color_palette('Set1', n_colors=17, desat=None)
 greys_pal = sns.color_palette('Greys', n_colors=9)
 reds_pal = sns.color_palette('Reds', n_colors=9)
 q_labels = ['Q1 (Poorest)','Q2','Q3','Q4','Q5 (Wealthiest)']
 q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
+rdbu_pal = sns.color_palette('RdBu', n_colors=11, desat=None)
 
 reg_pal = sns.color_palette(['#e6194b','#3cb44b','#ffe119','#0082c8','#f58231','#911eb4','#46f0f0','#f032e6','#d2f53c',
                              '#008080','#e6beff','#fabebe','#800000','#808000','#000080','#808080','#000000'],n_colors=17,desat=None)
@@ -45,6 +46,7 @@ params = {'savefig.bbox': 'tight', #or 'standard'
           'ytick.labelsize': 14,
           'legend.fontsize': 12,
           'legend.facecolor': 'white',
+          'hatch.linewidth': 2.0,
           #'legend.linewidth': 2, 
           'legend.fancybox': True,
           'savefig.facecolor': 'white',   # figure facecolor when saving
@@ -142,8 +144,8 @@ for t in t_lins:
 plt.fill_between(t_lins,0,w_t,color=sns_pal[1])
 plt.draw()
 plt.xlim(0,4)
-plt.xlabel(r'Time $t$ after disaster ($\tau_h \equiv$ '+str(round(const_dk_reco_time,2))+') [years]')
-plt.ylabel('Welfare loss')
+plt.xlabel(r'Time after disaster ($\tau_h$) [years]',fontsize=11,weight='bold',labelpad=8)
+plt.ylabel('Welfare loss',fontsize=11,weight='bold',labelpad=8)
 #plt.ylim(0,-.1)
 fig=plt.gcf()
 fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/dw.pdf',format='pdf')
@@ -153,41 +155,59 @@ plt.cla()
 # Indicate k(t): private and public 
 
 # Lost income from capital
-plt.fill_between(t_lins,c_t,[i-j for i,j in zip(c_t,dc_k_t)],facecolor=reds_pal[3],alpha=0.45)
-plt.scatter(0,c_t[0]-dc_k_t[0],color=reds_pal[3],zorder=100)
-plt.annotate('Income\nlosses',[-0.50,(c_t[0]+(c_t[0]-dc_k_t[0]))/2.],fontsize=9,ha='center',va='center',weight='bold')
+plt.fill_between(t_lins,c_t,[i-j for i,j in zip(c_t,dc_k_t)],facecolor=rdbu_pal[1],alpha=0.45)
+#plt.scatter(0,c_t[0]-dc_k_t[0],color=reds_pal[3],zorder=100)
+plt.annotate('Income\nlosses',[-0.14,(c_t[0]+(c_t[0]-dc_k_t[0]))/2.],fontsize=9,ha='right',va='center',weight='bold')
+
+# Arrow shaft
+_ao = 800
+plt.plot([-.10,-.10],[c_t[0],c_t[0]-dc_k_t[0]+_ao],color=rdbu_pal[1],alpha=0.65,zorder=100)
+# top head
+plt.plot([-.12,-.10],[0.99*c_t[0],c_t[0]],color=rdbu_pal[1],alpha=0.65,zorder=100)
+plt.plot([-.08,-.10],[0.99*c_t[0],c_t[0]],color=rdbu_pal[1],alpha=0.65,zorder=100)
+# bottom head
+plt.plot([-.12,-.10],[1.01*(c_t[0]-dc_k_t[0]+_ao),(c_t[0]-dc_k_t[0]+_ao)],color=rdbu_pal[1],alpha=0.65,zorder=100)
+plt.plot([-.08,-.10],[1.01*(c_t[0]-dc_k_t[0]+_ao),(c_t[0]-dc_k_t[0]+_ao)],color=rdbu_pal[1],alpha=0.65,zorder=100)
 
 # Reconstruction costs
-plt.fill_between(t_lins,[i-j for i,j in zip(c_t,dc_k_t)],[i-j-k for i,j,k in zip(c_t,dc_k_t,dc_reco_t)],facecolor=reds_pal[4],alpha=0.45)
-plt.scatter(0,c_t[0]-dc_k_t[0]-dc_reco_t[0],color=reds_pal[4],zorder=100)
-plt.annotate('Reconstruction\ncosts',[-0.50,((c_t[0]-dc_k_t[0])+(c_t[0]-dc_k_t[0]-0.5*dc_reco_t[0]))/2.],fontsize=9,ha='center',va='center',weight='bold')
+plt.fill_between(t_lins,[i-j for i,j in zip(c_t,dc_k_t)],[i-j-k for i,j,k in zip(c_t,dc_k_t,dc_reco_t)],facecolor=rdbu_pal[2],alpha=0.45)
+#plt.scatter(0,c_t[0]-dc_k_t[0]-dc_reco_t[0],color=reds_pal[4],zorder=100)
 
-plt.gca().add_patch(patches.Rectangle((1.13,c_t[0]-1.12*dc_reco_t[15]),2.03,15000,facecolor='white',zorder=98,clip_on=False))
-plt.gca().annotate(r'Area = total value of destroyed assets',
-                   xy=(0.50,c_t[0]-dc_reco_t[15]), xycoords='data',
-                   xytext=(1.20,c_t[0]-dc_reco_t[15]), textcoords='data', fontsize=10,
+y_tmpA = c_t[0]-dc_k_t[0]-_ao
+y_tmpB = c_t[0]-dc_k_t[0]-dc_reco_t[0]
+plt.annotate('Reconstruction\ncosts',[-0.14,(y_tmpA+y_tmpB)/2.],fontsize=9,ha='right',va='center',weight='bold')
+
+# Arrow shaft
+plt.plot([-.10,-.10],[y_tmpA,y_tmpB],color=rdbu_pal[2],alpha=0.85)
+# top head
+plt.plot([-.12,-.10],[0.99*y_tmpA,y_tmpA],color=rdbu_pal[2],alpha=0.85)
+plt.plot([-.08,-.10],[0.99*y_tmpA,y_tmpA],color=rdbu_pal[2],alpha=0.85)
+# bottom head
+plt.plot([-.12,-.10],[1.08*y_tmpB,y_tmpB],color=rdbu_pal[2],alpha=0.85)
+plt.plot([-.08,-.10],[1.08*y_tmpB,y_tmpB],color=rdbu_pal[2],alpha=0.85)
+
+plt.gca().add_patch(patches.Rectangle((2.13,c_t[0]-1.44*dc_reco_t[26]),1.74,25000,facecolor='white',zorder=98,clip_on=False,ec=greys_pal[2]))
+plt.gca().annotate('Area = lost productivity of\n             destroyed assets',
+                   xy=(0.50,c_t[0]-dc_reco_t[45]), xycoords='data',
+                   xytext=(2.20,c_t[0]-dc_reco_t[26]), textcoords='data', fontsize=10,
                    arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.05",lw=1.5),
                    ha='left',va='center',zorder=99)
 
-# PDS
-#plt.fill_between(t_lins,c_t,[i+j for i,j in zip(c_t,dc_pds_t)],facecolor=sns_pal[2],alpha=0.45)
-#plt.annotate('PDS\nspend down',[-0.50,(c_t[0]+(c_t[0]+dc_pds_t[0]))/2.],fontsize=9,ha='center',va='center',weight='bold')
-
-#plt.gca().add_patch(patches.Rectangle((0.73,c_t[0]+0.50*dc_pds_t[0]),1.40,15000,facecolor='white',zorder=98,clip_on=False))
-#plt.gca().annotate(r'Area = total value of PDS',
-#                   xy=(0.10,c_t[0]+0.50*dc_pds_t[0]), xycoords='data',
-#                   xytext=(0.80,c_t[0]+0.75*dc_pds_t[0]), textcoords='data', fontsize=10,
-#                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=0.05",lw=1.5),
-#                   ha='left',va='center',zorder=99)
+plt.gca().add_patch(patches.Rectangle((1.08,c_t[0]-1.12*dc_reco_t[15]),2.49,15000,facecolor='white',zorder=98,clip_on=False,ec=greys_pal[2]))
+plt.gca().annotate(r'Area = total value of destroyed assets',
+                   xy=(0.50,c_t[0]-dc_reco_t[15]), xycoords='data',
+                   xytext=(1.15,c_t[0]-dc_reco_t[15]), textcoords='data', fontsize=10,
+                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.05",lw=1.5),
+                   ha='left',va='center',zorder=99)
 
 # C net of everything except savings 
 net_c_t = [i-j-k for i,j,k in zip(c_t,dc_k_t,dc_reco_t)]
 
 # savings usage
 plt.plot([t_lins[0],t_lins[7]],[savings_usage,savings_usage],color=greys_pal[7])
-plt.fill_between(t_lins[:8],[savings_usage for i in t_lins[:8]],net_c_t[:8],facecolor=greys_pal[4])
+plt.fill_between(t_lins[:8],[savings_usage for i in t_lins[:8]],net_c_t[:8],facecolor='none',edgecolor=rdbu_pal[9],hatch="XX",linewidth=1,zorder=90)
 
-plt.gca().add_patch(patches.Rectangle((0.73,0.84*savings_usage),1.89,15000,facecolor='white',zorder=98,clip_on=False))
+plt.gca().add_patch(patches.Rectangle((0.73,0.84*savings_usage),2.35,15000,facecolor='white',zorder=98,clip_on=False,linewidth=1,ec=greys_pal[2]))
 plt.gca().annotate(r'Area = total value of savings + PDS',
                    xy=(0.10,0.9*savings_usage), xycoords='data',
                    xytext=(0.80,0.9*savings_usage), textcoords='data', fontsize=10,
@@ -195,34 +215,36 @@ plt.gca().annotate(r'Area = total value of savings + PDS',
                    ha='left',va='center',zorder=99)
 
 plt.gca().annotate('Savings + PDS\nexpenditure',
-                   xy=(0.09,0.82*savings_usage), xycoords='data',
-                   xytext=(-0.5,0.52*savings_usage), textcoords='data', fontsize=9,
+                   xy=(0.12,0.82*savings_usage), xycoords='data',
+                   xytext=(+0.35,0.52*savings_usage), textcoords='data', fontsize=9,
                    arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.10",lw=1.5),
-                   ha='center',va='center',zorder=99,weight='bold')
+                   ha='left',va='center',zorder=99,weight='bold')
 
 
 _c_net = []
 for i in net_c_t:
     _c_net.append(max(savings_usage,i))
 
-plt.plot(t_lins,_c_net,color=reds_pal[8],ls='--',lw=2.5,zorder=100,label='Household consumption')
+plt.plot(t_lins,_c_net,color=reds_pal[8],ls='--',lw=2.5,zorder=98.9,label='Household consumption')
 plt.plot([-1,0],[c_t[0],c_t[0]],color=reds_pal[8],ls='--',lw=2.5,zorder=100,label='')
 plt.plot([0,0],[c_t[0],savings_usage],color=reds_pal[8],ls='--',lw=2.5,zorder=100,label='')
-leg = plt.gca().legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0)
+leg = plt.gca().legend(loc='lower right',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0)
 
 # poverty line
 #plt.plot([-10,t_lins[-1]],[_hh.pov_line,_hh.pov_line])
 
 # Draw c
-plt.plot([-1,5],[c,c],color=greys_pal[8])
+plt.plot([-1,5],[c,c],color=greys_pal[4],linewidth=1.5)
 
 plt.xlim(-1,4)
 #plt.ylim((c-dc0)*0.98,c*1.02)
 
-plt.xlabel(r'Time $t$ after disaster ($\tau_h \equiv$ '+str(round(const_dk_reco_time,2))+') [years]')
-plt.ylabel(r'Household consumption ($c_h$)')
+plt.xlabel(r'Time after disaster [years]',fontsize=11,weight='bold',labelpad=8)
+plt.ylabel(r'Household consumption  $c_h$',fontsize=11,weight='bold',labelpad=8)
 plt.xticks([-1,0,1,2,3,4],['-1',r'$t_0$','1','2','3','4'])
 plt.yticks([c_t[0]],[r'$c_0$'])
+
+#sns.despine()
 
 plt.draw()
 fig=plt.gcf()
@@ -232,27 +254,28 @@ plt.clf()
 plt.close('all')
 
 # Draw k
-plt.plot([-1,5],[k,k],color=greys_pal[8])
+plt.plot([-1,5],[k,k],color=greys_pal[4])
 
 # points at t0
-plt.scatter(0,k-dk0,color=reds_pal[5],zorder=100)
-plt.scatter(0,k-dkprv,color=reds_pal[3],zorder=100)
+#plt.scatter(0,k-dk0,color=reds_pal[5],zorder=100)
+#plt.scatter(0,k-dkprv,color=reds_pal[3],zorder=100)
+
 # Annotate 
-plt.annotate('Private\nasset\nlosses',[-0.65,k-dkprv/2.],fontsize=9,ha='center',va='center',weight='bold')
-plt.annotate(r'$\Delta k^{prv}_0$',[-0.2,k-dkprv/2.],fontsize=10,ha='center',va='center')
-plt.plot([-0.2,-0.2],[k-dkprv,k-1.1*dkprv/2.],color=reds_pal[3])
-plt.plot([-0.2,-0.2],[k-0.9*dkprv/2.,k],color=reds_pal[3])
+plt.annotate('Private\nasset\nlosses',[-0.60,k-dkprv/2.],fontsize=9,ha='right',va='center',weight='bold')
+plt.annotate(r'$\Delta k^{prv}_0$',[-0.30,k-dkprv/2.],fontsize=10,ha='center',va='center')
+plt.plot([-0.2,-0.2],[k-dkprv,k-1.11*dkprv/2.],color=reds_pal[3])
+plt.plot([-0.2,-0.2],[k-0.89*dkprv/2.,k],color=reds_pal[3])
 plt.plot([-0.22,-0.18],[k,k],color=reds_pal[3])
 plt.plot([-0.22,-0.18],[k-dkprv*0.997,k-dkprv*0.997],color=reds_pal[3],zorder=100)
 
-plt.annotate('Public\nasset\nlosses',[-0.65,k-dk0+dkpub/2.],fontsize=9,ha='center',va='center',weight='bold')
-plt.annotate(r'$\Delta k^{pub}_0$',[-0.2,k-dk0+dkpub/2.],fontsize=10,ha='center',va='center')
-plt.plot([-0.2,-0.2],  [k-dkprv-dkpub,(k-dkprv)-1.5*dkpub/2.],color=reds_pal[5])
-plt.plot([-0.2,-0.2],  [(k-dkprv)-0.5*dkpub/2.,k-dkprv],color=reds_pal[5])
+plt.annotate('Public\nasset\nlosses',[-0.60,k-dk0+dkpub/2.],fontsize=9,ha='right',va='center',weight='bold')
+plt.annotate(r'$\Delta k^{pub}_0$',[-0.30,k-dk0+dkpub/2.],fontsize=10,ha='center',va='center')
+plt.plot([-0.2,-0.2],  [k-dkprv-dkpub,(k-dkprv)-1.7*dkpub/2.],color=reds_pal[5])
+plt.plot([-0.2,-0.2],  [(k-dkprv)-0.3*dkpub/2.,k-dkprv],color=reds_pal[5])
 plt.plot([-0.22,-0.18],[k-dkprv*1.003,k-dkprv*1.003],color=reds_pal[5])
 plt.plot([-0.22,-0.18],[k-dkprv-dkpub,k-dkprv-dkpub],color=reds_pal[5])
 
-plt.annotate('Disaster\n'+r'(t = t$_0$)',[0,k*1.005],fontsize=9,ha='center',weight='bold')
+plt.annotate('Disaster\n'+r'(t = t$_0$)',[0,k*1.004],fontsize=9,ha='center',weight='bold',rotation=0,color=greys_pal[4])
 plt.plot([0,0],[k-dk0,k],color=sns_pal[0])
 
 # k recovery
@@ -272,15 +295,15 @@ for t in t_lins:
 plt.fill_between(t_lins,k_t,dkprv_t,facecolor=reds_pal[3],alpha=0.45)
 plt.fill_between(t_lins,dkprv_t,[i-(k-j) for i,j,k in zip(dkprv_t,dkpub_t,k_t)],facecolor=reds_pal[5],alpha=0.45)
 
-plt.plot([2.1,2.1],[k-0.05*dk0,k],color=reds_pal[8])
-plt.plot([2.08,2.12],[k-0.05*dk0,k-0.05*dk0],color=reds_pal[8],zorder=100)
-plt.plot([2.08,2.12],[k,k],color=reds_pal[8],zorder=100)
+plt.plot([2.1,2.1],[k-0.05*dk0,k],color=greys_pal[8],zorder=100)
+plt.plot([2.08,2.12],[k-0.05*dk0,k-0.05*dk0],color=greys_pal[8],zorder=100)
+plt.plot([2.08,2.12],[k,k],color=greys_pal[8],zorder=100)
 
-plt.gca().add_patch(patches.Rectangle((2.45,k-0.12*dk0),1.40,11000,facecolor='white',zorder=98,clip_on=False))
-plt.gca().annotate(r'$\Delta k_h|_{t=\tau_h}$ = 0.05$\times\Delta k_0$',
+plt.gca().add_patch(patches.Rectangle((2.40,k-0.144*dk0),2.0,13000,facecolor='white',zorder=98,clip_on=False,ec=greys_pal[2]))
+plt.gca().annotate(r'$\Delta k_h(t=\tau_h)$ = 0.05$\times\Delta k_0$',
                    xy=(2.1,k-0.025*dk0), xycoords='data',
-                   xytext=(2.5,k-0.075*dk0), textcoords='data', fontsize=10,
-                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.05",lw=1.5),
+                   xytext=(2.5,k-0.100*dk0), textcoords='data', fontsize=10,
+                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.15",lw=1.5),
                    ha='left',va='center',zorder=99)
 
 plt.plot(t_lins,dk0_t,color=reds_pal[8],ls='--',lw=2.5,label='Household capital')
@@ -289,21 +312,21 @@ plt.plot([0,0],[k,dk0_t[0]],color=reds_pal[8],ls='--',lw=2.5,label='')
 
 leg = plt.gca().legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0)
 
-plt.gca().add_patch(patches.Rectangle((1.40,dk0_t[10]*1.003),1.50,11000,facecolor='white',zorder=98))
-plt.gca().annotate(r'$\Delta k_h(t) = \Delta k_0e^{-R_{\tau}\cdot t}$',
+plt.gca().add_patch(patches.Rectangle((1.35,dk0_t[10]*1.009),3.60,15000,facecolor='white',zorder=98,ec=greys_pal[2]))
+plt.gca().annotate(r'$\Delta k_h^{eff}(t) = \Delta k^{prv}_0e^{-t/\tau_h}$'+r' + $\Delta k^{pub}_0e^{-t/\tau_{pub}}$',
                    xy=(t_lins[20],dk0_t[20]), xycoords='data',
-                   xytext=(1.45,dk0_t[10]*1.01), textcoords='data', fontsize=12,
-                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=0.2",lw=1.5),
+                   xytext=(1.45,dk0_t[10]*1.02), textcoords='data', fontsize=12,
+                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.15",lw=1.5),
                    ha='left',va='center',zorder=99)
 
 plt.xlim(-1,5)
 plt.ylim((k-dk0)*0.98,k*1.02)
 
-plt.xlabel(r'Time $t$ after disaster ($\tau_h \equiv '+str(round(const_dk_reco_time,2))+'$) [years]')
-#plt.xlabel(r'Time $t$ after disaster (years)')
-plt.ylabel(r'Effective household capital ($k_h$)')
+plt.xlabel(r'Time after disaster [years]',fontsize=11,weight='bold',labelpad=8)
+#plt.xlabel(r'Time $t$ after disaster (years)',fontsize=11,weight='bold',labelpad=8)
+plt.ylabel(r'Effective household capital  $k_h^{eff}$',fontsize=11,weight='bold',labelpad=8)
 plt.xticks([-1,0,1,2,3,4],['-1',r'$t_0$','1','2','3','4'])
-plt.yticks([k_t[0]],[r'$k_h$'])
+plt.yticks([k_t[0]],[r'$k_0$'])
 
 plt.draw()
 fig=plt.gcf()
@@ -342,8 +365,8 @@ for ix in xax:
             regz.append(name)
             col_ix+=1
 
-        plt.xlabel(haz_dict[iHaz]+ix[1],fontsize=16)
-        plt.ylabel('Socio-economic capacity [%]',fontsize=16)
+        plt.xlabel(haz_dict[iHaz]+ix[1],fontsize=11,weight='bold',labelpad=8)
+        plt.ylabel('Socio-economic capacity [%]',fontsize=11,weight='bold',labelpad=8)
         plt.ylim(0,250)
 
         if False:
@@ -396,7 +419,7 @@ for _,_h in _df.groupby('hazard'):
     ax = _h.boxplot('res',by=economy)
     fig = plt.gcf()
     plt.title('Regional resilience to '+_)
-    plt.xlabel(economy[0].upper()+economy[1:])
+    plt.xlabel(economy[0].upper()+economy[1:],fontsize=11,weight='bold',labelpad=8)
 
     for tick in ax.xaxis.get_major_ticks():
         tick.label.set_fontsize(8) 

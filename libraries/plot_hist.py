@@ -4,11 +4,11 @@ from libraries.lib_gather_data import *
 import matplotlib.pyplot as plt
 
 import seaborn as sns
-sns.set_style('darkgrid')
+sns.set_style('whitegrid')
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
 greys_pal = sns.color_palette('Greys', n_colors=9)
 
-def plot_simple_hist(df,cols,labels,fout,nBins=50,uclip=None,lclip=None,xlab='Income',logy=False):
+def plot_simple_hist(df,cols,labels,fout,nBins=50,uclip=None,lclip=None,xlab='Income',ylab='',logy=False,do_legend=False):
     q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
     plt.cla()
@@ -28,15 +28,18 @@ def plot_simple_hist(df,cols,labels,fout,nBins=50,uclip=None,lclip=None,xlab='In
         
     fig = ax.get_figure()
     if logy: plt.yscale('log', nonposy='clip')
-    plt.xlabel(xlab)
-    if weighted: plt.ylabel('Households')
-    if not weighted: plt.ylabel('HIES entries')
+    plt.xlabel(xlab,fontsize=11,weight='bold',labelpad=8)
+    if weighted: plt.ylabel('Households',fontsize=11,weight='bold',labelpad=8)
+    if not weighted: plt.ylabel('HIES entries',fontsize=11,weight='bold',labelpad=8)
 
-    try:
-        leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
-        leg.get_frame().set_color('white')
-        leg.get_frame().set_edgecolor(greys_pal[7])
-        leg.get_frame().set_linewidth(0.2)
-    except: pass
+    if do_legend:
+        try:
+            leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
+            leg.get_frame().set_color('white')
+            leg.get_frame().set_edgecolor(greys_pal[7])
+            leg.get_frame().set_linewidth(0.2)
+        except: pass
+
+    sns.despine()
 
     fig.savefig(fout,format='pdf')#+'.pdf',format='pdf')
