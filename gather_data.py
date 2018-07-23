@@ -115,6 +115,9 @@ if myCountry == 'SL':
     cat_info['district'].replace(prov_code,inplace=True) #replace district code with its name
     cat_info = cat_info.reset_index().set_index(economy).drop(['index'],axis=1)
 
+if myCountry == 'MW':
+    cat_info = cat_info.reset_index().set_index(economy)
+
 # Define per capita income (in local currency)
 df['gdp_pc_prov'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
 df['gdp_pc_nat'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info['pcwgt'].sum()
