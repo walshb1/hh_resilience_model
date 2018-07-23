@@ -1237,7 +1237,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
     
     try: 
         print('TRY: load savings optima from file')
-        with open('optimization_libs/optimal_savings_rate.p','rb') as p:        
+        with open('../optimization_libs/optimal_savings_rate.p','rb') as p:        
             opt_lib =  pickle.load(p).to_dict()
     
             temp['sav_offset_to'] = temp.apply(lambda x:opt_lib['sav_offset_to'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
@@ -1258,19 +1258,19 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
         opt_in = opt_in.reset_index().set_index(['c','dk0','hh_reco_rate','avg_prod_k','sav_f']).drop('index',axis=1)
 
         try:
-            with open('optimization_libs/optimal_savings_rate.p','rb') as p:
+            with open('../optimization_libs/optimal_savings_rate.p','rb') as p:
                 opt_lib = pickle.load(p)
                 print(opt_lib.shape,' entries in optimization library.')
                 opt_in = opt_in.combine_first(opt_lib)
                 print(opt_in.shape,' entries in optimization library.')
 
-            with open('optimization_libs/optimal_savings_rate.p','wb') as pout:
+            with open('../optimization_libs/optimal_savings_rate.p','wb') as pout:
                 pickle.dump(opt_in.loc[opt_in.index.unique()],pout)
-            with open('optimization_libs/optimal_savings_rate_proto2.p','wb') as pout2:
+            with open('../optimization_libs/optimal_savings_rate_proto2.p','wb') as pout2:
                 pickle.dump(opt_in.loc[opt_in.index.unique()],pout2,protocol=2)
 
         except: 
-            with open('optimization_libs/optimal_savings_rate.p','wb') as pout:
+            with open('../optimization_libs/optimal_savings_rate.p','wb') as pout:
                 pickle.dump(opt_in.loc[opt_in.index.unique()], pout)    
         
     # Define parameters of welfare integration
