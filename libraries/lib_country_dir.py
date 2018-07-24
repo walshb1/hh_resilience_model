@@ -140,7 +140,10 @@ def load_survey_data(myC,inc_sf=None):
                                               'adulteq':'hhsize_ae'}).set_index(['hhid'])
         df['pcwgt'] = df[['hhwgt','hhsize']].prod(axis=1)
         df['pcinc'] = df['hhinc']/df['hhsize']
-        
+
+        df['pcinc_ae'] = df['hhinc']/df['hhsize_ae']
+        df['pcwgt_ae'] = df[['hhwgt','hhsize_ae']].prod(axis=1)        
+
         # Still need hhsoc & pcsoc
         dfR = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_R.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
         df['hhsoc'] = dfR[['hh_r02a','hh_r02b']].sum(axis=1).sum(level='hhid')
@@ -148,6 +151,13 @@ def load_survey_data(myC,inc_sf=None):
 
         df['hhsoc_kg_maize'] = dfR['hh_r02c'].sum(level='hhid')
         # ^ not clear what to do with this
+
+        #need dwelling info
+        dfF = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_F.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        #df['general_construction'] = dfF['hh_f06'].copy()
+        df['wall'] = dfF['hh_f07'].copy()
+        df['roof'] = dfF['hh_f08'].copy()
+        #df['floor'] = dfF['hh_f09'].copy()
 
         #df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HouseholdGeovariables_stata11/HouseholdGeovariablesIHS4.dta').dropna(how='all')
         # geovar ex: distance to market 
@@ -388,21 +398,22 @@ def get_df2(myC):
     else: return None
 
 def get_vul_curve(myC,struct):
+    df = None
 
     if myC == 'PH':
         df = pd.read_excel(inputs+'vulnerability_curves_FIES.xlsx',sheetname=struct)[['desc','v']]
-        return df
 
-    if myC == 'FJ':
+    elif myC == 'FJ':
         df = pd.read_excel(inputs+'vulnerability_curves_Fiji.xlsx',sheetname=struct)[['desc','v']]
-        return df
 
-    if myC == 'SL':
+    elif myC == 'SL':
         df = pd.read_excel(inputs+'vulnerability_curves.xlsx',sheetname=struct)[['key','v']]
         df = df.rename(columns={'key':'desc'})
-        return df
-        
-    else: return None
+
+    elif myC == 'MW':
+        df = pd.read_excel(inputs+'vulnerability_curves_MW.xlsx',sheetname=struct)[['desc','v']]
+
+    return df
     
 def get_infra_stocks_data(myC):
     if myC == 'FJ':

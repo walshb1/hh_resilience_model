@@ -133,17 +133,20 @@ print('Getting vulnerabilities')
 vul_curve = get_vul_curve(myCountry,'wall')
 for thecat in vul_curve.desc.unique():
 
-    if myCountry == 'PH': cat_info.ix[cat_info.walls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
-    if myCountry == 'FJ': cat_info.ix[cat_info.Constructionofouterwalls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
+    if myCountry == 'PH': cat_info.loc[cat_info.walls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
+    if myCountry == 'FJ': cat_info.loc[cat_info.Constructionofouterwalls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
     # Fiji doesn't have info on roofing, but it does have info on the condition of outer walls. Include that as a multiplier?
-    if myCountry == 'SL': cat_info.ix[cat_info.walls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
+    if myCountry == 'SL': cat_info.loc[cat_info.walls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
+    if myCountry == 'MW': cat_info.loc[cat_info.wall.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
 
 # Get roofing data (but Fiji doesn't have this info)
 if myCountry != 'FJ':
     print('Getting roof info')
     vul_curve = get_vul_curve(myCountry,'roof')
     for thecat in vul_curve.desc.unique():
-        cat_info.ix[cat_info.roof.values == thecat,'v'] += vul_curve.loc[vul_curve.desc.values == thecat].v.values
+        print(thecat)
+
+        cat_info.loc[cat_info.roof.values == thecat,'v'] += vul_curve.loc[vul_curve.desc.values == thecat].v.values
     cat_info.v = cat_info.v/2
 
 print('Setting c to pcinc') 
@@ -209,12 +212,12 @@ cat_info = cat_info.reset_index().groupby(economy,sort=True).apply(lambda x:matc
 # 'c_5_nat' is the upper consumption limit for the lowest 5% throughout country
 percentiles_05 = np.arange(0.05, 1.01, 0.05) #create a list of deciles 
 my_c5 = match_percentiles(cat_info,perc_with_spline(reshape_data(cat_info.c),reshape_data(cat_info.pcwgt),percentiles_05),'pctle_05_nat')
-cat_info['c_5_nat'] = cat_info.ix[cat_info.pctle_05_nat==1,'c'].max()
+cat_info['c_5_nat'] = cat_info.loc[cat_info.pctle_05_nat==1,'c'].max()
 
 cat_info = cat_info.reset_index().groupby(economy,sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),percentiles_05),'pctle_05'))
 if 'level_0' in cat_info.columns:
     cat_info = cat_info.drop(['level_0','index'],axis=1)
-cat_info_c_5 = cat_info.reset_index().groupby(economy,sort=True).apply(lambda x:x.ix[x.pctle_05==1,'c'].max())
+cat_info_c_5 = cat_info.reset_index().groupby(economy,sort=True).apply(lambda x:x.loc[x.pctle_05==1,'c'].max())
 cat_info = cat_info.reset_index().set_index([economy,'hhid']) #change the name: district to code, and create an multi-level index 
 cat_info['c_5'] = broadcast_simple(cat_info_c_5,cat_info.index)
 cat_info['c_5'] = cat_info.c_5.fillna(cat_info.c_5.mean(level=economy).min())
