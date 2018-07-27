@@ -260,7 +260,7 @@ def get_hh_savings(df, myC, econ_unit, pol, fstr):
     if pol == '_nosavings': return 0
     elif pol == '_nosavingsdata': return df.eval('c/12')
         
-    elif myC == 'SL': 
+    elif myC == 'SL' or myC == 'MW':
         _s['hh_savings'] = _s['c']/12.    
 
     elif myC == 'PH':
@@ -319,10 +319,11 @@ def get_hh_savings(df, myC, econ_unit, pol, fstr):
     
         _s['hh_savings'] = _s.eval('avg_savings*c/c_mean')
 
-    else:
+    elif myC == 'MW':
         # Without data: we tried giving hh savings = 6 months' income if they report spending on savings or investments, 1 month if not
-        _s = (temp[['axfin','c']].prod(axis=1)/2.).clip(lower=temp['c']/12.)
-    
+        #_s = (temp[['axfin','c']].prod(axis=1)/2.).clip(lower=temp['c']/12.)
+        _s['hh_savings'] = 0*_s['c']
+
     return _s['hh_savings']
 
 

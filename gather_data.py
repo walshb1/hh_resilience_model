@@ -253,7 +253,8 @@ cat_info.dropna(inplace=True,how='all')
 print('Check total population (after dropna):',cat_info.pcwgt.sum())
 
 # Exposure
-cat_info.fillna(0,inplace=True)
+try: cat_info = cat_info.fillna(0)
+except: pass
 
 # Cleanup dfs for writing out
 cat_info_col = [economy,'province','hhid','region','pcwgt','pcwgt_ae','hhwgt','code','np','score','v','c','pcsoc','social','c_5','hhsize',

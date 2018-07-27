@@ -179,7 +179,7 @@ if __name__ == '__main__':
         pds_str = ['no','unif_poor']
         pol_str = ['']
 
-        if debug: launch_compute_resilience_and_risk_thread(myCountry,'','unif_poor')
+        if debug: launch_compute_resilience_and_risk_thread(myCountry,'','no')
         else:
             for _pds in pds_str:
                 launch_compute_resilience_and_risk_thread(myCountry,'',_pds)
@@ -209,10 +209,14 @@ if __name__ == '__main__':
         if myCountry == 'SL':
             pds_str = ['no','unif_poor','unif_poor_only','unif_poor_q12','prop_q1','prop_q12']
             pol_str = ['']
+
+        if myCountry == 'MW':
+            pds_str = ['no','unif_poor']
+            pol_str = ['']
             
         if debug:
             print('Running in debug mode!')
-            launch_compute_resilience_and_risk_thread(myCountry,'','unif_poor')
+            launch_compute_resilience_and_risk_thread(myCountry,'','no')
         else:
             with Pool(processes=3,maxtasksperchild=1) as pool:
                 print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))

@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from libraries.maps_lib import make_map_from_svg, purge
 from libraries.lib_average_over_rp import average_over_rp
-from libraries.lib_country_dir import get_demonym,get_poverty_line
+from libraries.lib_country_dir import get_demonym,get_poverty_line,get_currency
 from libraries.lib_gather_data import match_percentiles,perc_with_spline,reshape_data
 from libraries.lib_common_plotting_functions import title_legend_labels,sns_pal
 import glob
@@ -48,7 +48,7 @@ def run_poverty_duration_plot(myC):
 
     ############################
     # Do some plotting
-    #plot_crit = '(t_pov_bool)&(hazard=="PF")&(rp==500)'
+    #plot_crit = '(t_pov_bool)&(hazard=="FF")&(rp==500)'
 
     #df.loc[df.eval(plot_crit)].plot.hexbin('dk0','t_pov_cons')
     #plt.gca().get_figure().savefig('../output_plots/'+myC+'/poverty_duration_hexbin_no.pdf',format='pdf')
@@ -130,7 +130,7 @@ def run_poverty_duration_plot(myC):
     _to_tex['Consumption'] = _cons_to_tex.round(1)
   
     _to_tex = _to_tex.reset_index().set_index(geo)
-    _to_tex = _to_tex.loc[_to_tex.eval('(hazard=="PF")&(rp==10)&(decile==1)')].sort_values('Consumption',ascending=False)
+    _to_tex = _to_tex.loc[_to_tex.eval('(hazard=="FF")&(rp==10)&(decile==1)')].sort_values('Consumption',ascending=False)
     
     print(_to_tex.head())
 
@@ -147,21 +147,22 @@ def run_poverty_duration_plot(myC):
 
     for ipov in ['t_pov_cons_avg','t_pov_inc_avg']:
         # Do the plotting
-        #ax = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot.scatter('decile',ipov+'no',color=sns_pal[1],lw=0,label='Natl. average (RP = 5 years)',zorder=99)
-        #df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==1000)')].plot.scatter('decile',ipov+'no',color=sns_pal[3],lw=0,label='Natl. average (RP = 1000 years)',zorder=98,ax=ax)
+        #ax = df_dec.loc[df_dec.eval('(hazard=="FF")&(rp==10)')].plot.scatter('decile',ipov+'no',color=sns_pal[1],lw=0,label='Natl. average (RP = 5 years)',zorder=99)
+        #df_dec.loc[df_dec.eval('(hazard=="FF")&(rp==1000)')].plot.scatter('decile',ipov+'no',color=sns_pal[3],lw=0,label='Natl. average (RP = 1000 years)',zorder=98,ax=ax)
 
-        ax = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot('decile',ipov+'no',color=sns_pal[1],zorder=97,label='')
-        df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==1000)')].plot('decile',ipov+'no',color=sns_pal[3],zorder=96,label='',ax=ax)
+        ax = df_dec.loc[df_dec.eval('(hazard=="FF")&(rp==10)')].plot('decile',ipov+'no',color=sns_pal[1],zorder=97,label='')
+        df_dec.loc[df_dec.eval('(hazard=="FF")&(rp==1000)')].plot('decile',ipov+'no',color=sns_pal[3],zorder=96,label='',ax=ax)
 
         icol = 4
 
         # Which areas to plot?
         if myC == 'SL': focus = ['Rathnapura','Colombo','Kandy','Gampaha']
         elif myC == 'PH': focus = ['NCR']
+        elif myC == 'MW': focus = ['Lilongwe','Chitipa']
 
         for iloc in focus:
-            df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot.scatter('decile',ipov+'_'+iloc,color=sns_pal[icol],lw=0,label=iloc+' (RP = 5 years)',zorder=95,ax=ax)
-            df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot('decile',ipov+'_'+iloc,color=sns_pal[icol],zorder=94,label='',ax=ax)
+            df_dec.loc[df_dec.eval('(hazard=="FF")&(rp==10)')].plot.scatter('decile',ipov+'_'+iloc,color=sns_pal[icol],lw=0,label=iloc+' (RP = 5 years)',zorder=95,ax=ax)
+            df_dec.loc[df_dec.eval('(hazard=="FF")&(rp==10)')].plot('decile',ipov+'_'+iloc,color=sns_pal[icol],zorder=94,label='',ax=ax)
             icol+=1
 
         # Do the formatting
@@ -182,8 +183,8 @@ def run_poverty_duration_plot(myC):
     ax = plt.gca()
     for ipov in ['t_pov_cons_avg','t_pov_inc_avg']:
         # Do the plotting
-        _df_5 = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].copy()
-        _df_1000 = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==1000)')].copy()
+        _df_5 = df_dec.loc[df_dec.eval('(hazard=="FF")&(rp==10)')].copy()
+        _df_1000 = df_dec.loc[df_dec.eval('(hazard=="FF")&(rp==1000)')].copy()
 
         for iSP in _sp:
 
@@ -219,8 +220,8 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
     svg_file = '../map_files/'+myC+'/BlankSimpleMap.svg'
     if myC == 'PH' and event_level[0] == 'region':
         svg_file = '../map_files/'+myC+'/BlankSimpleMapRegional.svg'
-    elif myC == 'SL':
-        svg_file = '../map_files/'+myC+'/lk.svg'
+    elif myC == 'SL': svg_file = '../map_files/'+myC+'/lk.svg'
+    elif myC == 'MW': svg_file = '../map_files/'+myC+'/mw.svg'
 
     # Get the poverty headcount info
     try:
@@ -315,7 +316,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
              [500,1E3,' (thousands)'],
              [1000,1E3,' (thousands)']]
 
-    for myDis in ['PF']:
+    for myDis in ['FF']:
         for myRP in [[10,1E0,'']]:
 
             make_map_from_svg(

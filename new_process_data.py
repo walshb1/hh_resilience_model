@@ -57,7 +57,12 @@ if myCountry == 'FJ':
 drm_pov_sign = -1 # toggle subtraction or addition of dK to affected people's incomes
 all_policies = []#['_exp095','_exr095','_ew100','_vul070','_vul070r','_rec067']
 
-haz_dict = {'SS':'Storm surge','PF':'Precipitation flood','HU':'Hurricane','EQ':'Earthquake'}
+haz_dict = {'SS':'Storm surge',
+            'PF':'Precipitation flood',
+            'HU':'Hurricane',
+            'EQ':'Earthquake',
+            'DR':'Drought',
+            'FF':'Fluvial flood'}
 
 ##################################
 # Load base and PDS files
@@ -309,8 +314,6 @@ _['pop_q1'] = _['pop_q1'].astype('int')
 _[['pop_q1','Asset risk pc','Well-being risk pc']].round(2).sort_values('Well-being risk pc',ascending=False).to_latex('latex/risk_q1.tex')
 _.to_csv('tmp/q1_figs.csv')
 
-#assert(False)
-
 # Save out iah
 iah_out = pd.DataFrame(index=iah_res.sum(level=['hazard','rp']).index)
 for iPol in ['']+all_policies:
@@ -369,6 +372,7 @@ myHaz = None
 if myCountry == 'FJ': myHaz = [['Ba','Lau','Tailevu'],get_all_hazards(myCountry,iah_res),[1,10,100,500,1000]]
 elif myCountry == 'PH': myHaz = [['II - Cagayan Valley','NCR','IVA - CALABARZON'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
 elif myCountry == 'SL': myHaz = [['Ampara','Colombo','Rathnapura'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
+elif myCountry == 'MW': myHaz = [['Lilongwe','Chitipa'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
 
 ##################################################################
 # This code generates the histograms showing income before & after disaster
@@ -377,25 +381,25 @@ upper_clip = 1E6
 if myCountry == 'PH': upper_clip = 1.2E5
 if myCountry == 'FJ': upper_clip = 2E4
 if myCountry == 'SL': upper_clip = 4.0E5
+if myCountry == 'MW': upper_clip = 1.E4
 
 run_poverty_duration_plot(myCountry)
 run_poverty_tables_and_maps(myCountry,iah.reset_index().set_index(event_level),event_level)
-assert(False)
 
 simple_plot = True
-sf_x = 1/50
+sf_x = get_currency(myCountry)[2]
 for _fom,_fom_lab in [('i','Income'),
                       ('c','Consumption')]:
     
     for aReg in myHaz[0]:
-        for aDis in ['HU']:#get_all_hazards(myCountry,iah):
+        for aDis in get_all_hazards(myCountry,iah):
 
             try: plt.close('all')
             except: pass
         
             myC_ylim = None
             c_bins = [None,50]
-            for anRP in [25]:#myHaz[2][::-1]:        
+            for anRP in [50]:#myHaz[2][::-1]:        
 
                 ax=plt.gca()
 
@@ -403,7 +407,7 @@ for _fom,_fom_lab in [('i','Income'),
                 mny = get_currency(myCountry)
                 plt.xlabel(_fom_lab+r' [USD per person, per year]')
                 plt.ylabel('Population'+get_pop_scale_fac(myCountry)[1])
-                plt.title(str(anRP)+'-year '+haz_dict[aDis].lower()+' in Region '+aReg)
+                plt.title(str(anRP)+'-year '+haz_dict[aDis].lower()+' in '+aReg)
 
                 # Income/Cons dist immediately after disaster
                 cf_heights, cf_bins = np.histogram(sf_x*iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),_fom+'_pre_reco'].clip(upper=upper_clip), bins=c_bins[1],
