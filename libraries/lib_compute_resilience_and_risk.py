@@ -197,7 +197,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
         macro = macro.ix[common_places]
 
         # Nothing drops from cat_info
-        cat_info = cat_info.ix[common_places]
+        cat_info = cat_info.ix[common_places].copy()
 
         # Nothing drops from hazard_ratios
         hazard_ratios = hazard_ratios.ix[common_places]
@@ -239,7 +239,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     avg_c = round(np.average(macro['gdp_pc_prov'],weights=macro['pop'])/get_to_USD(myCountry),2)
     print('\nMean consumption: ',avg_c,' USD.\nMean GDP pc ',round(np.average(macro['gdp_pc_prov'],weights=macro['pop'])/get_to_USD(myCountry),2),' USD.\n')
 
-    cat_info['protection']=broadcast_simple(macro['protection'],cat_info.index)	
+    cat_info['protection']=broadcast_simple(macro['protection'],cat_info.index)
 
     ##add finance to diversification and taxation
     cat_info['social'] = unpack_social(macro,cat_info)
@@ -1054,8 +1054,7 @@ def same_rps_all_hazards(fa_ratios):
     all_rps = fa_ratios.columns.tolist()
     
     fa_ratios_rps = fa_ratios.copy()
-    
-    fa_ratios_rps = fa_ratios_rps.reindex_axis(sorted(fa_ratios_rps.columns), axis=1)
+    fa_ratios_rps = fa_ratios_rps.reindex(sorted(fa_ratios_rps.columns), axis=1)
     # fa_ratios_rps = fa_ratios_rps.interpolate(axis=1,limit_direction="both",downcast="infer")
     fa_ratios_rps = fa_ratios_rps.interpolate(axis=1,limit_direction="both")
     if flag_stack:
@@ -1237,12 +1236,12 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
     
     try: 
         print('TRY: load savings optima from file')
-        with open('../optimization_libs/optimal_savings_rate.p','rb') as p:        
+        with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','rb') as p:        
             opt_lib =  pickle.load(p).to_dict()
-    
             temp['sav_offset_to'] = temp.apply(lambda x:opt_lib['sav_offset_to'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
             temp['t_exhaust_sav'] = temp.apply(lambda x:opt_lib['t_exhaust_sav'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
         print('SUCCESS!')
+        gc.collect()
 
     except: 
         print('FAIL: finding optimal savings numerically')
@@ -1258,21 +1257,22 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
         opt_in = opt_in.reset_index().set_index(['c','dk0','hh_reco_rate','avg_prod_k','sav_f']).drop('index',axis=1)
 
         try:
-            with open('../optimization_libs/optimal_savings_rate.p','rb') as p:
+            with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','rb') as p:
                 opt_lib = pickle.load(p)
                 print(opt_lib.shape,' entries in optimization library.')
                 opt_in = opt_in.combine_first(opt_lib)
                 print(opt_in.shape,' entries in optimization library.')
 
-            with open('../optimization_libs/optimal_savings_rate.p','wb') as pout:
+            with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','wb') as pout:
                 pickle.dump(opt_in.loc[opt_in.index.unique()],pout)
-            with open('../optimization_libs/optimal_savings_rate_proto2.p','wb') as pout2:
+            with open('../optimization_libs/'+myC+'_optimal_savings_rate_proto2.p','wb') as pout2:
                 pickle.dump(opt_in.loc[opt_in.index.unique()],pout2,protocol=2)
 
         except: 
-            with open('../optimization_libs/optimal_savings_rate.p','wb') as pout:
+            with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','wb') as pout:
                 pickle.dump(opt_in.loc[opt_in.index.unique()], pout)    
-        
+    gc.collect()
+
     # Define parameters of welfare integration
     int_dt,step_dt = np.linspace(x_min,x_max,num=n_steps,endpoint=True,retstep=True)
     print('using time step = ',step_dt)

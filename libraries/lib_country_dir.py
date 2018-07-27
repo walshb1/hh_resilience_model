@@ -2,8 +2,9 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from libraries.lib_gather_data import *
 from libraries.plot_hist import *
+from libraries.lib_drought import *
+from libraries.lib_gather_data import *
 
 import seaborn as sns
 sns.set_style('whitegrid')
@@ -124,7 +125,8 @@ def load_survey_data(myC,inc_sf=None):
     # -> hhsoc
     # -> pcsoc
     # -> ispoor
-
+    # -> has_ew
+    
     if myC == 'MW':
 
         df_agg = pd.read_stata(inputs+'consumption_aggregates_poverty_ihs4.dta').set_index(['case_id']).dropna(how='all')
@@ -137,7 +139,7 @@ def load_survey_data(myC,inc_sf=None):
                                               'poor':'ispoor',
                                               'upoor':'issub',
                                               'case_id':'hhid',
-                                              'adulteq':'hhsize_ae'}).set_index(['hhid'])
+                                              'adulteq':'hhsize_ae'}).set_index(['hhid']).sort_index()
         df['pcwgt'] = df[['hhwgt','hhsize']].prod(axis=1)
         df['pcinc'] = df['hhinc']/df['hhsize']
 
@@ -159,17 +161,59 @@ def load_survey_data(myC,inc_sf=None):
         df['roof'] = dfF['hh_f08'].copy()
         #df['floor'] = dfF['hh_f09'].copy()
 
-        #df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HouseholdGeovariables_stata11/HouseholdGeovariablesIHS4.dta').dropna(how='all')
-        # geovar ex: distance to market 
+        # AXFIN (also in mod F)
+        dfF['axfin'] = 0.
+        dfF.loc[(dfF.hh_f48=='YES')|(dfF.hh_f50=='YES')|(dfF.hh_f52=='YES')|(dfF.hh_f54=='YES'),'axfin'] = 1.
+        df['axfin'] = dfF['axfin'].copy()
 
-        # Income (social & total)
-        # -> hhinc
-        #dfE = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_E.dta',columns=['HHID',
-        #                                                                               'hh_e25','hh_e26a','hh_e26b', # 
-        #                                                                               'hh_e25','hh_e26a','hh_e26b'
-        #                                                                               ],index='HHID').rename(index={'HHID':'hhid'}).dropna(how='all')
-        #print(dfE.head())
+        # Early warning info
+        dfL = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_L.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['has_ew'] = dfL.loc[((dfL.hh_l02=="Radio ('wireless')")
+                                |(dfL.hh_l02=="Radio with flash drive/micro CD")
+                                |(dfL.hh_l02=="Television")
+                                |(dfL.hh_l02=="Computer equipment & accessories")
+                                |(dfL.hh_l02=="Sattelite dish")|(dfL.hh_l02=="Satellite dish")),'hh_l03'].sum(level='hhid').clip(upper=1.0)
 
+        # Agricultural income
+        # --> Does the hh have an agricultural enterprise?
+        dfN1 = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_N1.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        #dfN2 = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_N2.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['enterprise_ag'] = 0
+        df.loc[dfN1.hh_n02=='YES','enterprise_ag'] = 1
+
+        # --> Income from sale of agricultural assets (crops?)
+        dfP = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_P.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['income_ag_assets'] = dfP.loc[(dfP['hh_p0a']=='Income from Household Agricultural/Fishing Asset Sales'),'hh_p02'].fillna(0)
+
+        # --> GANYU income (MK) over last 12 months
+        dfE = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_E.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        dfE[['hh_e56','hh_e57','hh_e58','hh_e59']] = dfE[['hh_e56','hh_e57','hh_e58','hh_e59']].fillna(0)
+        df['income_ganyu'] = dfE[['hh_e56','hh_e57','hh_e58','hh_e59']].prod(axis=1).sum(level='hhid')
+
+        # --> N hh members working in unpaid agricultural labor
+        dfE['labor_ag_unpaid'] = 0
+        dfE.loc[dfE['hh_e06_8a']=='UNPAID HOUSEHOLD LABOR(AGRIC)','labor_ag_unpaid'] = 1.
+        df['labor_ag_unpaid'] = dfE['labor_ag_unpaid'].sum(level='hhid')
+
+        # --> N hh members working in ganyu        
+        dfE['labor_ganyu'] = 0
+        dfE.loc[dfE['hh_e06_8a']=='GANYU','labor_ganyu'] = 1.
+        df['labor_ganyu'] = dfE['labor_ganyu'].sum(level='hhid')
+
+        # --> Main wage job
+        dfE['main_wage_job_ag'] = 0
+        dfE.loc[(dfE.hh_e19b==62),'main_wage_job_ag'] = 1
+        df['main_wage_job_ag'] = dfE['main_wage_job_ag'].sum(level='hhid')
+
+        # Drought impact Questionnaire
+        dfU = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_U.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['impact_drought'] = dfU.loc[(dfU.hh_u0a=='Drought'),'hh_u01'].replace('Yes',1).replace('No',0)
+
+        df.to_csv('~/Desktop/tmp/mw.csv')
+        assert(False)
+
+        drought_study(df)
+        
         return df
 
     elif myC == 'PH':
@@ -496,7 +540,37 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         df_prv = df_prv.reset_index().drop('index',axis=1).fillna(0)
         
         return df_prv,df_prv
+
+    elif myC == 'MW':
+        df_haz = pd.read_excel(inputs+'/GAR_PML_curve_MW.xlsx',sheetname='PML(mUSD)')[['rp','Earthquake','Flood','Drought']].set_index('rp')
+        tot_exposure = float(pd.read_excel(inputs+'/GAR_PML_curve_MW.xlsx',sheetname='total_exposed_val').squeeze())
+
+        df_haz = df_haz.rename(columns={'Earthquake':'EQ','Flood':'FF','Drought':'DR'})
+
+        df_haz_AAL = df_haz.loc['AAL']
+        df_haz = df_haz.drop('AAL').stack().to_frame()
+        df_haz.index.names = ['rp','hazard']
+        df_haz.columns = ['PML']
+
+        df_haz['frac_destroyed'] = df_haz['PML']/tot_exposure
+
+        df_haz = df_haz.reset_index().set_index(['hazard','rp']).sort_index()
+
+        df_haz['hh_share'] = 1.0
+
+        # Need to broadcast to district
+        df_geo = get_places('MW','district')
+        df_geo['country'] = 'MW'
+        df_haz['country'] = 'MW'
     
+        df_geo = df_geo.reset_index().set_index('country')
+        df_haz = df_haz.reset_index().set_index('country')
+        
+        df_haz = pd.merge(df_geo.reset_index(),df_haz.reset_index(),on=['country'],how='outer').set_index(['district','hazard','rp']).sort_index()
+        df_haz = df_haz.drop(['country','population','PML'],axis=1)
+
+        return df_haz, df_haz
+        
     elif myC == 'FJ':
 
         df_all_ah = pd.read_csv(inputs+'map_tikinas.csv').set_index('Tikina').drop('Country_ID',axis=1)
@@ -699,68 +773,66 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
 
 def get_poverty_line(myC,sec=None):
     
-    if myC == 'PH':
-        return 22302.6775#21240.2924
+    if myC == 'PH': pov_line = 22302.6775#21240.2924
 
     elif myC == 'FJ':
         # 55.12 per week for an urban adult
         # 49.50 per week for a rural adult
         # children under age 14 are counted as half an adult
         if (sec.lower() == 'urban' or sec.lower() == 'u'):
-            return 55.12*52.
+            pov_line = 55.12*52.
         elif (sec.lower() == 'rural' or sec.lower() == 'r'):
-            return 49.50*52.
+            povline = 49.50*52.
         else: 
             print('Pov line is variable for urb/rur Fijians! Need to specify which you\'re looking for!')
-            return 0.0    
+            pov_line = 0.0    
 
-    elif myC == 'SL':
-        pov_line = float(pd.read_csv('../inputs/SL/hhdata_samurdhi.csv',index_col='hhid')['pov_line'].mean())*12.
-        print('\n--> poverty line:',pov_line,'\n')
-        return pov_line
+    elif myC == 'SL': pov_line = float(pd.read_csv('../inputs/SL/hhdata_samurdhi.csv',index_col='hhid')['pov_line'].mean())*12.    
+    elif myC == 'MW': pov_line = 137427.98
+    else: pov_line = 0.0
     
-    else:
-        print('There is no poverty info for this country. Returning pov_line = 0') 
-        return 0.0
+    return pov_line
 
 def get_subsistence_line(myC):
     
-    if myC == 'PH':
-        return 14832.0962*(22302.6775/21240.2924)
-    
+    if myC == 'PH': sub_line = 14832.0962*(22302.6775/21240.2924)
     elif myC == 'SL':
         sub_line = float(pd.read_csv('../inputs/SL/hhdata_samurdhi.csv',index_col='hhid')['pline_125'].mean())*12.
         print('--> subsistence line:',sub_line,'\n')
-        return sub_line
+    elif myC == 'MW': sub_line = 85260.164
+    else: sub_line = 0; print('No subsistence info. Returning 0')
 
-    else: 
-        print('No subsistence info. Returning 0')
-        return 0
+    return sub_line
 
 def get_to_USD(myC):
 
     if myC == 'PH': return 50.70
     elif myC == 'FJ': return 2.01
     elif myC == 'SL': return 153.76
+    elif myC == 'MW': return 720.0
     else: return 0.
 
 def get_pop_scale_fac(myC):
     
     if myC == 'PH': return [1.E3,' [Thousands]']
     elif myC == 'FJ': return [1.E3,' [Thousands]']
+    elif myC == 'MW': return [1.E3,' [Thousands]']
     else: return [1,'']
 
 def get_avg_prod(myC):
     
-    if myC == 'PH': return 0.337960802589002
+    if myC == 'PH': return 0.3379608025890020#0.273657188280276
     elif myC == 'FJ': return 0.336139019412
     elif myC == 'SL': return 0.337960802589002
+    elif myC == 'MW': return 0.253076569219416
+    assert(False)
 
 def get_demonym(myC):
     
     if myC == 'PH': return 'Filipinos'
     elif myC == 'FJ': return 'Fijians'
     elif myC == 'SL': return 'Sri Lankans'
+    elif myC == 'MW': return 'Malawians'
 
 def scale_hh_income_to_match_GDP(df_o,new_total,flat=False):
 

@@ -71,21 +71,26 @@ dem = get_demonym(myCountry)
 svg_file = '../map_files/'+myCountry+'/BlankSimpleMap.svg'
 if myCountry == 'PH' and economy == 'region':
     svg_file = '../map_files/'+myCountry+'/BlankSimpleMapRegional.svg'
-elif myCountry == 'SL':
-    svg_file = '../map_files/'+myCountry+'/lk.svg'
+elif myCountry == 'SL': svg_file = '../map_files/'+myCountry+'/lk.svg'
+elif myCountry == 'MW': svg_file = '../map_files/'+myCountry+'/mw.svg'
     
-
 # Toggle subtraction or addition of dK to affected people's incomes
 drm_pov_sign = -1 
 
-haz_dict = {'EQ':'earthquake','HU':'hurricane','TC':'tropical cyclone','PF':'precipitation flood','SS':'storm surge'}
+haz_dict = {'EQ':'earthquake',
+            'HU':'hurricane',
+            'TC':'tropical cyclone',
+            'PF':'precipitation flood',
+            'FF':'fluvial flood',
+            'SS':'storm surge',
+            'DR':'drought'}
 
 #######################
 # Get poverty & subsistence thresholds
 pov_line = get_poverty_line(myCountry,'Rural')
 sub_line = get_subsistence_line(myCountry)
 
-def reco_time_plots():
+def reco_time_plots(myC):
 
     #######################
     # Pull up poverty_duration_no.csv to get optimal_hh_reco_rate and post-reco hh_reco_rate
@@ -93,13 +98,15 @@ def reco_time_plots():
     _povdur['optimal_t_reco'] = (np.log(1/0.05)/_povdur['optimal_hh_reco_rate']).fillna(15).clip(upper=15)
     _povdur['t_reco'] = (np.log(1/0.05)/_povdur['hh_reco_rate']).fillna(15).clip(upper=15)
 
-    _haz = '"HU"'
+    _haz = '"FF"'
     _crit = '(hazard=='+_haz+')'#+'&(region=='+_regA+')'
 
     _haz_dict = {'"HU"':'hurricane',
                  '"EQ"':'earthquake',
                  '"SS"':'storm surge',
-                 '"PF"':'precipitation flood'}
+                 '"PF"':'precipitation flood',
+                 '"FF"':'fluvial flood',
+                 '"DR"':'drought'}
 
     _povdur = _povdur.loc[_povdur.eval(_crit)]
     print(_povdur.head())
@@ -111,8 +118,11 @@ def reco_time_plots():
         try: plt.close('all')
         except: pass
     
-        for __regA in ['"NCR"','"V - Bicol"','"NCR"all']:
-            for _regB in ['"NCR"','"V - Bicol"']:
+        #for __regA in ['"NCR"','"V - Bicol"','"NCR"all']:
+        #    for _regB in ['"NCR"','"V - Bicol"']:
+
+        for __regA in ['"Lilongwe"','"Lilongwe City"','"Lilongwe"all']:
+            for _regB in ['"Lilongwe"','"Lilongwe City"']:
 
                 plot_both = False
                 if 'all' in __regA: plot_both = True 
@@ -129,14 +139,14 @@ def reco_time_plots():
                 _h,_b = np.histogram(_povdur.t_reco,bins=_init_bins,weights=_povdur.pcwgt/1.E6)
 
                 ###########
-                crit_grpA = '(rp=='+str(irp)+')&(region=='+_regA+')'
+                crit_grpA = '(rp=='+str(irp)+')&('+economy+'=='+_regA+')'
                 heightsA, _ = np.histogram(_povdur.loc[_povdur.eval(crit_grpA),'optimal_t_reco'],bins=_b,weights=_povdur.loc[_povdur.eval(crit_grpA)].pcwgt)
 
                 meanA = _povdur.loc[_povdur.eval(crit_grpA),['optimal_t_reco','pcwgt']].prod(axis=1).sum()/_povdur.loc[_povdur.eval(crit_grpA),'pcwgt'].sum()
                 meanlossA = _povdur.loc[_povdur.eval(crit_grpA),['dk0','pcwgt']].prod(axis=1).sum()/_povdur.loc[_povdur.eval(crit_grpA),'pcwgt'].sum()
 
                 ###########
-                crit_grpB = '(rp=='+str(irp)+')&(region=='+_regB+')'
+                crit_grpB = '(rp=='+str(irp)+')&('+economy+'=='+_regB+')'
                 heightsB, _ = np.histogram(_povdur.loc[_povdur.eval(crit_grpB),'optimal_t_reco'],bins=_b,weights=_povdur.loc[_povdur.eval(crit_grpB)].pcwgt)
 
                 meanB = _povdur.loc[_povdur.eval(crit_grpB),['optimal_t_reco','pcwgt']].prod(axis=1).sum()/_povdur.loc[_povdur.eval(crit_grpB),'pcwgt'].sum()
@@ -152,19 +162,28 @@ def reco_time_plots():
                 for rect in ax.patches: 
                     if rect.get_height() > _ymax: _ymax = rect.get_height()
 
+                try: 
+                    strmeanlossA = str(int(meanlossA*get_currency(myC)[2]))
+                    strmeanlossB = str(int(meanlossB*get_currency(myC)[2]))
+                except: strmeanlossA, strmeanlossB = '',''
+                try: 
+                    strmeanA = str(round(meanA,1))
+                    strmeanB = str(round(meanB,1))
+                except: strmeanA, strmeanB = '',''
+
                 plt.plot([meanA,meanA],[0,_ymax],color=q_colors[0])
                 ax.annotate(('Region: '+_regA.replace('"','')
-                             +'\nMean asset loss : $'+str(int(meanlossA/50))+' per cap'
-                             +'\nMean recovery time : '+str(round(meanA,1))+' years'),
+                             +'\nMean asset loss : $'+strmeanlossA+' per cap'
+                             +'\nMean recovery time : '+strmeanA+' years'),
                             xy=(meanA+0.2,_ymax),ha='left',va='top',size=8.5,color=greys_pal[7],weight='bold',linespacing=1.5)
 
                 if not plot_both: ax.step(_b[:-1],heightsB/sumwgtB, linewidth=1.2,color=greys_pal[5],where='mid')
                 else: 
                     _shift = 0.8
                     plt.plot([meanB,meanB],[0,_shift*_ymax],color=q_colors[1])
-                    ax.annotate(('Region: '+_regB.replace('"','')
-                                 +'\nMean asset loss: $'+str(int(meanlossB/50))+' per person'
-                                 +'\nMean recovery time: '+str(round(meanB,1))+' years'),
+                    ax.annotate((economy[0].upper()+economy[1:]+': '+_regB.replace('"','')
+                                 +'\nMean asset loss: $'+strmeanlossB+' per person'
+                                 +'\nMean recovery time: '+strmeanB+' years'),
                                 xy=(meanB+0.2,_shift*_ymax),ha='left',va='top',size=8.5,color=greys_pal[7],weight='bold',linespacing=1.5)
 
                     ax.bar(_b[:-1],heightsB/sumwgtB, width=(_b[1]-_b[0]), facecolor=q_colors[1],alpha=0.60,linewidth=0)
@@ -172,7 +191,7 @@ def reco_time_plots():
 
                 plt.title('Event: '+str(irp)+'-year '+_haz_dict[_haz],fontsize=11,weight='bold',loc='right')
                 plt.xlabel(r'Optimal recovery time ($\tau_h$) [years]',fontsize=11,weight='bold',labelpad=8)
-                plt.ylabel(r'Fraction of affected households in region [%]',fontsize=11,weight='bold',labelpad=8)                
+                plt.ylabel(r'Fraction of affected households in '+economy+' [%]',fontsize=11,weight='bold',labelpad=8)                
                 plt.xlim(0,15)
                 #leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=8,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9,title='Household status post-disaster')
                 
@@ -200,12 +219,12 @@ def reco_time_plots():
 
 ##########################
 # This plots k vs dw for each hh, grouped by welf_class
-def plot_k_vs_dw(iah):
+def plot_k_vs_dw(iah,__haz='EQ'):
     iah = iah.reset_index()
 
     for irp in get_all_rps(myCountry,iah):
         print('Running',irp)
-        _iah = iah.loc[(iah.affected_cat=='a')&(iah.helped_cat=='helped')&(iah.hazard=='EQ')&(iah.rp==irp)].copy()
+        _iah = iah.loc[(iah.affected_cat=='a')&(iah.helped_cat=='helped')&(iah.hazard==__haz)&(iah.rp==irp)].copy()
 
         #
         bin0 = float(_iah.loc[(_iah.dw<200000),['dw','pcwgt']].prod(axis=1).sum())/1.E6
@@ -252,7 +271,7 @@ def plot_k_vs_dw(iah):
         im=fig.get_axes() # this is a list of all images that have been plotted
         for iax in range(len(im))[1:]: im[iax].remove()
         
-        plt.axes(ax)
+        plt.sca(ax)
     
         fig = plt.gcf()
         fig.set_size_inches(15, 6)
@@ -265,6 +284,7 @@ def plot_k_vs_dw(iah):
         plt.draw()
         fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/resil_all_'+str(irp)+'.pdf',format='pdf',bbox_inches='tight')
         plt.clf()
+        plt.close('all')
     return True
 
 #######################
@@ -280,7 +300,8 @@ def format_delta_p(delta_p):
     return(str(delta_p))
 
 
-reco_time_plots()
+try: reco_time_plots(myCountry)
+except: pass
 
 #######################
 # Load output files
@@ -425,7 +446,7 @@ except:
     iah['pds_help_fee'] = iah['pc_fee']
     iah['pds_help_received'] = 0
 
-plot_k_vs_dw(iah)
+plot_k_vs_dw(iah,'FF')
 
 iah['hhwgt'] = iah['hhwgt'].fillna(0)
 iah['pcwgt'] = iah['pcwgt'].fillna(0)
@@ -437,16 +458,18 @@ elif myCountry == 'FJ':
     myHaz = [['Ba'],['TC'],[1,5,10,20,22,50,72,75,100,200,224,250,475,500,975,1000,2475]]
 elif myCountry == 'SL':
     myHaz = [['Colombo'],['PF'],[5,10,25,50,100,250,500,1000]]
+elif myCountry == 'MW':
+    myHaz = [['Lilongwe'],['FF'],[1,10,20,50,100,250,500,1000,1500]]
+allDis = myHaz[1]
 
 iah = iah.reset_index()
 
 # PH and SL hazards
-allDis = ['EQ','HU','PF']
 upper_clip = 100000
+if myCountry == 'FJ': upper_clip = 20000
+elif myCountry == 'MW': upper_clip = 5.E5
 
-if myCountry == 'FJ': 
-    allDis = myHaz[1]
-    upper_clip = 20000
+plt.gcf().set_size_inches(6.5,5.5)
 
 for myDis in allDis:
 
@@ -562,7 +585,6 @@ for myDis in allDis:
 
         ax.get_figure().savefig('../output_plots/'+myCountry+'/poverty_k_'+myDis+'_'+str(myRP)+'_2of3.pdf',format='pdf')
         
-
         # Change in poverty incidence
         delta_p = cutA.loc[(cutA.c_initial > cutA.pov_line)&(cutA.c_final <= cutA.pov_line)&(cutA.c_final>sub_line),'pcwgt'].sum()
         p_str = format_delta_p(delta_p)
@@ -595,8 +617,8 @@ for myDis in allDis:
         print('poverty_k_'+myDis+'_'+str(myRP)+'.pdf')
         fig.savefig('../output_plots/'+myCountry+'/poverty_k_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')
         fig.savefig('../output_plots/'+myCountry+'/png/poverty_k_'+myDis+'_'+str(myRP)+'.png',format='png')
-        plt.cla()    
-        
+        plt.cla(); plt.close('all')
+
         ##
         # Same as above, for affected people
         ax=plt.gca()
@@ -646,7 +668,7 @@ for myDis in allDis:
         print('poverty_k_aff_'+myDis+'_'+str(myRP)+'.pdf\n')
         fig.savefig('../output_plots/'+myCountry+'/poverty_k_aff_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
         fig.savefig('../output_plots/'+myCountry+'/png/poverty_k_aff_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',format='pdf')
-        plt.cla()
+        plt.cla(); plt.close('all')
 
 df_out_sum = pd.DataFrame()
 df_out = pd.DataFrame()
@@ -855,7 +877,7 @@ for myRP in myHaz[2]:
                 print('Saving: hists/'+istr+'_'+myProv+'_'+myDis+'_'+str(myRP)+'.pdf')
                 fig.savefig('../output_plots/'+myCountry+'/'+istr+'_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
                 fig.savefig('../output_plots/'+myCountry+'/png/'+istr+'_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',format='pdf')
-                plt.cla()
+                plt.cla(); plt.close('all')
 
             # Means
             ax1 = plt.subplot(111)
@@ -883,7 +905,7 @@ for myRP in myHaz[2]:
             print('Saving: histo_'+myProv+'_'+myDis+'_'+str(myRP)+'.pdf\n')
             plt.savefig('../output_plots/'+myCountry+'/means_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.pdf',bbox_inches='tight',format='pdf')
             plt.savefig('../output_plots/'+myCountry+'/png/means_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',bbox_inches='tight',format='pdf')
-            plt.cla()
+            plt.cla(); plt.close('all')
 
 df_out.to_csv('tmp/my_means_'+myCountry+pol_str+'.csv')
 df_out_sum.to_csv('tmp/my_means_ntl_'+myCountry+pol_str+'.csv')
