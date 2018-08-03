@@ -93,7 +93,7 @@ def reshape_data(income):
 
 def get_AIR_data(fname,sname,keep_sec,keep_per):
     # AIR dataset province code to province name
-    AIR_prov_lookup = pd.read_excel(fname,sheet_name='Lookup_Tables',usecols=['province_code','province'],index_col='province_code')
+    AIR_prov_lookup = pd.read_excel(fname,sheet_name='Lookup_Tables',index_col='province_code')[['province']]
     AIR_prov_lookup = AIR_prov_lookup['province'].to_dict()
     # NOTE: the coding in AIR differs from the latest PSA coding for Zamboanga Peninsula 
     # --> AIR: 80: 'Zamboanga del Norte', 81: 'Zamboanga del Sur', 82: 'Zamboanga Sibugay'
@@ -106,12 +106,12 @@ def get_AIR_data(fname,sname,keep_sec,keep_per):
                             'North Cotabato':'Cotabato'}
     
     # AIR dataset peril code to peril name
-    AIR_peril_lookup_1 = pd.read_excel(fname,sheet_name='Lookup_Tables',usecols=['perilsetcode','peril'],index_col='perilsetcode')
+    AIR_peril_lookup_1 = pd.read_excel(fname,sheet_name='Lookup_Tables',index_col='perilsetcode')[['peril']]
     AIR_peril_lookup_1 = AIR_peril_lookup_1['peril'].dropna().to_dict()
     #AIR_peril_lookup_2 = {'EQ':'EQ', 'HUSSPF':'TC', 'HU':'wind', 'SS':'surge', 'PF':'flood'}
 
-    AIR_value_destroyed = pd.read_excel(fname,sheet_name='Loss_Results',
-                                        usecols=['perilsetcode','province','Perspective','Sector','AAL','EP1','EP10','EP25','EP30','EP50','EP100','EP200','EP250','EP500','EP1000']).squeeze()
+    AIR_value_destroyed = pd.read_excel(fname,sheet_name='Loss_Results')[['perilsetcode','province','Perspective','Sector','AAL',
+                                                                          'EP1','EP10','EP25','EP30','EP50','EP100','EP200','EP250','EP500','EP1000']].squeeze()
     AIR_value_destroyed.columns=['hazard','province','Perspective','Sector','AAL',1,10,25,30,50,100,200,250,500,1000]
 
     # Change province code to province name
@@ -259,6 +259,7 @@ def get_hh_savings(df, myC, econ_unit, pol, fstr):
 
     if pol == '_nosavings': return 0
     elif pol == '_nosavingsdata': return df.eval('c/12')
+    elif pol == '_infsavings': return 1.E9
         
     elif myC == 'SL' or myC == 'MW':
         _s['hh_savings'] = _s['c']/12.    

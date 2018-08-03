@@ -155,7 +155,7 @@ def reco_time_plots(myC):
                 sumwgtA = sum(heightsA)/100        
                 sumwgtB = sum(heightsB)/100
         
-                ax.bar(_b[:-1],heightsA/sumwgtA, width=(_b[1]-_b[0]), facecolor=q_colors[0],alpha=0.60,linewidth=0)
+                ax.bar(_b[:-1],heightsA/sumwgtA, width=(_b[1]-_b[0]), align='edge', facecolor=q_colors[0],alpha=0.60,linewidth=0)
                 ax.step(_b[:-1],heightsA/sumwgtA, linewidth=1.2,color=q_colors[0],zorder=100,where='mid')
                 
                 _ymax = 0
@@ -186,7 +186,7 @@ def reco_time_plots(myC):
                                  +'\nMean recovery time: '+strmeanB+' years'),
                                 xy=(meanB+0.2,_shift*_ymax),ha='left',va='top',size=8.5,color=greys_pal[7],weight='bold',linespacing=1.5)
 
-                    ax.bar(_b[:-1],heightsB/sumwgtB, width=(_b[1]-_b[0]), facecolor=q_colors[1],alpha=0.60,linewidth=0)
+                    ax.bar(_b[:-1],heightsB/sumwgtB, width=(_b[1]-_b[0]), align='edge', facecolor=q_colors[1],alpha=0.60,linewidth=0)
                     ax.step(_b[:-1],heightsB/sumwgtB, linewidth=1.2,color=q_colors[1],zorder=100,where='mid')
 
                 plt.title('Event: '+str(irp)+'-year '+_haz_dict[_haz],fontsize=11,weight='bold',loc='right')
@@ -360,10 +360,46 @@ print('R_asset per hazard: ',df['dKtot'].sum(level='hazard')/df[['pop','gdp_pc_p
 print('\n',df_prov.dKtot/df_prov.gdp.sum())
 print((df_prov.dKtot/df_prov.gdp.sum()).sum(),'\n')
 
+# hack
+if myCountry == 'MW':
+    try:
+        df_prov.loc['Blantyre'] = df_prov.loc[['Blantyre','Blantyre City']].sum()
+        df_prov.loc['Lilongwe'] = df_prov.loc[['Lilongwe','Lilongwe City']].sum()
+        df_prov.loc['Mzimba'] = df_prov.loc[['Mzimba','Mzuzu City']].sum()
+        df_prov.loc['Zomba Non-City'] = df_prov.loc[['Zomba Non-City','Zomba City']].sum() 
+        df_prov = df_prov.drop(['Blantyre City','Lilongwe City', 'Mzuzu City', 'Zomba City'],axis=0)
+    except: pass
+
+#######################
+print('--> Map subnational GDP')
+make_map_from_svg(
+    df_prov.gdp_hh*get_currency(myCountry)[2]*1.E-6,
+    svg_file,
+    outname=myCountry+'_gdp',
+    color_maper=plt.cm.get_cmap('GnBu'),
+    #svg_handle = 'reg',
+    label=economy[0].upper()+economy[1:]+' GDP [mil. USD per year]',
+    new_title=economy[0].upper()+economy[1:]+' GDP [mil. USD per year]',
+    do_qualitative=False,
+    res=2000)
+
+#######################
+print('--> Map subnational GDP as fraction of national GDP')
+make_map_from_svg(
+    100.*df_prov.gdp_hh/df_prov.gdp_hh.sum(),
+    svg_file,
+    outname=myCountry+'_gdp_over_natl_gdp',
+    color_maper=plt.cm.get_cmap('GnBu'),
+    #svg_handle = 'reg',
+    label=economy[0].upper()+economy[1:]+' GDP [% of national GDP]',
+    new_title=economy[0].upper()+economy[1:]+' GDP [% of national GDP]',
+    do_qualitative=False,
+    res=2000)
+
 #######################
 print('--> Map asset losses as fraction of national GDP')
 make_map_from_svg(
-    df_prov.dKtot/df_prov.gdp.sum(), 
+    100.*df_prov.dKtot/df_prov.gdp.sum(), 
     svg_file,
     outname=myCountry+'_asset_risk_over_natl_gdp',
     color_maper=plt.cm.get_cmap('GnBu'),
@@ -376,7 +412,7 @@ make_map_from_svg(
 #######################
 print('--> Map asset losses as fraction of regional GDP')
 make_map_from_svg(
-    df_prov.dKtot/df_prov.gdp, 
+    100.*df_prov.dKtot/df_prov.gdp, 
     svg_file,
     outname=myCountry+'_asset_risk_over_reg_gdp',
     color_maper=plt.cm.get_cmap('GnBu'),
@@ -389,7 +425,7 @@ make_map_from_svg(
 #######################
 print('--> Map welfare losses as fraction of national GDP')
 make_map_from_svg(
-    df_prov.dWtot_currency/df_prov.gdp.sum(), 
+    100.*df_prov.dWtot_currency/df_prov.gdp.sum(), 
     svg_file,
     outname=myCountry+'_welf_risk_over_natl_gdp',
     color_maper=plt.cm.get_cmap('OrRd'),
@@ -402,7 +438,7 @@ make_map_from_svg(
 #######################
 print('Map welfare losses as fraction of regional GDP')
 make_map_from_svg(
-    df_prov.dWtot_currency/df_prov.gdp, 
+    100.*df_prov.dWtot_currency/df_prov.gdp, 
     svg_file,
     outname=myCountry+'_welf_risk_over_reg_gdp',
     color_maper=plt.cm.get_cmap('OrRd'),
@@ -415,7 +451,7 @@ make_map_from_svg(
 #######################
 print('Map Resilience')
 make_map_from_svg(
-    df_prov.dKtot/df_prov.dWtot_currency, 
+    100.*df_prov.dKtot/df_prov.dWtot_currency, 
     svg_file,
     outname=myCountry+'_resilience',
     color_maper=plt.cm.get_cmap('RdYlGn'),
@@ -579,7 +615,7 @@ for myDis in allDis:
         ax.get_figure().savefig('../output_plots/'+myCountry+'/poverty_k_'+myDis+'_'+str(myRP)+'_1of3.pdf',format='pdf')
 
         #ax.bar(cf_bins[:-1], ci_heights, width=(cf_bins[1]-cf_bins[0]), label='Initial', facecolor=q_colors[1],alpha=0.4)
-        ax.bar(cf_bins[:-1], cf_heights, width=(cf_bins[1]-cf_bins[0]), label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
+        ax.bar(cf_bins[:-1], cf_heights, width=(cf_bins[1]-cf_bins[0]), align='edge', label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
         #ax.bar(cf_bins[:-1], cr_heights, width=(cf_bins[1]-cf_bins[0]), label='Post-reconstruction', facecolor=q_colors[2],alpha=0.4)
         #ax.step(cf_bins[1:], ci_heights, label='Initial', linewidth=1.2,color=greys_pal[8])     
 
@@ -635,8 +671,8 @@ for myDis in allDis:
         cutA.loc[(cutA.affected_cat=='a'),['c','di0','dc_post_reco']].to_csv('tmp/c_aff_'+str(myRP)+'.csv')
 
         #ax.bar(cf_bins[:-1], ci_heights, width=(cf_bins[1]-cf_bins[0]), label='Initial', facecolor=q_colors[1],alpha=0.4)
-        ax.bar(cf_bins[:-1], cf_heights, width=(cf_bins[1]-cf_bins[0]), label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
-        ax.bar(cf_bins[:-1], cr_heights, width=(cf_bins[1]-cf_bins[0]), label='Post-reconstruction', facecolor=q_colors[2],alpha=0.4)
+        ax.bar(cf_bins[:-1], cf_heights, width=(cf_bins[1]-cf_bins[0]), align='edge', label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
+        ax.bar(cf_bins[:-1], cr_heights, width=(cf_bins[1]-cf_bins[0]), align='edge', label='Post-reconstruction', facecolor=q_colors[2],alpha=0.4)
         ax.step(cf_bins[1:], ci_heights, label='Initial', linewidth=1.2,color=greys_pal[8])     
 
         print('All people: ',cutA['pcwgt'].sum())

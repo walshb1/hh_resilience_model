@@ -70,6 +70,40 @@ inc_sf = None
 if myCountry =='FJ': inc_sf = (4.632E9/0.48) # GDP in USD (2016, WDI) -> FJD
 cat_info = load_survey_data(myCountry,inc_sf)
 
+print(cat_info.head())
+
+listofquintiles=np.arange(0.10, 1.01, 0.10)
+
+print(cat_info.columns)
+cat_info['country'] = 'PH'
+cat_info['c'] = cat_info['pcinc'].copy()
+cat_info['i'] = cat_info['totex']/cat_info['hhsize']
+
+cat_info = cat_info.reset_index().groupby('country',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.pcinc),reshape_data(x.pcwgt),listofquintiles),'decile'))
+cat_info = cat_info.reset_index().set_index('decile')
+cat_info['i_minus_e'] = cat_info['pcinc']-cat_info['i']
+
+_ = pd.DataFrame(index=cat_info.sum(level='decile').index)
+_['income'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum(level='decile')/cat_info['pcwgt'].sum(level='decile')
+_['expenditures'] = cat_info[['totex','hhwgt']].prod(axis=1).sum(level='decile')/cat_info['pcwgt'].sum(level='decile')
+_['i_minus_e'] = _['income']-_['expenditures']
+
+_.plot.scatter('income','expenditures')
+plt.gcf().savefig('income_vs_exp_by_decile_PH.pdf',format='pdf')
+plt.cla()
+
+_.plot.scatter('income','i_minus_e')
+plt.gcf().savefig('net_income_vs_exp_by_decile_PH.pdf',format='pdf')
+plt.cla()
+
+cat_info.boxplot(column='i_minus_e',by='decile')
+plt.ylim(-1E5,1E5)
+plt.gcf().savefig('net_income_vs_exp_by_decile_boxplot_PH.pdf',format='pdf')
+plt.cla()
+#DataFrame.boxplot(column=None, by=None, ax=None, fontsize=None, rot=0, grid=True, figsize=None, layout=None, return_type=None, **kwds)[source]¶
+
+assert(False)
+
 print('Survey population:',cat_info.pcwgt.sum())
 
 
@@ -424,6 +458,9 @@ except:
             v_to_reco_rate[_v] = _opt
 
     pickle.dump(v_to_reco_rate, open('../optimization_libs/'+myCountry+'_v_to_reco_rate.p', 'wb' ) )
+
+# Set hh_reco_rate = 0 for drought
+hazard_ratios.loc[hazard_ratios.index.get_level_values('hazard') == 'DR','hh_reco_rate'] = 0
 
 while True:
     _path = '/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/'

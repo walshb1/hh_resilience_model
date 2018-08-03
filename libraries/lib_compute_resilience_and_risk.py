@@ -152,6 +152,7 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
     elif (pol_str == '_noPT' 
           or pol_str == '_nosavings'
           or pol_str == '_nosavingsdata'
+          or pol_str == '_infsavings'
           or pol_str == '_unif_reco'): pass
 
     elif pol_str != '':
@@ -1210,10 +1211,12 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
     # --> sav_f = intial savings at initialization. will decrement as hh spend savings.
     if myC == 'PH': 
         sav_dir = '../inputs/PH/Socioeconomic Resilience (Provincial)_Print Version_rev1.xlsx'
-        temp['sav_f'] = get_hh_savings(temp[['pcwgt','c','province','region','ispoor']],myC,mac_ix[0],pol_str,sav_dir).round(2)
+        try: temp['sav_f'] = get_hh_savings(temp[['pcwgt','c','province','region','ispoor']],myC,mac_ix[0],pol_str,sav_dir).round(2)
+        except: temp['sav_f'] = get_hh_savings(temp[['pcwgt','c','province','region','ispoor']],myC,mac_ix[0],pol_str,sav_dir)
     else: 
         sav_dir = '../inputs/'+myC+'/'
-        temp['sav_f'] = get_hh_savings(temp[['pcwgt','c',mac_ix[0],'ispoor']],myC,mac_ix[0],pol_str,sav_dir).round(2)
+        try: temp['sav_f'] = get_hh_savings(temp[['pcwgt','c',mac_ix[0],'ispoor']],myC,mac_ix[0],pol_str,sav_dir).round(2)
+        except: temp['sav_f'] = get_hh_savings(temp[['pcwgt','c',mac_ix[0],'ispoor']],myC,mac_ix[0],pol_str,sav_dir)
     temp = temp.drop([i for i in ['index','province','ispoor'] if i in temp.columns],axis=1)
 
     ################################
@@ -1232,45 +1235,47 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
 
     ################################
     # Use savings (until they run out) to offset dc to optimum level
-    temp['sav_offset_to'], temp['t_exhaust_sav'] = [0,0]
+    temp['sav_offset_to'], temp['t_exhaust_sav'] = 0., 0.
     
-    try: 
-        print('TRY: load savings optima from file')
-        with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','rb') as p:        
-            opt_lib =  pickle.load(p).to_dict()
-            temp['sav_offset_to'] = temp.apply(lambda x:opt_lib['sav_offset_to'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
-            temp['t_exhaust_sav'] = temp.apply(lambda x:opt_lib['t_exhaust_sav'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
-        print('SUCCESS!')
-        gc.collect()
-
-    except: 
-        print('FAIL: finding optimal savings numerically')
-        temp[['sav_offset_to','t_exhaust_sav']] = temp.apply(lambda x:pd.Series(smart_savers(x.c, x.dk0, x.hh_reco_rate,macro.avg_prod_k.mean(),x.sav_f)),axis=1)
-
-        opt_in = temp[['c','dk0','hh_reco_rate','sav_f','sav_offset_to','t_exhaust_sav']].copy()
-        opt_in['avg_prod_k'] = macro.avg_prod_k.mean()
-    
-        opt_in[['c','dk0','sav_f']] = opt_in[['c','dk0','sav_f']].astype('int')
-        opt_in[['hh_reco_rate','avg_prod_k']] = opt_in[['hh_reco_rate','avg_prod_k']].round(3)
-
-        # 2 dfs for merging
-        opt_in = opt_in.reset_index().set_index(['c','dk0','hh_reco_rate','avg_prod_k','sav_f']).drop('index',axis=1)
-
+    if pol_str == '_infsavings': temp[['welf_class','optimal_hh_reco_rate','hh_reco_rate']] = 1., 155.77, 155.77 # 1 week reco time
+    else:
         try:
-            with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','rb') as p:
-                opt_lib = pickle.load(p)
-                print(opt_lib.shape,' entries in optimization library.')
-                opt_in = opt_in.combine_first(opt_lib)
-                print(opt_in.shape,' entries in optimization library.')
-
-            with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','wb') as pout:
-                pickle.dump(opt_in.loc[opt_in.index.unique()],pout)
-            with open('../optimization_libs/'+myC+'_optimal_savings_rate_proto2.p','wb') as pout2:
-                pickle.dump(opt_in.loc[opt_in.index.unique()],pout2,protocol=2)
+            print('TRY: load savings optima from file')
+            with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','rb') as p:        
+                opt_lib =  pickle.load(p).to_dict()
+                temp['sav_offset_to'] = temp.apply(lambda x:opt_lib['sav_offset_to'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
+                temp['t_exhaust_sav'] = temp.apply(lambda x:opt_lib['t_exhaust_sav'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
+            print('SUCCESS!')
+            gc.collect()
 
         except: 
-            with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','wb') as pout:
-                pickle.dump(opt_in.loc[opt_in.index.unique()], pout)    
+            print('FAIL: finding optimal savings numerically')
+            temp[['sav_offset_to','t_exhaust_sav']] = temp.apply(lambda x:pd.Series(smart_savers(x.c, x.dk0, x.hh_reco_rate,macro.avg_prod_k.mean(),x.sav_f)),axis=1)
+
+            opt_in = temp[['c','dk0','hh_reco_rate','sav_f','sav_offset_to','t_exhaust_sav']].copy()
+            opt_in['avg_prod_k'] = macro.avg_prod_k.mean()
+
+            opt_in[['c','dk0','sav_f']] = opt_in[['c','dk0','sav_f']].astype('int')
+            opt_in[['hh_reco_rate','avg_prod_k']] = opt_in[['hh_reco_rate','avg_prod_k']].round(3)
+
+            # 2 dfs for merging
+            opt_in = opt_in.reset_index().set_index(['c','dk0','hh_reco_rate','avg_prod_k','sav_f']).drop('index',axis=1)
+
+            try:
+                with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','rb') as p:
+                    opt_lib = pickle.load(p)
+                    print(opt_lib.shape,' entries in optimization library.')
+                    opt_in = opt_in.combine_first(opt_lib)
+                    print(opt_in.shape,' entries in optimization library.')
+
+                with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','wb') as pout:
+                    pickle.dump(opt_in.loc[opt_in.index.unique()],pout)
+                with open('../optimization_libs/'+myC+'_optimal_savings_rate_proto2.p','wb') as pout2:
+                    pickle.dump(opt_in.loc[opt_in.index.unique()],pout2,protocol=2)
+
+            except: 
+                with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','wb') as pout:
+                    pickle.dump(opt_in.loc[opt_in.index.unique()], pout)    
     gc.collect()
 
     # Define parameters of welfare integration
@@ -1278,6 +1283,8 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
     print('using time step = ',step_dt)
 
     temp['intermed_sf_num'], temp['di_t'], temp['di_prv_t'], temp['di_pub_t'], temp['dc_t'], temp['dc_net'] = [0,0,0,0,0,0] 
+    macro['time_recovery_25'], macro['time_recovery_50'], macro['time_recovery_75'] = [10,10,10]
+    macro['time_recovery_80'], macro['time_recovery_90'], macro['time_recovery_95'] = [10,10,10]
     
     counter = 0
     # Calculate integral
@@ -1290,6 +1297,16 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
 
         temp = temp.reset_index().set_index(mac_ix)
         temp['scale_fac_soc'].update(temp.groupby(level=mac_ix)['intermed_sf_num'].transform('sum')/tot_k)
+
+        # Output metric: time to recover ZZ% of disaster losses, by region X hazard X RP
+        macro['frac_recovered_t'] = 1.-temp['intermed_sf_num'].sum(level=mac_ix)/macro['dk_event']
+        macro.loc[(macro['frac_recovered_t']>=0.25)&(macro['time_recovery_25'] == 10),'time_recovery_25'] = _t
+        macro.loc[(macro['frac_recovered_t']>=0.50)&(macro['time_recovery_50'] == 10),'time_recovery_50'] = _t
+        macro.loc[(macro['frac_recovered_t']>=0.75)&(macro['time_recovery_75'] == 10),'time_recovery_75'] = _t
+        macro.loc[(macro['frac_recovered_t']>=0.80)&(macro['time_recovery_80'] == 10),'time_recovery_80'] = _t
+        macro.loc[(macro['frac_recovered_t']>=0.90)&(macro['time_recovery_90'] == 10),'time_recovery_90'] = _t
+        macro.loc[(macro['frac_recovered_t']>=0.95)&(macro['time_recovery_95'] == 10),'time_recovery_95'] = _t
+
         temp = temp.reset_index().drop([i for i in ['index','level_0'] if i in temp.columns],axis=1)
 
         # BELOW: this is value of dc at time _t (duration = step_dt), assuming no savings
@@ -1311,7 +1328,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
         
         # welf_class == 1: let them run
         recalc_crit_1 = '(welf_class==1) & (hh_reco_rate!=0) & (dk_prv_t>0) & (dc_t>c | dc_t<0)'
-        if temp.loc[temp.eval(recalc_crit_1)].shape[0] != 0: assert(False)
+        if pol_str != '_infsavings' and temp.loc[temp.eval(recalc_crit_1)].shape[0] != 0: assert(False)
 
         # welf_class == 2: keep consumption at subsistence until they can afford macro_reco_frac without going into subsistence
         recalc_crit_2 = '(welf_class==2 | welf_class==3) & (hh_reco_rate!=0) & (dk_prv_t>0) & (hh_reco_rate < optimal_hh_reco_rate | dc_t>c | dc_t<0)'
@@ -1323,15 +1340,15 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
 
         print('('+optionPDS+' - t = '+str(round(_t*52,1))+' weeks after disaster; '
               +str(round(100*_t/x_max,1))+'% through reco): '
-              +str(temp.loc[temp.eval(start_criteria)].shape[0])+' hh escape subs & '
-              +str(temp.loc[temp.eval(recalc_crit_2)].shape[0])+' recalc in wc=2 & '
-              +str(temp.loc[temp.eval(stop_criteria)].shape[0])+' stop reco\n')
+              +str(temp.loc[temp.eval(start_criteria),'pcwgt'].sum())+' hh escape subs & '
+              +str(temp.loc[temp.eval(recalc_crit_2),'pcwgt'].sum())+' recalc in wc=2 & '
+              +str(temp.loc[temp.eval(stop_criteria),'pcwgt'].sum())+' stop reco\n')
 
         temp.loc[temp.eval(recalc_crit_2),'hh_reco_rate'] = temp.loc[temp.eval(recalc_crit_2)].eval(recalc_hhrr_2).round(3)
         temp.loc[temp.eval(start_criteria),'hh_reco_rate'] = temp.loc[temp.eval(start_criteria)].eval(recalc_hhrr_2).round(3)
         temp.loc[temp.eval(stop_criteria),'hh_reco_rate'] = 0.
-                   
-        ####################################        
+        
+        ####################################
         # Calculate dc(t) 
         temp['dc_t'].update(temp.eval('di_t+hh_reco_rate*dk_prv_t').round(2))
 
@@ -1340,8 +1357,8 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
             temp.loc[temp.hh_reco_rate<0].to_csv('tmp/fatal_neg_hh_reco_rate.csv')
             assert(False)
 
-        if temp.loc[temp.eval('dc_t>c')].shape[0] != 0:
-            print('Finding hh with dc_t > c !! Fatal error!!')
+        if temp.loc[temp.eval('(dc_t>c)&(dc_t-c>sav_f/@step_dt)')].shape[0] != 0:
+            print('Finding hh with dc_t > c and not enough savings!! Fatal error!!')
             temp.loc[temp.eval('dc_t>c')].to_csv('tmp/fatal_neg_c.csv')
             assert(False)
 
@@ -1427,6 +1444,8 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
     # Write out the poverty duration info
     temp[[mac_ix[0],'hazard', 'rp', 'pcwgt', 'c', 'dk0','dc_net_t0','dc_net','t_pov_inc', 't_pov_cons', 
           't_start_prv_reco', 'hh_reco_rate', 'optimal_hh_reco_rate']].to_csv('../output_country/'+myC+'/poverty_duration_'+optionPDS+'.csv')
+    macro[['time_recovery_25','time_recovery_50','time_recovery_75',
+           'time_recovery_80','time_recovery_90','time_recovery_95']].to_csv('../output_country/'+myC+'/time_to_recovery_'+optionPDS+'.csv')
 
     ################################
     # 'revised' calculation of dw
@@ -1449,9 +1468,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
         assert(False)
 
     print('dw:',temp['dw'].shape[0],'dw.dropna:',temp.dropna(subset=['dw']).shape[0])
-    assert(temp['dc_t'].shape[0] == temp['dc_t'].dropna().shape[0])
-    assert(temp['dc_net'].shape[0] == temp['dc_net'].dropna().shape[0])
-    assert(temp['dw'].shape[0] == temp.dropna(subset=['dw']).shape[0])    
+    assert(temp[['dc_t','dc_net','dw']].shape[0] == temp.dropna(subset=['dc_t','dc_net','dw'],how='any').shape[0])
 
     # Divide by dw'
     temp['dw_curr'] = temp['dw']/my_natl_wprime

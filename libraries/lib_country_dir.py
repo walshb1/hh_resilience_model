@@ -195,6 +195,9 @@ def load_survey_data(myC,inc_sf=None):
         dfE.loc[dfE['hh_e06_8a']=='UNPAID HOUSEHOLD LABOR(AGRIC)','labor_ag_unpaid'] = 1.
         df['labor_ag_unpaid'] = dfE['labor_ag_unpaid'].sum(level='hhid')
 
+        print(dfE.head())
+        assert(False)
+
         # --> N hh members working in ganyu        
         dfE['labor_ganyu'] = 0
         dfE.loc[dfE['hh_e06_8a']=='GANYU','labor_ganyu'] = 1.
@@ -209,10 +212,161 @@ def load_survey_data(myC,inc_sf=None):
         dfU = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_U.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
         df['impact_drought'] = dfU.loc[(dfU.hh_u0a=='Drought'),'hh_u01'].replace('Yes',1).replace('No',0)
 
-        df.to_csv('~/Desktop/tmp/mw.csv')
-        assert(False)
+        # Irrigated?
+        dfK = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_K.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['has_irrigation'] = None
+        df.loc[(dfK.loc[(dfK['ag_k29a']=='Rainfed/No irrigation')|(dfK['ag_k29a']=='Bucket')]).index.tolist(),'has_irrigation'] = False
+        df.loc[(dfK.loc[(dfK['ag_k29a']!='Rainfed/No irrigation')&(dfK['ag_k29a']!='Bucket')]).index.tolist(),'has_irrigation'] = True
 
-        drought_study(df)
+        print(df.loc[(df['impact_drought']==1)&(df['has_irrigation']==False),'pcwgt'].sum()/df.loc[(df['has_irrigation']==False),'pcwgt'].sum())
+        print(df.loc[(df['impact_drought']==1)&(df['has_irrigation']==True),'pcwgt'].sum()/df.loc[(df['has_irrigation']==True),'pcwgt'].sum())
+
+        # Total value of sales
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_I.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')       
+        df['income_crop_wet'] = _df['ag_i03'].sum(level='hhid')
+        df['income_crop_wet'] = df['income_crop_wet'].fillna(0)
+
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_O.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['income_crop_dry'] = _df['ag_o03'].sum(level='hhid')
+        df['income_crop_dry'] = df['income_crop_dry'].fillna(0)
+
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_Q.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['income_permcrop'] = _df['ag_q03'].sum(level='hhid')
+        df['income_permcrop'] = df['income_permcrop'].fillna(0)
+
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_R1.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['income_livestock'] = _df['ag_r17'].sum(level='hhid')
+        df['income_livestock'] = df['income_livestock'].fillna(0)
+
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_S.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['income_animprod'] = _df['ag_s06'].sum(level='hhid')
+        df['income_animprod'] = df['income_animprod'].fillna(0)
+
+        df['income_ag_gross'] = df[['income_ganyu','income_crop_wet','income_crop_dry','income_permcrop','income_livestock','income_animprod']].sum(axis=1)
+        df['income_ag_gross'] = df['income_ag_gross'].fillna(0)
+        #print(df[['income_ganyu','income_crop_wet','income_crop_dry','income_permcrop','income_livestock','income_animprod']].head())
+
+        # Total cost
+        df['ag_input_cost'] = 0
+
+        # labor
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_D.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['ag_input_cost'] += _df[['ag_d46a1','ag_d46b1']].prod(axis=1).sum(level='hhid')
+        df['ag_input_cost'] += _df[['ag_d46a2','ag_d46b2']].prod(axis=1).sum(level='hhid')
+        df['ag_input_cost'] += _df[['ag_d46a3','ag_d46b3']].prod(axis=1).sum(level='hhid')
+
+        # rent
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_B2.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['ag_input_cost'] += _df[['ag_b209a','ag_b209b']].sum(axis=1).sum(level='hhid')        
+
+        # fertilizer purchased with coupon
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_E2.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['ag_input_cost'] += _df['ag_e04'].sum(level='hhid')
+        
+        # fertilizer purchased without coupon
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_F.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['ag_input_cost'] += _df[['ag_f09','ag_f10']].sum(axis=1).sum(level='hhid')        
+        
+        # seed
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_H.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['ag_input_cost'] += _df[['ag_h09','ag_h10']].sum(axis=1).sum(level='hhid')
+
+        # cost of transport for sales
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_I.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['ag_input_cost'] += _df['ag_i10'].sum(level='hhid')
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_O.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['ag_input_cost'] += _df['ag_o10'].sum(level='hhid')
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_Q.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['ag_input_cost'] += _df['ag_q10'].sum(level='hhid')
+  
+        # cost of livestock inputs
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_R2.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        print(_df.columns)
+        df['ag_input_cost'] += _df[['ag_r25','ag_r26','ag_r27','ag_r28','ag_r29']].sum(axis=1).sum(level='hhid')
+
+        # cost of advice
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_T2.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
+        df['ag_input_cost'] += _df['ag_t10'].sum(level='hhid')
+
+        df['ag_input_cost'] = df['ag_input_cost'].fillna(0)
+
+        ##########
+        df['income_ag_net'] = df['income_ag_gross'].fillna(0)-df['ag_input_cost']
+        #df['ratio_net_to_gross'] = (df['income_ag_net']/df['income_ag_gross']).fillna(0)
+
+        print('Net income =',df[['income_ag_net','hhwgt']].prod(axis=1).sum())
+        print('Gross income =',df[['income_ag_gross','hhwgt']].prod(axis=1).sum())
+
+        # Plot net to gross income ratio
+        #ax=plt.gca()
+        #heights, bins = np.histogram(df.loc[df.ratio_net_to_gross>0,'ratio_net_to_gross'],bins=50,weights=df.loc[df.ratio_net_to_gross>0,'hhwgt']/1.E3)
+        #ax.bar(bins[:-1], heights, width=(bins[1]-bins[0]), facecolor='blue',edgecolor=None,linewidth=0,alpha=0.45)
+        #ax.get_figure().savefig('../output_plots/MW/ag_income_net_to_gross_ratio.pdf',format='pdf')        
+        #plt.cla()  
+        
+        # Plot net income
+        uclip = 3.E5
+
+        ax=plt.gca()
+        heights, bins = np.histogram(df['income_ag_net'].clip(lower=-1E4,upper=uclip),bins=50,weights=df['hhwgt']/1.E3)
+        ax.bar(bins[:-1], heights, width=(bins[1]-bins[0]), facecolor='blue',edgecolor=None,linewidth=0,alpha=0.45)
+        ax.get_figure().savefig('../output_plots/MW/ag_income_net.pdf',format='pdf')        
+        plt.cla()        
+        
+
+        # Plot income by stream 
+        ax=plt.gca()
+        heights1, bins = np.histogram(df.loc[(df.income_ag_net>0)&(df.income_ganyu!=0),'income_ganyu'].clip(upper=uclip),bins=50,
+                                      weights=df.loc[(df.income_ag_net>0)&(df.income_ganyu!=0),'hhwgt']/1.E3)
+
+        heights2, bins = np.histogram(df.loc[(df.income_ag_net>0)&(df.income_crop_wet!=0),'income_crop_wet'].clip(upper=uclip),bins=50,
+                                      weights=df.loc[(df.income_ag_net>0)&(df.income_crop_wet!=0),'hhwgt']/1.E3)
+
+        heights3, bins = np.histogram(df.loc[(df.income_ag_net>0)&(df.income_crop_dry!=0),'income_crop_dry'].clip(upper=uclip),bins=50,
+                                      weights=df.loc[(df.income_ag_net>0)&(df.income_crop_dry!=0),'hhwgt']/1.E3)
+
+        heights4, bins = np.histogram(df.loc[(df.income_ag_net>0)&(df.income_permcrop!=0),'income_permcrop'].clip(upper=uclip),bins=50,
+                                      weights=df.loc[(df.income_ag_net>0)&(df.income_permcrop!=0),'hhwgt']/1.E3)
+
+        heights5, bins = np.histogram(df.loc[(df.income_ag_net>0)&(df.income_livestock!=0),'income_livestock'].clip(upper=uclip),bins=50,
+                                      weights=df.loc[(df.income_ag_net>0)&(df.income_livestock!=0),'hhwgt']/1.E3)
+
+        heights6, bins = np.histogram(df.loc[(df.income_ag_net>0)&(df.income_animprod!=0),'income_animprod'].clip(upper=uclip),bins=50,
+                                      weights=df.loc[(df.income_ag_net>0)&(df.income_animprod!=0),'hhwgt']/1.E3)
+
+        ax.bar(bins[:-1], heights1, width=(bins[1]-bins[0]), facecolor='blue',edgecolor=None,linewidth=0,alpha=0.45)
+        ax.bar(bins[:-1], heights2, width=(bins[1]-bins[0]), facecolor='red',edgecolor=None,linewidth=0,alpha=0.45,bottom=heights1)
+        ax.bar(bins[:-1], heights3, width=(bins[1]-bins[0]), facecolor='purple',edgecolor=None,linewidth=0,alpha=0.45,bottom=heights1+heights2)
+        ax.bar(bins[:-1], heights4, width=(bins[1]-bins[0]), edgecolor=None,linewidth=0,alpha=0.45,bottom=heights1+heights2+heights3)
+        ax.bar(bins[:-1], heights5, width=(bins[1]-bins[0]), edgecolor=None,linewidth=0,alpha=0.45,bottom=heights1+heights2+heights3+heights4)
+        ax.bar(bins[:-1], heights6, width=(bins[1]-bins[0]), edgecolor=None,linewidth=0,alpha=0.45,bottom=heights1+heights2+heights3+heights4+heights5)
+        ax.get_figure().savefig('../output_plots/MW/ag_income.pdf',format='pdf')        
+        plt.cla()
+
+        df.loc[(df.hhinc<7.5E5)&(df.income_ag_net>0)&(df.income_ag_net<7.5E5)].plot.scatter('hhinc','income_ag_net')
+        plt.gca().get_figure().savefig('../output_plots/MW/ag_income_vs_total.pdf',format='pdf')    
+        plt.cla()
+
+        df['income_ag_net'] = df['income_ag_net'].clip(upper=df['hhinc'])
+        df.loc[(df.hhinc<7.5E5)&(df.income_ag_net>0)&(df.income_ag_net<7.5E5)].plot.scatter('hhinc','income_ag_net')
+        plt.gca().get_figure().savefig('../output_plots/MW/ag_income_clipped_vs_total.pdf',format='pdf')    
+        plt.cla()
+        
+
+        print('Frac reporting drought:',df.loc[(df.impact_drought==1),'pcwgt'].sum()/df['pcwgt'].sum())        
+
+        print('Frac reporting ganyu income:',df.loc[(df.income_ganyu>0),'pcwgt'].sum()/df['pcwgt'].sum())
+        print('Frac w/ ganyu income reporting drought:',df.loc[(df.income_ganyu>0)&(df.impact_drought==1),'pcwgt'].sum()/df.loc[(df.income_ganyu>0),'pcwgt'].sum())
+        print('Frac w/o ganyu income reporting drought:',df.loc[(df.income_ganyu==0)&(df.impact_drought==1),'pcwgt'].sum()/df.loc[(df.income_ganyu==0),'pcwgt'].sum())
+
+        #drought_study(df)
+        df = df[[i for i in df.columns if i not in ['enterprise_ag', 'income_ag_assets','labor_ag_unpaid','labor_ganyu', 'main_wage_job_ag',
+                                                    'has_irrigation',
+                                                    'income_ganyu','income_crop_wet', 'income_crop_dry', 'income_permcrop','income_livestock', 'income_animprod','income_ag_gross',
+                                                    'ag_input_cost']]]
+
+        #print(df.loc[(df.impact_drought==1)&(df.income_ag_net>0),'pcwgt'].sum()/df.loc[(df.income_ag_net>0),'pcwgt'].sum())
+        #print(df.loc[(df.impact_drought==1)&(df.income_ag_net==0),'pcwgt'].sum()/df.loc[(df.income_ag_net==0),'pcwgt'].sum())
         
         return df
 
@@ -543,7 +697,10 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
 
     elif myC == 'MW':
         df_haz = pd.read_excel(inputs+'/GAR_PML_curve_MW.xlsx',sheetname='PML(mUSD)')[['rp','Earthquake','Flood','Drought']].set_index('rp')
-        tot_exposure = float(pd.read_excel(inputs+'/GAR_PML_curve_MW.xlsx',sheetname='total_exposed_val').squeeze())
+        tot_exposure = float(pd.read_excel(inputs+'/GAR_PML_curve_MW.xlsx',sheetname='total_exposed_val').loc['Malawi','Total Exposure'].squeeze())
+
+        ag_exposure_gross = float(pd.read_excel(inputs+'/GAR_PML_curve_MW.xlsx',sheetname='total_exposed_val').loc['Malawi','Gross value, maize'].squeeze())
+        ag_exposure_net = float(pd.read_excel(inputs+'/GAR_PML_curve_MW.xlsx',sheetname='total_exposed_val').loc['Malawi','Net value, maize'].squeeze())
 
         df_haz = df_haz.rename(columns={'Earthquake':'EQ','Flood':'FF','Drought':'DR'})
 
@@ -551,8 +708,11 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         df_haz = df_haz.drop('AAL').stack().to_frame()
         df_haz.index.names = ['rp','hazard']
         df_haz.columns = ['PML']
-
+        
+        # For all hazards except drought, frac_destroyed = PML/total_assets
         df_haz['frac_destroyed'] = df_haz['PML']/tot_exposure
+        # For drought, frac_destroyed = PML/gross_production_maize
+        df_haz.loc[df_haz.index.get_level_values('hazard') == 'DR','frac_destroyed'] = df_haz['PML']/ag_exposure_gross
 
         df_haz = df_haz.reset_index().set_index(['hazard','rp']).sort_index()
 

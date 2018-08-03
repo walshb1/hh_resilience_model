@@ -20,10 +20,10 @@ import sys
 
 
 font = {'family' : 'sans serif',
-    'size'   : 20}
+    'size'   : 15}
 plt.rc('font', **font)
-mpl.rcParams['xtick.labelsize'] = 14
-mpl.rcParams['ytick.labelsize'] = 14
+mpl.rcParams['xtick.labelsize'] = 12
+mpl.rcParams['ytick.labelsize'] = 12
 mpl.rcParams['legend.facecolor'] = 'white'
 
 import warnings
@@ -102,6 +102,8 @@ for iPol in all_policies:
 
     del iah_pol
     del df_pol
+
+
 
 ##################################
 # SAVE OUT SOME RESULTS FILES
@@ -399,7 +401,7 @@ for _fom,_fom_lab in [('i','Income'),
         
             myC_ylim = None
             c_bins = [None,50]
-            for anRP in [50]:#myHaz[2][::-1]:        
+            for anRP in [50,100]:#myHaz[2][::-1]:        
 
                 ax=plt.gca()
 
@@ -412,7 +414,7 @@ for _fom,_fom_lab in [('i','Income'),
                 # Income/Cons dist immediately after disaster
                 cf_heights, cf_bins = np.histogram(sf_x*iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),_fom+'_pre_reco'].clip(upper=upper_clip), bins=c_bins[1],
                                                    weights=iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'pcwgt']/get_pop_scale_fac(myCountry)[0])
-                if c_bins[0] == None: c_bins = [cf_bins,cf_bins]
+                if c_bins[0] is None: c_bins = [cf_bins,cf_bins]
             
                 # Income dist before disaster
                 ci_heights, _bins = np.histogram(sf_x*iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'c_initial'].clip(upper=upper_clip), bins=c_bins[1],
@@ -430,7 +432,8 @@ for _fom,_fom_lab in [('i','Income'),
                 ax.get_figure().savefig(output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_1of3.pdf',format='pdf')
 
                 #ax.step(c_bins[1][:-1], cf_heights, label=aReg+' - post-disaster', facecolor=q_colors[1],alpha=0.45)
-                ax.bar(c_bins[1][:-1], cf_heights, width=(c_bins[1][1]-c_bins[1][0]), label=aReg+' - post-disaster', facecolor=q_colors[1],edgecolor=None,linewidth=0,alpha=0.45)
+                ax.bar(c_bins[1][:-1], cf_heights, width=(c_bins[1][1]-c_bins[1][0]), align='edge', 
+                       label=aReg+' - post-disaster', facecolor=q_colors[1],edgecolor=None,linewidth=0,alpha=0.45)
                 #leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
                 ax.get_figure().savefig(output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_2of3.pdf',format='pdf')
                 
@@ -489,7 +492,9 @@ for _fom,_fom_lab in [('i','Income'),
                     if _fom == 'i': new_sub = int(iah.loc[((iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP)
                                                            &(iah.c_initial > sub_line)&(iah.i_pre_reco <= sub_line)),'pcwgt'].sum())
 
-                    new_sub_pct = round(100.*float(new_sub)/float(iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'pcwgt'].sum()),1)
+                    try: new_sub_pct = round(100.*float(new_sub)/float(iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'pcwgt'].sum()),1)
+                    except: new_sub_pct = 0
+
                     plt.plot([sf_x*sub_line,sf_x*sub_line],[0,1.41*cf_heights[:-2].max()],'k-',lw=2.5,color=greys_pal[7],zorder=100,alpha=0.85)
                     ax.annotate('Subsistence line',xy=(sf_x*1.1*sub_line,1.41*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',
                                 color=greys_pal[7],fontsize=9,annotation_clip=False,weight='bold')
