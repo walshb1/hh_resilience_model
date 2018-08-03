@@ -107,6 +107,8 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
     
             if data_missing_in_svg:
                 print("Missing in SVG: "+"; ".join(map(back_to_title,data_missing_in_svg)))
+                #series_in = series_in.drop(data_missing_in_svg,axis=0)
+
             if data_missing_in_series:
                 print("Missing in series: "+"; ".join(map(back_to_title,data_missing_in_series)))
 
@@ -128,7 +130,7 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
             could_do_png_map = True
 
     #makes the legend with matplotlib
-    l = make_legend(100*series_in,color_maper,label,outfolder+"legend_of_"+outname,do_qualitative,res)
+    l = make_legend(series_in,color_maper,label,outfolder+"legend_of_"+outname,do_qualitative,res)
     
     if shutil.which("convert") is None:
         print("Cannot merge map and legend. Install ImageMagick® to do so.")

@@ -16,11 +16,52 @@ purge('img/','legend_of_*.svg')
 col_cast_dict = {'new_pov':'int', 'pct_pov':'float64',
                  'new_sub':'int', 'pct_sub':'float64'}
 
+haz_dict = {'SS':'Storm surge',
+            'PF':'Precipitation flood',
+            'HU':'Hurricane',
+            'EQ':'Earthquake',
+            'DR':'Drought',
+            'FF':'Fluvial flood'}
+
+def map_recovery_time(myC,HAZ=['HU'],RP=[100],RECO=['75','80']):
+    df = pd.read_csv('../output_country/'+myC+'/time_to_recovery_no.csv')
+
+    # hack
+    if myC == 'MW':
+        df.loc['Blantyre'] = df.loc[['Blantyre','Blantyre City']].sum()
+        df.loc['Lilongwe'] = df.loc[['Lilongwe','Lilongwe City']].sum()
+        df.loc['Mzimba'] = df.loc[['Mzimba','Mzuzu City']].sum()
+        df.loc['Zomba Non-City'] = df.loc[['Zomba Non-City','Zomba City']].sum() 
+        df = df_prov.drop(['Blantyre City','Lilongwe City', 'Mzuzu City', 'Zomba City'],axis=0)
+
+    # Look for the map (svg) file here
+    svg_file = ''
+    if myC == 'PH': svg_file = '../map_files/'+myC+'/BlankSimpleMapRegional.svg'
+    elif myC == 'SL': svg_file = '../map_files/'+myC+'/lk.svg'
+    elif myC == 'MW': svg_file = '../map_files/'+myC+'/mw.svg'
+
+    for _haz in HAZ:
+        for _rp in RP:
+            for _reco in RECO:
+
+                _ = df.loc[(df.hazard == _haz)&(df.rp == _rp)].set_index(['region'])
+                _.loc[_['time_recovery_'+_reco]==-1,'time_recovery_'+_reco] = 10
+
+                make_map_from_svg(
+                    _['time_recovery_'+_reco]/100., 
+                    svg_file,
+                    outname='time_to_recover_'+_reco+'pct_'+_haz+str(_rp),
+                    color_maper=plt.cm.get_cmap('RdYlGn_r'), 
+                    label='Time to reconstruct '+_reco+'% of assets destroyed \nby '+str(_rp)+'-year '+haz_dict[_haz].lower()+' [years]',
+                    new_title='',
+                    do_qualitative=False,
+                    res=2000)
+
 def run_poverty_duration_plot(myC):
 
     # Load file with geographical (region/province/district) as index
     df = pd.read_csv('../output_country/'+myC+'/poverty_duration_no.csv')
-    df = df.reset_index().set_index(df.columns[1])
+    df = df.reset_index().set_index(df.columns[1]).sort_index()
     
     geo = df.index.name
     all_geo = np.array(df[~df.index.duplicated(keep='first')].index)
@@ -227,6 +268,17 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
     try:
         # Count up the hh that fell into poverty & subsistence:
         pov_df_event = pov_df.loc[pov_df.eval('(c_initial>pov_line)&(c_pre_reco<=pov_line)&(c_pre_reco>sub_line)'),'pcwgt'].sum(level=event_level).to_frame(name='new_pov')
+
+        # hack!
+        if myC == 'MW':
+        
+            pov_df_event.loc['Blantyre'] = pov_df_event.loc[['Blantyre','Blantyre City']].sum()
+            pov_df_event.loc['Lilongwe'] = pov_df_event.loc[['Lilongwe','Lilongwe City']].sum()
+            pov_df_event.loc['Mzimba'] = pov_df_event.loc[['Mzimba','Mzuzu City']].sum()
+            pov_df_event.loc['Zomba Non-City'] = pov_df_event.loc[['Zomba Non-City','Zomba City']].sum() 
+            pov_df_event = pov_df_event.drop(['Blantyre City','Lilongwe City', 'Mzuzu City', 'Zomba City'],axis=0)
+            
+
         pov_df_event['new_sub'] = pov_df.loc[pov_df.eval('(c_initial>sub_line)&(c_pre_reco<=sub_line)'),'pcwgt'].sum(level=event_level).fillna(0)
 
         pov_df_event['init_pov'] = pov_df.loc[pov_df.eval('(c_initial<=pov_line)&(c_initial>sub_line)'),'pcwgt'].sum(level=event_level).fillna(0)
@@ -249,6 +301,16 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
 
     # Average over RPs (index = region, hazard)
     pov_df_reg_haz,_ = average_over_rp(pov_df_event[['new_pov','new_sub']],'default_rp')
+
+    #if myC == 'MW':
+    #    pov_df_reg_haz.loc['Blantyre'] = pov_df_reg_haz.loc[['Blantyre','Blantyre City']].sum()
+    #    pov_df_reg_haz.loc['Lilongwe'] = pov_df_reg_haz.loc[['Lilongwe','Lilongwe City']].sum()
+    #    pov_df_reg_haz.loc['Mzimba'] = pov_df_reg_haz.loc[['Mzimba','Mzuzu City']].sum()
+    #    pov_df_reg_haz.loc['Zomba Non-City'] = pov_df_reg_haz.loc[['Zomba Non-City','Zomba City']].sum() 
+    #    pov_df_reg_haz = pov_df_reg_haz.drop(['Blantyre City','Lilongwe City', 'Mzuzu City', 'Zomba City'],axis=0)
+
+    print(pov_df_reg_haz.head(20))
+    assert(False)
 
     pov_df_reg_haz['reg_pop'] = pov_df_event['reg_pop'].mean(level=[event_level[0],'hazard'])
     pov_df_reg_haz['init_pov'] = pov_df_event['init_pov'].mean(level=[event_level[0],'hazard'])
@@ -343,7 +405,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
             plt.close('all')
 
     make_map_from_svg(
-        pov_df_region[['new_pov','new_sub']].sum(axis=1)/(1E3*100.),
+        pov_df_region[['new_pov','new_sub']].sum(axis=1)/1E3,
         svg_file,
         outname=myC+'_new_poverty_incidence_allHaz_allRPs',
         color_maper=plt.cm.get_cmap('RdYlGn_r'), 
@@ -353,7 +415,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
         res=2000)
 
     make_map_from_svg(
-        1.E3*(pov_df_region[['new_pov','new_sub']].sum(axis=1)/pov_df_region[['init_pov','init_sub']].sum(axis=1)), 
+        1E2*1.E3*(pov_df_region[['new_pov','new_sub']].sum(axis=1)/pov_df_region[['init_pov','init_sub']].sum(axis=1)), 
         svg_file,
         outname=myC+'_new_poverty_as_pct_of_incidence_pct_allHaz_allRPs',
         color_maper=plt.cm.get_cmap('RdYlGn_r'), 
@@ -363,7 +425,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
         res=2000)
     
     make_map_from_svg(
-        1.E3*(pov_df_region[['new_pov','new_sub']].sum(axis=1)/pov_df_region.reg_pop), 
+        1E2*1.E3*(pov_df_region[['new_pov','new_sub']].sum(axis=1)/pov_df_region.reg_pop), 
         svg_file,
         outname=myC+'_new_poverty_incidence_pct_allHaz_allRPs',
         color_maper=plt.cm.get_cmap('RdYlGn_r'), 
@@ -373,7 +435,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
         res=2000)
     
     make_map_from_svg(
-        pov_df_region['new_sub']/(100.*1E3), 
+        pov_df_region['new_sub']/1E3, 
         svg_file,
         outname=myC+'_new_subsistence_incidence_allHaz_allRPs',
         color_maper=plt.cm.get_cmap('RdYlGn_r'), 
@@ -383,7 +445,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
         res=2000)
     
     make_map_from_svg(
-        pov_df_region.new_sub/pov_df_region.reg_pop,
+        100.*pov_df_region.new_sub/pov_df_region.reg_pop,
         svg_file,
         outname=myC+'_new_subsistence_incidence_pct_allHaz_allRPs',
         color_maper=plt.cm.get_cmap('RdYlGn_r'), 
@@ -398,3 +460,4 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
     purge('img/','legend_of_*.svg')
     
 #run_poverty_tables_and_maps(None)
+map_recovery_time('PH')

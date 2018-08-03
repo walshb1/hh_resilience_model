@@ -176,10 +176,10 @@ if __name__ == '__main__':
     if len(sys.argv) > 2 and (sys.argv[2] == 'true' or sys.argv[2] == 'True'): debug = True
     
     if myCountry == 'PH':
-        pds_str = ['no','unif_poor']
+        pds_str = ['no']
         pol_str = ['']
 
-        if debug: launch_compute_resilience_and_risk_thread(myCountry,'','no')
+        if debug: launch_compute_resilience_and_risk_thread(myCountry,'','no')#_infsavings also an option
         else:
             for _pds in pds_str:
                 launch_compute_resilience_and_risk_thread(myCountry,'',_pds)
@@ -207,7 +207,7 @@ if __name__ == '__main__':
             # --> 
 
         if myCountry == 'SL':
-            pds_str = ['no','unif_poor','unif_poor_only','unif_poor_q12','prop_q1','prop_q12']
+            pds_str = ['no','unif_poor','unif_poor_only','unif_poor_q12','prop_q1','prop_q12']#'_infsavings'
             pol_str = ['']
 
         if myCountry == 'MW':
