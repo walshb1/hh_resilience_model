@@ -112,7 +112,7 @@ def get_places_dict(myC):
 
     return p_code,r_code
 
-def load_survey_data(myC,inc_sf=None):
+def load_survey_data(myC):
     
     #Each survey/country should have the following:
     # -> hhid
@@ -368,6 +368,9 @@ def load_survey_data(myC,inc_sf=None):
         #print(df.loc[(df.impact_drought==1)&(df.income_ag_net>0),'pcwgt'].sum()/df.loc[(df.income_ag_net>0),'pcwgt'].sum())
         #print(df.loc[(df.impact_drought==1)&(df.income_ag_net==0),'pcwgt'].sum()/df.loc[(df.income_ag_net==0),'pcwgt'].sum())
         
+        print('Setting c to pcinc') 
+        df['c'] = df['pcinc'].copy()
+
         return df
 
     elif myC == 'PH':
@@ -377,11 +380,14 @@ def load_survey_data(myC,inc_sf=None):
                                                         'hhwgt','fsize','poorhh','totdis','tothrec','pcinc_s','pcinc_ppp11','pcwgt',
                                                         'radio_qty','tv_qty','cellphone_qty','pc_qty',
                                                         'savings','invest'])
-        df = df.rename(columns={'tothrec':'hhsoc','poorhh':'ispoor'})
+        df = df.rename(columns={'tothrec':'hhsoc','poorhh':'ispoor','totex':'hhexp'})
+
         df['hhsize']     = df['pcwgt']/df['hhwgt']
         df['hhsize_ae']  = df['pcwgt']/df['hhwgt']
-
         df['pcwgt_ae']   = df['pcwgt']
+
+        # Per capita expenditures
+        df['pcexp'] = df['hhexp']/df['hhsize']
 
         # These lines use income as income
         df = df.rename(columns={'pcinc_s':'pcinc'})
@@ -405,6 +411,8 @@ def load_survey_data(myC,inc_sf=None):
         df['est_sav'] = df[['axfin','pcinc']].prod(axis=1)/2.
 
         df['has_ew'] = df[['radio_qty','tv_qty','cellphone_qty','pc_qty']].sum(axis=1).clip(upper=1)
+        df = df.drop(['radio_qty','tv_qty','cellphone_qty','pc_qty'],axis=1)
+
         # plot 1
         plot_simple_hist(df.loc[df.axfin==1],['tot_savings'],['hh savings'],'../output_plots/PH/hh_savings.pdf',uclip=None,nBins=25)
 
@@ -422,9 +430,77 @@ def load_survey_data(myC,inc_sf=None):
         
         print(str(round(100*df[['axfin','hhwgt']].prod(axis=1).sum()/df['hhwgt'].sum(),2))+'% of hh report expenses on savings or investments\n')
     
-        return df.drop(['savings','invest'],axis=1)
+        # Run savings script
+        df['country'] = 'PH'
+        listofquintiles=np.arange(0.10, 1.01, 0.10)
+        df = df.reset_index().groupby('country',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.pcexp),reshape_data(x.pcwgt),listofquintiles),
+                                                                                            'decile_nat',sort_val='pcexp')).drop(['index'],axis=1)
+        df = df.reset_index().groupby('w_regn',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.pcexp),reshape_data(x.pcwgt),listofquintiles),
+                                                                                           'decile_reg',sort_val='pcexp')).drop(['index'],axis=1)
+        df = df.reset_index().set_index(['w_regn','decile_nat','decile_reg']).drop('index',axis=1)
+        
+        df['annual_savings'] = df['pcinc']-df['pcexp']
+
+        # Savings rate by national decile
+        _ = pd.DataFrame(index=df.sum(level='decile_nat').index)
+        _['income'] = df[['pcinc','pcwgt']].prod(axis=1).sum(level='decile_nat')/df['pcwgt'].sum(level='decile_nat')
+        _['expenditures'] = df[['pcexp','pcwgt']].prod(axis=1).sum(level='decile_nat')/df['pcwgt'].sum(level='decile_nat')
+        _['annual_savings'] = _['income']-_['expenditures']
+        _.sort_index().to_csv('../output_country/'+myC+'/hh_savings_by_decile.csv')
+
+        # Savings rate by decile (regionally-defined) & region
+        _ = pd.DataFrame(index=df.sum(level=['w_regn','decile_reg']).index)
+        _['income'] = df[['pcinc','pcwgt']].prod(axis=1).sum(level=['w_regn','decile_reg'])/df['pcwgt'].sum(level=['w_regn','decile_reg'])
+        _['expenditures'] = df[['pcexp','pcwgt']].prod(axis=1).sum(level=['w_regn','decile_reg'])/df['pcwgt'].sum(level=['w_regn','decile_reg'])
+        _['annual_savings'] = _['income']-_['expenditures']
+        _.sort_index().to_csv('../output_country/'+myC+'/hh_savings_by_decile_and_region.csv')
+
+        # Savings rate for hh in subsistence (natl average)
+        _ = pd.DataFrame()
+        _.loc['subsistence_savings_rate','hh_avg'] = (df.loc[df.pcexp<get_subsistence_line(myC)].eval('pcwgt*(pcinc-pcexp)').sum()
+                                                      /df.loc[df.pcexp<get_subsistence_line(myC),'pcwgt'].sum())
+        _.to_csv('../output_country/'+myC+'/hh_savings_in_subsistence_natl.csv')
+
+        # Savings rate for hh in subsistence (by region)
+        _ = pd.DataFrame()
+        _['hh_avg'] = (df.loc[df.pcexp<get_subsistence_line(myC)].eval('pcwgt*(pcinc-pcexp)').sum(level='w_regn')
+                       /df.loc[df.pcexp<get_subsistence_line(myC),'pcwgt'].sum(level='w_regn'))
+        _.to_csv('../output_country/'+myC+'/hh_savings_in_subsistence_reg.csv')
+
+        if False:
+            _.plot.scatter('income','expenditures')
+            plt.gcf().savefig('../output_plots/PH/income_vs_exp_by_decile_PH.pdf',format='pdf')
+            plt.cla()
+            
+            _.plot.scatter('income','annual_savings')
+            plt.gcf().savefig('../output_plots/PH/net_income_vs_exp_by_decile_PH.pdf',format='pdf')
+            plt.cla()
+            
+            df.boxplot(column='annual_savings',by='decile')
+            plt.ylim(-1E5,1E5)
+            plt.gcf().savefig('../output_plots/PH/net_income_by_exp_decile_boxplot_PH.pdf',format='pdf')
+            plt.cla()
+
+        # Rename one column to be 'c' --> consumption
+        print('Using per cap income as c')
+        df['c'] = df['pcinc'].copy()
+
+        # Drop unused columns
+        df = df.reset_index().set_index(['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn'])
+        df = df.drop([_c for _c in ['country','decile_nat','decile_reg','est_sav','tot_savings','savings','invest',
+                                    'annual_savings','index','level_0','cash_domestic'] if _c in df.columns],axis=1)
+
+        return df.reset_index()
 
     elif myC == 'FJ':
+        
+        # This is an egregious hack, but deadlines are real
+        # 4.632E9 = GDP in USD (2016, WDI)
+        # 0.48 = conversion to FJD
+        # --> inc_sf is used to scale PCRAFI/AIR losses to hh assets, 
+        # ----> because hh-based estimate of assets in country is VERY different (factor of 4 for some asset types) from PCRAFI estimate
+        inc_sf = (4.632E9/0.48)
+
         df = pd.read_excel(inputs+'HIES 2013-14 Income Data.xlsx',usecols=['HHID','Division','Nchildren','Nadult','AE','HHsize',
                                                                            'Sector','Weight','TOTALTRANSFER','TotalIncome','New Total',
                                                                            'CareandProtectionProgrampaymentfromSocialWelfare',
@@ -535,6 +611,10 @@ def load_survey_data(myC,inc_sf=None):
             hhsum_add = df.iloc[hhno:hhno_add].hhwgt.sum()
             hhno_add+=1
         df.iloc[hhno:hhno_add].SPP_add = True
+
+        print('Setting c to pcinc') 
+        df['c'] = df['pcinc'].copy()
+
         return df
 
     elif myC == 'SL':
@@ -582,6 +662,9 @@ def load_survey_data(myC,inc_sf=None):
         
         df = df.reset_index().set_index('district')
         
+        print('Setting c to pcinc') 
+        df['c'] = df['pcinc'].copy()
+
         return df
 
     else: return None

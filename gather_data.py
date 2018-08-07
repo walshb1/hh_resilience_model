@@ -66,48 +66,13 @@ df['rho']                    = 0.3*df['avg_prod_k']    # discount rate
 df['protection'] = 1
 if myCountry == 'SL': df['protection'] = 5
 
-inc_sf = None
-if myCountry =='FJ': inc_sf = (4.632E9/0.48) # GDP in USD (2016, WDI) -> FJD
-cat_info = load_survey_data(myCountry,inc_sf)
-
-print(cat_info.head())
-
-listofquintiles=np.arange(0.10, 1.01, 0.10)
-
-print(cat_info.columns)
-cat_info['country'] = 'PH'
-cat_info['c'] = cat_info['pcinc'].copy()
-cat_info['i'] = cat_info['totex']/cat_info['hhsize']
-
-cat_info = cat_info.reset_index().groupby('country',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.pcinc),reshape_data(x.pcwgt),listofquintiles),'decile'))
-cat_info = cat_info.reset_index().set_index('decile')
-cat_info['i_minus_e'] = cat_info['pcinc']-cat_info['i']
-
-_ = pd.DataFrame(index=cat_info.sum(level='decile').index)
-_['income'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum(level='decile')/cat_info['pcwgt'].sum(level='decile')
-_['expenditures'] = cat_info[['totex','hhwgt']].prod(axis=1).sum(level='decile')/cat_info['pcwgt'].sum(level='decile')
-_['i_minus_e'] = _['income']-_['expenditures']
-
-_.plot.scatter('income','expenditures')
-plt.gcf().savefig('income_vs_exp_by_decile_PH.pdf',format='pdf')
-plt.cla()
-
-_.plot.scatter('income','i_minus_e')
-plt.gcf().savefig('net_income_vs_exp_by_decile_PH.pdf',format='pdf')
-plt.cla()
-
-cat_info.boxplot(column='i_minus_e',by='decile')
-plt.ylim(-1E5,1E5)
-plt.gcf().savefig('net_income_vs_exp_by_decile_boxplot_PH.pdf',format='pdf')
-plt.cla()
-#DataFrame.boxplot(column=None, by=None, ax=None, fontsize=None, rot=0, grid=True, figsize=None, layout=None, return_type=None, **kwds)[source]¶
-
-assert(False)
-
+# Big function loads standardized hh survey info
+cat_info = load_survey_data(myCountry)
 print('Survey population:',cat_info.pcwgt.sum())
 
-
 if myCountry == 'PH':
+    
+    # Standardize province info
     get_hhid_FIES(cat_info)
     cat_info = cat_info.rename(columns={'w_prov':'province','w_regn':'region'}).reset_index()
     cat_info['province'].replace(prov_code,inplace=True)     
@@ -122,23 +87,10 @@ if myCountry == 'PH':
     try: df.reset_index()[['province','region']].to_csv('../inputs/PH/prov_to_reg_dict.csv',header=True)
     except: print('Could not update regional-provincial dict')
 
+    # Manipulate PSA (non-FIES) dataframe
     df = df.reset_index().set_index(economy)
-
     df['psa_pop'] = df.sum(level=economy)
     df = df.mean(level=economy)
-
-    # There's no region info in df2--put that in...
-    #df2 = df2.reset_index().set_index('province')
-    #df2['region'] = cat_info[~cat_info.index.duplicated(keep='first')].region
-    #df2 = df2.reset_index().set_index(economy)    
-
-    #df2['gdp_pc_pp'] = df2[['gdp_pc_pp','pop']].prod(axis=1).sum(level=economy)/df2['pop'].sum(level=economy)
-
-    #df2['pop'] = df2['pop'].sum(level=economy)
-    #df2['gdp_pp'] = df2['gdp_pp'].sum(level=economy)
-    #df2 = df2.mean(level=economy)
-
-    cat_info = cat_info.reset_index().set_index(economy)
 
 if myCountry == 'SL':
     df = df.reset_index()
@@ -147,10 +99,8 @@ if myCountry == 'SL':
 
     cat_info = cat_info.reset_index()
     cat_info['district'].replace(prov_code,inplace=True) #replace district code with its name
-    cat_info = cat_info.reset_index().set_index(economy).drop(['index'],axis=1)
 
-if myCountry == 'MW':
-    cat_info = cat_info.reset_index().set_index(economy)
+cat_info = cat_info.reset_index().set_index(economy).drop([_c for _c in ['index'] if _c in cat_info.columns],axis=1)
 
 # Define per capita income (in local currency)
 df['gdp_pc_prov'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
@@ -183,9 +133,7 @@ if myCountry != 'FJ':
         cat_info.loc[cat_info.roof.values == thecat,'v'] += vul_curve.loc[vul_curve.desc.values == thecat].v.values
     cat_info.v = cat_info.v/2
 
-print('Setting c to pcinc') 
-cat_info['c'] = cat_info['pcinc']
-cat_info['pcsoc'] = cat_info['pcsoc'].clip(upper=0.99*cat_info['pcinc'])
+cat_info['pcsoc'] = cat_info['pcsoc'].clip(upper=0.99*cat_info['c'])
 # --> What's the difference between income & consumption/disbursements?
 # --> totdis = 'total family disbursements'    
 # --> totex = 'total family expenditures'
@@ -193,7 +141,7 @@ cat_info['pcsoc'] = cat_info['pcsoc'].clip(upper=0.99*cat_info['pcinc'])
 # --> can be converted to pcinc_ppp11 by dividing by (365*21.1782)
 
 # Cash receipts, abroad & domestic, other gifts
-cat_info['social'] = (cat_info['pcsoc']/cat_info['pcinc']).fillna(0)#.clip(upper=0.99)
+cat_info['social'] = (cat_info['pcsoc']/cat_info['c']).fillna(0)
 # --> All of this is selected & defined in lib_country_dir
 # --> Excluding international remittances ('cash_abroad')
 
@@ -214,8 +162,8 @@ cat_info = cat_info.reset_index().set_index(event_level[0])
 print('Total population:',int(cat_info.pcwgt.sum()))
 print('Total n households:',int(cat_info.hhwgt.sum()))
 
-print('\nae',cat_info[['pcinc_ae','pcwgt_ae']].prod(axis=1).sum()/cat_info[['pcwgt_ae']].sum())
-print('-',cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info[['pcwgt']].sum())
+print('\n(Adults-eq)',cat_info[['pcinc_ae','pcwgt_ae']].prod(axis=1).sum()/cat_info[['pcwgt_ae']].sum())
+print('- (adults) ',cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info[['pcwgt']].sum())
 
 print('--> Individuals in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line),'pcwgt'].sum()/1.E6,3)),'million')
 print('-----> Families in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line),'hhwgt'].sum()/1.E6,3)),'million')
@@ -259,13 +207,10 @@ cat_info['c_5'] = cat_info.c_5.fillna(cat_info.c_5.mean(level=economy).min())
 
 cat_info.drop([icol for icol in ['level_0','index','pctle_05','pctle_05_nat'] if icol in cat_info.columns],axis=1,inplace=True)
 
-# Calculate total value of social as fraction of total C
-print('Get the tax used for domestic social transfer')
-df['tau_tax'] = cat_info[['social','c','pcwgt']].prod(axis=1, skipna=False).sum()/cat_info[['c','pcwgt']].prod(axis=1, skipna=False).sum()
-
-# Fraction of social that goes to each hh
-print('Get the share of Social Protection')
-cat_info['gamma_SP'] = cat_info[['social','c']].prod(axis=1,skipna=False)*cat_info['pcwgt'].sum()/cat_info[['social','c','pcwgt']].prod(axis=1, skipna=False).sum()
+# tau_tax = total value of social as fraction of total C
+# gamma_SP = Fraction of social that goes to each hh
+print('Get the tax used for domestic social transfer and the share of Social Protection')
+df['tau_tax'], cat_info['gamma_SP'] = social_to_tx_and_gsp(economy,cat_info)
 
 # Calculate K from C
 print('Calculating capital from income')
@@ -292,7 +237,7 @@ except: pass
 
 # Cleanup dfs for writing out
 cat_info_col = [economy,'province','hhid','region','pcwgt','pcwgt_ae','hhwgt','code','np','score','v','c','pcsoc','social','c_5','hhsize',
-                'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','pcinc_ae','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds','has_ew',
+                'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','pcinc_ae','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds','has_ew',
                 'SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin']
 cat_info = cat_info.drop([i for i in cat_info.columns if (i in cat_info.columns and i not in cat_info_col)],axis=1)
 cat_info_index = cat_info.drop([i for i in cat_info.columns if i not in [economy,'hhid']],axis=1)
@@ -514,7 +459,7 @@ if myCountry == 'FJ':
     df_haz = df_haz.reset_index()
     my_df = ((df[['gdp_pc_prov','pop']].prod(axis=1))/df['avg_prod_k']).to_frame(name='HIES')
     my_df['PCRAFI'] = df_haz.ix[(df_haz.rp==1)&(df_haz.hazard=='TC'),['Division','Exp_Value']].set_index('Division')
-    
+   
     my_df['HIES']/=1.E9
     my_df['PCRAFI']/=1.E9
     
