@@ -100,6 +100,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     #  - cat_info has household-level info
     #  - hazard_ratios has fa for each household (which varies not by hh, but by province, hazard, & RP) 
     macro_event, cats_event, hazard_ratios_event = compute_with_hazard_ratios(myCountry,pol_str,intermediate+'hazard_ratios.csv',macro,cat_info,economy,event_level,income_cats,default_rp,rm_overlap=False,verbose_replace=True)
+
     gc.collect()
     print('A')
     #verbose_replace=True by default, replace common columns in macro_event and cats_event with those in hazard_ratios_event

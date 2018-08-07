@@ -73,7 +73,7 @@ def perc_with_spline(data, wt, percentiles):
 	return f(percentiles)	 
 	
 def match_percentiles(hhdataframe,quintiles,col_label,sort_val='c'):
-    hhdataframe.loc[hhdataframe['c']<=quintiles[0],col_label]=1
+    hhdataframe.loc[hhdataframe[sort_val]<=quintiles[0],col_label]=1
 
     for j in np.arange(1,len(quintiles)):
         hhdataframe.loc[(hhdataframe[sort_val]<=quintiles[j])&(hhdataframe[sort_val]>quintiles[j-1]),col_label]=j+1
@@ -251,74 +251,88 @@ def AIR_extreme_events(df_air,df_aal,sec='',per=''):
 
     return df_air
     
-def get_hh_savings(df, myC, econ_unit, pol, fstr):
-
-    if myC == 'PH' and econ_unit == 'region': econ_unit = 'province'
     
-    _s = pd.DataFrame({'c':df.c,'pcwgt':df.pcwgt,econ_unit:df[econ_unit],'ispoor':df.ispoor},index=df.index)
+def get_hh_savings(df, myC, econ_unit, pol, fstr=None):
 
+    # First check the policy string, in case we're doing something experimental 
     if pol == '_nosavings': return 0
     elif pol == '_nosavingsdata': return df.eval('c/12')
     elif pol == '_infsavings': return 1.E9
-        
-    elif myC == 'SL' or myC == 'MW':
-        _s['hh_savings'] = _s['c']/12.    
+    
+    #_s = pd.DataFrame({'c':df.c,'pcwgt':df.pcwgt,econ_unit:df[econ_unit],'ispoor':df.ispoor},index=df.index)
 
+    # Now run country-dependent options: 
+    if myC == 'SL' or myC == 'MW': _s['hh_savings'] = _s['c']/12.    
+    
     elif myC == 'PH':
 
-        # Load PSA file with average savings
-        f = pd.read_excel(fstr,sheet_name='Average Savings',skiprows=3).rename(columns={'Unnamed: 0':'province','Estimate':'p','Estimate.1':'np'})[['province','p','np']]
+        listofquintiles=np.arange(0.10, 1.01, 0.10)
+        print(df.head())
 
-        # Load dictionaries so that these province names match those in df
-        ph_prov_lookup = pd.read_excel('../inputs/PH/FIES_provinces.xlsx',index_col='province_upper')['province_AIR'].to_dict()
-        AIR_prov_corrections = {'Tawi-Tawi':'Tawi-tawi',
-                                'North Cotabato':'Cotabato',
-                                'COTABATO':'Cotabato',
-                                'DAVAO':'Davao',
-                                'COTABATO CITY':'Cotabato',
-                                'ISABELA CITY':'Isabela',
-                                'MANILA':'Manila',
-                                'NCR-2ND DIST.':'NCR-2nd Dist.',
-                                'NCR-3RD DIST.':'NCR-3rd Dist.',
-                                'NCR-4TH DIST.':'NCR-4th Dist.',
-                                'SAMAR (WESTERN)':'Samar (Western)'
-                                }
-        f['province'].replace(ph_prov_lookup,inplace=True)
-        f['province'].replace(AIR_prov_corrections,inplace=True)
+        df = df.reset_index().groupby('region',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),listofquintiles),
+                                                                                           'decile_reg',sort_val='c'))
+        df_sav = pd.read_csv('../output_country/PH/hh_savings_by_decile_and_region.csv').rename(columns={'w_regn':'region'})
+        r_code = pd.read_excel('../inputs/PH/FIES_regions.xlsx')[['region_code','region_name']].set_index('region_code').squeeze()
+        df_sav['region'].replace(r_code,inplace=True)
+        df_sav['annual_savings'] = df_sav['annual_savings'].clip(lower=0)
 
-        # Manipulate for ease of merge
-        f = f.reset_index().set_index('province').drop('index',axis=1)
-        f.columns.name = 'pnp'
-        f = f.stack().to_frame()
-        f.columns = ['avg_savings']
+        df = pd.merge(df.reset_index(),df_sav.reset_index(),on=['region','decile_reg'])
+
+        return df['annual_savings']
         
-        f = f.reset_index().set_index(['province'])
+        ## Load PSA file with average savings
+        #f = pd.read_excel(fstr,sheet_name='Average Savings',skiprows=3).rename(columns={'Unnamed: 0':'province','Estimate':'p','Estimate.1':'np'})[['province','p','np']]
         
-        f['ispoor'] = 0
-        f.loc[f.pnp=='p','ispoor'] = 1
-        f = f.drop('pnp',axis=1)
+        ## Load dictionaries so that these province names match those in df
+        #ph_prov_lookup = pd.read_excel('../inputs/PH/FIES_provinces.xlsx',index_col='province_upper')['province_AIR'].to_dict()
+        #AIR_prov_corrections = {'Tawi-Tawi':'Tawi-tawi',
+        #                        'North Cotabato':'Cotabato',
+        #                        'COTABATO':'Cotabato',
+        #                        'DAVAO':'Davao',
+        #                        'COTABATO CITY':'Cotabato',
+        #                        'ISABELA CITY':'Isabela',
+        #                        'MANILA':'Manila',
+        #                        'NCR-2ND DIST.':'NCR-2nd Dist.',
+        #                        'NCR-3RD DIST.':'NCR-3rd Dist.',
+        #                        'NCR-4TH DIST.':'NCR-4th Dist.',
+        #                        'SAMAR (WESTERN)':'Samar (Western)'
+        #                        }
+        #f['province'].replace(ph_prov_lookup,inplace=True)
+        #f['province'].replace(AIR_prov_corrections,inplace=True)
 
-        f = f.reset_index().set_index(['province','ispoor']).dropna()
-
-        # Poor in some provinces report negative savings...
-        f['avg_savings'] = f['avg_savings'].mean(level=['province','ispoor']).clip(lower=0.)
-
-        f = f.reset_index().set_index('province')
-        _s = _s.reset_index().set_index('province')
+        ## Manipulate for ease of merge
+        #f = f.reset_index().set_index('province').drop('index',axis=1)
+        #f.columns.name = 'pnp'
+        #f = f.stack().to_frame()
+        #f.columns = ['avg_savings']
         
-        f['c_mean'] = 0
-        f.loc[f.ispoor==0,'c_mean'] = _s.loc[_s.ispoor==0,['c','pcwgt']].prod(axis=1).sum(level='province')/_s.loc[_s.ispoor==0,'pcwgt'].sum(level='province')
-        f.loc[f.ispoor==1,'c_mean'] = _s.loc[_s.ispoor==1,['c','pcwgt']].prod(axis=1).sum(level='province')/_s.loc[_s.ispoor==1,'pcwgt'].sum(level='province')
+        #f = f.reset_index().set_index(['province'])
+        
+        #f['ispoor'] = 0
+        #f.loc[f.pnp=='p','ispoor'] = 1
+        #f = f.drop('pnp',axis=1)
 
-        try: f.to_csv('tmp/provincial_savings_avg.csv')
-        except: pass
-        assert(f['c_mean'].shape[0] == f['c_mean'].dropna().shape[0])
+        #f = f.reset_index().set_index(['province','ispoor']).dropna()
 
-        # Put it back together
-        _s = pd.merge(_s.reset_index(),f.reset_index(),on=['province','ispoor']).set_index('index').sort_index()
-        _s = _s.mean(level='index')
+        ## Poor in some provinces report negative savings...
+        #f['avg_savings'] = f['avg_savings'].mean(level=['province','ispoor']).clip(lower=0.)
+
+        #f = f.reset_index().set_index('province')
+        #_s = _s.reset_index().set_index('province')
+        
+        #f['c_mean'] = 0
+        #f.loc[f.ispoor==0,'c_mean'] = _s.loc[_s.ispoor==0,['c','pcwgt']].prod(axis=1).sum(level='province')/_s.loc[_s.ispoor==0,'pcwgt'].sum(level='province')
+        #f.loc[f.ispoor==1,'c_mean'] = _s.loc[_s.ispoor==1,['c','pcwgt']].prod(axis=1).sum(level='province')/_s.loc[_s.ispoor==1,'pcwgt'].sum(level='province')
+
+        #try: f.to_csv('tmp/provincial_savings_avg.csv')
+        #except: pass
+        #assert(f['c_mean'].shape[0] == f['c_mean'].dropna().shape[0])
+
+        ## Put it back together
+        #_s = pd.merge(_s.reset_index(),f.reset_index(),on=['province','ispoor']).set_index('index').sort_index()
+        #_s = _s.mean(level='index')
     
-        _s['hh_savings'] = _s.eval('avg_savings*c/c_mean')
+        #_s['hh_savings'] = _s.eval('avg_savings*c/c_mean')
 
     elif myC == 'MW':
         # Without data: we tried giving hh savings = 6 months' income if they report spending on savings or investments, 1 month if not

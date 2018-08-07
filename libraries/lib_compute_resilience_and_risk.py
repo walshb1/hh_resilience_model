@@ -102,10 +102,7 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
         print('--> POLICY('+pol_str+'): Increase income of the poor by 10%')
         
         cat_info.loc[cat_info.ispoor==1,'c'] *= 1.10
-        cat_info.loc[cat_info.ispoor==1,'pcinc'] *= 1.10
-        cat_info.loc[cat_info.ispoor==1,'pcinc_ae'] *= 1.10
-
-        cat_info['social'] = cat_info['social']/cat_info['pcinc']
+        cat_info['social'] = cat_info['social']/cat_info['c']
 
     elif pol_str == '_soc133':
         # POLICY: Increase social transfers to poor TO one third
@@ -121,10 +118,8 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
         #cat_info.loc[cat_info.ispoor==1,'social_topup'] = 0.333*cat_info.loc[cat_info.ispoor==1,['social','c']].prod(axis=1)
 
         #cat_info.loc[cat_info.ispoor==1,'c']*=(1.0+0.333*cat_info.loc[cat_info.ispoor==1,'social'])
-        #cat_info.loc[cat_info.ispoor==1,'pcinc']*=(1.0+0.333*cat_info.loc[cat_info.ispoor==1,'social'])
-        #cat_info.loc[cat_info.ispoor==1,'pcinc_ae']*=(1.0+0.333*cat_info.loc[cat_info.ispoor==1,'social'])
 
-        #cat_info['social'] = (cat_info['social_topup']+cat_info['pcsoc'])/cat_info['pcinc']
+        #cat_info['social'] = (cat_info['social_topup']+cat_info['pcsoc'])/cat_info['c']
         ########################################################
 
     # POLICY: Decrease reconstruction time by 1/3
@@ -243,15 +238,23 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     cat_info['protection']=broadcast_simple(macro['protection'],cat_info.index)
 
     ##add finance to diversification and taxation
-    cat_info['social'] = unpack_social(macro,cat_info)
+    #cat_info['social'] = unpack_social(macro,cat_info)
 
     ##cat_info['social']+= 0.1* cat_info['axfin']
     macro['tau_tax'], cat_info['gamma_SP'] = social_to_tx_and_gsp(economy,cat_info)
-            
+   
+    cat_info.to_csv('~/Desktop/tmp/beore.csv')
+
     #RECompute consumption from k and new gamma_SP and tau_tax
     cat_info['c'] = macro['avg_prod_k']*(1.-macro['tau_tax'])*cat_info['k']/(1.-cat_info['social'])
     # ^ this is per individual
     
+    print(cat_info.loc[cat_info.c<0].shape[0])
+    print(cat_info.loc[cat_info.c<0].head())
+    macro.to_csv('~/Desktop/tmp/macro.csv')
+    cat_info.loc[cat_info.c<0].head(10).to_csv('~/Desktop/tmp/after.csv')
+    if cat_info.loc[cat_info.c<0].shape[0] != 0: assert(False)
+
     print('all weights ',cat_info['pcwgt'].sum())
 
     #plt.cla()
@@ -497,7 +500,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
                                     + cats_event_ia[['pcsoc','scale_fac_soc']].prod(axis=1))
         cats_event_ia['di0_pub'] = cats_event_ia['dk_public']*macro_event['avg_prod_k'].mean()*(1-macro_event['tau_tax'].mean())
         cats_event_ia['di0'] = cats_event_ia['di0_prv'] + cats_event_ia['di0_pub']
-        
+
         # Sanity check: (C-di) does not bankrupt
         _ = cats_event_ia.loc[(cats_event_ia.c-cats_event_ia.di0)<0]
         if _.shape[0] != 0:
@@ -1209,14 +1212,8 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
 
     # First, assign savings
     # --> sav_f = intial savings at initialization. will decrement as hh spend savings.
-    if myC == 'PH': 
-        sav_dir = '../inputs/PH/Socioeconomic Resilience (Provincial)_Print Version_rev1.xlsx'
-        try: temp['sav_f'] = get_hh_savings(temp[['pcwgt','c','province','region','ispoor']],myC,mac_ix[0],pol_str,sav_dir).round(2)
-        except: temp['sav_f'] = get_hh_savings(temp[['pcwgt','c','province','region','ispoor']],myC,mac_ix[0],pol_str,sav_dir)
-    else: 
-        sav_dir = '../inputs/'+myC+'/'
-        try: temp['sav_f'] = get_hh_savings(temp[['pcwgt','c',mac_ix[0],'ispoor']],myC,mac_ix[0],pol_str,sav_dir).round(2)
-        except: temp['sav_f'] = get_hh_savings(temp[['pcwgt','c',mac_ix[0],'ispoor']],myC,mac_ix[0],pol_str,sav_dir)
+    try: temp['sav_f'] = get_hh_savings(temp[['pcwgt','c',mac_ix[0],'ispoor']],myC,mac_ix[0],pol_str).round(2)
+    except: temp['sav_f'] = get_hh_savings(temp[['pcwgt','c',mac_ix[0],'ispoor']],myC,mac_ix[0],pol_str)
     temp = temp.drop([i for i in ['index','province','ispoor'] if i in temp.columns],axis=1)
 
     ################################
@@ -1431,7 +1428,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
             #assert(False)  
 
         # Save out the files for debugging
-        if ((counter<=10) or (counter%50 == 0)): temp.head(10).to_csv(tmp+'temp_'+optionPDS+pol_str+'_'+str(counter)+'.csv')
+        if ((counter<=10) or (counter%50 == 0)): temp.head(200).to_csv(tmp+'temp_'+optionPDS+pol_str+'_'+str(counter)+'.csv')
 
         counter+=1
         gc.collect()
