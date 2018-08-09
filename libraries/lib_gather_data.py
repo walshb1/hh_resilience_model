@@ -262,12 +262,11 @@ def get_hh_savings(df, myC, econ_unit, pol, fstr=None):
     #_s = pd.DataFrame({'c':df.c,'pcwgt':df.pcwgt,econ_unit:df[econ_unit],'ispoor':df.ispoor},index=df.index)
 
     # Now run country-dependent options: 
-    if myC == 'SL' or myC == 'MW': _s['hh_savings'] = _s['c']/12.    
+    if myC == 'SL' or myC == 'MW': return df['c']/12.    
     
     elif myC == 'PH':
 
         listofquintiles=np.arange(0.10, 1.01, 0.10)
-        print(df.head())
 
         df = df.reset_index().groupby('region',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),listofquintiles),
                                                                                            'decile_reg',sort_val='c'))
@@ -333,14 +332,6 @@ def get_hh_savings(df, myC, econ_unit, pol, fstr=None):
         #_s = _s.mean(level='index')
     
         #_s['hh_savings'] = _s.eval('avg_savings*c/c_mean')
-
-    elif myC == 'MW':
-        # Without data: we tried giving hh savings = 6 months' income if they report spending on savings or investments, 1 month if not
-        #_s = (temp[['axfin','c']].prod(axis=1)/2.).clip(lower=temp['c']/12.)
-        _s['hh_savings'] = 0*_s['c']
-
-    return _s['hh_savings']
-
 
 def get_subnational_gdp_macro(myCountry,_hr,avg_prod_k):
     hr_init = _hr.shape[0]

@@ -433,10 +433,10 @@ def load_survey_data(myC):
         # Run savings script
         df['country'] = 'PH'
         listofquintiles=np.arange(0.10, 1.01, 0.10)
-        df = df.reset_index().groupby('country',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.pcexp),reshape_data(x.pcwgt),listofquintiles),
-                                                                                            'decile_nat',sort_val='pcexp')).drop(['index'],axis=1)
-        df = df.reset_index().groupby('w_regn',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.pcexp),reshape_data(x.pcwgt),listofquintiles),
-                                                                                           'decile_reg',sort_val='pcexp')).drop(['index'],axis=1)
+        df = df.reset_index().groupby('country',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.pcinc),reshape_data(x.pcwgt),listofquintiles),
+                                                                                            'decile_nat',sort_val='pcinc')).drop(['index'],axis=1)
+        df = df.reset_index().groupby('w_regn',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.pcinc),reshape_data(x.pcwgt),listofquintiles),
+                                                                                           'decile_reg',sort_val='pcinc')).drop(['index'],axis=1)
         df = df.reset_index().set_index(['w_regn','decile_nat','decile_reg']).drop('index',axis=1)
         
         df['annual_savings'] = df['pcinc']-df['pcexp']
@@ -456,16 +456,31 @@ def load_survey_data(myC):
         _.sort_index().to_csv('../output_country/'+myC+'/hh_savings_by_decile_and_region.csv')
 
         # Savings rate for hh in subsistence (natl average)
+        listofquartiles=np.arange(0.25, 1.01, 0.25)
+        df = df.reset_index().groupby('country',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.annual_savings),reshape_data(x.pcwgt),listofquartiles),
+                                                                                            'nat_sav_quartile',sort_val='annual_savings'))
+        df = df.reset_index().groupby('w_regn',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.annual_savings),reshape_data(x.pcwgt),listofquartiles),
+                                                                                           'reg_sav_quartile',sort_val='annual_savings')).drop(['index'],axis=1)
+        df = df.reset_index().set_index(['w_regn','decile_nat','decile_reg']).drop('index',axis=1)
+
         _ = pd.DataFrame()
-        _.loc['subsistence_savings_rate','hh_avg'] = (df.loc[df.pcexp<get_subsistence_line(myC)].eval('pcwgt*(pcinc-pcexp)').sum()
-                                                      /df.loc[df.pcexp<get_subsistence_line(myC),'pcwgt'].sum())
-        _.to_csv('../output_country/'+myC+'/hh_savings_in_subsistence_natl.csv')
+        _.loc['subsistence_savings_rate','hh_avg'] = (df.loc[df.pcinc<get_subsistence_line(myC)].eval('pcwgt*(pcinc-pcexp)').sum()
+                                                      /df.loc[df.pcinc<get_subsistence_line(myC),'pcwgt'].sum())
+        _.loc['subsistence_savings_rate','hh_q1'] = df.loc[df.nat_sav_quartile==1,'annual_savings'].max()
+        _.loc['subsistence_savings_rate','hh_q2'] = df.loc[df.nat_sav_quartile==2,'annual_savings'].max()
+        _.loc['subsistence_savings_rate','hh_q3'] = df.loc[df.nat_sav_quartile==3,'annual_savings'].max()
+
+
+        _.sort_index().to_csv('../output_country/'+myC+'/hh_savings_in_subsistence_natl.csv')
 
         # Savings rate for hh in subsistence (by region)
         _ = pd.DataFrame()
-        _['hh_avg'] = (df.loc[df.pcexp<get_subsistence_line(myC)].eval('pcwgt*(pcinc-pcexp)').sum(level='w_regn')
-                       /df.loc[df.pcexp<get_subsistence_line(myC),'pcwgt'].sum(level='w_regn'))
-        _.to_csv('../output_country/'+myC+'/hh_savings_in_subsistence_reg.csv')
+        _['hh_avg'] = (df.loc[df.pcinc<get_subsistence_line(myC)].eval('pcwgt*(pcinc-pcexp)').sum(level='w_regn')
+                       /df.loc[df.pcinc<get_subsistence_line(myC),'pcwgt'].sum(level='w_regn'))
+        _['hh_q1'] = df.loc[df.reg_sav_quartile==1,'annual_savings'].max(level='w_regn')
+        _['hh_q2'] = df.loc[df.reg_sav_quartile==2,'annual_savings'].max(level='w_regn')
+        _['hh_q3'] = df.loc[df.reg_sav_quartile==3,'annual_savings'].max(level='w_regn')
+        _.sort_index().to_csv('../output_country/'+myC+'/hh_savings_in_subsistence_reg.csv')
 
         if False:
             _.plot.scatter('income','expenditures')
