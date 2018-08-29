@@ -276,6 +276,8 @@ def get_hh_savings(df, myC, econ_unit, pol, fstr=None):
         df_sav['annual_savings'] = df_sav['annual_savings'].clip(lower=0)
 
         df = pd.merge(df.reset_index(),df_sav.reset_index(),on=['region','decile_reg'])
+        df.loc[df.region=='ARMM'].to_csv('~/Desktop/tmp/ARMM_study.csv')
+        assert(False)
 
         return df['annual_savings']
         

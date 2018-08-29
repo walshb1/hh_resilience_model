@@ -140,6 +140,24 @@ cat_info['pcsoc'] = cat_info['pcsoc'].clip(upper=0.99*cat_info['c'])
 # --> pcinc_s seems to be what they use to calculate poverty...
 # --> can be converted to pcinc_ppp11 by dividing by (365*21.1782)
 
+cat_info = cat_info.reset_index().set_index(['hhid','region'])
+sp_out = pd.DataFrame(index=cat_info.sum(level='region').index.copy())
+
+sp_out['frac_receive_SP'] = 100*cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum(level='region')/cat_info['pcwgt'].sum(level='region')
+sp_out['avg_value_SP'] = cat_info.loc[cat_info['pcsoc']!=0,['pcsoc','pcwgt']].prod(axis=1).sum(level='region')/cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum(level='region')
+sp_out['avg_value_SPall'] = cat_info[['pcsoc','pcwgt']].prod(axis=1).sum(level='region')/cat_info['pcwgt'].sum(level='region')
+sp_out['sp_over_c'] = cat_info.loc[cat_info['pcsoc']!=0].eval('pcwgt*pcsoc/c').sum(level='region')/cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum(level='region')
+sp_out['sp_over_call'] = cat_info.eval('pcwgt*pcsoc/c').sum(level='region')/cat_info['pcwgt'].sum(level='region')
+
+sp_out.loc['NATL_AVG','frac_receive_SP'] = 100*cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum()/cat_info['pcwgt'].sum()
+sp_out.loc['NATL_AVG','avg_value_SP'] = cat_info.loc[cat_info['pcsoc']!=0,['pcsoc','pcwgt']].prod(axis=1).sum()/cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum()
+sp_out.loc['NATL_AVG','avg_value_SPall'] = cat_info[['pcsoc','pcwgt']].prod(axis=1).sum()/cat_info['pcwgt'].sum()
+sp_out.loc['NATL_AVG','sp_over_c'] = cat_info.loc[cat_info['pcsoc']!=0,['pcsoc','pcwgt']].prod(axis=1).sum()/cat_info.loc[cat_info['pcsoc']!=0,['c','pcwgt']].prod(axis=1).sum()
+
+sp_out.to_csv('../output_country/'+myCountry+'/sp_receipts_by_region.csv')
+
+cat_info = cat_info.reset_index('hhid')
+
 # Cash receipts, abroad & domestic, other gifts
 cat_info['social'] = (cat_info['pcsoc']/cat_info['c']).fillna(0)
 # --> All of this is selected & defined in lib_country_dir
