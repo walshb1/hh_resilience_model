@@ -22,7 +22,7 @@ from itertools import product
 
 def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no'):
 
-    #dw = calc_delta_welfare(None,None,is_revised=True,study=True)
+    #dw = calc_delta_welfare(None,None,study=True)
     # Use this to study change in definition of dw
     # ^ should be deleted when we're happy with the change
     
@@ -81,8 +81,6 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     helped_cats   = pd.Index(['helped','not_helped'], name='helped_cat')
     
     is_local_welfare = False
-    is_rev_dw = True
-
     share_public_assets = True
     if pol_str == 'noPT': share_public_assets = False
 
@@ -90,7 +88,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     macro = pd.read_csv(intermediate+'macro.csv', index_col=economy)
     cat_info = pd.read_csv(intermediate+'cat_info.csv',  index_col=[economy, income_cats])
 
-    #calc_delta_welfare(None,None,'','no',is_revised_dw=True,study=True)
+    #calc_delta_welfare(None,None,'','no',study=True)
     #assert(False)
 
     # First function: compute_with_hazard_ratios 
@@ -122,9 +120,9 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     pub_costs_pds.to_csv(output+'pub_costs_pds_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
 
     if False:
-        is_contemporaneous = False 
         # For people outside affected province, do the collections for public asset reco & PDS happen at the same time?
-        public_costs = calc_dw_outside_affected_province(macro_event, cat_info, pub_costs_inf, pub_costs_pds,event_level,is_contemporaneous,is_local_welfare,is_rev_dw)
+        # -> Doesn't matter, because they use their savings, meaning it's perfectly spread out over time
+        public_costs = calc_dw_outside_affected_province(macro_event, cat_info, pub_costs_inf, pub_costs_pds,event_level,is_local_welfare)
         public_costs.to_csv(output+'public_costs_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
         
     #optionFee: tax or insurance_premium  optionFee='insurance_premium',optionT='perfect', optionPDS='prop', 
@@ -139,13 +137,13 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     #cats_event_iah.to_csv(output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('Step E:  NOT writing out '+output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv')
 
-    #out = compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True,is_revised_dw=is_rev_dw)    
-    out = calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cats_event_iah,event_level,option_CB,return_stats=False,return_iah=True,is_revised_dw=is_rev_dw)
+    #out = compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True)    
+    out = calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cats_event_iah,event_level,option_CB,return_stats=False,return_iah=True)
     print('F')
 
     # Flag: running local welfare
     print('running national welfare')
-    results,iah = process_output(pol_str,out,macro_event,economy,default_rp,True,is_local_welfare,is_rev_dw)
+    results,iah = process_output(pol_str,out,macro_event,economy,default_rp,True,is_local_welfare)
     print('G')
 
     results.to_csv(output+'results_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
@@ -157,7 +155,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
                                       'dk_other','dk_private', 'dk_public',
                                       'di0_prv','di0_pub','dc0_prv','dc0_pub',
                                       'pc_fee_BE','scale_fac_soc',
-                                      'c_min','macro_multiplier','help_fee',
+                                      'c_min','macro_multiplier',
                                       'SP_CPP','SP_FAP','SP_FNPF','SP_SPS','SP_PBS','SPP_core','SPP_add','nOlds','dc_0'] if icol in iah.columns],axis=1)
     iah.loc[iah.pcwgt!=0].to_csv(output+'iah_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('\n******************\nStep I: wrote iah (excluding all hh with pcwgt = 0) ... still a huge file. See anything to drop?\n',iah.columns)
@@ -177,7 +175,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 2 and (sys.argv[2] == 'true' or sys.argv[2] == 'True'): debug = True
     
     if myCountry == 'PH':
-        pds_str = ['no']
+        pds_str = ['unif_poor','no']
         pol_str = ['']
 
         if debug: launch_compute_resilience_and_risk_thread(myCountry,'','no')#_infsavings also an option
@@ -217,7 +215,7 @@ if __name__ == '__main__':
             
         if debug:
             print('Running in debug mode!')
-            launch_compute_resilience_and_risk_thread(myCountry,'','no')
+            launch_compute_resilience_and_risk_thread(myCountry,'','unif_poor')
         else:
             with Pool(processes=3,maxtasksperchild=1) as pool:
                 print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))

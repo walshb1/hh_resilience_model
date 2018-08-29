@@ -98,7 +98,7 @@ def reco_time_plots(myC):
     _povdur['optimal_t_reco'] = (np.log(1/0.05)/_povdur['optimal_hh_reco_rate']).fillna(15).clip(upper=15)
     _povdur['t_reco'] = (np.log(1/0.05)/_povdur['hh_reco_rate']).fillna(15).clip(upper=15)
 
-    _haz = '"FF"'
+    _haz = '"HU"'
     _crit = '(hazard=='+_haz+')'#+'&(region=='+_regA+')'
 
     _haz_dict = {'"HU"':'hurricane',
@@ -118,11 +118,11 @@ def reco_time_plots(myC):
         try: plt.close('all')
         except: pass
     
-        #for __regA in ['"NCR"','"V - Bicol"','"NCR"all']:
-        #    for _regB in ['"NCR"','"V - Bicol"']:
+        for __regA in ['"NCR"','"V - Bicol"','"NCR"all']:
+            for _regB in ['"NCR"','"V - Bicol"']:
 
-        for __regA in ['"Lilongwe"','"Lilongwe City"','"Lilongwe"all']:
-            for _regB in ['"Lilongwe"','"Lilongwe City"']:
+        #for __regA in ['"Lilongwe"','"Lilongwe City"','"Lilongwe"all']:
+        #    for _regB in ['"Lilongwe"','"Lilongwe City"']:
 
                 plot_both = False
                 if 'all' in __regA: plot_both = True 
@@ -155,7 +155,7 @@ def reco_time_plots(myC):
                 sumwgtA = sum(heightsA)/100        
                 sumwgtB = sum(heightsB)/100
         
-                ax.bar(_b[:-1],heightsA/sumwgtA, width=(_b[1]-_b[0]), align='edge', facecolor=q_colors[0],alpha=0.60,linewidth=0)
+                ax.bar(_b[:-1],heightsA/sumwgtA, width=(_b[1]-_b[0]), align='center', facecolor=q_colors[0],alpha=0.60,linewidth=0)
                 ax.step(_b[:-1],heightsA/sumwgtA, linewidth=1.2,color=q_colors[0],zorder=100,where='mid')
                 
                 _ymax = 0
@@ -186,7 +186,7 @@ def reco_time_plots(myC):
                                  +'\nMean recovery time: '+strmeanB+' years'),
                                 xy=(meanB+0.2,_shift*_ymax),ha='left',va='top',size=8.5,color=greys_pal[7],weight='bold',linespacing=1.5)
 
-                    ax.bar(_b[:-1],heightsB/sumwgtB, width=(_b[1]-_b[0]), align='edge', facecolor=q_colors[1],alpha=0.60,linewidth=0)
+                    ax.bar(_b[:-1],heightsB/sumwgtB, width=(_b[1]-_b[0]), align='center', facecolor=q_colors[1],alpha=0.60,linewidth=0)
                     ax.step(_b[:-1],heightsB/sumwgtB, linewidth=1.2,color=q_colors[1],zorder=100,where='mid')
 
                 plt.title('Event: '+str(irp)+'-year '+_haz_dict[_haz],fontsize=11,weight='bold',loc='right')
@@ -300,8 +300,7 @@ def format_delta_p(delta_p):
     return(str(delta_p))
 
 
-try: reco_time_plots(myCountry)
-except: pass
+reco_time_plots(myCountry)
 
 #######################
 # Load output files
@@ -482,7 +481,7 @@ except:
     iah['pds_help_fee'] = iah['pc_fee']
     iah['pds_help_received'] = 0
 
-plot_k_vs_dw(iah,'FF')
+#plot_k_vs_dw(iah,'FF')
 
 iah['hhwgt'] = iah['hhwgt'].fillna(0)
 iah['pcwgt'] = iah['pcwgt'].fillna(0)
@@ -612,15 +611,17 @@ for myDis in allDis:
         cr_heights /= get_pop_scale_fac(myCountry)[0]
 
         ax.step(cf_bins[1:], ci_heights, label='Initial', linewidth=1.2,color=greys_pal[8])  
-        ax.get_figure().savefig('../output_plots/'+myCountry+'/poverty_k_'+myDis+'_'+str(myRP)+'_1of3.pdf',format='pdf')
+        try: ax.get_figure().savefig('../output_plots/'+myCountry+'/poverty_k_'+myDis+'_'+str(myRP)+'_1of3.pdf',format='pdf')
+        except: pass
 
         #ax.bar(cf_bins[:-1], ci_heights, width=(cf_bins[1]-cf_bins[0]), label='Initial', facecolor=q_colors[1],alpha=0.4)
-        ax.bar(cf_bins[:-1], cf_heights, width=(cf_bins[1]-cf_bins[0]), align='edge', label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
+        ax.bar(cf_bins[:-1], cf_heights, width=(cf_bins[1]-cf_bins[0]), align='center', label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
         #ax.bar(cf_bins[:-1], cr_heights, width=(cf_bins[1]-cf_bins[0]), label='Post-reconstruction', facecolor=q_colors[2],alpha=0.4)
         #ax.step(cf_bins[1:], ci_heights, label='Initial', linewidth=1.2,color=greys_pal[8])     
 
-        ax.get_figure().savefig('../output_plots/'+myCountry+'/poverty_k_'+myDis+'_'+str(myRP)+'_2of3.pdf',format='pdf')
-        
+        try: ax.get_figure().savefig('../output_plots/'+myCountry+'/poverty_k_'+myDis+'_'+str(myRP)+'_2of3.pdf',format='pdf')
+        except: pass
+
         # Change in poverty incidence
         delta_p = cutA.loc[(cutA.c_initial > cutA.pov_line)&(cutA.c_final <= cutA.pov_line)&(cutA.c_final>sub_line),'pcwgt'].sum()
         p_str = format_delta_p(delta_p)
@@ -651,8 +652,10 @@ for myDis in allDis:
         leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
 
         print('poverty_k_'+myDis+'_'+str(myRP)+'.pdf')
-        fig.savefig('../output_plots/'+myCountry+'/poverty_k_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')
-        fig.savefig('../output_plots/'+myCountry+'/png/poverty_k_'+myDis+'_'+str(myRP)+'.png',format='png')
+        try:
+            fig.savefig('../output_plots/'+myCountry+'/poverty_k_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')
+            fig.savefig('../output_plots/'+myCountry+'/png/poverty_k_'+myDis+'_'+str(myRP)+'.png',format='png')
+        except: pass
         plt.cla(); plt.close('all')
 
         ##
@@ -671,8 +674,8 @@ for myDis in allDis:
         cutA.loc[(cutA.affected_cat=='a'),['c','di0','dc_post_reco']].to_csv('tmp/c_aff_'+str(myRP)+'.csv')
 
         #ax.bar(cf_bins[:-1], ci_heights, width=(cf_bins[1]-cf_bins[0]), label='Initial', facecolor=q_colors[1],alpha=0.4)
-        ax.bar(cf_bins[:-1], cf_heights, width=(cf_bins[1]-cf_bins[0]), align='edge', label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
-        ax.bar(cf_bins[:-1], cr_heights, width=(cf_bins[1]-cf_bins[0]), align='edge', label='Post-reconstruction', facecolor=q_colors[2],alpha=0.4)
+        ax.bar(cf_bins[:-1], cf_heights, width=(cf_bins[1]-cf_bins[0]), align='center', label='Post-disaster', facecolor=q_colors[0],alpha=0.4)
+        ax.bar(cf_bins[:-1], cr_heights, width=(cf_bins[1]-cf_bins[0]), align='center', label='Post-reconstruction', facecolor=q_colors[2],alpha=0.4)
         ax.step(cf_bins[1:], ci_heights, label='Initial', linewidth=1.2,color=greys_pal[8])     
 
         print('All people: ',cutA['pcwgt'].sum())
@@ -702,8 +705,10 @@ for myDis in allDis:
         #plt.ylim(0,400000)
         leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9,title=str(myRP)+'-year '+haz_dict[myDis])
         print('poverty_k_aff_'+myDis+'_'+str(myRP)+'.pdf\n')
-        fig.savefig('../output_plots/'+myCountry+'/poverty_k_aff_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
-        fig.savefig('../output_plots/'+myCountry+'/png/poverty_k_aff_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',format='pdf')
+        try:
+            fig.savefig('../output_plots/'+myCountry+'/poverty_k_aff_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
+            fig.savefig('../output_plots/'+myCountry+'/png/poverty_k_aff_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',format='pdf')
+        except: pass
         plt.cla(); plt.close('all')
 
 df_out_sum = pd.DataFrame()
@@ -911,8 +916,10 @@ for myRP in myHaz[2]:
                 
                 fig = ax.get_figure()
                 print('Saving: hists/'+istr+'_'+myProv+'_'+myDis+'_'+str(myRP)+'.pdf')
-                fig.savefig('../output_plots/'+myCountry+'/'+istr+'_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
-                fig.savefig('../output_plots/'+myCountry+'/png/'+istr+'_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',format='pdf')
+                try:
+                    fig.savefig('../output_plots/'+myCountry+'/'+istr+'_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
+                    fig.savefig('../output_plots/'+myCountry+'/png/'+istr+'_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',format='pdf')
+                except: pass
                 plt.cla(); plt.close('all')
 
             # Means
@@ -939,8 +946,10 @@ for myRP in myHaz[2]:
             #plt.ylim(-50,250)
 
             print('Saving: histo_'+myProv+'_'+myDis+'_'+str(myRP)+'.pdf\n')
-            plt.savefig('../output_plots/'+myCountry+'/means_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.pdf',bbox_inches='tight',format='pdf')
-            plt.savefig('../output_plots/'+myCountry+'/png/means_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.png',format='png')#+'.pdf',bbox_inches='tight',format='pdf')
+            try:
+                plt.savefig('../output_plots/'+myCountry+'/means_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.pdf',bbox_inches='tight',format='pdf')
+                plt.savefig('../output_plots/'+myCountry+'/png/means_'+myProv.replace(' ','_')+'_'+myDis+'_'+str(myRP)+'.png',format='png')
+            except: pass
             plt.cla(); plt.close('all')
 
 df_out.to_csv('tmp/my_means_'+myCountry+pol_str+'.csv')

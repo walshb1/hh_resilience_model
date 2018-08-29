@@ -196,7 +196,6 @@ def load_survey_data(myC):
         df['labor_ag_unpaid'] = dfE['labor_ag_unpaid'].sum(level='hhid')
 
         print(dfE.head())
-        assert(False)
 
         # --> N hh members working in ganyu        
         dfE['labor_ganyu'] = 0

@@ -25,7 +25,6 @@ q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 const_nom_reco_rate, const_pub_reco_rate = None, None
 const_rho, const_ie = None, None
-const_pds_rate = None
 
 tmp = '~/Desktop/BANK/hh_resilience_model/model/tmp/'
 
@@ -243,30 +242,13 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     ##cat_info['social']+= 0.1* cat_info['axfin']
     macro['tau_tax'], cat_info['gamma_SP'] = social_to_tx_and_gsp(economy,cat_info)
    
-    cat_info.to_csv('~/Desktop/tmp/beore.csv')
-
     #RECompute consumption from k and new gamma_SP and tau_tax
     cat_info['c'] = macro['avg_prod_k']*(1.-macro['tau_tax'])*cat_info['k']/(1.-cat_info['social'])
     # ^ this is per individual
     
-    print(cat_info.loc[cat_info.c<0].shape[0])
-    print(cat_info.loc[cat_info.c<0].head())
-    macro.to_csv('~/Desktop/tmp/macro.csv')
-    cat_info.loc[cat_info.c<0].head(10).to_csv('~/Desktop/tmp/after.csv')
     if cat_info.loc[cat_info.c<0].shape[0] != 0: assert(False)
-
     print('all weights ',cat_info['pcwgt'].sum())
-
-    #plt.cla()
-    #ax = plt.gca()
-    #ci_heights, ci_bins = np.histogram(cat_info.c.clip(upper=50000),bins=50, weights=cat_info.pcwgt)
-    #plt.gca().bar(ci_bins[:-1], ci_heights, width=ci_bins[1]-ci_bins[0], facecolor=q_colors[1], label='C2',alpha=0.4)
-    #plt.legend()
-    #fig = ax.get_figure()
-    #fig.savefig('/Users/brian/Desktop/my_plots/'+myCountry+pol_str+'_consumption_init.pdf',format='pdf')
-
     print('Re-recalc mean cons (pc)',round(np.average((cat_info['c']*cat_info['pcwgt']).sum(level=economy)/macro['pop'],weights=macro['pop']),2),'(local curr).\n')    
-
 
     ####FORMATTING
     #gets the event level index
@@ -282,12 +264,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 
     global const_pub_reco_rate
     const_pub_reco_rate = float(np.log(1/0.05) / macro_event['T_rebuild_K'].mean())
-    
-    global const_pds_rate
-    const_pds_rate = const_pub_reco_rate*2.
-    # All hh consume whatever PDS they receive in first 1.5 years (3 years/2) after disaster
-    # ^ Will get rid of this next
-    
+        
     global const_rho
     const_rho = float(macro_event['rho'].mean())
 
@@ -402,7 +379,6 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         public_costs = None
 
     # --> distribute losses to every hh
-    # TODO: this is going to be the tax rate for all hh, but needs to be broadcast to hh outside of region
     else:
         print('\n** share_public_assets = True --> Sharing infra & public asset costs among all households *nationally*\n')
 
@@ -464,17 +440,17 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         rebuild_fees['hh_fee_PE'] = rebuild_fees[['pc_fee_PE','pcwgt']].prod(axis=1)  
         
         # Transfer per capita fees back to cats_event_ia 
-        cats_event_ia[['pc_fee_BE','pc_fee_PE']] = rebuild_fees[['pc_fee_BE','pc_fee_PE']]
+        cats_event_ia[['pc_fee_BE','pc_fee_PE']] = rebuild_fees[['pc_fee_BE','pc_fee_PE']].copy()
         rebuild_fees['dk0'] = cats_event_ia['dk0'].copy()
         cats_event_ia = cats_event_ia.reset_index().set_index(event_level)
 
         # Sanity Check: we know this works if hh_fee = 'dk_public_hh'*'frac_k'
-        #print(rebuild_fees['dk_public_tot'].head(1))
-        #print(rebuild_fees[['hh_fee_BE','frac_k_BE']].sum(level=event_level).head(17))
-        #print(rebuild_fees[['hh_fee_PE','frac_k_PE']].sum(level=event_level).head(17))
-        
+        print(rebuild_fees['dk_public_tot'].head(1))
+        print(rebuild_fees[['hh_fee_BE','frac_k_BE']].sum(level=event_level).head(17))
+        print(rebuild_fees[['hh_fee_PE','frac_k_PE']].sum(level=event_level).head(17))
+
         public_costs = distribute_public_costs(macro_event,rebuild_fees,event_level,'dk_public')
-        public_costs.to_csv('../output_country/'+myC+'/public_costs_'+optionPDS+'.csv')
+        #public_costs.to_csv('../output_country/'+myC+'/intermediate_public_costs_'+optionPDS+'.csv')
 
         ############################
         # Choose whether to assess tax on k (BE='before event') or (PE='post event')
@@ -490,6 +466,10 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         #cats_event_ia = cats_event_ia.rename(columns={'pc_fee_PE':'pc_fee'})
         
         cats_event_ia['scale_fac_soc'] = (rebuild_fees['dk_tot']/rebuild_fees['tot_k_BE']).mean(level=event_level)
+
+        cats_event_ia = cats_event_ia.drop([_c for _c in ['index'] if i in cats_event_ia.columns],axis=1)
+        print(cats_event_ia.head())
+        print(cats_event_ia.columns)        
 
         ############################
         # We can already calculate di0, dc0 for hh in province
@@ -530,20 +510,25 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
 
         # STEP 2: Get savings rate
         try:
-            df_subsistence_sav = pd.read_csv('../output_country/'+myC+'/hh_savings_in_subsistence_reg.csv').rename(columns={'w_regn':'region','hh_q3':'sub_savings'})[['region','sub_savings']]
+            sub_file_name = '../output_country/'+myC+'/hh_savings_in_subsistence_reg.csv'
+            df_subsistence_sav = pd.read_csv(sub_file_name).rename(columns={'w_regn':'region',
+                                                                            'hh_q1':'sub_savings_q1',
+                                                                            'hh_q3':'sub_savings_q3'})[['region','sub_savings_q1','sub_savings_q3']]
             df_subsistence_sav['region'].replace(pd.read_excel('../inputs/'+myC+'/FIES_regions.xlsx')[['region_code','region_name']].set_index('region_code').squeeze(),inplace=True)
-            df_subsistence_sav['sub_savings']/=52.
+            df_subsistence_sav[['sub_savings_q1','sub_savings_q3']] = df_subsistence_sav[['sub_savings_q1','sub_savings_q3']].clip(lower=1000.)
 
             cats_event_ia = pd.merge(cats_event_ia.reset_index(),df_subsistence_sav.reset_index(),on=['region']).set_index(['region','hazard','rp','hhid','affected_cat'])
-            cats_event_ia = cats_event_ia.drop([i for i in ['index','level_0'] if i in cats_event_ia.columns])
-        except: cats_event_ia['sub_savings'] = 0.
+            cats_event_ia = cats_event_ia.drop([i for i in ['index','index_x','index_y','level_0'] if i in cats_event_ia.columns])
+        except: 
+            cats_event_ia['sub_savings_q1'] = 500.
+            cats_event_ia['sub_savings_q3'] = 50.
             
         # Case 1:
         # --> hh was affected (did lose some assets)
         # --> income losses do not push hh into subsistence
-        # --> optimum reco costs do not push into subsistence
+        # --> optimum reco costs do not push into (subsistence-sub_sav_rate_q3)
         # *** HH response: forego reco_frac of post-disaster consumption to fund reconstruction, while also keeping consumption above subsistence
-        c1_crit = '(dk_private!=0)&(c-di0>c_min)&((c-di0-optimal_hh_reco_rate*dk_private)>c_min)'
+        c1_crit = '(dk_private!=0)&((c-di0-optimal_hh_reco_rate*dk_private)>=c_min-sub_savings_q3)'
         _c1 = cats_event_ia.query(c1_crit)[['c','c_min','dk_private','di0_prv','di0','dc0_prv','dc0_pub','dc0','optimal_hh_reco_rate']].copy()
         _c1['welf_class']   = 1
 
@@ -556,15 +541,15 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
 
         # Case 2:
         # --> hh was affected (did lose some assets)
-        # --> income losses do not push hh into subsistence
-        # --> optimum reco costs DO PUSH into subsistence
-        # *** HH response: forego all consumption in excess of subsistence line to fund reconstruction
-        c2_crit = '(dk_private!=0)&(c-di0>c_min)&((c-di0-optimal_hh_reco_rate*dk_private)<=c_min)'
-        _c2 = cats_event_ia.query(c2_crit)[['c','c_min','dk_private','di0_prv','di0','dc0_prv','dc0_pub','dc0','sub_savings']].copy()
+        # --> income losses do not push to (sub-sub_sav_q3)
+        # --> optimum reco costs DO push below this level
+        # *** HH response: forego all consumption in excess of this level to fund reconstruction
+        c2_crit = '(dk_private!=0) & ((c-di0-optimal_hh_reco_rate*dk_private)<c_min-sub_savings_q3) & (c-di0-c_min+sub_savings_q3>0)'
+        _c2 = cats_event_ia.query(c2_crit)[['c','c_min','dk_private','di0_prv','di0','dc0_prv','dc0_pub','dc0','sub_savings_q3']].copy()
         _c2['welf_class']   = 2
 
-        # --> Households can't afford to fund reco at optimal value, so they stop at the the min (sub_line less subsistence region-specific savings rate):
-        _c2['hh_reco_rate'] = _c2.eval('(c-di0-(c_min-sub_savings))/dk_private')
+        # --> Households can't afford to fund reco at optimal value, so they save all income above the min (Q3):
+        _c2['hh_reco_rate'] = _c2.eval('(c-di0-c_min+sub_savings_q3)/dk_private')
         _c2['dc0_prv']      = _c2['di0_prv'] + _c2[['hh_reco_rate','dk_private']].prod(axis=1)
         _c2['dc0']          = _c2['dc0_prv'] + _c2['dc0_pub']
 
@@ -573,25 +558,40 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
             cats_event_ia.loc[_c2.index.tolist(),['dc0','dc0_prv','hh_reco_rate','welf_class']] = _c2[['dc0','dc0_prv','hh_reco_rate','welf_class']]
         print('C2: '+str(round(float(100*cats_event_ia.loc[cats_event_ia.welf_class==2].shape[0])
                                /float(cats_event_ia.loc[cats_event_ia.dk0!=0].shape[0]),2))+'% of hh do not optimize to avoid subsistence')
-            
-        # Case 3: Post-disaster income is below subsistence (or c_5):
-        # --> hh are not in any other class
-        # --> c OR (c-di0) is below subsistence 
-        # HH response: can only manage to save region-specific savings rate
-        _c3 = cats_event_ia.query('(dk_private!=0)&(c-di0<c_min)')[['dc0','di0_prv','dc0_prv','dc0_pub','dk_private','sub_savings']].copy()
+          
+        # Case 3:
+        # --> hh was affected (did lose some assets)
+        # --> income losses do not push to (sub-sub_sav_q1)
+        # --> saving at sub_sav_q3 would push below this level
+        # *** HH response: forego all consumption in excess of this level to fund reconstruction
+        c3_crit = '(dk_private!=0) & ((c-di0-optimal_hh_reco_rate*dk_private)<c_min-sub_savings_q3) & (c-di0-c_min+sub_savings_q3<0) & (c-di0>sub_savings_q1)'
+        _c3 = cats_event_ia.query(c3_crit)[['c','c_min','dk_private','di0_prv','di0','dc0_prv','dc0_pub','dc0','sub_savings_q1']].copy()
         _c3['welf_class']   = 3
-        _c3['hh_reco_rate'] = _c3.eval('sub_savings/dk_private') # This is the reco floor. if sub_savings is zero, these hh won't reconstruct
+
+        # --> Households can't afford to fund reco at optimal value, so they save all income above the min (Q3):
+        _c3['hh_reco_rate'] = _c3.eval('(sub_savings_q1)/dk_private')
         _c3['dc0_prv']      = _c3['di0_prv'] + _c3[['hh_reco_rate','dk_private']].prod(axis=1)
         _c3['dc0']          = _c3['dc0_prv'] + _c3['dc0_pub']
 
-        if _c3.shape[0]!=0: cats_event_ia.loc[_c3.index.tolist(),['dc0','dc0_prv','hh_reco_rate','welf_class']] = _c3[['dc0','dc0_prv','hh_reco_rate','welf_class']]
-        print('C3: '+str(round(float(100*cats_event_ia.loc[(cats_event_ia.welf_class==3)].shape[0])
-                               /float(cats_event_ia.loc[cats_event_ia.dk0!=0].shape[0]),2))+'% of hh are in subsistence, save only extreme minimum')
+        if _c3.shape[0] > 0: 
+            assert(_c3['hh_reco_rate'].min()>=0)
+            cats_event_ia.loc[_c3.index.tolist(),['dc0','dc0_prv','hh_reco_rate','welf_class']] = _c3[['dc0','dc0_prv','hh_reco_rate','welf_class']]
+        print('C3: '+str(round(float(100*cats_event_ia.loc[cats_event_ia.welf_class==3].shape[0])
+                               /float(cats_event_ia.loc[cats_event_ia.dk0!=0].shape[0]),2))+'% of hh do not optimize to avoid subsistence')
+
+        # Case 4:
+        # -> Everyone else has hh_reco_rate = 0
+        cats_event_ia.loc[cats_event_ia.eval('(welf_class==4)&(dk0!=0)'),['welf_class','hh_reco_rate']] = 4,0.
+        if cats_event_ia.loc[cats_event_ia.eval('(welf_class==4)&(dk0!=0)')].shape[0] != 0:
+            print(cats_event_ia.loc[cats_event_ia.eval('(welf_class==4)&(dk0!=0)')].shape[0],'unclassified hh! Possible bug!')
+            cats_event_ia.loc[cats_event_ia.eval('(welf_class==4)&(dk0!=0)')].to_csv('tmp/unclassified_hh.csv')
 
         # make plot here: (income vs. length of reco)
         if cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.c)].shape[0] != 0:
             hh_extinction = str(round(float(cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.c)].shape[0]/cats_event_ia.shape[0])*100.,2))
             print('\n\n***ISSUE: '+hh_extinction+'% of (hh x event) combos face dc0 > i0. Could mean extinction!\n--> SOLUTION: capping dw at 20xGDPpc \n\n')
+            cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.c)].to_csv('~/Desktop/tmp/fail.csv')
+            assert(False)
         
         # NOTES
         # --> when affected by a disaster, hh lose their private assets...
@@ -665,7 +665,7 @@ def distribute_public_costs(macro_event,rebuild_fees,event_level,transfer_type):
     
     return public_costs
 
-def calc_dw_outside_affected_province(macro_event, cat_info, public_costs_pub, public_costs_pds, event_level, is_contemporaneous=False, is_local_welfare=False, is_revised_dw=True):
+def calc_dw_outside_affected_province(macro_event, cat_info, public_costs_pub, public_costs_pds, event_level, is_local_welfare=False):
 
     #public_costs = pd.DataFrame(index=public_costs_pub.index)
     public_costs = public_costs_pub[['contributer','transfer_pub','tot_k_recipient_BE','tot_k_recipient_PE','tot_k_contributer']].copy()
@@ -709,7 +709,7 @@ def calc_dw_outside_affected_province(macro_event, cat_info, public_costs_pub, p
                     # Here, we calculate the impact of transfers for public assets & PDS
                     tmp_df['dw_pub'] = 0.
                     for iT in [tmp_cost_pub,tmp_cost_pds]:
-                        tmp_df['dw_pub'] += iT*tmp_df[['pcwgt','pc_frac_k','wprime_hh']].prod(axis=1)
+                        tmp_df['dw_pub'] += iT*tmp_df[['pcwgt','pc_frac_k']].prod(axis=1)*tmp_df['wprime_hh']
 
                     # Also need to add impacts of social transfer decreases
                     # Set-up to be able to calculate integral
@@ -740,8 +740,7 @@ def calc_dw_outside_affected_province(macro_event, cat_info, public_costs_pub, p
                     public_costs.loc[((public_costs[event_level[0]]==iRecip)&(public_costs.contributer==iP)&(public_costs.hazard==iHaz)&(public_costs.rp==iRP)),'dw_soc'] = \
                         abs(tmp_df['dw_soc'].sum())
 
-    public_costs = public_costs.reset_index().set_index(event_level).drop('index',axis=1)
-    
+    public_costs = public_costs.reset_index().set_index(event_level).drop('index',axis=1)    
     return public_costs
 
 
@@ -755,7 +754,7 @@ def calculate_response(myCountry,pol_str,macro_event,cats_event_ia,public_costs,
     # Baseline case (no insurance):
     cats_event_iah['help_received'] = 0
     cats_event_iah['help_fee'] =0
-
+    
     macro_event, cats_event_iah, public_costs = compute_response(myCountry, pol_str,macro_event, cats_event_iah, public_costs, event_level,default_rp,option_CB,optionT=optionT, 
                                                                  optionPDS=optionPDS, optionB=optionB, optionFee=optionFee, fraction_inside=fraction_inside, loss_measure = loss_measure)
     
@@ -898,6 +897,9 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     # Uncomment this line for tax assessment after disaster
     #public_costs = public_costs.rename(columns={'transfer_pds_PE':'transfer_pds'})
 
+    try: cats_event_iah = cats_event_iah.drop(['level_0'],axis=1)
+    except: pass
+
     # this will do for hh in the affected province
     if optionFee=='tax':
 
@@ -924,26 +926,30 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
             cats_event_iah = cats_event_iah.drop(['index','totex','totk','nOlds','SP_CPP','SP_FAP','SP_FNPF','SP_SPS','SP_PBS'],axis=1)
 
             # Something like this should evaluate to true
-            #assert((cats_event_iah[['pcwgt','help_received']].prod(axis=1).sum(level=['hazard','rp'])).ix['TC'] == 
-            #       (cats_event_iah[['pcwgt','help_fee']].prod(axis=1).sum(level=['hazard','rp'])).ix['TC'])
+            assert((cats_event_iah[['pcwgt','help_received']].prod(axis=1).sum(level=['hazard','rp'])).ix['TC'] == 
+                   (cats_event_iah[['pcwgt','help_fee']].prod(axis=1).sum(level=['hazard','rp'])).ix['TC'])
 
         else:
-            cats_event_iah.loc[cats_event_iah.pcwgt != 0,'help_fee'] = (cats_event_iah.loc[cats_event_iah.pcwgt != 0,['help_received','pcwgt']].prod(axis=1).sum(level=event_level) * 
+
+            assert((public_costs.loc[public_costs['contributer']==public_costs.index.get_level_values(event_level[0]),'pds_cost'] == 
+                    cats_event_iah[['help_received','pcwgt']].prod(axis=1).sum(level=event_level)).all())
+
+            cats_event_iah.loc[cats_event_iah.pcwgt != 0,'help_fee'] = (public_costs.loc[public_costs['contributer']==public_costs.index.get_level_values(event_level[0]),'transfer_pds']
                                                                         # ^ total expenditure
-                                                                        (cats_event_iah.loc[cats_event_iah.pcwgt != 0,['k','pcwgt']].prod(axis=1) /
-                                                                         cats_event_iah.loc[cats_event_iah.pcwgt != 0,['k','pcwgt']].prod(axis=1).sum(level=event_level)) /
+                                                                        *(cats_event_iah.loc[cats_event_iah.pcwgt != 0,['k','pcwgt']].prod(axis=1)
+                                                                          /cats_event_iah.loc[cats_event_iah.pcwgt != 0,['k','pcwgt']].prod(axis=1).sum(level=event_level))
                                                                         # ^ weighted average of capital
-                                                                        cats_event_iah.loc[cats_event_iah.pcwgt != 0,'pcwgt']) 
+                                                                        /cats_event_iah.loc[cats_event_iah.pcwgt != 0,'pcwgt']) 
                                                                         # ^ help_fee is per individual!
 
     elif optionFee=='insurance_premium':
         print('Have not implemented optionFee==insurance_premium')
         assert(False)
-
+    
     return macro_event, cats_event_iah, public_costs
 
 
-def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True,is_revised_dw=True):
+def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True):
 
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])
 
@@ -972,17 +978,12 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
         print(__ix)
         cats_event_iah[__ix] = cats_event_iah[__ix].astype('category')
     cats_event_iah = cats_event_iah.reset_index().set_index(_ix)
-    ###################
 
-    #cats_event_iah['dc_npv_post'] = cats_event_iah['dc_npv_pre']-cats_event_iah['help_received']+cats_event_iah['help_fee']*option_CB
-    if is_revised_dw:
-        print('changing dc to include help_received and help_fee, since instantaneous loss is used instead of npv for dw')
-        print('how does timing affect the appropriateness of this?')
-        #cats_event_iah['dc_post_pds'] = cats_event_iah['dc0']-cats_event_iah['help_received']+cats_event_iah['help_fee']*option_CB
-    
+    ###################
+    #calc_delta_welfare
     cats_event_iah['dc_post_reco'], cats_event_iah['dw'] = [0,0]
     cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dc_post_reco'], cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dw'] = calc_delta_welfare(myCountry,cats_event_iah,macro_event,
-                                                                                                                                      pol_str,optionPDS,is_revised_dw)
+                                                                                                                                      pol_str,optionPDS)
     assert(cats_event_iah['dc_post_reco'].shape[0] == cats_event_iah['dc_post_reco'].dropna().shape[0])
     assert(cats_event_iah['dw'].shape[0] == cats_event_iah['dw'].dropna().shape[0])
 
@@ -1016,7 +1017,7 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
         return df_out
     
 	
-def process_output(pol_str,out,macro_event,economy,default_rp,return_iah=True,is_local_welfare=False,is_revised_dw=True):
+def process_output(pol_str,out,macro_event,economy,default_rp,return_iah=True,is_local_welfare=False):
 
     #unpacks if needed
     if return_iah:
@@ -1031,7 +1032,7 @@ def process_output(pol_str,out,macro_event,economy,default_rp,return_iah=True,is
     macro_event[dkdw_h.columns]=dkdw_h
 
     #computes socio economic capacity and risk at economy level
-    macro = calc_risk_and_resilience_from_k_w(macro_event,cats_event_iah,economy,is_local_welfare,is_revised_dw)
+    macro = calc_risk_and_resilience_from_k_w(macro_event,cats_event_iah,economy,is_local_welfare)
 
     ###OUTPUTS
     if return_iah:
@@ -1136,7 +1137,7 @@ def agg_to_event_level (df, seriesname,event_level):
     does NOT normalize weights to 1."""
     return (df[seriesname].T*df['pcwgt']).T.sum(level=event_level)
 
-def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,study=False):
+def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     # welfare cost from consumption before (c) and after (dc_npv_post) event. Line by line
 
     gc.collect()
@@ -1163,7 +1164,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
     # Going to separate into a & na now, for speed
     temp = temp.reset_index('affected_cat')
 
-    temp_na = temp.loc[(temp.pcwgt!=0)&(temp.affected_cat=='na')&(temp.help_received==0)&(temp.dc0==0),['affected_cat','pcwgt','dk0','c','dc0','pc_fee']].reset_index().copy()
+    temp_na = temp.loc[(temp.pcwgt!=0)&(temp.affected_cat=='na')&(temp.help_received==0)&(temp.dc0==0),['affected_cat','pcwgt','dk0','c','dc0','pc_fee','help_fee']].reset_index().copy()
     # ^ ALL HH that are: not affected AND didn't receive help AND don't have any social income
 
     temp = temp.loc[(temp.pcwgt!=0)&((temp.affected_cat=='a')|(temp.help_received!=0)|(temp.dc0!=0))].reset_index().copy()
@@ -1174,18 +1175,17 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
 
     #############################
     # First debit savings for temp_na
-    temp_na['dw'] = temp_na['pc_fee']*(temp_na['c']**(-const_ie))
+    temp_na['dw'] = (temp_na[['pc_fee','help_fee']].sum(axis=1))*(temp_na['c']**(-const_ie))
     # ^ assuming every hh has this much savings...
 
     temp_na['dc_t'] = 0.
-    # wprime, dk0
 
     temp_na.head(10).to_csv(tmp+'temp_na.csv')
     # Will re-merge temp_na with temp at the bottom...trying to optimize here!
 
     #############################
     # Drop cols from temp, because it's huge...
-    temp = temp.drop([i for i in ['pcinc','hhwgt','pcwgt_ae','pcinc_ae','hhsize','hhsize_ae','help_fee','pc_fee_PE','pc_fee_BE',
+    temp = temp.drop([i for i in ['pcinc','hhwgt','pcwgt_ae','pcinc_ae','hhsize','hhsize_ae','pc_fee_PE','pc_fee_BE','index_x','index_y',
                                   'index','level_0','axfin','has_ew','macro_multiplier','dc_npv_pre','di0','dc_post_reco','di0_prv',
                                   'dk_other','gamma_SP','ew_expansion','hh_share','fa','v_with_ew','v','social','quintile','c_5'] if i in temp.columns],axis=1)
 
@@ -1225,7 +1225,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
 
     ################################
     # SAVINGS
-    temp['sav_i'] = temp.eval('sav_f+pc_fee').round(2)
+    temp['sav_i'] = temp.eval('sav_f+pc_fee+help_fee').round(2)
     # ^ add pc_fee to sav_f to get sav_i
     # --> this is assuming the government covers the costs for now, and assesses taxes much, much later
 
@@ -1235,7 +1235,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
     #print(temp.loc[temp.sav_f<0].shape[0],' hh borrow to pay their fees...')
     # --> let this go...assume that hh will be able to borrow in order to pay that fee
     
-    temp = temp.drop(['help_received','pc_fee'],axis=1)
+    temp = temp.drop(['help_received','pc_fee','help_fee'],axis=1)
 
     ################################
     # Use savings (until they run out) to offset dc to optimum level
@@ -1323,8 +1323,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
             
         ####################################        
         # Calculate di(t) & dc(t) 
-        # di(t) won't change again within this time step, but dc(c) could
-        #temp['di_t'] = temp.eval('di_prv_t+di_pub_t-help_received*@const_pds_rate*@math.e**(-@_t*@const_pds_rate)')      
+        # di(t) won't change again within this time step, but dc(c) could  
         temp['dc_t'].update(temp.eval('di_t+hh_reco_rate*dk_prv_t').round(2))
         assert(temp.loc[temp.di_t<0].shape[0] == 0)
         
@@ -1336,30 +1335,29 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
         recalc_crit_1 = '(welf_class==1) & (hh_reco_rate!=0) & (dk_prv_t>0) & (dc_t>c | dc_t<0)'
         if pol_str != '_infsavings' and temp.loc[temp.eval(recalc_crit_1)].shape[0] != 0: assert(False)
 
-        # welf_class == 2|3: keep consumption at minumum (subsistence-sub_savings) until they can afford macro_reco_frac without going into subsistence
-        recalc_crit_2A = '(welf_class==2 | welf_class==3) & (dk_prv_t>0) & (c-di_t-(c_min-sub_savings))>0 & (hh_reco_rate < optimal_hh_reco_rate | dc_t>c | dc_t<0)'
-        recalc_hhrr_A = '(c-di_t-(c_min-sub_savings))/dk_prv_t'
+        # welf_class == 2|3: keep consumption at minumum (subsistence-sub_savings_q3) until they can afford macro_reco_frac without going into subsistence
+        recalc_crit_2 = '(welf_class!=1) & (dk_prv_t>0) & (c-di_t-c_min+sub_savings_q3)>0 & (hh_reco_rate < optimal_hh_reco_rate | dc_t>c | dc_t<0)'
+        recalc_hhrr_2 = '(c-di_t-c_min+sub_savings_q3)/dk_prv_t'        
 
-        recalc_crit_2B = '(welf_class==2 | welf_class==3) & (dk_prv_t>0) & (c-di_t-(c_min-sub_savings))<=0 & (hh_reco_rate < optimal_hh_reco_rate | dc_t>c | dc_t<0)'
-        recalc_hhrr_B = 'sub_savings/dk_prv_t'
+        recalc_crit_3 = '(welf_class!=1) & (dk_prv_t>0) & (c-di_t-c_min+sub_savings_q3)<=0 & (c-di_t-sub_savings_q1)>0 & (hh_reco_rate < optimal_hh_reco_rate | dc_t>c | dc_t<0)'
+        recalc_hhrr_3 = 'sub_savings_q1/dk_prv_t'
 
-        # welf_class == 3: if they recover income above subsistence, apply welf_class == 2 rules
-        #start_criteria  = '(welf_class==3) & (hh_reco_rate==0) & (dk_prv_t > 0) & (c-di_t > c_min)'
-        #stop_criteria   = '(welf_class==3) & (hh_reco_rate!=0) & (c-di_t < c_min)'
+        stop_criterion_A = '(c-di_t-sub_savings_q1<0)&(hh_reco_rate!=0)'
+        stop_criterion_B = '(dk_prv_t<=0.01)&(hh_reco_rate!=0)'
 
         if round(10.*_t,1)%1==0:
             print('('+optionPDS+' - t = '+str(round(_t*52,1))+' weeks after disaster; '
                   +str(round(100*_t/x_max,1))+'% through reco): '
-                  #+str(temp.loc[temp.eval(start_criteria),'pcwgt'].sum())+' hh escape subs & '
-                  +str(int(temp.loc[temp.eval(recalc_crit_2A),'pcwgt'].sum()))+' recalc in wc=(2|3), & '
-                  +str(int(temp.loc[temp.eval(recalc_crit_2B),'pcwgt'].sum()))+' save the minimum\n'
-                  #+str(temp.loc[temp.eval(stop_criteria),'pcwgt'].sum())+' stop reco\n'
+                  +str(int(temp.loc[temp.eval(recalc_crit_2),'pcwgt'].sum()))+' are in sub at Q3+, & '
+                  +str(int(temp.loc[temp.eval(recalc_crit_3),'pcwgt'].sum()))+' are in sub at Q1+\n'
+                  +str(temp.loc[temp.eval(stop_criterion_A),'pcwgt'].sum())+' cannot reconstruct\n'
+                  +str(temp.loc[temp.eval(stop_criterion_B),'pcwgt'].sum())+' complete reco\n'
                   )
 
-        temp.loc[temp.eval(recalc_crit_2A),'hh_reco_rate'] = temp.loc[temp.eval(recalc_crit_2A)].eval(recalc_hhrr_A).round(3)
-        temp.loc[temp.eval(recalc_crit_2B),'hh_reco_rate'] = temp.loc[temp.eval(recalc_crit_2B)].eval(recalc_hhrr_B).round(3)
-        #temp.loc[temp.eval(start_criteria),'hh_reco_rate'] = temp.loc[temp.eval(start_criteria)].eval(recalc_hhrr_A).round(3)
-        #temp.loc[temp.eval(stop_criteria),'hh_reco_rate'] = 0.
+        temp.loc[temp.eval(recalc_crit_2),'hh_reco_rate'] = temp.loc[temp.eval(recalc_crit_2)].eval(recalc_hhrr_2).round(3)
+        temp.loc[temp.eval(recalc_crit_3),'hh_reco_rate'] = temp.loc[temp.eval(recalc_crit_3)].eval(recalc_hhrr_3).round(3)
+        temp.loc[temp.eval(stop_criterion_A),'hh_reco_rate'] = 0.
+        temp.loc[temp.eval(stop_criterion_B),['optimal_hh_reco_rate','hh_reco_rate']] = 0.,0.
         
         ####################################
         # Calculate dc(t) 
@@ -1430,7 +1428,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,is_revised_dw=True,st
             temp.loc[temp.integ==-1E9].to_csv('tmp/fatal_integ_null.csv')
             assert(False)
 
-        # NB: no expansion here because dc_net already gives the instantateous value at t = _t
+        # NB: no expansion here because dc_net already gives the instantaneous value at t = _t
         # --> Could take the average within each time step (step_dt)
 
         # Decrement dk(t)
@@ -1540,7 +1538,7 @@ def welf(c,elast):
     y=(c**(1-elast)-1)/(1-elast)
     return y
 	
-def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfare,is_revised_dw): 
+def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfare): 
     """Computes risk and resilience from dk, dw and protection. Line by line: multiple return periods or hazard is transparent to this function"""
     df=df.copy()    
     ############################
@@ -1548,21 +1546,11 @@ def calc_risk_and_resilience_from_k_w(df, cats_event_iah,economy,is_local_welfar
     #discount rate
     h=1e-4
 
-    if is_revised_dw:
-        #if is_local_welfare or not is_local_welfare:
-        # ^ no dependence on this flag, for now
-        c_mean = cats_event_iah[['pcwgt','c']].prod(axis=1).sum()/cats_event_iah['pcwgt'].sum()
-        wprime = c_mean**(-const_ie)
+    #if is_local_welfare or not is_local_welfare:
+    # ^ no dependence on this flag, for now
+    c_mean = cats_event_iah[['pcwgt','c']].prod(axis=1).sum()/cats_event_iah['pcwgt'].sum()
+    wprime = c_mean**(-const_ie)
 
-    if not is_revised_dw:
-        print('Getting wprime (legacy)')
-        if is_local_welfare:
-            wprime =(welf(df['gdp_pc_prov']/const_rho+h,df['income_elast'])-welf(df['gdp_pc_prov']/const_rho-h,df['income_elast']))/(2*h*(1-const_ie))
-            print('Adding (1-eta) to denominator of legacy wprime...')
-        else:
-            wprime =(welf(df['gdp_pc_nat']/const_rho+h,df['income_elast'])-welf(df['gdp_pc_nat']/const_rho-h,df['income_elast']))/(2*h*(1-const_ie))
-            print('Adding (1-eta) to denominator of legacy wprime...') 
-    
     dWref = wprime*df['dK']
     #dWref = wprime*(df['dK']-df['dK_public'])
     # ^ doesn't add in dW from transfers from other provinces...
