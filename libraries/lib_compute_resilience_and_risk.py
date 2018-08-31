@@ -467,7 +467,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         
         cats_event_ia['scale_fac_soc'] = (rebuild_fees['dk_tot']/rebuild_fees['tot_k_BE']).mean(level=event_level)
 
-        cats_event_ia = cats_event_ia.drop([_c for _c in ['index'] if i in cats_event_ia.columns],axis=1)
+        cats_event_ia = cats_event_ia.drop([_c for _c in ['index'] if _c in cats_event_ia.columns],axis=1)
         print(cats_event_ia.head())
         print(cats_event_ia.columns)        
 
@@ -872,9 +872,8 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     my_sp_costs=my_sp_costs.reset_index('rp')
     my_sp_costs['avg_admin_cost'],_ = average_over_rp(my_sp_costs.reset_index().set_index(event_level)['event_cost'])
 
-    print('SP: avg admin costs:',my_sp_costs['avg_admin_cost'].mean(level=event_level[:1]).sum())
-    
-    my_sp_costs['avg_natl_cost'] = my_sp_costs['avg_admin_cost'].mean(level=event_level[:1]).sum()
+    print('SP: avg national costs:',my_sp_costs['avg_admin_cost'].mean(level=[event_level[0],event_level[1]]).sum())
+    my_sp_costs['avg_natl_cost'] = my_sp_costs['avg_admin_cost'].mean(level=[event_level[0],event_level[1]]).sum()
     my_sp_costs.to_csv('../output_country/'+myCountry+'/sp_costs_'+optionPDS+'.csv')
 
     #actual aid reduced by capacity

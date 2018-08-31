@@ -396,15 +396,15 @@ make_map_from_svg(
     res=2000)
 
 #######################
-print('--> Map asset losses as fraction of national GDP')
+print('--> Map asset losses in USD')
 make_map_from_svg(
-    100.*df_prov.dKtot/df_prov.gdp.sum(), 
+    df_prov.dKtot*get_currency(myCountry)[2]*1.E-6,
     svg_file,
-    outname=myCountry+'_asset_risk_over_natl_gdp',
+    outname=myCountry+'_asset_risk',
     color_maper=plt.cm.get_cmap('GnBu'),
     #svg_handle = 'reg',
-    label='Annual asset risk [% of national GDP]',
-    new_title='Annual asset risk [% of national GDP]',
+    label='Annual asset risk [mUSD]',
+    new_title='Annual asset risk [mUSD]',
     do_qualitative=False,
     res=2000)
 
@@ -422,15 +422,15 @@ make_map_from_svg(
     res=2000)
 
 #######################
-print('--> Map welfare losses as fraction of national GDP')
+print('--> Map welfare losses in USD')
 make_map_from_svg(
-    100.*df_prov.dWtot_currency/df_prov.gdp.sum(), 
+    df_prov.dWtot_currency*get_currency(myCountry)[2]*1.E-6,
     svg_file,
-    outname=myCountry+'_welf_risk_over_natl_gdp',
+    outname=myCountry+'_welf_risk',
     color_maper=plt.cm.get_cmap('OrRd'),
     #svg_handle = 'reg',
-    label='Annual well-being risk [% of national GDP]',
-    new_title='Annual well-being risk [% of national GDP]',
+    label='Annual well-being risk [mUSD]',
+    new_title='Annual well-being risk [mUSD]',
     do_qualitative=False,
     res=2000)
 
