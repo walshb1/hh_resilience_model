@@ -17,8 +17,7 @@ from libraries.lib_compute_resilience_and_risk import *
 from libraries.replace_with_warning import *
 
 from multiprocessing import Pool
-from itertools import repeat
-from itertools import product
+from itertools import repeat,product
 
 def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no'):
 

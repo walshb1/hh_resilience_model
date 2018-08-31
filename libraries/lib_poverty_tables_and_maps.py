@@ -53,7 +53,7 @@ def map_recovery_time(myC,HAZ=['HU'],RP=[100],RECO=['75','80','90']):
                     _['time_recovery_'+_reco], 
                     svg_file,
                     outname='time_to_recover_'+_reco+'pct_'+_haz+str(_rp),
-                    color_maper=plt.cm.get_cmap('Reds'), 
+                    color_maper=plt.cm.get_cmap('Purples'), 
                     label='Time to reconstruct '+_reco+'% of assets destroyed \nby '+str(_rp)+'-year '+haz_dict[_haz].lower()+' [years]',
                     new_title='',
                     do_qualitative=False,
@@ -271,10 +271,10 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
     # Get the poverty headcount info
     #try:
     # Count up the hh that fell into poverty & subsistence:
-    pov_df_event = (pov_df.loc[pov_df.eval('(c_pre_reco<=pov_line)&(c_pre_reco>sub_line)'),'pcwgt'].sum(level=event_level)
-                    -pov_df.loc[pov_df.eval('(c_initial<=pov_line)&(c_initial>sub_line)'),'pcwgt'].sum(level=event_level)).to_frame(name='net_chg_pov_c')
-    pov_df_event['net_chg_pov_i'] = (pov_df.loc[pov_df.eval('(i_pre_reco<=pov_line)&(i_pre_reco>sub_line)'),'pcwgt'].sum(level=event_level)
-                                     -pov_df.loc[pov_df.eval('(c_initial<=pov_line)&(c_initial>sub_line)'),'pcwgt'].sum(level=event_level))
+    pov_df_event = (pov_df.loc[pov_df.eval('(c_pre_reco<=pov_line)'),'pcwgt'].sum(level=event_level)
+                    -pov_df.loc[pov_df.eval('(c_initial<=pov_line)'),'pcwgt'].sum(level=event_level)).to_frame(name='net_chg_pov_c')
+    pov_df_event['net_chg_pov_i'] = (pov_df.loc[pov_df.eval('(i_pre_reco<=pov_line)'),'pcwgt'].sum(level=event_level)
+                                     -pov_df.loc[pov_df.eval('(c_initial<=pov_line)'),'pcwgt'].sum(level=event_level))
 
     # hack!
     if myC == 'MW':
@@ -290,7 +290,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
     pov_df_event['net_chg_sub_i'] = (pov_df.loc[pov_df.eval('(i_pre_reco<=sub_line)'),'pcwgt'].sum(level=event_level).fillna(0)
                                      -pov_df.loc[pov_df.eval('(c_initial<=sub_line)'),'pcwgt'].sum(level=event_level).fillna(0))
 
-    pov_df_event['init_pov'] = pov_df.loc[pov_df.eval('(c_initial<=pov_line)&(c_initial>sub_line)'),'pcwgt'].sum(level=event_level).fillna(0)
+    pov_df_event['init_pov'] = pov_df.loc[pov_df.eval('(c_initial<=pov_line)'),'pcwgt'].sum(level=event_level).fillna(0)
     pov_df_event['init_sub'] = pov_df.loc[pov_df.eval('(c_initial<=sub_line)'),'pcwgt'].sum(level=event_level).fillna(0)        
 
     pov_df_event['reg_pop'] = pov_df['pcwgt'].sum(level=event_level)
@@ -413,7 +413,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
         for myRP in [[10,1E0,'']]:
 
             make_map_from_svg(
-                pov_df_event.loc[(pov_df_event.hazard==myDis)&(pov_df_event.rp==myRP[0]),['net_chg_pov_c','net_chg_sub_c']].sum(axis=1)/(myRP[1]*100.), 
+                pov_df_event.loc[(pov_df_event.hazard==myDis)&(pov_df_event.rp==myRP[0]),'net_chg_pov_c']/(myRP[1]*100.), 
                 svg_file,
                 outname='new_poverty_incidence_'+myDis+'_'+str(myRP[0]),
                 color_maper=plt.cm.get_cmap('Reds'), 
@@ -423,7 +423,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
                 res=2000)
             
             make_map_from_svg(
-                (pov_df_event.loc[(pov_df_event.hazard==myDis)&(pov_df_event.rp==myRP[0]),['net_chg_pov_c','net_chg_sub_c']].sum(axis=1)
+                (pov_df_event.loc[(pov_df_event.hazard==myDis)&(pov_df_event.rp==myRP[0]),'net_chg_pov_c']
                  /pov_df_event.loc[(pov_df_event.hazard==myDis)&(pov_df_event.rp==myRP[0]),'reg_pop']),
                 svg_file,
                 outname='new_poverty_incidence_pct_'+myDis+'_'+str(myRP[0]),
@@ -436,7 +436,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
             plt.close('all')
 
     make_map_from_svg(
-        pov_df_region[['net_chg_pov_c','net_chg_sub_c']].sum(axis=1)/1E3,
+        pov_df_region['net_chg_pov_c']/1E3,
         svg_file,
         outname=myC+'_new_poverty_incidence_allHaz_allRPs',
         color_maper=plt.cm.get_cmap('Reds'), 
@@ -446,7 +446,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
         res=2000)
 
     make_map_from_svg(
-        1E2*1.E3*(pov_df_region[['net_chg_pov_c','net_chg_sub_c']].sum(axis=1)/pov_df_region[['init_pov','init_sub']].sum(axis=1)), 
+        1E2*1.E3*(pov_df_region['net_chg_pov_c']/pov_df_region['init_pov']), 
         svg_file,
         outname=myC+'_new_poverty_as_pct_of_incidence_pct_allHaz_allRPs',
         color_maper=plt.cm.get_cmap('Reds'), 
@@ -456,7 +456,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
         res=2000)
     
     make_map_from_svg(
-        1E2*1.E3*(pov_df_region[['net_chg_pov_c','net_chg_sub_c']].sum(axis=1)/pov_df_region.reg_pop), 
+        1E2*1.E3*(pov_df_region['net_chg_pov_c']/pov_df_region.reg_pop), 
         svg_file,
         outname=myC+'_new_poverty_incidence_pct_allHaz_allRPs',
         color_maper=plt.cm.get_cmap('Reds'), 
