@@ -18,7 +18,7 @@ def plot_impact_by_quintile(myCountry,aProv,aDis,anRP,iah_res):
 
     for myQ in range(1,6): #nQuintiles
 
-        print(aProv,aDis,anRP,'shape:',iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].shape[0])
+        #print(aProv,aDis,anRP,'shape:',iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].shape[0])
 
         k = (0.01*iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['k','pcwgt']].prod(axis=1).sum()/
              iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
@@ -38,14 +38,12 @@ def plot_impact_by_quintile(myCountry,aProv,aDis,anRP,iah_res):
         pds_dw = (iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['pds_dw','pcwgt']].prod(axis=1).sum()/
                   iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
 
-        try:
-            pds2_dw = (iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['pds2_dw','pcwgt']].prod(axis=1).sum()/
-                           iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
+        try: pds2_dw = (iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['pds2_dw','pcwgt']].prod(axis=1).sum()/
+                        iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
         except: pds2_dw = 0
 
-        try:
-            pds3_dw = (iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['pds3_dw','pcwgt']].prod(axis=1).sum()/
-                           iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
+        try: pds3_dw = (iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),['pds3_dw','pcwgt']].prod(axis=1).sum()/
+                        iah_res.loc[(iah_res[economy]==aProv)&(iah_res.hazard==aDis)&(iah_res.rp==anRP)&(iah_res.quintile==myQ),'pcwgt'].sum())
         except: pds3_dw = 0
 
         ax.bar([6*ii+myQ for ii in range(1,5)],[dk,dw,pds_nrh,pds_dw],
@@ -86,7 +84,7 @@ def plot_impact_by_quintile(myCountry,aProv,aDis,anRP,iah_res):
     plt.ylabel('Disaster losses ['+get_currency(myCountry)[0][3:]+' per capita]')
     sns.despine(bottom=True)
 
-    print('losses_k_'+aDis+'_'+str(anRP)+'.pdf')
+    print('wrote losses_k_'+aDis+'_'+str(anRP)+'.pdf')
     fig.savefig(output_plots+'npr_'+aProv.replace(' ','')+'_'+aDis+'_'+str(anRP)+'.pdf',format='pdf')#+'.pdf',format='pdf')
     fig.savefig(output_plots+'png/npr_'+aProv.replace(' ','')+'_'+aDis+'_'+str(anRP)+'.png',format='png')
 

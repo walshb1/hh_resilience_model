@@ -369,11 +369,11 @@ iah_ntl = iah_ntl.reset_index()
 #########################
 # Save out
 iah_ntl.to_csv(output+'poverty_ntl_by_haz.csv')
-iah_ntl = iah_ntl.reset_index().set_index(['hazard','rp'])
+iah_ntl = iah_ntl.reset_index().set_index(['hazard','rp']).sort_index()
 iah_ntl_haz,_ = average_over_rp(iah_ntl,'default_rp')
 iah_ntl_haz.sum(level='hazard').to_csv(output+'poverty_haz_sum.csv')
 
-iah_ntl = iah_ntl.reset_index().set_index('rp').sum(level='rp')
+iah_ntl = iah_ntl.reset_index().set_index('rp').sum(level='rp').sort_index()
 iah_ntl.to_csv(output+'poverty_ntl.csv')
 iah_sum,_ = average_over_rp(iah_ntl,'default_rp')
 iah_sum.sum().to_csv(output+'poverty_sum.csv')
@@ -381,14 +381,15 @@ iah_sum.sum().to_csv(output+'poverty_sum.csv')
 
 myHaz = None
 if myCountry == 'FJ': myHaz = [['Ba','Lau','Tailevu'],get_all_hazards(myCountry,iah_res),[1,10,100,500,1000]]
-elif myCountry == 'PH': myHaz = [['V - Bicol','II - Cagayan Valley','NCR','IVA - CALABARZON','ARMM','CAR'],['HU','EQ'],[10,25,50,100,250,500]]
+#elif myCountry == 'PH': myHaz = [['V - Bicol','II - Cagayan Valley','NCR','IVA - CALABARZON','ARMM','CAR'],['HU','EQ'],[10,25,50,100,250,500]]
+elif myCountry == 'PH': myHaz = [['II - Cagayan Valley'],['HU'],[25]]
 elif myCountry == 'SL': myHaz = [['Ampara','Colombo','Rathnapura'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
 elif myCountry == 'MW': myHaz = [['Lilongwe','Chitipa'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
 
 ##################################################################
 # This code generates output on poverty dimensions
 # ^ this is by household, so we use iah
-if True:
+if False:
     run_poverty_duration_plot(myCountry)
     run_poverty_tables_and_maps(myCountry,iah.reset_index().set_index(event_level),event_level)
     map_recovery_time('PH')
@@ -397,14 +398,15 @@ if True:
 # This code generates the histograms showing income before & after disaster
 # ^ this is at household level, so we'll use iah
 if True:            
-    with Pool(processes=4,maxtasksperchild=1) as pool:
+    with Pool(processes=3,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
-        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[iah],myHaz[0],myHaz[1],myHaz[2])))         
+        try: pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[iah],myHaz[0],myHaz[1],myHaz[2])))
+        except: pass
 
 ##################################################################
 # This code generates the histograms including [k,dk,dc,dw,&pds]
 # ^ this is by province/region, so it will use iah_res
-if True:
-    with Pool(processes=4,maxtasksperchild=1) as pool:
+if False:
+    with Pool(processes=3,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
         pool.starmap(plot_impact_by_quintile,list(product([myCountry],myHaz[0],myHaz[1],myHaz[2],[iah_res])))  

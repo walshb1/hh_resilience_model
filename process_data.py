@@ -95,8 +95,11 @@ def reco_time_plots(myC):
     #######################
     # Pull up poverty_duration_no.csv to get optimal_hh_reco_rate and post-reco hh_reco_rate
     _povdur = pd.read_csv('../output_country/'+myCountry+'/poverty_duration_no.csv')
-    _povdur['optimal_t_reco'] = (np.log(1/0.05)/_povdur['optimal_hh_reco_rate']).fillna(15).clip(upper=15)
-    _povdur['t_reco'] = (np.log(1/0.05)/_povdur['hh_reco_rate']).fillna(15).clip(upper=15)
+    _povdur = _povdur.loc[_povdur.eval('(dk0!=0)&(optimal_hh_reco_rate!=0)')]
+
+    _povdur['optimal_t_reco'] = (np.log(1/0.05)/_povdur['optimal_hh_reco_rate']).clip(upper=15)
+    _povdur['t_reco'] = (np.log(1/0.05)/_povdur['hh_reco_rate']).clip(upper=15)
+    _povdur = _povdur.dropna(how='any')
 
     _haz = '"HU"'
     _crit = '(hazard=='+_haz+')'#+'&(region=='+_regA+')'
@@ -109,7 +112,6 @@ def reco_time_plots(myC):
                  '"DR"':'drought'}
 
     _povdur = _povdur.loc[_povdur.eval(_crit)]
-    print(_povdur.head())
     #_povdur.to_csv('~/Desktop/out.csv')
 
     for irp in [1,10,25,30,50,100,200,250,500,1000,2000]:
@@ -135,8 +137,8 @@ def reco_time_plots(myC):
                 fig.set_size_inches(6.5,5.5)
 
                 # define binning using entire dataset
-                _init_bins = np.linspace(0,14.99,32)
-                _h,_b = np.histogram(_povdur.t_reco,bins=_init_bins,weights=_povdur.pcwgt/1.E6)
+                _init_bins = np.linspace(0,15,32)
+                _h,_b = np.histogram(_povdur.t_reco.fillna(0),bins=_init_bins,weights=_povdur.pcwgt.fillna(0)/1.E6)
 
                 ###########
                 crit_grpA = '(rp=='+str(irp)+')&('+economy+'=='+_regA+')'
@@ -172,19 +174,21 @@ def reco_time_plots(myC):
                 except: strmeanA, strmeanB = '',''
 
                 plt.plot([meanA,meanA],[0,_ymax],color=q_colors[0])
-                ax.annotate(('Region: '+_regA.replace('"','')
-                             +'\nMean asset loss : $'+strmeanlossA+' per cap'
-                             +'\nMean recovery time : '+strmeanA+' years'),
-                            xy=(meanA+0.2,_ymax),ha='left',va='top',size=8.5,color=greys_pal[7],weight='bold',linespacing=1.5)
+                ax.annotate((r"$\bf{Region:\ "+_regA.replace('"','')+r"}$"+"\n"
+                             +r"Mean per cap asset loss ($\Delta k^{eff}$)"
+                             +": US\$"+strmeanlossA+"\n"
+                             +r"Mean recovery time ($\tau$): "+strmeanA+" years"),
+                            xy=(meanA+0.2,_ymax),ha='left',va='top',size=7.5,color=greys_pal[7],weight='light',linespacing=1.3)
 
                 if not plot_both: ax.step(_b[:-1],heightsB/sumwgtB, linewidth=1.2,color=greys_pal[5],where='mid')
                 else: 
                     _shift = 0.8
                     plt.plot([meanB,meanB],[0,_shift*_ymax],color=q_colors[1])
-                    ax.annotate((economy[0].upper()+economy[1:]+': '+_regB.replace('"','')
-                                 +'\nMean asset loss: $'+strmeanlossB+' per person'
-                                 +'\nMean recovery time: '+strmeanB+' years'),
-                                xy=(meanB+0.2,_shift*_ymax),ha='left',va='top',size=8.5,color=greys_pal[7],weight='bold',linespacing=1.5)
+                    ax.annotate((r"$\bf{Region:\ "+_regB.replace('"','')+r"}$"+"\n"
+                             +r"Mean per cap asset loss ($\Delta k^{eff}$)"
+                             +": US\$"+strmeanlossB+"\n"
+                             +r"Mean recovery time ($\tau$): "+strmeanB+" years"),
+                                xy=(meanB+0.2,_shift*_ymax),ha='left',va='top',size=7.5,color=greys_pal[7],weight='light',linespacing=1.3)
 
                     ax.bar(_b[:-1],heightsB/sumwgtB, width=(_b[1]-_b[0]), align='center', facecolor=q_colors[1],alpha=0.60,linewidth=0)
                     ax.step(_b[:-1],heightsB/sumwgtB, linewidth=1.2,color=q_colors[1],zorder=100,where='mid')
@@ -301,6 +305,7 @@ def format_delta_p(delta_p):
 
 
 reco_time_plots(myCountry)
+assert(False)
 
 #######################
 # Load output files
