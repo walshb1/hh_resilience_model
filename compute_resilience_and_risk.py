@@ -155,6 +155,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
                                       'di0_prv','di0_pub','dc0_prv','dc0_pub',
                                       'pc_fee_BE','scale_fac_soc',
                                       'c_min','macro_multiplier',
+                                      'has_ew','ew_expansion','v_with_ew','sub_savings_q1','sub_savings_q3',
                                       'SP_CPP','SP_FAP','SP_FNPF','SP_SPS','SP_PBS','SPP_core','SPP_add','nOlds','dc_0'] if icol in iah.columns],axis=1)
     iah.loc[iah.pcwgt!=0].to_csv(output+'iah_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('\n******************\nStep I: wrote iah (excluding all hh with pcwgt = 0) ... still a huge file. See anything to drop?\n',iah.columns)
