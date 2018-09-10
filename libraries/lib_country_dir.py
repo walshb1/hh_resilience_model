@@ -379,6 +379,7 @@ def load_survey_data(myC):
                                                         'hhwgt','fsize','poorhh','totdis','tothrec','pcinc_s','pcinc_ppp11','pcwgt',
                                                         'radio_qty','tv_qty','cellphone_qty','pc_qty',
                                                         'savings','invest'])
+
         df = df.rename(columns={'tothrec':'hhsoc','poorhh':'ispoor','totex':'hhexp'})
 
         df['hhsize']     = df['pcwgt']/df['hhwgt']
