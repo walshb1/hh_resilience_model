@@ -8,8 +8,26 @@ import numpy as np
 import os
 
 from libraries.lib_country_dir import get_currency,get_pop_scale_fac,get_subsistence_line,get_economic_unit,int_w_commas
-from libraries.lib_common_plotting_functions import greys_pal,q_colors
+from libraries.lib_common_plotting_functions import greys_pal,q_colors,blues_pal
 
+def axis_data_coords_sys_transform(axis_obj_in,xin,yin,inverse=False):
+    """ inverse = False : Axis => Data
+                = True  : Data => Axis
+    """
+    xlim = axis_obj_in.get_xlim()
+    ylim = axis_obj_in.get_ylim()
+
+    xdelta = xlim[1] - xlim[0]
+    ydelta = ylim[1] - ylim[0]
+    if not inverse:
+        xout =  xlim[0] + xin * xdelta
+        yout =  ylim[0] + yin * ydelta
+    else:
+        xdelta2 = xin - xlim[0]
+        ydelta2 = yin - ylim[0]
+        xout = xdelta2 / xdelta
+        yout = ydelta2 / ydelta
+    return xout,yout
 
 def plot_income_and_consumption_distributions(myCountry,iah,aReg,aDis,anRP):
 
@@ -45,6 +63,8 @@ def plot_income_and_consumption_distributions(myCountry,iah,aReg,aDis,anRP):
             ax=plt.gca()
 
             plt.xlim(0,sf_x*upper_clip)
+            if aReg == 'II - Cagayan Valley' and aDis == 'HU' and anRP == 25: plt.ylim(0,400)
+        
             mny = get_currency(myCountry)
             plt.xlabel(_fom_lab+r' [USD per person, per year]')
             plt.ylabel('Population'+get_pop_scale_fac(myCountry)[1])
@@ -66,23 +86,23 @@ def plot_income_and_consumption_distributions(myCountry,iah,aReg,aDis,anRP):
             sns.despine()
             plt.gca().grid(False,axis='x')
 
-            ax.step(c_bins[1][1:], ci_heights, label=aReg+' - FIES income', linewidth=1.2,color=greys_pal[8])
+            ax.step(c_bins[1][1:], ci_heights, label=aReg+' - FIES income', linewidth=1.2,color=greys_pal[6])
             #leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)             
             ax.get_figure().savefig(output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_1of3.pdf',format='pdf')
 
             #ax.step(c_bins[1][:-1], cf_heights, label=aReg+' - post-disaster', facecolor=q_colors[1],alpha=0.45)
             ax.bar(c_bins[1][:-1], cf_heights, width=(c_bins[1][1]-c_bins[1][0]), align='edge', 
-                   label=aReg+' - post-disaster', facecolor=q_colors[1],edgecolor=None,linewidth=0,alpha=0.45)
+                   label=aReg+' - post-disaster', facecolor=q_colors[1],edgecolor=None,linewidth=0,alpha=0.65)
             #leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
             ax.get_figure().savefig(output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_2of3.pdf',format='pdf')
 
             plt.annotate('Pre-disaster '+_fom_lab.lower()+'\n(reported)',xy=(c_bins[1][-2],ci_heights[-1]),xytext=(c_bins[1][-4],ci_heights[-1]*1.04),
-                         arrowprops=dict(arrowstyle="-",facecolor=greys_pal[4],connectionstyle="angle,angleA=0,angleB=90,rad=5"),
-                         clip_on=False,size=7,weight='light',ha='right',va='center',color=greys_pal[7])
+                         arrowprops=dict(arrowstyle="-",facecolor=greys_pal[8],connectionstyle="angle,angleA=0,angleB=90,rad=5"),
+                         clip_on=False,size=7,weight='light',ha='right',va='center',color=greys_pal[8])
             plt.annotate('Post-disaster '+_fom_lab.lower()+'\n(modeled)',xy=((c_bins[1][-2]+c_bins[1][-1])/1.99,cf_heights[-1]*0.95),xytext=(c_bins[1][-4],cf_heights[-1]*0.95),
-                         arrowprops=dict(arrowstyle="-",facecolor=greys_pal[4]),clip_on=False,size=7,weight='light',ha='right',va='center',color=q_colors[1])
+                         arrowprops=dict(arrowstyle="-",facecolor=greys_pal[4]),clip_on=False,size=7,weight='light',ha='right',va='center',color=blues_pal[8])
 
-            #ax.bar(c_bins[1][:-1], cf_reco_hgt, width=(c_bins[1][1]-c_bins[1][0]), label=aReg+' - post-reconstruction', facecolor=q_colors[2],edgecolor=q_colors[2],alpha=0.45)
+            #ax.bar(c_bins[1][:-1], cf_reco_hgt, width=(c_bins[1][1]-c_bins[1][0]), label=aReg+' - post-reconstruction', facecolor=q_colors[1],edgecolor=q_colors[1],alpha=0.65)
             #ax.step(c_bins[1][1:], ci_heights, label=aReg+' - FIES income', linewidth=1.2,color=greys_pal[8])            
 
             #if myC_ylim == None: myC_ylim = ax.get_ylim()
@@ -122,13 +142,22 @@ def plot_income_and_consumption_distributions(myCountry,iah,aReg,aDis,anRP):
             try: net_chg_pov_pct = abs(round(100.*float(net_chg_pov)/float(iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'pcwgt'].sum()),1))
             except: net_chg_pov_pct = 0
 
-            plt.plot([sf_x*iah.pov_line.mean(),sf_x*iah.pov_line.mean()],[0,1.16*cf_heights[:-2].max()],'k-',lw=2.5,color=greys_pal[7],zorder=100,alpha=0.85)
-            ax.annotate('Poverty line',xy=(sf_x*1.1*iah.pov_line.mean(),1.16*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',fontsize=9,
+            trans = ax.get_xaxis_transform() # x in data units, y in axes fraction
+
+            pov_anno_y = 0.75
+            sub_anno_y = 0.90
+            anno_y_offset = 0.045
+
+            _,pov_anno_y_data = axis_data_coords_sys_transform(ax,0,pov_anno_y,inverse=False)
+            _,sub_anno_y_data = axis_data_coords_sys_transform(ax,0,sub_anno_y,inverse=False)
+
+            plt.plot([sf_x*iah.pov_line.mean(),sf_x*iah.pov_line.mean()],[0,pov_anno_y_data],'k-',lw=2.,color=greys_pal[8],zorder=100,alpha=0.85)
+            ax.annotate('Poverty line',xy=(sf_x*1.1*iah.pov_line.mean(),pov_anno_y),xycoords=trans,ha='left',va='top',fontsize=9,
                         annotation_clip=False,weight='bold',color=greys_pal[7])
 
-            ax.annotate('Increase of '+int_w_commas(net_chg_pov)+' ('+str(net_chg_pov_pct)+'%)\n Filipinos in '+_fom_lab.lower()+' poverty',
-                        weight='light',color=greys_pal[7],xy=(sf_x*1.1*iah.pov_line.mean(),1.09*cf_heights[:-2].max()),
-                        xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
+            ax.annotate('Increase of '+int_w_commas(net_chg_pov)+' ('+str(net_chg_pov_pct)+'%)\nFilipinos in '+_fom_lab.lower()+' poverty',
+                        weight='light',color=greys_pal[7],xy=(sf_x*1.1*iah.pov_line.mean(),pov_anno_y-anno_y_offset),
+                        xycoords=trans,ha='left',va='top',fontsize=9,annotation_clip=False)
 
             sub_line, net_chg_sub = get_subsistence_line(myCountry), None
             if sub_line is not None:
@@ -140,12 +169,12 @@ def plot_income_and_consumption_distributions(myCountry,iah,aReg,aDis,anRP):
                 try: net_chg_sub_pct = round(100.*float(net_chg_sub)/float(iah.loc[(iah[economy]==aReg)&(iah.hazard==aDis)&(iah.rp==anRP),'pcwgt'].sum()),1)
                 except: net_chg_sub_pct = 0
 
-                plt.plot([sf_x*sub_line,sf_x*sub_line],[0,1.36*cf_heights[:-2].max()],'k-',lw=2.5,color=greys_pal[7],zorder=100,alpha=0.85)
-                ax.annotate('Subsistence line',xy=(sf_x*1.1*sub_line,1.36*cf_heights[:-2].max()),xycoords='data',ha='left',va='top',
+                plt.plot([sf_x*sub_line,sf_x*sub_line],[0,sub_anno_y_data ],'k-',lw=2.5,color=greys_pal[8],zorder=100,alpha=0.85)
+                ax.annotate('Subsistence line',xy=(sf_x*1.1*sub_line,sub_anno_y),xycoords=trans,ha='left',va='top',
                             color=greys_pal[7],fontsize=9,annotation_clip=False,weight='bold')
-                ax.annotate('Increase of '+int_w_commas(net_chg_sub)+'('+str(net_chg_sub_pct)+'%)\n Filipinos in '+_fom_lab.lower()+' subsistence',
-                            weight='light',color=greys_pal[7],xy=(sf_x*1.1*sub_line,1.29*cf_heights[:-2].max()),
-                            xycoords='data',ha='left',va='top',fontsize=9,annotation_clip=False)
+                ax.annotate('Increase of '+int_w_commas(net_chg_sub)+' ('+str(net_chg_sub_pct)+'%)\nFilipinos in '+_fom_lab.lower()+' subsistence',
+                            weight='light',color=greys_pal[7],xy=(sf_x*1.1*sub_line,sub_anno_y-anno_y_offset),
+                            xycoords=trans,ha='left',va='top',fontsize=9,annotation_clip=False)
 
             #print(aReg,aDis,anRP,net_chg_pov,'people into poverty &',net_chg_sub,'into subsistence') 
 

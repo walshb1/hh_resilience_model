@@ -15,6 +15,7 @@ sns_pal = sns.color_palette('Set1', n_colors=8, desat=.4)
 #q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
 pubugn_pal = sns.color_palette('PuBuGn', n_colors=9)
+blues_pal = sns.color_palette('Blues', n_colors=9)
 q_colors = [pubugn_pal[1],pubugn_pal[3],pubugn_pal[5],pubugn_pal[6],pubugn_pal[8]]
 
 def title_legend_labels(ax,pais,lab_x=None,lab_y=None,lim_x=None,lim_y=None,leg_fs=9):
