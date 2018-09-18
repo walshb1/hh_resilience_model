@@ -175,7 +175,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 2 and (sys.argv[2] == 'true' or sys.argv[2] == 'True'): debug = True
     
     if myCountry == 'PH':
-        pds_str = ['unif_poor','no']
+        pds_str = ['prop']#'unif_poor_only','prop_q1']#,'unif_poor','no']
         pol_str = ['']
 
         if debug: launch_compute_resilience_and_risk_thread(myCountry,'','no')#_infsavings also an option

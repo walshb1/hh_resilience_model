@@ -52,7 +52,7 @@ def get_currency(myC):
     
     if myC == 'PH': return ['b. PhP',1.E9,1./50.]
     elif myC == 'FJ': return ['k. F\$',1.E3,1./2.]
-    elif myC == 'SL': return ['b. LKR',1.E9,1./153.]
+    elif myC == 'SL': return ['LKR',1.E9,1./153.]
     elif myC == 'MW': return ['MWK',1.E9,1./724.64]
     else: return ['XXX',1.E0]
 

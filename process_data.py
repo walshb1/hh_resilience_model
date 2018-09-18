@@ -305,7 +305,6 @@ def format_delta_p(delta_p):
 
 
 reco_time_plots(myCountry)
-assert(False)
 
 #######################
 # Load output files
@@ -377,9 +376,22 @@ if myCountry == 'MW':
 #######################
 print('--> Map subnational GDP')
 make_map_from_svg(
+    df_prov.gdp_hh*1.E-6,
+    svg_file,
+    outname=myCountry+'_gdp_php',
+    color_maper=plt.cm.get_cmap('GnBu'),
+    #svg_handle = 'reg',
+    label=economy[0].upper()+economy[1:]+' GDP [mil. PhP per year]',
+    new_title=economy[0].upper()+economy[1:]+' GDP [mil. PhP per year]',
+    do_qualitative=False,
+    res=2000)
+
+#######################
+print('--> Map subnational GDP')
+make_map_from_svg(
     df_prov.gdp_hh*get_currency(myCountry)[2]*1.E-6,
     svg_file,
-    outname=myCountry+'_gdp',
+    outname=myCountry+'_gdp_usd',
     color_maper=plt.cm.get_cmap('GnBu'),
     #svg_handle = 'reg',
     label=economy[0].upper()+economy[1:]+' GDP [mil. USD per year]',
@@ -401,11 +413,24 @@ make_map_from_svg(
     res=2000)
 
 #######################
+print('--> Map asset losses in PHP')
+make_map_from_svg(
+    df_prov.dKtot*1.E-9,
+    svg_file,
+    outname=myCountry+'_asset_risk_php',
+    color_maper=plt.cm.get_cmap('GnBu'),
+    #svg_handle = 'reg',
+    label='Annual asset risk [bil. PhP]',
+    new_title='Annual asset risk [bil. PhP]',
+    do_qualitative=False,
+    res=2000)
+
+#######################
 print('--> Map asset losses in USD')
 make_map_from_svg(
     df_prov.dKtot*get_currency(myCountry)[2]*1.E-6,
     svg_file,
-    outname=myCountry+'_asset_risk',
+    outname=myCountry+'_asset_risk_usd',
     color_maper=plt.cm.get_cmap('GnBu'),
     #svg_handle = 'reg',
     label='Annual asset risk [mUSD]',
@@ -427,11 +452,24 @@ make_map_from_svg(
     res=2000)
 
 #######################
+print('--> Map welfare losses in PHP')
+make_map_from_svg(
+    df_prov.dWtot_currency*1.E-9,
+    svg_file,
+    outname=myCountry+'_welf_risk_php',
+    color_maper=plt.cm.get_cmap('OrRd'),
+    #svg_handle = 'reg',
+    label='Annual well-being risk [bil. PhP]',
+    new_title='Annual well-being risk [bil. PhP]',
+    do_qualitative=False,
+    res=2000)
+
+#######################
 print('--> Map welfare losses in USD')
 make_map_from_svg(
     df_prov.dWtot_currency*get_currency(myCountry)[2]*1.E-6,
     svg_file,
-    outname=myCountry+'_welf_risk',
+    outname=myCountry+'_welf_risk_usd',
     color_maper=plt.cm.get_cmap('OrRd'),
     #svg_handle = 'reg',
     label='Annual well-being risk [mUSD]',
@@ -439,6 +477,7 @@ make_map_from_svg(
     do_qualitative=False,
     res=2000)
 
+assert(False)
 #######################
 print('Map welfare losses as fraction of regional GDP')
 make_map_from_svg(
