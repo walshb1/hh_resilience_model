@@ -7,16 +7,20 @@ get_ipython().magic('load_ext autoreload')
 get_ipython().magic('autoreload 2')
 
 import sys
-import pandas as pd
+import os, glob
 import numpy as np
-import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
+import scipy.stats as pystat
+import matplotlib.pyplot as plt
 
+from libraries.lib_average_over_rp import *
 from libraries.lib_common_plotting_functions import *
+from libraries.lib_country_dir import get_all_rps, get_poverty_line, get_currency
 from libraries.lib_gather_data import match_percentiles, perc_with_spline, reshape_data
-from libraries.lib_country_dir import get_all_rps, get_poverty_line
 
 pairs_pal = sns.color_palette('Paired', n_colors=12)
+greys_pal = sns.color_palette('Greys', n_colors=9)
 
 myCountry = 'PH'
 try: myCountry = sys.argv[1]
@@ -137,4 +141,122 @@ sns.despine()
 plt.savefig('../output_plots/'+myCountry+'/poverty_gap_by_'+agglev+'.pdf',format='pdf')
 plt.close('all')
 
-# Plot
+
+plt.close('all')
+#################################################
+#################################################
+# Plot cost of SP policy by return period
+
+rp = 10         # Return period,
+p = 1/rp        # Probability of getting "red" at the roulette
+hh = pystat.binom(rp, p)
+
+event_cost = 1.E3
+total_cost = 0
+for k in range(0,rp+1):  # DO NOT FORGET THAT THE LAST INDEX IS NOT USED
+    print(k,hh.pmf(k), event_cost*k*hh.pmf(k))
+    total_cost += event_cost*k*hh.pmf(k)
+print(total_cost)
+
+
+path = os.getcwd()+'/../output_country/'+myCountry+'/'
+pattern = 'sp_costs_*.csv'
+
+_spdict = {'no':'No PDS',
+           'unif_poor':'Uniform Q1-Q5',
+           'unif_poor_only':'Uniform Q1',
+           'prop_q1':'Proportional Q1',
+           'prop':'Proportional Q1-Q5'}
+_spcols = {'no':greys_pal[4],
+           'unif_poor':pairs_pal[0],
+           'unif_poor_only':pairs_pal[1],
+           'prop_q1':pairs_pal[3],
+           'prop':pairs_pal[2]}
+
+ax = plt.gca()
+df_max = 1000
+for f in glob.glob(path+pattern):
+    _spcode = f.replace(path,'').replace('sp_costs_','').replace('.csv','')
+    if _spcode == 'no': continue
+
+    _spdf = pd.read_csv(f).set_index(['region','hazard','rp']).sum(level='rp').drop(2000)*get_currency(myCountry)[2]*1E-6
+
+    _spdf.plot(_spdf.index.values,'event_cost',ax=ax,label=_spdict[_spcode],lw=2.,color=_spcols[_spcode],legend=False)
+
+    plt.annotate(_spdict[_spcode],xy=(df_max,_spdf.loc[df_max,'event_cost']),xycoords='data',ha='right',va='bottom',weight='bold',fontsize=7,clip_on=False)
+
+title_legend_labels(ax,'',lab_x='Return period [years]',lab_y='Event cost (mUSD)',lim_x=None,lim_y=None,leg_fs=9,do_leg=False)
+
+sns.despine()
+ax.xaxis.grid(False)
+#plt.gca().grid(False)
+plt.xlim(0,df_max)
+plt.ylim(0)
+plt.gcf().savefig('../output_plots/'+myCountry+'/sp/cost_by_sp.pdf',format='pdf')
+
+
+
+#################################################
+#################################################
+# Plot cost of SP policy by RP (inclusive of larger events)
+plt.clf()
+ax=plt.gca()
+df_max = 1000
+for f in glob.glob(path+pattern):
+    _spcode = f.replace(path,'').replace('sp_costs_','').replace('.csv','')
+    if _spcode == 'no': continue
+
+    _spdf = pd.read_csv(f).set_index(['region','hazard','rp']).sum(level='rp').drop(2000)*get_currency(myCountry)[2]*1E-6
+    _spdf['annual_event_cost'] = _spdf['event_cost']/_spdf.index.values
+    _spdf.loc[_spdf.index.values!=1].plot(_spdf.loc[_spdf.index.values!=1].index.values,'annual_event_cost',ax=ax,
+                                          label=_spdict[_spcode],lw=2.,color=_spcols[_spcode],legend=False)
+
+    _va = 'top'
+    if _spcode == 'unif_poor_only': _va = 'bottom'
+
+    plt.annotate(_spdict[_spcode],xy=(df_max,_spdf.loc[df_max,'annual_event_cost']),xycoords='data',ha='right',va=_va,weight='bold',fontsize=7,clip_on=False)
+
+title_legend_labels(ax,'',lab_x='Return period (inclusive of larger events) [years]',lab_y='Annual cost of SP (mUSD)',lim_x=None,lim_y=None,leg_fs=9,do_leg=False)
+
+sns.despine()
+ax.xaxis.grid(False)
+#plt.gca().grid(False)
+plt.xlim(0,df_max)
+plt.ylim(0)
+plt.gcf().savefig('../output_plots/'+myCountry+'/sp/annual_cost_by_sp.pdf',format='pdf')
+
+
+
+#################################################
+#################################################
+# Plot cost of SP policy by RP (inclusive of smaller events)
+plt.clf()
+rp_max = 200
+
+ax=plt.gca()
+for f in glob.glob(path+pattern):
+    _spcode = f.replace(path,'').replace('sp_costs_','').replace('.csv','')
+    if _spcode == 'no': continue
+
+    _spdf = pd.read_csv(f).set_index(['region','hazard','rp']).sum(level='rp').drop(['avg_admin_cost','avg_natl_cost'],axis=1)*get_currency(myCountry)[2]*1E-6
+    _spavgdf = pd.read_csv(f).set_index(['region','hazard','rp']).mean(level='rp').drop('event_cost',axis=1)*get_currency(myCountry)[2]*1E-6
+    
+    _spdf,_ = average_over_rp(_spdf)
+    _spdf['rp'] = _spavgdf.index.values
+    _spdf = _spdf.reset_index().set_index('rp').drop('index',axis=1)
+
+    _spdf['cumsum'] = _spdf['event_cost'].cumsum()
+
+    _spdf = _spdf.drop([_rp for _rp in _spdf.index.values if _rp > rp_max])
+    _spdf.plot(_spdf.index.values,'cumsum',ax=ax,label=_spdict[_spcode],lw=2.,color=_spcols[_spcode],legend=False)
+
+    plt.annotate(_spdict[_spcode],xy=(rp_max,_spdf.loc[rp_max,'cumsum']+2),xycoords='data',ha='right',va='bottom',weight='bold',fontsize=7,clip_on=False)
+
+title_legend_labels(ax,'',lab_x='Maximum event covered by SP [return period, years]',lab_y='Annual cost (mUSD)',lim_x=None,lim_y=None,leg_fs=9,do_leg=False)
+
+sns.despine()
+plt.xticks([0,50,100,150,200])
+ax.xaxis.grid(False)
+plt.xlim(0,rp_max)
+plt.ylim(0)
+plt.gcf().savefig('../output_plots/'+myCountry+'/sp/avg_cum_cost_by_sp.pdf',format='pdf',bbox_inches='tight')

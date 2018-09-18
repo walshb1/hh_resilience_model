@@ -1,0 +1,84 @@
+import pandas as pd
+import seaborn as sns
+import brewer2mpl as brew
+import matplotlib.pyplot as plt
+
+from libraries.lib_country_dir import get_poverty_line
+from libraries.lib_plot_income_and_consumption_distributions import plot_income_and_consumption_distributions
+
+sns.set_style('whitegrid')
+brew_pal = brew.get_map('Set1', 'qualitative', 8).mpl_colors
+greys_pal = sns.color_palette('Greys', n_colors=9)
+
+if False:
+    fa_file = pd.read_csv('../intermediate/PH/hazard_ratios.csv')
+    
+    fa_file = fa_file.loc[fa_file.hazard!='EQ']
+    fa_file = fa_file.loc[(fa_file.region == 'I - Ilocos')|(fa_file.region=='II - Cagayan Valley')|(fa_file.region=='CAR')]
+    
+    fa_file = fa_file.reset_index().set_index(['region','hazard','rp'])
+    
+    fa_file = fa_file['fa'].mean(level=['region','hazard','rp'])
+    
+    print(fa_file)
+
+if True:
+    summary = pd.read_csv('../output_country/PH/my_summary_no.csv')
+
+    summary = summary.loc[summary.hazard!='EQ']
+    summary = summary.loc[(summary.region == 'I - Ilocos')|(summary.region=='II - Cagayan Valley')|(summary.region=='CAR')]
+
+    summary = summary.reset_index().set_index(['region','hazard','rp']).drop(['index','ratio_dw_lim_tot',
+                                                                              'dk_sub','dk_lim',
+                                                                              'dw_lim','dw_sub',
+                                                                              'res_lim','res_sub'],axis=1)
+
+    try: 
+        pov_hh = pd.read_csv('~/Desktop/tmp/ompong.csv').set_index(['region','hazard','rp'])
+
+    except:
+        pov_hh = pd.read_csv('../output_country/PH/new_pov_reg_haz_rp.csv')
+    
+        pov_hh = pov_hh.loc[pov_hh.hazard!='EQ']
+        pov_hh = pov_hh.loc[(pov_hh.region == 'I - Ilocos')|(pov_hh.region=='II - Cagayan Valley')|(pov_hh.region=='CAR')]
+        pov_hh = pov_hh.reset_index().set_index(['region','hazard','rp'])
+
+        pov_hh.to_csv('/Users/brian/Desktop/tmp/ompong.csv')
+
+    pline = get_poverty_line('PH')
+    
+    ##############
+    summary['poverty_change'] = pov_hh['new_pov_c']
+
+    summary = summary[['dk_tot','poverty_change']].sum(level=['hazard','rp'])
+
+    summary = summary.reset_index()
+    summary['dk_tot'] *= 1E-3 # was already in millions; now in billions
+    summary['poverty_change'] *= 1E-3 # now in thousands
+
+    ax = summary.loc[(summary.hazard=='HU')
+                     &(summary.rp!=2000)].plot('dk_tot','poverty_change',label='Wind',color=brew_pal[6])
+    summary.loc[(summary.hazard=='PF')&(summary.rp!=2000)].plot('dk_tot','poverty_change',ax=ax,label='Precipitation flood')
+    summary.loc[(summary.hazard=='SS')&(summary.rp!=2000)].plot('dk_tot','poverty_change',ax=ax,label='Storm surge')
+
+    for _rp in [10,50,100,200,500,1000]:
+        _x = int(summary.loc[(summary.hazard=='HU')&(summary.rp==_rp),'dk_tot'])
+        _yhi = int(summary.loc[(summary.hazard=='HU')&(summary.rp==_rp),'poverty_change'])
+        plt.plot([_x,_x],[0,_yhi],linestyle=':',color=greys_pal[5])
+
+        _lb = ' '
+        if _rp != 10: _lb = '\n'
+        plt.annotate(str(_rp)+'-year'+_lb+'event',xy=(_x+1,2),xycoords='data',ha='left',va='bottom',fontsize=6.5,weight='bold',color=greys_pal[6])
+
+    plt.title('Potential disaster impacts in Ilocos, Cagayan Valley, & CAR')
+
+    plt.xlabel('Asset losses [bil. PhP]',labelpad=8)
+    plt.ylabel('Consumption poverty increase (thousands)',labelpad=8)
+    plt.xlim(0)#,275)
+    plt.ylim(0)#,510)
+    plt.grid(False)
+    sns.despine()
+
+    plt.gcf().savefig('/Users/brian/Desktop/ompong/ompong.pdf',format='pdf')
+
+

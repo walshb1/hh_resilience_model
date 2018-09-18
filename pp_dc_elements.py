@@ -111,9 +111,11 @@ dc0 = float(_hh['dc0'])
 savings_usage = dc0*0.5
 
 k     = float(_hh['k'])
-dk0   = float(_hh['dk0'])
+
 dkprv = float(_hh['dk_private'])
-dkpub = float(_hh['dk_public'])
+dkpub = float(3*_hh['dk_public'])
+dkoth = float(4*_hh['dk_public'])
+dk0   = dkprv+dkpub+dkoth
 
 c_t       = [] 
 dc_k_t    = []
@@ -161,13 +163,13 @@ plt.annotate('Income\nlosses',[-0.14,(c_t[0]+(c_t[0]-dc_k_t[0]))/2.],fontsize=9,
 
 # Arrow shaft
 _ao = 800
-plt.plot([-.10,-.10],[c_t[0],c_t[0]-dc_k_t[0]+_ao],color=rdbu_pal[1],alpha=0.65,zorder=100)
+plt.plot([-.10,-.10],[c_t[0],c_t[0]-dc_k_t[0]+_ao],color=rdbu_pal[1],alpha=1.0,zorder=100)
 # top head
-plt.plot([-.12,-.10],[0.99*c_t[0],c_t[0]],color=rdbu_pal[1],alpha=0.65,zorder=100)
-plt.plot([-.08,-.10],[0.99*c_t[0],c_t[0]],color=rdbu_pal[1],alpha=0.65,zorder=100)
+plt.plot([-.12,-.10],[0.99*c_t[0],c_t[0]],color=rdbu_pal[1],alpha=1.0,zorder=100)
+plt.plot([-.08,-.10],[0.99*c_t[0],c_t[0]],color=rdbu_pal[1],alpha=1.0,zorder=100)
 # bottom head
-plt.plot([-.12,-.10],[1.01*(c_t[0]-dc_k_t[0]+_ao),(c_t[0]-dc_k_t[0]+_ao)],color=rdbu_pal[1],alpha=0.65,zorder=100)
-plt.plot([-.08,-.10],[1.01*(c_t[0]-dc_k_t[0]+_ao),(c_t[0]-dc_k_t[0]+_ao)],color=rdbu_pal[1],alpha=0.65,zorder=100)
+plt.plot([-.12,-.10],[1.01*(c_t[0]-dc_k_t[0]+_ao),(c_t[0]-dc_k_t[0]+_ao)],color=rdbu_pal[1],alpha=1.0,zorder=100)
+plt.plot([-.08,-.10],[1.01*(c_t[0]-dc_k_t[0]+_ao),(c_t[0]-dc_k_t[0]+_ao)],color=rdbu_pal[1],alpha=1.0,zorder=100)
 
 # Reconstruction costs
 plt.fill_between(t_lins,[i-j for i,j in zip(c_t,dc_k_t)],[i-j-k for i,j,k in zip(c_t,dc_k_t,dc_reco_t)],facecolor=rdbu_pal[2],alpha=0.45)
@@ -178,22 +180,22 @@ y_tmpB = c_t[0]-dc_k_t[0]-dc_reco_t[0]
 plt.annotate('Reconstruction\ncosts',[-0.14,(y_tmpA+y_tmpB)/2.],fontsize=9,ha='right',va='center',weight='bold')
 
 # Arrow shaft
-plt.plot([-.10,-.10],[y_tmpA,y_tmpB],color=rdbu_pal[2],alpha=0.85)
+plt.plot([-.10,-.10],[y_tmpA,y_tmpB],color=rdbu_pal[2],alpha=1.0)
 # top head
-plt.plot([-.12,-.10],[0.99*y_tmpA,y_tmpA],color=rdbu_pal[2],alpha=0.85)
-plt.plot([-.08,-.10],[0.99*y_tmpA,y_tmpA],color=rdbu_pal[2],alpha=0.85)
+plt.plot([-.12,-.10],[0.99*y_tmpA,y_tmpA],color=rdbu_pal[2],alpha=1.0)
+plt.plot([-.08,-.10],[0.99*y_tmpA,y_tmpA],color=rdbu_pal[2],alpha=1.0)
 # bottom head
-plt.plot([-.12,-.10],[1.08*y_tmpB,y_tmpB],color=rdbu_pal[2],alpha=0.85)
-plt.plot([-.08,-.10],[1.08*y_tmpB,y_tmpB],color=rdbu_pal[2],alpha=0.85)
+plt.plot([-.12,-.10],[1.08*y_tmpB,y_tmpB],color=rdbu_pal[2],alpha=1.0)
+plt.plot([-.08,-.10],[1.08*y_tmpB,y_tmpB],color=rdbu_pal[2],alpha=1.0)
 
-plt.gca().add_patch(patches.Rectangle((2.13,c_t[0]-1.44*dc_reco_t[26]),1.74,25000,facecolor='white',zorder=98,clip_on=False,ec=greys_pal[2]))
+plt.gca().add_patch(patches.Rectangle((2.13,c_t[0]-1.44*dc_reco_t[26]),1.74,25000,facecolor='white',zorder=98,clip_on=False,ec=greys_pal[5]))
 plt.gca().annotate('Area = lost productivity of\n             destroyed assets',
                    xy=(0.50,c_t[0]-dc_reco_t[45]), xycoords='data',
                    xytext=(2.20,c_t[0]-dc_reco_t[26]), textcoords='data', fontsize=10,
                    arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.05",lw=1.5),
                    ha='left',va='center',zorder=99)
 
-plt.gca().add_patch(patches.Rectangle((1.08,c_t[0]-1.12*dc_reco_t[15]),2.49,15000,facecolor='white',zorder=98,clip_on=False,ec=greys_pal[2]))
+plt.gca().add_patch(patches.Rectangle((1.08,c_t[0]-1.12*dc_reco_t[15]),2.49,15000,facecolor='white',zorder=98,clip_on=False,ec=greys_pal[5]))
 plt.gca().annotate(r'Area = total value of destroyed assets',
                    xy=(0.50,c_t[0]-dc_reco_t[15]), xycoords='data',
                    xytext=(1.15,c_t[0]-dc_reco_t[15]), textcoords='data', fontsize=10,
@@ -207,7 +209,7 @@ net_c_t = [i-j-k for i,j,k in zip(c_t,dc_k_t,dc_reco_t)]
 plt.plot([t_lins[0],t_lins[7]],[savings_usage,savings_usage],color=greys_pal[7])
 plt.fill_between(t_lins[:8],[savings_usage for i in t_lins[:8]],net_c_t[:8],facecolor='none',edgecolor=rdbu_pal[9],hatch="XX",linewidth=1,zorder=90)
 
-plt.gca().add_patch(patches.Rectangle((0.73,0.84*savings_usage),2.35,15000,facecolor='white',zorder=98,clip_on=False,linewidth=1,ec=greys_pal[2]))
+plt.gca().add_patch(patches.Rectangle((0.73,0.84*savings_usage),2.35,15000,facecolor='white',zorder=98,clip_on=False,linewidth=1,ec=greys_pal[5]))
 plt.gca().annotate(r'Area = total value of savings + PDS',
                    xy=(0.10,0.9*savings_usage), xycoords='data',
                    xytext=(0.80,0.9*savings_usage), textcoords='data', fontsize=10,
@@ -233,6 +235,7 @@ leg = plt.gca().legend(loc='lower right',labelspacing=0.75,ncol=1,fontsize=9,bor
 # poverty line
 #plt.plot([-10,t_lins[-1]],[_hh.pov_line,_hh.pov_line])
 
+plt.annotate('Disaster\n'+r'occurs',[0,c*1.02],fontsize=8,ha='center',weight='bold',rotation=0,color=greys_pal[5])
 # Draw c
 plt.plot([-1,5],[c,c],color=greys_pal[4],linewidth=1.5)
 
@@ -244,7 +247,8 @@ plt.ylabel(r'Household consumption  $c_h$',fontsize=11,weight='bold',labelpad=8)
 plt.xticks([-1,0,1,2,3,4],['-1',r'$t_0$','1','2','3','4'])
 plt.yticks([c_t[0]],[r'$c_0$'])
 
-#sns.despine()
+sns.despine(left=True)
+plt.gca().grid(False)
 
 plt.draw()
 fig=plt.gcf()
@@ -253,6 +257,9 @@ fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/stephane_edit
 plt.clf()
 plt.close('all')
 
+
+
+#########################
 # Draw k
 plt.plot([-1,5],[k,k],color=greys_pal[4])
 
@@ -260,22 +267,46 @@ plt.plot([-1,5],[k,k],color=greys_pal[4])
 #plt.scatter(0,k-dk0,color=reds_pal[5],zorder=100)
 #plt.scatter(0,k-dkprv,color=reds_pal[3],zorder=100)
 
+label_off_hi = 1.15*dkprv/2.
+label_off_lo = 0.85*dkprv/2.
+
 # Annotate 
 plt.annotate('Private\nasset\nlosses',[-0.60,k-dkprv/2.],fontsize=9,ha='right',va='center',weight='bold')
 plt.annotate(r'$\Delta k^{prv}_0$',[-0.30,k-dkprv/2.],fontsize=10,ha='center',va='center')
-plt.plot([-0.2,-0.2],[k-dkprv,k-1.11*dkprv/2.],color=reds_pal[3])
-plt.plot([-0.2,-0.2],[k-0.89*dkprv/2.,k],color=reds_pal[3])
-plt.plot([-0.22,-0.18],[k,k],color=reds_pal[3])
-plt.plot([-0.22,-0.18],[k-dkprv*0.997,k-dkprv*0.997],color=reds_pal[3],zorder=100)
+plt.plot([-0.2,-0.2],[k-dkprv*0.99,k-label_off_hi],color=reds_pal[3],zorder=100)
+plt.plot([-0.2,-0.2],[k-label_off_lo,k],color=reds_pal[3],zorder=100)
 
-plt.annotate('Public\nasset\nlosses',[-0.60,k-dk0+dkpub/2.],fontsize=9,ha='right',va='center',weight='bold')
-plt.annotate(r'$\Delta k^{pub}_0$',[-0.30,k-dk0+dkpub/2.],fontsize=10,ha='center',va='center')
-plt.plot([-0.2,-0.2],  [k-dkprv-dkpub,(k-dkprv)-1.7*dkpub/2.],color=reds_pal[5])
-plt.plot([-0.2,-0.2],  [(k-dkprv)-0.3*dkpub/2.,k-dkprv],color=reds_pal[5])
-plt.plot([-0.22,-0.18],[k-dkprv*1.003,k-dkprv*1.003],color=reds_pal[5])
-plt.plot([-0.22,-0.18],[k-dkprv-dkpub,k-dkprv-dkpub],color=reds_pal[5])
+plt.plot([-0.22,-0.20],[k-k/400,k],color=reds_pal[3],zorder=100)
+plt.plot([-0.20,-0.18],[k,k-k/400],color=reds_pal[3],zorder=100)
 
-plt.annotate('Disaster\n'+r'(t = t$_0$)',[0,k*1.004],fontsize=9,ha='center',weight='bold',rotation=0,color=greys_pal[4])
+plt.plot([-0.22,-0.20],[k-dkprv*0.997+k/400,k-dkprv*0.997],color=reds_pal[3],zorder=100)
+plt.plot([-0.20,-0.18],[k-dkprv*0.997,k-dkprv*0.997+k/400],color=reds_pal[3],zorder=100)
+
+
+plt.annotate('Other\nasset\nlosses',[-0.60,k-dkprv-dkoth/2.],fontsize=9,ha='right',va='center',weight='bold')
+plt.annotate(r'$\Delta k^{oth}_0$',[-0.30,k-dkprv-dkoth/2.],fontsize=10,ha='center',va='center')
+plt.plot([-0.2,-0.2],  [k-0.99*(dkprv+dkoth),(k-dkprv)-1.32*dkoth/2],color=reds_pal[5])
+plt.plot([-0.2,-0.2],  [(k-dkprv)-0.68*dkoth/2,k-dkprv*1.01],color=reds_pal[5])
+
+plt.plot([-0.22,-0.20],[k-dkprv*1.01-k/400,k-dkprv*1.01],color=reds_pal[5])
+plt.plot([-0.20,-0.18],[k-dkprv*1.01,k-dkprv*1.010-k/400],color=reds_pal[5])
+
+plt.plot([-0.22,-0.20],[k-dkprv-dkoth+k/400,k-dkprv-dkoth],color=reds_pal[5])
+plt.plot([-0.20,-0.18],[k-dkprv-dkoth,k-dkprv-dkoth+k/400],color=reds_pal[5])
+
+plt.annotate('Public\nasset\nlosses',[-0.60,k-dkprv-dkoth-dkpub/2.],fontsize=9,ha='right',va='center',weight='bold')
+plt.annotate(r'$\Delta k^{pub}_0$',[-0.30,k-dkprv-dkoth-dkpub/2.],fontsize=10,ha='center',va='center')
+plt.plot([-0.2,-0.2],  [k-dkprv-dkoth-dkpub,(k-dkprv-dkoth)-1.40*dkpub/2],color=reds_pal[8])
+plt.plot([-0.2,-0.2],  [k-(dkprv+dkoth)-0.60*dkpub/2,k-1.01*(dkprv+dkoth)],color=reds_pal[8])
+
+plt.plot([-0.22,-0.20],[k-1.01*(dkprv+dkoth)-k/400,k-1.01*(dkprv+dkoth)],color=reds_pal[8])
+plt.plot([-0.20,-0.18],[k-1.01*(dkprv+dkoth),k-1.01*(dkprv+dkoth)-k/400],color=reds_pal[8])
+
+plt.plot([-0.22,-0.20],[k-dkprv-dkoth-dkpub+k/400,k-dkprv-dkoth-dkpub],color=reds_pal[8])
+plt.plot([-0.20,-0.18],[k-dkprv-dkoth-dkpub,k-dkprv-dkoth-dkpub+k/400],color=reds_pal[8])
+
+
+plt.annotate('Disaster\n'+r'occurs',[0,k*1.01],fontsize=8,ha='center',weight='bold',rotation=0,color=greys_pal[5])
 plt.plot([0,0],[k-dk0,k],color=sns_pal[0])
 
 # k recovery
@@ -283,24 +314,29 @@ k_t     = []
 dk0_t   = []
 dkprv_t = []
 dkpub_t = []
+dkoth_t = []
 
 for t in t_lins:
     k_t.append(k)
     dk0_t.append(k-(dk0*np.e**(-t*const_dk_reco)))
     dkprv_t.append(k-(dkprv*np.e**(-t*const_dk_reco)))
     dkpub_t.append(k-(dkpub*np.e**(-t*const_dk_reco)))
+    dkoth_t.append(k-(dkoth*np.e**(-t*const_dk_reco)))
 
 
 # Indicate k(t): private and public 
 plt.fill_between(t_lins,k_t,dkprv_t,facecolor=reds_pal[3],alpha=0.45)
-plt.fill_between(t_lins,dkprv_t,[i-(k-j) for i,j,k in zip(dkprv_t,dkpub_t,k_t)],facecolor=reds_pal[5],alpha=0.45)
+plt.fill_between(t_lins,dkprv_t,[i-(k-j) for i,j,k in zip(dkprv_t,dkoth_t,k_t)],facecolor=reds_pal[5],alpha=0.45)
+plt.fill_between(t_lins,[i-(k-j) for i,j,k in zip(dkprv_t,dkoth_t,k_t)],
+                        [-(k-h)+i-(k-j) for i,j,h,k in zip(dkprv_t,dkoth_t,dkpub_t,k_t)],facecolor=reds_pal[7],alpha=0.55)
 
-plt.plot([2.1,2.1],[k-0.05*dk0,k],color=greys_pal[8],zorder=100)
-plt.plot([2.08,2.12],[k-0.05*dk0,k-0.05*dk0],color=greys_pal[8],zorder=100)
+
+plt.plot([2.1,2.1],[k-0.05*dkprv,k],color=greys_pal[8],zorder=100)
+plt.plot([2.08,2.12],[k-0.05*dkprv,k-0.05*dkprv],color=greys_pal[8],zorder=100)
 plt.plot([2.08,2.12],[k,k],color=greys_pal[8],zorder=100)
 
-plt.gca().add_patch(patches.Rectangle((2.40,k-0.144*dk0),2.0,13000,facecolor='white',zorder=98,clip_on=False,ec=greys_pal[2]))
-plt.gca().annotate(r'$\Delta k_h(t=\tau_h)$ = 0.05$\times\Delta k_0$',
+plt.gca().add_patch(patches.Rectangle((2.40,k-0.144*dk0),2.27,20000,facecolor='white',zorder=98,clip_on=False,ec=greys_pal[5]))
+plt.gca().annotate(r'$\Delta k_h^{prv}(t=\tau_h)$ = 0.05$\times\Delta k_0^{prv}$',
                    xy=(2.1,k-0.025*dk0), xycoords='data',
                    xytext=(2.5,k-0.100*dk0), textcoords='data', fontsize=10,
                    arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.15",lw=1.5),
@@ -310,17 +346,19 @@ plt.plot(t_lins,dk0_t,color=reds_pal[8],ls='--',lw=2.5,label='Household capital'
 plt.plot([-1,0],[k,k],color=reds_pal[8],ls='--',lw=2.5,label='')
 plt.plot([0,0],[k,dk0_t[0]],color=reds_pal[8],ls='--',lw=2.5,label='')
 
-leg = plt.gca().legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0)
+leg = plt.gca().legend(loc='upper right',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=1.0)
 
-plt.gca().add_patch(patches.Rectangle((1.35,dk0_t[10]*1.009),3.60,15000,facecolor='white',zorder=98,ec=greys_pal[2]))
-plt.gca().annotate(r'$\Delta k_h^{eff}(t) = \Delta k^{prv}_0e^{-t/\tau_h}$'+r' + $\Delta k^{pub}_0e^{-t/\tau_{pub}}$',
+plt.gca().add_patch(patches.Rectangle((1.35,dk0_t[10]*0.976),2.52,58500,facecolor='white',zorder=98,ec=greys_pal[5]))
+plt.gca().annotate(r'$\Delta k_h^{eff}(t) = \Delta k^{prv}_0e^{-t/\tau_h}$'+'\n'
+                   +r'                 + $\Delta k^{oth}_0e^{-t/\tau_{oth}}$'+'\n'
+                   +r'                 + $\Delta k^{pub}_0e^{-t/\tau_{pub}}$',                   
                    xy=(t_lins[20],dk0_t[20]), xycoords='data',
                    xytext=(1.45,dk0_t[10]*1.02), textcoords='data', fontsize=12,
                    arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.15",lw=1.5),
                    ha='left',va='center',zorder=99)
 
 plt.xlim(-1,5)
-plt.ylim((k-dk0)*0.98,k*1.02)
+plt.ylim((k-dk0)*0.97,k*1.04)
 
 plt.xlabel(r'Time after disaster [years]',fontsize=11,weight='bold',labelpad=8)
 #plt.xlabel(r'Time $t$ after disaster (years)',fontsize=11,weight='bold',labelpad=8)
@@ -328,6 +366,8 @@ plt.ylabel(r'Effective household capital  $k_h^{eff}$',fontsize=11,weight='bold'
 plt.xticks([-1,0,1,2,3,4],['-1',r'$t_0$','1','2','3','4'])
 plt.yticks([k_t[0]],[r'$k_0$'])
 
+plt.gca().grid(False)
+sns.despine(left=True)
 plt.draw()
 fig=plt.gcf()
 fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/stephane_edits/Figures/dk.pdf',format='pdf')
