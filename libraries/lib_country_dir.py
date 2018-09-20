@@ -1,8 +1,9 @@
-import os
+import os, glob
 import pandas as pd
-import matplotlib.pyplot as plt
+pd.set_option('display.width', 220)
 
-from libraries.plot_hist import *
+import matplotlib.pyplot as plt
+from libraries.plot_hist import plot_simple_hist
 from libraries.lib_drought import *
 from libraries.lib_gather_data import *
 
@@ -18,7 +19,7 @@ affected_cats = pd.Index(['a', 'na'], name='affected_cat') # categories for soci
 helped_cats   = pd.Index(['helped','not_helped'], name='helped_cat')
 
 # These parameters could vary by country
-reconstruction_time = 3.00 #time needed for reconstruction
+reconstruction_time = 3.00 # time needed for reconstruction
 reduction_vul       = 0.20 # how much early warning reduces vulnerability
 inc_elast           = 1.50 # income elasticity
 discount_rate       = 0.06 # discount rate
@@ -71,8 +72,31 @@ def get_places(myC,economy):
         return df
 
     if myC == 'SL':
-        df = pd.read_csv(inputs+'/finalhhframe.csv').set_index('district').dropna(how='all')[['weight','np']].prod(axis=1).sum(level='district').to_frame()
-        df.columns = ['population']
+        if True:
+            df_hhwgt = pd.read_csv(inputs+'HIES2016/weight2016.csv')
+            df_hhwgt = df_hhwgt.rename(columns={'Finalweight':'hhwgt'})
+
+            df_hhsize = pd.read_csv(inputs+'HIES2016/sec_1_demographic_information.csv')
+
+            df_hhsize['hhsize'] = df_hhsize.groupby(['District','Sector','Psu','Snumber','Hhno'])['Person_Serial_No'].transform('count')
+            
+            df_hhsize = pd.merge(df_hhsize.reset_index(),df_hhwgt.reset_index(),on=['District','Sector','Psu'])
+
+            df_hhsize['hhid'] = df_hhsize['District'].astype('str')+df_hhsize['Sector'].astype('str')+df_hhsize['Psu'].astype('str')+df_hhsize['Snumber'].astype('str')+df_hhsize['Hhno'].astype('str')
+            
+            df_hhsize = df_hhsize.reset_index().set_index(['District','Sector','Psu','Snumber','Hhno']).sort_index()
+
+            # Now get rid of duplicates: 
+            df = df_hhsize[['hhsize','hhwgt']].mean(level=['District','Sector','Psu','Snumber','Hhno'])            
+            df.to_csv(inputs+'/HIES2016/df_hhwgt_and_hhsize.csv')
+            # this will be used in get_survey_data, rather than redoing hhsize
+            
+            df = df.reset_index().rename(columns={'District':'district'}).set_index('district')
+            df['headcount'] = df[['hhsize','hhwgt']].prod(axis=1)
+            
+            df = df['headcount'].sum(level='district').to_frame(name='pop')
+            # ^ return this
+
         return df
 
     if myC == 'MW':
@@ -633,52 +657,137 @@ def load_survey_data(myC):
         return df
 
     elif myC == 'SL':
+            
+        # This file has household weights
+        #df = pd.read_csv(inputs+'/HIES2016/weight2016.csv')
+        df = pd.read_csv(inputs+'/HIES2016/df_hhwgt_and_hhsize.csv')
+        df['hhid'] = df['District'].astype('str')+df['Sector'].astype('str')+df['Psu'].astype('str')+df['Snumber'].astype('str')+df['Hhno'].astype('str')
+           
+        dist_names = pd.read_excel(inputs+'Admin_level_3__Districts.xls')[['DISTRICT_C','DISTRICT_N']].set_index('DISTRICT_C').to_dict()['DISTRICT_N']
+        df['dist_name'] = [dist_names[_dn] for _dn in df['District'].values]
+ 
+        df = df.reset_index().set_index(['District','hhid']).drop(['index','Psu','Snumber','Hhno'],axis=1)
+
+        #########################
+        # Add expenditures info:
+        # Food:
+        df_food = pd.read_csv(inputs+'/HIES2016/sec_4_1_food_consumption_and_expenditure.csv')
+        df_food['hhid'] = df_food['District'].astype('str')+df_food['Sector'].astype('str')+df_food['Psu'].astype('str')+df_food['Snumber'].astype('str')+df_food['Hhno'].astype('str')
+        df_food = df_food.reset_index().set_index(['District','hhid'])
+        #
+        hh_food = pd.DataFrame(index=df_food.sum(level=['District','hhid']).index.copy())
+        hh_food['total_value'] = df_food['Value'].sum(level=['District','hhid'])
+        #
+        df['c_food'] = hh_food['total_value'].copy()*52.
         
-        #df = pd.read_csv(inputs+'finalhhframe.csv').set_index('hhid')
-        df = pd.read_csv(inputs+'hhdata_samurdhi.csv',usecols=['district','hhid','poor','pov_line','rpccons',
-                                                               'weight','hhsize','income_other_income_pc',
-                                                               'income_local_pc','walls','floor','roof']).set_index('hhid')
-
-        df['has_ew'] = pd.read_csv(inputs+'hhdata_samurdhi.csv',usecols=['hhid','asset_telephone_mobile',
-                                                                         'asset_telephone','asset_radio',
-                                                                         'asset_tv','asset_computers'],index_col='hhid').sum(axis=1).clip(lower=0,upper=1)
-
-        pmt = pd.read_csv(inputs+'pmt_2012_hh_model1_score.csv').set_index('hhid')
-        df[['pmt','pmt_rpccons']] = pmt[['score','rpccons']]
-
-        df = df.rename(columns={'rpccons':'pcinc',
-                                'pmt_rpccons':'pcinc_pmt',
-                                'weight':'hhwgt',
-                                'income_other_income_pc':'other_inc',
-                                'income_local_pc':'income_local',
-                                'poor':'ispoor'})
-
-        df[['pcinc','pcinc_pmt','other_inc','income_local']] *= 12.
-        # pcinc is monthly
+        # Non-Food:
+        df_nonfood = pd.read_csv(inputs+'/HIES2016/sec_4_2_non_food_consumption_and_expenditure.csv').fillna(0)
+        df_nonfood['hhid'] = (df_nonfood['District'].astype('str')+df_nonfood['Sector'].astype('str')
+                              +df_nonfood['Psu'].astype('str')+df_nonfood['Snumber'].astype('str')+df_nonfood['Hhno'].astype('str'))
+        df_nonfood = df_nonfood.reset_index().set_index(['District','hhid'])
+        #
+        df_nonfood['frequency'] = 0. # monthly
+        df_nonfood.loc[((df_nonfood['Nf_Code']>=2000)&(df_nonfood['Nf_Code']<2100)  # Housing (average per month)
+                        |(df_nonfood['Nf_Code']>=2100)&(df_nonfood['Nf_Code']<2200) # Fuel & light (avg. per month)
+                        |(df_nonfood['Nf_Code']>=2200)&(df_nonfood['Nf_Code']<2300) # Personal care expense (last month)
+                        |(df_nonfood['Nf_Code']>=2300)&(df_nonfood['Nf_Code']<2400) # Health expenses (last month)
+                        |(df_nonfood['Nf_Code']>=2400)&(df_nonfood['Nf_Code']<2500) # Transport & transport fees (last month)
+                        |(df_nonfood['Nf_Code']>=2500)&(df_nonfood['Nf_Code']<2600) # Communication (last month)
+                        |(df_nonfood['Nf_Code']>=2600)&(df_nonfood['Nf_Code']<2700) # Education (last month)
+                        |(df_nonfood['Nf_Code']>=2700)&(df_nonfood['Nf_Code']<2800) # Recreation, entertaintment, and cultural activities (last month)
+                        |(df_nonfood['Nf_Code']>=2800)&(df_nonfood['Nf_Code']<2900) # Nondurable household goods (last month)
+                        |(df_nonfood['Nf_Code']>=2900)&(df_nonfood['Nf_Code']<3000) # Household services (last month)
+                        ),'frequency'] = 12. # monthly
+        df_nonfood.loc[(df_nonfood['Nf_Code']>=3000)&(df_nonfood['Nf_Code']<3300),'frequency'] = 2.  # Clothing & textiles, footwear, & durables (last 6 months)
+        df_nonfood.loc[(df_nonfood['Nf_Code']>=3300)&(df_nonfood['Nf_Code']<3400),'frequency'] = 1.  # Durables (last year)
+        df_nonfood.loc[(df_nonfood['Nf_Code']>=3400)&(df_nonfood['Nf_Code']<3500),'frequency'] = 12. # Other expenses (last month)
+        df_nonfood.loc[(df_nonfood['Nf_Code']>=3500)&(df_nonfood['Nf_Code']<3600),'frequency'] = 1.  # annually            
+        print('\n\n',df_nonfood.loc[df_nonfood.frequency==0].shape[0],' item(s) in hh survey not counted:\n',df_nonfood.loc[df_nonfood.frequency==0],'\n\n')
+        # 
+        hh_nonfood = pd.DataFrame(index=df_nonfood.sum(level=['District','hhid']).index.copy())
+        hh_nonfood['total_value'] = df_nonfood.eval('(Nf_Value)*frequency').sum(level=['District','hhid'])
+        #
+        df['c_nonfood'] = hh_nonfood['total_value'].copy()
+        #
         
-        hies_gdp_lkr = round(df[['pcinc','hhsize','hhwgt']].prod(axis=1).sum()/1E9,3)
+        # Servants!
+        df_servants = pd.read_csv(inputs+'/HIES2016/sec_4_3_boarders.csv').fillna(0)
+        df_servants['hhid'] = (df_servants['District'].astype('str')+df_servants['Sector'].astype('str')
+                               +df_servants['Psu'].astype('str')+df_servants['Snumber'].astype('str')+df_servants['Hhno'].astype('str'))
+        #
+        #hh_servants = pd.DataFrame(index=df_servants.sum(level=['District','hhid']).index.copy())
+        hh_servants = df_servants.reset_index().set_index(['District','hhid']).sort_index().sum(level=['District','hhid'])
+        hh_servants['total_value'] = hh_servants.eval('52.*(Col_3)+12.*(Col_4+Col_5+Col_6+Col_7+Col_8+Col_9+Col_10+Col_11+Col_12+Col_13)+2.*(Col_14)+1.*(Col_15)')
+        #
+        df['c_boarders'] = hh_servants['total_value'].copy()
+        df = df.fillna(0)
         
-        lkr_to_usd = 1./156.01
-        print('hies GPD = ',hies_gdp_lkr,'billion LKR and',round(hies_gdp_lkr*lkr_to_usd,3),'billion USD')
-
-        #test_df = pd.read_csv(inputs+'finalhhframe.csv').set_index('hhid')
-        #print(test_df.head())
-        #print(round(test_df[['exp','weight','np']].prod(axis=1).sum()/1E9,3)*lkr_to_usd)
-
-        df['pcinc_ae'] = df['pcinc'].copy()
-        df['pcwgt'] = df[['hhwgt','hhsize']].prod(axis=1)
-        print('avg income per cap & month = ',int(df[['pcinc','pcwgt']].prod(axis=1).sum()/df['pcwgt'].sum()/12.))
-        print('avg income per hh & month = ',int(df[['pcinc','hhsize','hhwgt']].prod(axis=1).sum()/df['hhwgt'].sum()/12.))
-
-        df['hhsize_ae'] = df['hhsize']
-        df['pcwgt_ae'] = df['pcwgt']
-
-        df['pcsoc'] = df[['other_inc','income_local']].sum(axis=1)
+        #####################################
+        # Sum these streams
+        df['hhinc'] = df.eval('c_food+c_nonfood')
+        df['pcinc'] = df.eval('hhinc/hhsize')
+        #
+        df['pcwgt'] = df.eval('hhwgt*hhsize')
+        df['hhsize_ae'] = df['hhsize'].copy()
+        #####################################            
+                        
+        # Get hhsoc
+        df_social = pd.read_csv(inputs+'/HIES2016/sec_5_5_1_other_income.csv').fillna(0)
+        df_social['hhid'] = (df_social['District'].astype('str')+df_social['Sector'].astype('str')
+                             +df_social['Psu'].astype('str')+df_social['Snumber'].astype('str')+df_social['Hhno'].astype('str'))
+        df_social = df_social.reset_index().set_index(['District','hhid']).sort_index().drop(['index','Sector','Month','Psu','Snumber','Hhno','Nhh','Result','Serial_5_5_1'],axis=1)
+        df_social = df_social.sum(level=['District','hhid'])
+        df_social['hhsoc'] = df_social.eval('12.*(Pension+Disability_And_Relief+Samurdhi+Elder+Tb+Scholar+Sc_Lunch+Threeposha)+Income_Forign+Income_Local')
+        df_social['hhremittance'] = df_social.eval('Income_Forign+Income_Local')
+        df_social['frac_remittance'] = df_social.eval('hhremittance/hhsoc')
         
-        df = df.reset_index().set_index('district')
+        df['hhsoc'] = 0; df['frac_remittance'] = 0
+        df['hhsoc'].update(df_social['hhsoc'])
+        df['frac_remittance'].update(df_social['frac_remittance'])
         
-        print('Setting c to pcinc') 
+        df['hhsoc'] = df['hhsoc'].clip(upper=df['hhinc'])
+        #df['hhremittance'] = df['hhremittance'].clip(upper=df['hhinc'])
+        # ^ By construction, can't be above 1
+
+        df['pcsoc'] = df.eval('hhsoc/hhsize')
+        
+        # Get early warning info
+        df_ew = pd.read_csv(inputs+'/HIES2016/sec_6a_durable_goods.csv').fillna(0)  
+        df_ew['hhid'] = (df_ew['District'].astype('str')+df_ew['Sector'].astype('str')
+                         +df_ew['Psu'].astype('str')+df_ew['Snumber'].astype('str')+df_ew['Hhno'].astype('str'))
+        df_ew = df_ew.reset_index().set_index(['District','hhid']).sort_index().drop(['index','Sector','Month','Psu','Snumber','Hhno','Nhh','Result'],axis=1)    
+        
+        df_ew['has_ew'] = df_ew.eval('Radio + Tv + Telephone + Telephone_Mobile + Computers').clip(upper=1)             
+
+        df['has_ew'] = 0
+        df['has_ew'].update(df_ew['has_ew'])
+                
+        # Set flag for whether household is poor
+        sl_pov_by_dist = get_poverty_line('SL',by_district=False).reset_index()
+        sl_pov_by_dist.columns = ['dist_name','pov_line']
+        
+        df = pd.merge(df.reset_index(),sl_pov_by_dist.reset_index(),on='dist_name').reset_index().set_index(['District','hhid']).drop(['index','level_0'],axis=1)
+        assert(df['pov_line'].dropna().shape[0] == df['pov_line'].shape[0]) # <-- check that all districts have a poverty line
+        
+        df['ispoor'] = False
+        df.loc[df['pcinc']<df['pov_line'],'ispoor'] = True
+        
+        print('Poverty rate:\n',100.*df.loc[df.ispoor==True,'pcwgt'].sum()/df['pcwgt'].sum())
+        # ADB stat: In Sri Lanka, 4.1% of the population lives below the national poverty line in 2016.
+        # https://www.adb.org/countries/sri-lanka/poverty
+        
+        # Get housing construction & materials info
+        df_housing = pd.read_csv(inputs+'/HIES2016/sec_8_housing.csv').fillna(0)
+        df_housing['hhid'] = (df_housing['District'].astype('str')+df_housing['Sector'].astype('str')
+                              +df_housing['Psu'].astype('str')+df_housing['Snumber'].astype('str')+df_housing['Hhno'].astype('str'))
+        df_housing = df_housing.reset_index().set_index(['District','hhid']).sort_index().drop(['index','Sector','Month','Psu',
+                                                                                                'Snumber','Hhno','Nhh','Result'],axis=1)[['Walls','Floor','Roof']]
+        df_housing = df_housing.rename(columns={_c:_c.lower() for _c in df_housing.columns})
+        
+        df[['walls','floor','roof']] = df_housing[['walls','floor','roof']].copy()
+        
         df['c'] = df['pcinc'].copy()
+        df = df.reset_index().rename(columns={'District':'district'}).set_index(['district','hhid']).drop(['c_food','c_nonfood','c_boarders'],axis=1)  
 
         return df
 
@@ -1025,11 +1134,41 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         df = pd.read_excel(inputs+'hazards_data.xlsx',sheetname='hazard').dropna(how='any')
         df.hazard = df.hazard.replace({'flood':'PF'})
         df = df.set_index(['district','hazard','rp'])
+
+        # What else do we have:
+        # loss data exceedance curves from GAR15
+        # regional exposure data from Suranga
+        # PDNS with total regional losses from 2017 landslides
+
+        # try landslides
+        path = os.getcwd()+'/../inputs/SL/suranga/Landslide/*.xls'
+        landslide_df = None
+        for f in glob.glob(path):
+            
+            new_reg = pd.read_excel(f).set_index(['District','Division'])
+            new_reg = new_reg.rename(columns={' Houses Damaged':'Houses Damaged',
+                                              ' Houses Destroyed':'Houses Destroyed',
+                                              ' Affected_L':'Affected_L'})
+            new_reg = new_reg.drop([_c for _c in new_reg.columns if _c not in ['Houses Damaged','Houses Destroyed','Affected_L']],axis=1)
+            new_reg = new_reg.sum(level='District')
+
+            if landslide_df is not None:
+                landslide_df = pd.concat([landslide_df,new_reg])
+            else: landslide_df = new_reg.copy()
+
+        # This file has # hh (affected, damaged, and destroyed, by District)
+        landslide_df.to_csv('../inputs/SL/suranga/Landslide/fa_landslide.csv')
+
+        # Need to compare to household survey
+        # ^ but what to do if I have a vulnerability
+        #print(df.head())
+        #assert(False)
+
         return df,df
 
     else: return None,None
 
-def get_poverty_line(myC,sec=None):
+def get_poverty_line(myC,by_district=True,sec=None):
     
     if myC == 'PH': pov_line = 22302.6775#21240.2924
 
@@ -1045,7 +1184,14 @@ def get_poverty_line(myC,sec=None):
             print('Pov line is variable for urb/rur Fijians! Need to specify which you\'re looking for!')
             pov_line = 0.0    
 
-    elif myC == 'SL': pov_line = float(pd.read_csv('../inputs/SL/hhdata_samurdhi.csv',index_col='hhid')['pov_line'].mean())*12.    
+    elif myC == 'SL':
+        pov_line = (pd.read_excel('../inputs/SL/poverty_def_by_district.xlsx').T['2017 Aug Rs.']*12).to_frame()
+        if not by_district:
+            pov_line['2017 Aug Rs.'] = float(pd.read_excel('../inputs/SL/poverty_def_by_district.xlsx').T.loc['National','2017 Aug Rs.']*12.)
+
+        # apply PPP to estimate 2016 value...
+        pov_line['2017 Aug Rs.'] *= 11445.5/11669.1
+
     elif myC == 'MW': pov_line = 137427.98
     else: pov_line = 0.0
     
@@ -1055,8 +1201,14 @@ def get_subsistence_line(myC):
     
     if myC == 'PH': sub_line = 14832.0962*(22302.6775/21240.2924)
     elif myC == 'SL':
-        sub_line = float(pd.read_csv('../inputs/SL/hhdata_samurdhi.csv',index_col='hhid')['pline_125'].mean())*12.
-        print('--> subsistence line:',sub_line,'\n')
+
+        pov_line = float(pd.read_excel('../inputs/SL/poverty_def_by_district.xlsx').T.loc['National','2017 Aug Rs.']*12.)
+        # apply PPP to estimate 2016 value...
+        pov_line *= 11445.5/11669.1
+        # scale from $1.90/day to $1.25/day
+        sub_line = 1.25/1.09*pov_line
+
+
     elif myC == 'MW': sub_line = 85260.164
     else: sub_line = 0; print('No subsistence info. Returning 0')
 

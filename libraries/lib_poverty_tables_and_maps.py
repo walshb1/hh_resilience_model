@@ -25,7 +25,7 @@ haz_dict = {'SS':'Storm surge',
             'DR':'Drought',
             'FF':'Fluvial flood'}
 
-def map_recovery_time(myC,HAZ=['HU'],RP=[100],RECO=['75','80','90']):
+def map_recovery_time(myC,HAZ=['PF'],RP=[100],RECO=['75','80','90']):
     df = pd.read_csv('../output_country/'+myC+'/time_to_recovery_no.csv')
 
     # hack
@@ -91,7 +91,7 @@ def run_poverty_duration_plot(myC):
 
     ############################
     # Do some plotting
-    #plot_crit = '(t_pov_bool)&(hazard=="FF")&(rp==500)'
+    #plot_crit = '(t_pov_bool)&(hazard=="PF")&(rp==500)'
 
     #df.loc[df.eval(plot_crit)].plot.hexbin('dk0','t_pov_cons')
     #plt.gca().get_figure().savefig('../output_plots/'+myC+'/poverty_duration_hexbin_no.pdf',format='pdf')
@@ -173,10 +173,8 @@ def run_poverty_duration_plot(myC):
     _to_tex['Consumption'] = _cons_to_tex.round(1)
   
     _to_tex = _to_tex.reset_index().set_index(geo)
-    _to_tex = _to_tex.loc[_to_tex.eval('(hazard=="FF")&(rp==10)&(decile==1)')].sort_values('Consumption',ascending=False)
+    _to_tex = _to_tex.loc[_to_tex.eval('(hazard=="PF")&(rp==10)&(decile==1)')].sort_values('Consumption',ascending=False)
     
-    print(_to_tex.head())
-
     _to_tex[['Income','Consumption']].to_latex('latex/'+myC+'_poverty_duration.tex')
 
     ######################
@@ -190,12 +188,12 @@ def run_poverty_duration_plot(myC):
 
     for ipov in ['t_pov_cons_avg','t_pov_inc_avg']:
         # Do the plotting
-        #ax = df_dec.loc[df_dec.eval('(hazard=="FF")&(rp==10)')].plot.scatter('decile',ipov+'no',color=sns_pal[1],lw=0,label='Natl. average (RP = 5 years)',zorder=99)
-        #df_dec.loc[df_dec.eval('(hazard=="FF")&(rp==1000)')].plot.scatter('decile',ipov+'no',color=sns_pal[3],lw=0,label='Natl. average (RP = 1000 years)',zorder=98,ax=ax)
+        #ax = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot.scatter('decile',ipov+'no',color=sns_pal[1],lw=0,label='Natl. average (RP = 5 years)',zorder=99)
+        #df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==1000)')].plot.scatter('decile',ipov+'no',color=sns_pal[3],lw=0,label='Natl. average (RP = 1000 years)',zorder=98,ax=ax)
 
         try:
-            ax = df_dec.loc[df_dec.eval('(hazard=="HU")&(rp==10)')].plot('decile',ipov+'no',color=sns_pal[1],zorder=97,label='')
-            df_dec.loc[df_dec.eval('(hazard=="HU")&(rp==1000)')].plot('decile',ipov+'no',color=sns_pal[3],zorder=96,label='',ax=ax)
+            ax = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot('decile',ipov+'no',color=sns_pal[1],zorder=97,label='')
+            df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==1000)')].plot('decile',ipov+'no',color=sns_pal[3],zorder=96,label='',ax=ax)
         except: pass
 
         icol = 4
@@ -206,8 +204,8 @@ def run_poverty_duration_plot(myC):
         elif myC == 'MW': focus = ['Lilongwe','Chitipa']
 
         for iloc in focus:
-            df_dec.loc[df_dec.eval('(hazard=="HU")&(rp==10)')].plot.scatter('decile',ipov+'_'+iloc,color=sns_pal[icol],lw=0,label=iloc+' (RP = 5 years)',zorder=95,ax=ax)
-            df_dec.loc[df_dec.eval('(hazard=="HU")&(rp==10)')].plot('decile',ipov+'_'+iloc,color=sns_pal[icol],zorder=94,label='',ax=ax)
+            df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot.scatter('decile',ipov+'_'+iloc,color=sns_pal[icol],lw=0,label=iloc+' (RP = 5 years)',zorder=95,ax=ax)
+            df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot('decile',ipov+'_'+iloc,color=sns_pal[icol],zorder=94,label='',ax=ax)
             icol+=1
 
         # Do the formatting
@@ -228,8 +226,8 @@ def run_poverty_duration_plot(myC):
     ax = plt.gca()
     for ipov in ['t_pov_cons_avg','t_pov_inc_avg']:
         # Do the plotting
-        _df_5 = df_dec.loc[df_dec.eval('(hazard=="HU")&(rp==10)')].copy()
-        _df_1000 = df_dec.loc[df_dec.eval('(hazard=="HU")&(rp==1000)')].copy()
+        _df_5 = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].copy()
+        _df_1000 = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==1000)')].copy()
 
         for iSP in _sp:
 
@@ -409,7 +407,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
              [500,1E3,' (thousands)'],
              [1000,1E3,' (thousands)']]
 
-    for myDis in ['HU']:
+    for myDis in ['PF']:
         for myRP in [[10,1E0,'']]:
 
             make_map_from_svg(

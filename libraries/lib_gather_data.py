@@ -40,13 +40,18 @@ def get_share_from_sheet(PAGER_XL,pager_code_to_aggcat,iso3_to_wb,sheet_name='Ru
     return data_agg[data_agg.index.isin(iso3_to_wb)] #keeps only countries
 	
 def social_to_tx_and_gsp(economy,cat_info):       
-        '''(tx_tax, gamma_SP) from cat_info[['social','c','weight']] '''
-
+    #income from social protection PER PERSON as fraction of PER CAPITA social protection
+    '''(tx_tax, gamma_SP) from cat_info[['social','c','weight']] '''
+    
+    try:
+        tx_tax = cat_info.eval('(1-frac_remittance)*social*c*pcwgt').sum() / cat_info.eval('c*pcwgt').sum()
+        gsp = cat_info.eval('(1-frac_remittance)*social*c')/cat_info.eval('(1-frac_remittance)*social*c*pcwgt').sum()
+        print('\n\nCalculating tax_social & gamma_SP excluding remittances')
+    except:
         tx_tax = cat_info[['social','c','pcwgt']].prod(axis=1, skipna=False).sum() / cat_info[['c','pcwgt']].prod(axis=1, skipna=False).sum()
-        #income from social protection PER PERSON as fraction of PER CAPITA social protection
-        gsp= cat_info[['social','c']].prod(axis=1,skipna=False) / cat_info[['social','c','pcwgt']].prod(axis=1, skipna=False).sum()
-        
-        return tx_tax, gsp
+        gsp = cat_info[['social','c']].prod(axis=1,skipna=False) / cat_info[['social','c','pcwgt']].prod(axis=1, skipna=False).sum()
+        print('\n\nCalculating tax_social & gamma_SP *including* remittances')
+    return tx_tax, gsp
 		
 		
 def perc_with_spline(data, wt, percentiles):
