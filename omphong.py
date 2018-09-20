@@ -247,10 +247,11 @@ if True:
 
         plt.bar(2*reg_x,(np.array(_cut.loc[_cut.rp==rp_range[-1],'tot_asset_loss']/1E9)
                          -np.array(_cut.loc[_cut.rp==rp_range[0],'tot_asset_loss']/1E9)),
-                bottom=np.array(_cut.loc[_cut.rp==rp_range[0],'tot_asset_loss']/1E9),width=wid,color=reg_colorsA,alpha=0.8)  
+                bottom=np.array(_cut.loc[_cut.rp==rp_range[0],'tot_asset_loss']/1E9),width=wid,color=reg_colorsA,alpha=0.8)
         plt.bar(2*reg_x+1,(np.array(_cut.loc[_cut.rp==rp_range[-1],'tot_welf_loss']/1E9)
                          -np.array(_cut.loc[_cut.rp==rp_range[0],'tot_welf_loss']/1E9)),
-                bottom=np.array(_cut.loc[_cut.rp==rp_range[0],'tot_welf_loss']/1E9),width=wid,color=reg_colorsB,alpha=0.8)  
+                bottom=np.array(_cut.loc[_cut.rp==rp_range[0],'tot_welf_loss']/1E9),width=wid,color=reg_colorsB,alpha=0.8)
+        _yspace = float((_cut.loc[_cut.rp==rp_range[-1],'tot_asset_loss']/1E9).max())/50
 
         for _nrp,_rp in enumerate(rp_range):
             
@@ -260,14 +261,14 @@ if True:
             for _nll, _loss_amount in enumerate(_rp_df_k):
                 #if _nll == 2:
                 if _rp == rp_range[-1]:
-                    plt.annotate('Assets',xy=(2*reg_x[_nll],_loss_amount+2),weight='bold',va='bottom',ha='center',fontsize=6.5,rotation=0)
+                    plt.annotate('Assets',xy=(2*reg_x[_nll],_loss_amount+_yspace),weight='bold',va='bottom',ha='center',fontsize=6.5,rotation=0)
                 plt.plot([(2*reg_x[_nll])-wid/2,2*reg_x[_nll]+wid/2],[_loss_amount,_loss_amount],color=greys_pal[(_nrp+1)*2],lw=2)
 
             for _nll, _loss_amount in enumerate(_rp_df_w):
                 if _nll == 2:
                     plt.annotate(str(_rp)+'-year\nevent',xy=((2*reg_x[_nll])+1+1.25*wid/2,_loss_amount),xycoords='data',weight='bold',ha='left',va='center',fontsize=6.5)
                 if _rp == rp_range[-1]:
-                    plt.annotate('Well-being',xy=(2*reg_x[_nll]+1,_loss_amount+2),weight='bold',va='bottom',ha='center',fontsize=6.5,rotation=0)
+                    plt.annotate('Well-being',xy=(2*reg_x[_nll]+1,_loss_amount+_yspace),weight='bold',va='bottom',ha='center',fontsize=6.5,rotation=0)
 
                 plt.plot([(2*reg_x[_nll]+1)-wid/2,2*reg_x[_nll]+1+wid/2],[_loss_amount,_loss_amount],color=greys_pal[(_nrp+1)*2],lw=2)
     

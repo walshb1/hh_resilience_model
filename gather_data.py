@@ -92,13 +92,6 @@ if myCountry == 'PH':
     df['psa_pop'] = df.sum(level=economy)
     df = df.mean(level=economy)
 
-if myCountry == 'SL':
-    df = df.reset_index()
-    df['district'].replace(prov_code,inplace=True)
-    df = df.reset_index().set_index(economy).drop(['index'],axis=1)
-
-    cat_info = cat_info.reset_index()
-    cat_info['district'].replace(prov_code,inplace=True) #replace district code with its name
 
 cat_info = cat_info.reset_index().set_index(economy).drop([_c for _c in ['index'] if _c in cat_info.columns],axis=1)
 
@@ -108,6 +101,14 @@ df['gdp_pc_nat'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info['pcwg
 # ^ this is per capita income
 
 df['pop'] = cat_info.pcwgt.sum(level=economy)
+
+if False:
+    print(cat_info.head())
+    df['gdp_hh_nat_monthly'] = cat_info.eval('(pcinc*pcwgt)').sum()/cat_info['hhwgt'].sum()/12.
+    df.loc['Total','pop'] = df['pop'].sum()
+    print(df.head(30))
+    assert(False)
+
 
 if myCountry == 'PH':
     df['pct_diff'] = 100.*(df['psa_pop']-df['pop'])/df['pop']
@@ -140,14 +141,14 @@ cat_info['pcsoc'] = cat_info['pcsoc'].clip(upper=0.99*cat_info['c'])
 # --> pcinc_s seems to be what they use to calculate poverty...
 # --> can be converted to pcinc_ppp11 by dividing by (365*21.1782)
 
-cat_info = cat_info.reset_index().set_index(['hhid','region'])
-sp_out = pd.DataFrame(index=cat_info.sum(level='region').index.copy())
+cat_info = cat_info.reset_index().set_index(['hhid',economy])
+sp_out = pd.DataFrame(index=cat_info.sum(level=economy).index.copy())
 
-sp_out['frac_receive_SP'] = 100*cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum(level='region')/cat_info['pcwgt'].sum(level='region')
-sp_out['avg_value_SP'] = cat_info.loc[cat_info['pcsoc']!=0,['pcsoc','pcwgt']].prod(axis=1).sum(level='region')/cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum(level='region')
-sp_out['avg_value_SPall'] = cat_info[['pcsoc','pcwgt']].prod(axis=1).sum(level='region')/cat_info['pcwgt'].sum(level='region')
-sp_out['sp_over_c'] = cat_info.loc[cat_info['pcsoc']!=0].eval('pcwgt*pcsoc/c').sum(level='region')/cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum(level='region')
-sp_out['sp_over_call'] = cat_info.eval('pcwgt*pcsoc/c').sum(level='region')/cat_info['pcwgt'].sum(level='region')
+sp_out['frac_receive_SP'] = 100*cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
+sp_out['avg_value_SP'] = cat_info.loc[cat_info['pcsoc']!=0,['pcsoc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum(level=economy)
+sp_out['avg_value_SPall'] = cat_info[['pcsoc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
+sp_out['sp_over_c'] = cat_info.loc[cat_info['pcsoc']!=0].eval('pcwgt*pcsoc/c').sum(level=economy)/cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum(level=economy)
+sp_out['sp_over_call'] = cat_info.eval('pcwgt*pcsoc/c').sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
 
 sp_out.loc['NATL_AVG','frac_receive_SP'] = 100*cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum()/cat_info['pcwgt'].sum()
 sp_out.loc['NATL_AVG','avg_value_SP'] = cat_info.loc[cat_info['pcsoc']!=0,['pcsoc','pcwgt']].prod(axis=1).sum()/cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum()
@@ -165,26 +166,29 @@ cat_info['social'] = (cat_info['pcsoc']/cat_info['c']).fillna(0)
 
 print('Getting pov line')
 cat_info = cat_info.reset_index().set_index('hhid')
-try: 
-    cat_info.loc[cat_info.Sector=='Urban','pov_line'] = get_poverty_line(myCountry,'Urban')
-    cat_info.loc[cat_info.Sector=='Rural','pov_line'] = get_poverty_line(myCountry,'Rural')
-    cat_info['sub_line'] = get_subsistence_line(myCountry)
-except: 
-    try:
-        cat_info['pov_line'] = get_poverty_line(myCountry)
-        cat_info['sub_line'] = get_subsistence_line(myCountry)        
+if 'pov_line' not in cat_info.columns:
+    try: 
+        cat_info.loc[cat_info.Sector=='Urban','pov_line'] = get_poverty_line(myCountry,'Urban')
+        cat_info.loc[cat_info.Sector=='Rural','pov_line'] = get_poverty_line(myCountry,'Rural')
+        cat_info['sub_line'] = get_subsistence_line(myCountry)
     except: 
-        cat_info['pov_line'] = get_poverty_line(myCountry)
+        try: cat_info['pov_line'] = get_poverty_line(myCountry,by_district=False)
+        except: cat_info['pov_line'] = 0
+
+try: cat_info['sub_line'] = get_subsistence_line(myCountry)
+except: cat_info['sub_line'] = 0
+
 cat_info = cat_info.reset_index().set_index(event_level[0])
 
 print('Total population:',int(cat_info.pcwgt.sum()))
 print('Total n households:',int(cat_info.hhwgt.sum()))
 
-print('\n(Adults-eq)',cat_info[['pcinc_ae','pcwgt_ae']].prod(axis=1).sum()/cat_info[['pcwgt_ae']].sum())
 print('- (adults) ',cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info[['pcwgt']].sum())
+try: print('\n(Adults-eq)',cat_info[['pcinc_ae','pcwgt_ae']].prod(axis=1).sum()/cat_info[['pcwgt_ae']].sum())
+except: pass
 
-print('--> Individuals in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line),'pcwgt'].sum()/1.E6,3)),'million')
-print('-----> Families in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc_ae <= cat_info.pov_line),'hhwgt'].sum()/1.E6,3)),'million')
+print('--> Individuals in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),'pcwgt'].sum()/1.E6,3)),'million')
+print('-----> Families in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),'hhwgt'].sum()/1.E6,3)),'million')
 
 try:
     print('------> Individuals in poverty (exclusive):', float(round(cat_info.loc[cat_info.eval('pcinc_ae<=pov_line & pcinc_ae>sub_line'),'pcwgt'].sum()/1E6,3)),'million')
@@ -197,8 +201,8 @@ print('\n--> Number in poverty (flagged poor):',float(round(cat_info.loc[(cat_in
 print('--> Poverty rate (flagged poor):',round(100.*cat_info.loc[(cat_info.ispoor==1),'pcwgt'].sum()/cat_info['pcwgt'].sum(),1),'%\n\n\n')
 pd.DataFrame({'population':cat_info['pcwgt'].sum(level=economy),
               'nPoor':cat_info.loc[cat_info.ispoor==1,'pcwgt'].sum(level=economy),
-              'n_pov':cat_info.loc[cat_info.eval('pcinc_ae<=pov_line & pcinc_ae>sub_line'),'pcwgt'].sum(level=economy),
-              'n_sub':cat_info.loc[cat_info.eval('pcinc_ae<=sub_line'),'pcwgt'].sum(level=economy),
+              'n_pov':cat_info.loc[cat_info.eval('pcinc<=pov_line & pcinc>sub_line'),'pcwgt'].sum(level=economy),
+              'n_sub':cat_info.loc[cat_info.eval('pcinc<=sub_line'),'pcwgt'].sum(level=economy),
               'pctPoor':100.*cat_info.loc[cat_info.ispoor==1,'pcwgt'].sum(level=economy)/cat_info['pcwgt'].sum(level=economy)}).to_csv('../output_country/'+myCountry+'/poverty_rate.csv')
 # Could also look at urban/rural if we have that divide
 
@@ -234,6 +238,7 @@ df['tau_tax'], cat_info['gamma_SP'] = social_to_tx_and_gsp(economy,cat_info)
 print('Calculating capital from income')
 cat_info['k'] = ((cat_info['c']/df['avg_prod_k'])*((1-cat_info['social'])/(1-df['tau_tax']))).clip(lower=0.)
 
+
 if myCountry == 'FJ':
     #replace division codes with names
     df = df.reset_index()
@@ -244,14 +249,22 @@ if myCountry == 'FJ':
     cat_info['Division'].replace(prov_code,inplace=True) # replace division code with its name
     cat_info = cat_info.reset_index().set_index(['Division','hhid']).drop(['index'],axis=1)
 
+elif myCountry == 'SL':
+    #replace division codes with names
+    df = df.reset_index()
+    df[economy].replace(prov_code,inplace=True)
+
+    cat_info = cat_info.reset_index()
+    cat_info[economy].replace(prov_code,inplace=True) # replace division code with its name
+    cat_info = cat_info.reset_index().set_index([economy,'hhid']).drop(['index'],axis=1)
+
 # Shouldn't be losing anything here 
 print('Check total population:',cat_info.pcwgt.sum())
 cat_info.dropna(inplace=True,how='all')
 print('Check total population (after dropna):',cat_info.pcwgt.sum())
 
 # Exposure
-try: cat_info = cat_info.fillna(0)
-except: pass
+cat_info = cat_info.fillna(0)
 
 # Cleanup dfs for writing out
 cat_info_col = [economy,'province','hhid','region','pcwgt','pcwgt_ae','hhwgt','code','np','score','v','c','pcsoc','social','c_5','hhsize',
@@ -332,7 +345,6 @@ elif myCountry == 'FJ':
 
 # Turn losses into fraction
 cat_info = cat_info.reset_index().set_index([economy])
-
 hazard_ratios = cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy).to_frame(name='HIES_capital')
 hazard_ratios = hazard_ratios.join(df_haz,how='outer')
 
@@ -379,9 +391,10 @@ fa_threshold = 0.95
 
 # Calculate avg vulnerability at event level, and use that to find fa
 # --> v_mean is weighted by capital & pc_weight 
-v_mean = hazard_ratios[['pcwgt','k','v']].prod(axis=1).sum(level=event_level)/hazard_ratios[['pcwgt','k']].prod(axis=1).sum(level=event_level)
-v_mean.name = 'v_mean'
-hazard_ratios = pd.merge(hazard_ratios.reset_index(),v_mean.reset_index(),on=event_level).reset_index().set_index(event_level+['hhid']).sort_index()
+v_mean = (hazard_ratios[['pcwgt','k','v']].prod(axis=1).sum(level=event_level)/hazard_ratios[['pcwgt','k']].prod(axis=1).sum(level=event_level)).to_frame(name='v_mean')
+#v_mean.name = 'v_mean'
+hazard_ratios = pd.merge(hazard_ratios.reset_index(),v_mean.reset_index(),on=event_level).reset_index().set_index(event_level+['hhid']).sort_index().drop('index',axis=1)
+
 
 if myCountry != 'SL':
     # Normally, we pull fa out of frac_destroyed.
