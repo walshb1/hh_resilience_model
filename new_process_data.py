@@ -143,17 +143,17 @@ print('Writing '+out_files+'results_table_new.csv')
 ##################################
 # Manipulate iah 
 # --> use AE, in case that's different from per cap
-iah['c_initial']    = (iah[['c','pcwgt']].prod(axis=1)/iah['pcwgt_ae']).fillna(0)
+iah['c_initial']    = (iah[['c','pcwgt']].prod(axis=1)/iah['aewgt']).fillna(0)
 # ^ hh consumption, as reported in HIES
 
-iah['di_pre_reco']  = (iah[['di0','pcwgt']].prod(axis=1)/iah['pcwgt_ae']).fillna(0)
-iah['dc_pre_reco']  = (iah[['dc0','pcwgt']].prod(axis=1)/iah['pcwgt_ae']).fillna(0)
+iah['di_pre_reco']  = (iah[['di0','pcwgt']].prod(axis=1)/iah['aewgt']).fillna(0)
+iah['dc_pre_reco']  = (iah[['dc0','pcwgt']].prod(axis=1)/iah['aewgt']).fillna(0)
 # ^ hh income loss (di & dc) immediately after disaster
 
-iah['dc_post_reco'] = (iah[['dc_post_reco','pcwgt']].prod(axis=1)/iah['pcwgt_ae']).fillna(0)
+iah['dc_post_reco'] = (iah[['dc_post_reco','pcwgt']].prod(axis=1)/iah['aewgt']).fillna(0)
 # ^ hh consumption loss (dc) after 10 years of reconstruction
 
-iah['pds_nrh']      = iah.eval('(pc_fee+help_fee-help_received)*(pcwgt/pcwgt_ae)').fillna(0)
+iah['pds_nrh']      = iah.eval('(pc_fee+help_fee-help_received)*(pcwgt/aewgt)').fillna(0)
 # ^ Net post-disaster support
 
 iah['i_pre_reco']   = (iah['c_initial'] + drm_pov_sign*iah['di_pre_reco'])
@@ -169,14 +169,14 @@ iah_res = pd.DataFrame(index=(iah.sum(level=[economy,'hazard','rp','hhid'])).ind
 
 ## Translate from iah by summing over hh categories [(a,na)x(helped,not_helped)]
 # These are special--pcwgt has been distributed among [(a,na)x(helped,not_helped)] categories
-iah_res['pcwgt']    =    iah['pcwgt'].sum(level=[economy,'hazard','rp','hhid'])
-iah_res['pcwgt_ae'] = iah['pcwgt_ae'].sum(level=[economy,'hazard','rp','hhid'])
-iah_res['hhwgt']    =    iah['hhwgt'].sum(level=[economy,'hazard','rp','hhid'])
+iah_res['pcwgt'] = iah['pcwgt'].sum(level=[economy,'hazard','rp','hhid'])
+iah_res['aewgt'] = iah['aewgt'].sum(level=[economy,'hazard','rp','hhid'])
+iah_res['hhwgt'] = iah['hhwgt'].sum(level=[economy,'hazard','rp','hhid'])
 
 #These are the same across [(a,na)x(helped,not_helped)] categories 
 iah_res['k']         = iah['k'].mean(level=[economy,'hazard','rp','hhid'])
 iah_res['c']         = iah['c'].mean(level=[economy,'hazard','rp','hhid'])
-#iah_res['c_ae']      = iah['pcinc_ae'].mean(level=[economy,'hazard','rp','hhid'])
+#iah_res['aeinc']      = iah['aeinc'].mean(level=[economy,'hazard','rp','hhid'])
 #iah_res['hhsize_ae'] = iah['hhsize_ae'].mean(level=[economy,'hazard','rp','hhid'])
 iah_res['quintile']  = iah['quintile'].mean(level=[economy,'hazard','rp','hhid'])
 iah_res['pov_line']  = iah['pov_line'].mean(level=[economy,'hazard','rp','hhid'])
@@ -212,14 +212,14 @@ except: pass
 # Huge file
 del iah_base
 
-iah_res['c_initial']   = iah[['c_initial'  ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c per AE
-iah_res['di_pre_reco'] = iah[['di_pre_reco','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # di per AE
-iah_res['dc_pre_reco'] = iah[['dc_pre_reco','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # dc per AE
-iah_res['pds_nrh']     = iah[['pds_nrh'    ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # nrh per AE
-iah_res['i_pre_reco']  = iah[['i_pre_reco' ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # i pre-reco per AE
-iah_res['c_pre_reco']  = iah[['c_pre_reco' ,'pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c pre-reco per AE
-iah_res['c_post_reco'] = iah[['c_post_reco','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c post-reco per AE
-#iah_res['c_final_pds'] = iah[['c_final_pds','pcwgt_ae']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['pcwgt_ae'] # c per AE
+iah_res['c_initial']   = iah[['c_initial'  ,'aewgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['aewgt'] # c per AE
+iah_res['di_pre_reco'] = iah[['di_pre_reco','aewgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['aewgt'] # di per AE
+iah_res['dc_pre_reco'] = iah[['dc_pre_reco','aewgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['aewgt'] # dc per AE
+iah_res['pds_nrh']     = iah[['pds_nrh'    ,'aewgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['aewgt'] # nrh per AE
+iah_res['i_pre_reco']  = iah[['i_pre_reco' ,'aewgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['aewgt'] # i pre-reco per AE
+iah_res['c_pre_reco']  = iah[['c_pre_reco' ,'aewgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['aewgt'] # c pre-reco per AE
+iah_res['c_post_reco'] = iah[['c_post_reco','aewgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['aewgt'] # c post-reco per AE
+#iah_res['c_final_pds'] = iah[['c_final_pds','aewgt']].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_res['aewgt'] # c per AE
 
 # Calc people who fell into poverty on the regional level for each disaster
 iah_res['delta_pov_pre_reco']  = iah.loc[(iah.c_initial > iah.pov_line)&(iah.c_pre_reco <= iah.pov_line),'pcwgt'].sum(level=[economy,'hazard','rp','hhid'])
@@ -425,11 +425,16 @@ if False:
 # This code generates the histograms showing income before & after disaster (in local_curr)
 # ^ this is at household level, so we'll use iah
 
+#for _A in myHaz[0]:
+#    for _B in myHaz[1]:
+#        for _C in myHaz[2]:
+#            plot_income_and_consumption_distributions('SL',iah,_A,_B,_C)
+#assert(False)
 if True:            
-    with Pool(processes=1,maxtasksperchild=1) as pool:
+    with Pool(processes=3,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
-        try: pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[iah],myHaz[0],myHaz[1],myHaz[2])))
-        except: pass
+        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[iah],myHaz[0],myHaz[1],myHaz[2])))
+        #except: pass
 
 ##################################################################
 # This code generates the histograms showing income before & after disaster (in USD)
@@ -437,8 +442,8 @@ if True:
 if True:            
     with Pool(processes=3,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
-        try: pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[iah],myHaz[0],myHaz[1],myHaz[2],['USD'])))
-        except: pass
+        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[iah],myHaz[0],myHaz[1],myHaz[2],['USD'])))
+        #except: pass
 
 ##################################################################
 # This code generates the histograms including [k,dk,dc,dw,&pds]

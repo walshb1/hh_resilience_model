@@ -83,9 +83,11 @@ def run_poverty_duration_plot(myC):
         
     for iSP in _sp:
         _ = pd.read_csv('../output_country/'+myC+'/poverty_duration_'+iSP+'.csv')
-        pov_line = get_poverty_line(myC)
-        _['t_pov_bool'] = False
-        _.loc[_.c>pov_line,'t_pov_bool'] = True
+
+        _['t_pov_bool'] = False        
+        try: _.loc[_.c>_.pov_line,'t_pov_bool'] = True
+        except: _.loc[_.c>get_poverty_line(myC,by_district=False),'t_pov_bool'] = True
+
         df[['t_pov_inc'+iSP,'t_pov_cons'+iSP,'t_pov_bool'+iSP]] = _[['t_pov_inc','t_pov_cons','t_pov_bool']]
 
 
@@ -105,7 +107,8 @@ def run_poverty_duration_plot(myC):
     ############################
     df = df.reset_index().set_index(['hazard','rp','decile'])
     df['t_pov_bool'] = False
-    df.loc[df.c > get_poverty_line(myC),'t_pov_bool'] = True
+    try: df.loc[df.c>df.pov_line,'t_pov_bool'] = True
+    except: df.loc[df.c>get_poverty_line(myC,by_district=False),'t_pov_bool'] = True
 
     df_dec = pd.DataFrame(index=df.sum(level=['hazard','rp','decile']).index).sort_index()
     # Populate the df_dec dataframe now, while its index is set to ['hazard','rp','decile']

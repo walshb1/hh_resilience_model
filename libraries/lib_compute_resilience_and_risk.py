@@ -158,7 +158,8 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
 def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,event_level,income_cats,default_rp,rm_overlap,verbose_replace=True):
 
     #cat_info = cat_info[cat_info.c>0]
-    hazard_ratios = pd.read_csv(fname, index_col=event_level+[income_cats]).drop(['index','v_mean'],axis=1)
+    hazard_ratios = pd.read_csv(fname, index_col=event_level+[income_cats])
+    hazard_ratios = hazard_ratios.drop([_c for _c in ['index','v_mean'] if _c in hazard_ratios.columns],axis=1)
     
     print('\nHazRatios:\n',hazard_ratios.head())
 
@@ -333,9 +334,9 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
     # --> should be ~0 for provinces with no exposure to a particular disaster
     cats_event['fa'].fillna(value=1.E-8,inplace=True)
 
-    # From here, [hhwgt, pcwgt, and pcwgt_ae] are merged with fa
+    # From here, [hhwgt, pcwgt] are merged with fa
     # --> print('From here: weights (pc and hh) = nAffected and nNotAffected hh/ind') 
-    for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
+    for aWGT in ['hhwgt','pcwgt','aewgt']:
         myNaf = cats_event[aWGT]*cats_event.fa
         myNna = cats_event[aWGT]*(1.-cats_event.fa)
         cats_event_ia[aWGT] = concat_categories(myNaf,myNna, index=affected_cats)
@@ -809,7 +810,7 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
 
     cats_event_iah = pd.merge(cats_event_iah.reset_index(),macro_event.reset_index()[[i for i in macro_event.index.names]+['error_excl','error_incl']],on=[i for i in macro_event.index.names])
 
-    for aWGT in ['hhwgt','pcwgt','pcwgt_ae']:
+    for aWGT in ['hhwgt','pcwgt','aewgt']:
         cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,aWGT]*=(1-cats_event_iah['error_excl'])
         cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='a') ,aWGT]*=(  cats_event_iah['error_excl'])
         cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),aWGT]*=(  cats_event_iah['error_incl'])  
@@ -1184,7 +1185,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
 
     #############################
     # Drop cols from temp, because it's huge...
-    temp = temp.drop([i for i in ['pcinc','hhwgt','pcwgt_ae','pcinc_ae','hhsize','hhsize_ae','pc_fee_PE','pc_fee_BE','index_x','index_y',
+    temp = temp.drop([i for i in ['pcinc','hhwgt','aewgt','aeinc','hhsize','hhsize_ae','pc_fee_PE','pc_fee_BE','index_x','index_y',
                                   'index','level_0','axfin','has_ew','macro_multiplier','dc_npv_pre','di0','dc_post_reco','di0_prv',
                                   'dk_other','gamma_SP','ew_expansion','hh_share','fa','v_with_ew','v','social','quintile','c_5'] if i in temp.columns],axis=1)
 
