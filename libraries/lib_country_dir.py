@@ -53,7 +53,7 @@ def get_currency(myC):
     
     if myC == 'PH': return ['b. PhP',1.E9,1./50.]
     elif myC == 'FJ': return ['k. F\$',1.E3,1./2.]
-    elif myC == 'SL': return ['LKR',1.E9,1./153.]
+    elif myC == 'SL': return ['LKR',1.E9,1./150.]
     elif myC == 'MW': return ['MWK',1.E9,1./724.64]
     else: return ['XXX',1.E0]
 
@@ -167,8 +167,8 @@ def load_survey_data(myC):
         df['pcwgt'] = df[['hhwgt','hhsize']].prod(axis=1)
         df['pcinc'] = df['hhinc']/df['hhsize']
 
-        df['pcinc_ae'] = df['hhinc']/df['hhsize_ae']
-        df['pcwgt_ae'] = df[['hhwgt','hhsize_ae']].prod(axis=1)        
+        df['aeinc'] = df['hhinc']/df['hhsize_ae']
+        df['aewgt'] = df[['hhwgt','hhsize_ae']].prod(axis=1)        
 
         # Still need hhsoc & pcsoc
         dfR = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_R.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
@@ -408,7 +408,7 @@ def load_survey_data(myC):
 
         df['hhsize']     = df['pcwgt']/df['hhwgt']
         df['hhsize_ae']  = df['pcwgt']/df['hhwgt']
-        df['pcwgt_ae']   = df['pcwgt']
+        df['aewgt']   = df['pcwgt'].copy()
 
         # Per capita expenditures
         df['pcexp'] = df['hhexp']/df['hhsize']
@@ -421,7 +421,7 @@ def load_survey_data(myC):
         #df = df.rename(columns={'totdis':'hhinc'}) 
         #df['pcinc'] = df['hhinc']/df['hhsize']
 
-        df['pcinc_ae']   = df['pcinc']
+        df['aeinc']   = df['pcinc'].copy()
 
         df['pcsoc']  = df['hhsoc']/df['hhsize']
 
@@ -568,10 +568,10 @@ def load_survey_data(myC):
         # ^ Equivalent to 0.5*df['Nchildren']+df['Nadult']
 
         df['pcwgt']    = df[['hhsize','hhwgt']].prod(axis=1)
-        df['pcwgt_ae'] = df[['AE','hhwgt']].prod(axis=1)
+        df['aewgt'] = df[['AE','hhwgt']].prod(axis=1)
 
         df['pcinc']    = df['hhinc']/df['hhsize']
-        df['pcinc_ae'] = df['hhinc']/df['hhsize_ae']
+        df['aeinc'] = df['hhinc']/df['hhsize_ae']
 
         df['pcsoc']    = df['hhsoc']/df['hhsize']
             
@@ -620,7 +620,7 @@ def load_survey_data(myC):
         #df.loc[df.SP_SPS == 0,'SP_SPS'] = False
         # SP_PBS = PovertyBenefitsScheme
         df['SP_SPS'] = False
-        df.sort_values(by='pcinc_ae',ascending=True,inplace=True)
+        df.sort_values(by='aeinc',ascending=True,inplace=True)
         hhno,sumOlds = 0,0
         while (hhno < df.shape[0]) and (sumOlds < 15000):
             sumOlds = (df.iloc[:hhno])[['hhwgt','nOlds']].prod(axis=1).sum()
@@ -637,7 +637,7 @@ def load_survey_data(myC):
         # SPP_add  = Social Protection+, additional beneficiaries
         df['SPP_core'] = False
         df['SPP_add']  = False
-        df.sort_values(by='pcinc_ae',ascending=True,inplace=True)
+        df.sort_values(by='aeinc',ascending=True,inplace=True)
 
         # BELOW: these lines assume we're counting AE 
         hhno,hhsum = 0,0
@@ -728,6 +728,7 @@ def load_survey_data(myC):
         df['pcinc'] = df.eval('hhinc/hhsize')
         #
         df['pcwgt'] = df.eval('hhwgt*hhsize')
+        df['aewgt'] = df['pcwgt'].copy()
         df['hhsize_ae'] = df['hhsize'].copy()
         #####################################            
                         
@@ -763,7 +764,7 @@ def load_survey_data(myC):
         df['has_ew'].update(df_ew['has_ew'])
                 
         # Set flag for whether household is poor
-        sl_pov_by_dist = get_poverty_line('SL',by_district=False).reset_index()
+        sl_pov_by_dist = get_poverty_line('SL',by_district=True).reset_index()
         sl_pov_by_dist.columns = ['dist_name','pov_line']
         
         df = pd.merge(df.reset_index(),sl_pov_by_dist.reset_index(),on='dist_name').reset_index().set_index(['District','hhid']).drop(['index','level_0'],axis=1)
@@ -1187,10 +1188,10 @@ def get_poverty_line(myC,by_district=True,sec=None):
     elif myC == 'SL':
         pov_line = (pd.read_excel('../inputs/SL/poverty_def_by_district.xlsx').T['2017 Aug Rs.']*12).to_frame()
         if not by_district:
-            pov_line['2017 Aug Rs.'] = float(pd.read_excel('../inputs/SL/poverty_def_by_district.xlsx').T.loc['National','2017 Aug Rs.']*12.)
+            pov_line = float(pd.read_excel('../inputs/SL/poverty_def_by_district.xlsx').T.loc['National','2017 Aug Rs.']*12.)
 
         # apply PPP to estimate 2016 value...
-        pov_line['2017 Aug Rs.'] *= 11445.5/11669.1
+        pov_line *= 11445.5/11669.1
 
     elif myC == 'MW': pov_line = 137427.98
     else: pov_line = 0.0
@@ -1206,7 +1207,7 @@ def get_subsistence_line(myC):
         # apply PPP to estimate 2016 value...
         pov_line *= 11445.5/11669.1
         # scale from $1.90/day to $1.25/day
-        sub_line = 1.25/1.09*pov_line
+        sub_line = (1.09/1.25)*pov_line
 
 
     elif myC == 'MW': sub_line = 85260.164

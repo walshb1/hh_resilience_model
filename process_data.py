@@ -36,6 +36,7 @@ from matplotlib import colors
 sns.set_style('whitegrid')
 brew_pal = brew.get_map('Set1', 'qualitative', 8).mpl_colors
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
+greys_pal = sns.color_palette('Greys', n_colors=9)
 q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 q_labels = ['Poorest quintile','Q2','Q3','Q4','Wealthiest quintile']
 
@@ -87,7 +88,7 @@ haz_dict = {'EQ':'earthquake',
 
 #######################
 # Get poverty & subsistence thresholds
-pov_line = get_poverty_line(myCountry,'Rural')
+pov_line = get_poverty_line(myCountry,by_district=False)
 sub_line = get_subsistence_line(myCountry)
 
 def reco_time_plots(myC,ompong=False):
@@ -101,7 +102,7 @@ def reco_time_plots(myC,ompong=False):
     _povdur['t_reco'] = (np.log(1/0.05)/_povdur['hh_reco_rate']).clip(upper=15)
     _povdur = _povdur.dropna(how='any')
 
-    _haz = '"HU"'
+    _haz = '"PF"'
     _crit = '(hazard=='+_haz+')'
     if ompong: _crit+="&((region=='I - Ilocos')|(region=='II - Cagayan Valley')|(region=='CAR'))"
 
@@ -117,7 +118,9 @@ def reco_time_plots(myC,ompong=False):
     
     #_povdur.to_csv('~/Desktop/out.csv')
 
-    rp_range = [1,10,25,30,50,100,200,250,500,1000,2000]
+    if myC == 'PH': rp_range = [1,10,25,30,50,100,200,250,500,1000,2000]
+    elif myC == 'SL': rp_range = [5,10,25,50,100,250,500,1000]
+
     if ompong: 
         rp_range = [25]
         rp_hi = '200'
@@ -127,7 +130,9 @@ def reco_time_plots(myC,ompong=False):
         try: plt.close('all')
         except: pass
     
-        my_regions = ['"NCR"','"V - Bicol"','"NCR"all']
+        if myC == 'PH': my_regions = ['"NCR"','"V - Bicol"','"NCR"all']
+        elif myC == 'SL': my_regions = ['"Ampara"','"Colombo"','"Colombo"all']
+
         if ompong: my_regions = ['"path of Ompong"','"path of Ompong"all']
         for __regA in my_regions:
             for _regB in my_regions[:-1]:
@@ -346,8 +351,7 @@ def format_delta_p(delta_p):
     return(str(delta_p))
 
 
-reco_time_plots(myCountry,ompong=True)
-assert(False)
+reco_time_plots(myCountry,ompong=False)
 
 #######################
 # Load output files
@@ -520,7 +524,6 @@ make_map_from_svg(
     do_qualitative=False,
     res=2000)
 
-assert(False)
 #######################
 print('Map welfare losses as fraction of regional GDP')
 make_map_from_svg(
@@ -603,7 +606,7 @@ for myDis in allDis:
     
     print(cut_rps.columns)
     
-    cut_rps.loc[cut_rps.pcwgt_ae != 0.,'delta_c']   = (cut_rps.loc[(cut_rps.pcwgt_ae != 0.), ['di0','pcwgt']].prod(axis=1)/cut_rps.loc[(cut_rps.pcwgt_ae != 0.),'pcwgt_ae'])
+    cut_rps.loc[cut_rps.aewgt != 0.,'delta_c']   = (cut_rps.loc[(cut_rps.aewgt != 0.), ['di0','pcwgt']].prod(axis=1)/cut_rps.loc[(cut_rps.aewgt != 0.),'aewgt'])
 
     cut_rps['c_final']   = (cut_rps['c'] + drm_pov_sign*cut_rps['delta_c'])
     cut_rps['c_final_pds']   = (cut_rps['c'] - cut_rps['delta_c'] - cut_rps['pds_nrh'])
@@ -668,9 +671,9 @@ for myDis in allDis:
 
         cutA['c_initial'] = 0.
         cutA['delta_c']   = 0.
-        cutA.loc[cutA.pcwgt_ae != 0,'c_initial'] = cutA.loc[cutA.pcwgt_ae != 0,['c','pcwgt']].prod(axis=1)/cutA.loc[cutA.pcwgt_ae != 0.,'pcwgt_ae']
+        cutA.loc[cutA.aewgt != 0,'c_initial'] = cutA.loc[cutA.aewgt != 0,['c','pcwgt']].prod(axis=1)/cutA.loc[cutA.aewgt != 0.,'aewgt']
 
-        cutA.loc[cutA.pcwgt_ae != 0,'delta_c']   = (cutA.loc[cutA.pcwgt_ae != 0,['di0','pcwgt']].prod(axis=1)/cutA.loc[cutA.pcwgt_ae != 0.,'pcwgt_ae'])
+        cutA.loc[cutA.aewgt != 0,'delta_c']   = (cutA.loc[cutA.aewgt != 0,['di0','pcwgt']].prod(axis=1)/cutA.loc[cutA.aewgt != 0.,'aewgt'])
         cutA['c_final']   = (cutA['c_initial'] + drm_pov_sign*cutA['delta_c'])
 
         cutA['disaster_n_pov'] = 0

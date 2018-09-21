@@ -183,18 +183,18 @@ cat_info = cat_info.reset_index().set_index(event_level[0])
 print('Total population:',int(cat_info.pcwgt.sum()))
 print('Total n households:',int(cat_info.hhwgt.sum()))
 
-print('- (adults) ',cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info[['pcwgt']].sum())
-try: print('\n(Adults-eq)',cat_info[['pcinc_ae','pcwgt_ae']].prod(axis=1).sum()/cat_info[['pcwgt_ae']].sum())
+print('Average income - (adults) ',cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info[['pcwgt']].sum())
+try: print('\nAverage income (Adults-eq)',cat_info[['aeinc','aewgt']].prod(axis=1).sum()/cat_info[['aewgt']].sum())
 except: pass
 
 print('--> Individuals in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),'pcwgt'].sum()/1.E6,3)),'million')
 print('-----> Families in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),'hhwgt'].sum()/1.E6,3)),'million')
 
 try:
-    print('------> Individuals in poverty (exclusive):', float(round(cat_info.loc[cat_info.eval('pcinc_ae<=pov_line & pcinc_ae>sub_line'),'pcwgt'].sum()/1E6,3)),'million')
-    print('---------> Families in poverty (exclusive):', float(round(cat_info.loc[cat_info.eval('pcinc_ae<=pov_line & pcinc_ae>sub_line'),'hhwgt'].sum()/1E6,3)),'million')
-    print('--> Individuals in subsistence (exclusive):', float(round(cat_info.loc[cat_info.eval('pcinc_ae<=sub_line'),'pcwgt'].sum()/1E6,3)),'million')
-    print('-----> Families in subsistence (exclusive):', float(round(cat_info.loc[cat_info.eval('pcinc_ae<=sub_line'),'hhwgt'].sum()/1E6,3)),'million')
+    print('------> Individuals in poverty (exclusive):', float(round(cat_info.loc[cat_info.eval('aeinc<=pov_line & aeinc>sub_line'),'pcwgt'].sum()/1E6,3)),'million')
+    print('---------> Families in poverty (exclusive):', float(round(cat_info.loc[cat_info.eval('aeinc<=pov_line & aeinc>sub_line'),'hhwgt'].sum()/1E6,3)),'million')
+    print('--> Individuals in subsistence (exclusive):', float(round(cat_info.loc[cat_info.eval('aeinc<=sub_line'),'pcwgt'].sum()/1E6,3)),'million')
+    print('-----> Families in subsistence (exclusive):', float(round(cat_info.loc[cat_info.eval('aeinc<=sub_line'),'hhwgt'].sum()/1E6,3)),'million')
 except: print('No subsistence info...')
 
 print('\n--> Number in poverty (flagged poor):',float(round(cat_info.loc[(cat_info.ispoor==1),'pcwgt'].sum()/1E6,3)),'million')
@@ -267,8 +267,8 @@ print('Check total population (after dropna):',cat_info.pcwgt.sum())
 cat_info = cat_info.fillna(0)
 
 # Cleanup dfs for writing out
-cat_info_col = [economy,'province','hhid','region','pcwgt','pcwgt_ae','hhwgt','code','np','score','v','c','pcsoc','social','c_5','hhsize',
-                'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','pcinc_ae','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds','has_ew',
+cat_info_col = [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','code','np','score','v','c','pcsoc','social','c_5','hhsize',
+                'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds','has_ew',
                 'SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin']
 cat_info = cat_info.drop([i for i in cat_info.columns if (i in cat_info.columns and i not in cat_info_col)],axis=1)
 cat_info_index = cat_info.drop([i for i in cat_info.columns if i not in [economy,'hhid']],axis=1)
