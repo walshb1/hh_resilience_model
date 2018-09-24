@@ -47,7 +47,9 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,currency=''
     upper_clip = 1E6
     if myC == 'PH': upper_clip = 1.25E5
     if myC == 'FJ': upper_clip = 2E4
-    if myC == 'SL': upper_clip = 2.5E5
+    if myC == 'SL': 
+        upper_clip = 3.25E5
+        if aReg == 'Rathnapura': upper_clip = 2.5E5
     if myC == 'MW': upper_clip = 1.E4
 
     c_bins = [None,50]
@@ -73,12 +75,11 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,currency=''
     for _fom,_fom_lab in [('i','Income'),
                           ('c','Consumption')]:
 
-        #try:
-
         ax=plt.gca()
 
         plt.xlim(0,sf_x*upper_clip)
         if aReg == 'II - Cagayan Valley' and aDis == 'HU' and anRP == 25: plt.ylim(0,400)
+        elif aReg == 'Rathnapura': plt.ylim(0,105)
 
         mny = get_currency(myC)
         plt.xlabel(_fom_lab+r' ['+currency+' per person, per year]',labelpad=8)
@@ -102,14 +103,15 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,currency=''
         plt.gca().grid(False,axis='x')
 
         ax.step(c_bins[1][1:], ci_heights, label=aReg+' - FIES income', linewidth=1.2,color=greys_pal[6])
-        #leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)             
-        ax.get_figure().savefig(output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_1of3.pdf',format='pdf')
+        #leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
+        plt.ylim(0)
+        ax.get_figure().savefig(output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_1of3.pdf',format='pdf',bbox_inches='tight')
 
         #ax.step(c_bins[1][:-1], cf_heights, label=aReg+' - post-disaster', facecolor=q_colors[1],alpha=0.45)
         ax.bar(c_bins[1][:-1], cf_heights, width=(c_bins[1][1]-c_bins[1][0]), align='edge', 
                label=aReg+' - post-disaster', facecolor=q_colors[1],edgecolor=None,linewidth=0,alpha=0.65)
         #leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
-        ax.get_figure().savefig(output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_2of3.pdf',format='pdf')
+        ax.get_figure().savefig(output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_2of3.pdf',format='pdf',bbox_inches='tight')
 
         plt.annotate('Pre-disaster '+_fom_lab.lower()+'\n(reported)',xy=(c_bins[1][-2],ci_heights[-1]),xytext=(c_bins[1][-4],ci_heights[-1]*1.06),
                      arrowprops=dict(arrowstyle="-",facecolor=greys_pal[8],connectionstyle="angle,angleA=0,angleB=90,rad=5"),
@@ -159,8 +161,8 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,currency=''
 
         trans = ax.get_xaxis_transform() # x in data units, y in axes fraction
 
-        pov_anno_y = 0.75
-        sub_anno_y = 0.90
+        pov_anno_y = 0.80
+        sub_anno_y = 0.95
         anno_y_offset = 0.045
 
         _,pov_anno_y_data = axis_data_coords_sys_transform(ax,0,pov_anno_y,inverse=False)
@@ -195,7 +197,7 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,currency=''
         #print(aReg,aDis,anRP,net_chg_pov,'people into poverty &',net_chg_sub,'into subsistence') 
 
         fig = ax.get_figure()
-        fig.savefig(output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_'+currency[-3:].lower()+'.pdf',format='pdf')
+        fig.savefig(output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_'+currency[-3:].lower()+'.pdf',format='pdf',bbox_inches='tight')
         #fig.savefig(output_plots+'png/npr_poverty_k_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'.png',format='png')
         plt.clf()
         plt.close('all')

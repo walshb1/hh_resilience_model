@@ -11,7 +11,7 @@ from libraries.lib_common_plotting_functions import *
 from libraries.maps_lib import *
 
 from libraries.lib_plot_income_and_consumption_distributions import plot_income_and_consumption_distributions
-from libraries.lib_plot_impact_by_quintile import plot_impact_by_quintile
+from libraries.lib_plot_impact_by_quintile import plot_impact_by_quintile, plot_relative_losses
 from libraries.lib_average_over_rp import *
 
 from scipy.stats import norm
@@ -410,13 +410,13 @@ if myCountry == 'FJ': myHaz = [['Ba','Lau','Tailevu'],get_all_hazards(myCountry,
 #elif myCountry == 'PH': myHaz = [['V - Bicol','II - Cagayan Valley','NCR','IVA - CALABARZON','ARMM','CAR'],['HU','EQ'],[10,25,50,100,250,500]]
 #elif myCountry == 'PH': myHaz = [['ompong'],['HU','PF','SS'],[10,50,100,200,500]]
 elif myCountry == 'PH': myHaz = [['I - Ilocos','II - Cagayan Valley','CAR'],['HU'],[25,100]]
-elif myCountry == 'SL': myHaz = [['Ampara'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
+elif myCountry == 'SL': myHaz = [['Colombo','Rathnapura','Kalutara','Mannar'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
 elif myCountry == 'MW': myHaz = [['Lilongwe','Chitipa'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
 
 ##################################################################
 # This code generates output on poverty dimensions
 # ^ this is by household, so we use iah
-if False:
+if True:
     run_poverty_duration_plot(myCountry)
     run_poverty_tables_and_maps(myCountry,iah.reset_index().set_index(event_level),event_level)
     map_recovery_time('PH')
@@ -429,12 +429,12 @@ if False:
 #    for _B in myHaz[1]:
 #        for _C in myHaz[2]:
 #            plot_income_and_consumption_distributions('SL',iah,_A,_B,_C)
-#assert(False)
+
 if True:            
     with Pool(processes=3,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
-        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[iah],myHaz[0],myHaz[1],myHaz[2])))
-        #except: pass
+        try: pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[iah],myHaz[0],myHaz[1],myHaz[2])))
+        except: pass
 
 ##################################################################
 # This code generates the histograms showing income before & after disaster (in USD)
@@ -452,3 +452,12 @@ if True:
     with Pool(processes=3,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
         pool.starmap(plot_impact_by_quintile,list(product([myCountry],myHaz[0],myHaz[1],myHaz[2],[iah_res])))  
+
+
+##################################################################
+# This code generates the histograms 
+# ^ this is only for affected hosueholds, so it will use iah
+if True:
+    with Pool(processes=3,maxtasksperchild=1) as pool:
+        print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
+        pool.starmap(plot_relative_losses,list(product([myCountry],myHaz[0],myHaz[1],myHaz[2],[iah])))  
