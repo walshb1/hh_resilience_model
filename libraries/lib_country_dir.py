@@ -1228,6 +1228,7 @@ def get_pop_scale_fac(myC):
     if myC == 'PH': return [1.E3,' [Thousands]']
     elif myC == 'FJ': return [1.E3,' [Thousands]']
     elif myC == 'MW': return [1.E3,' [Thousands]']
+    elif myC == 'SL': return [1.E3,' [Thousands]']
     else: return [1,'']
 
 def get_avg_prod(myC):

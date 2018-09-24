@@ -202,7 +202,7 @@ def run_poverty_duration_plot(myC):
         icol = 4
 
         # Which areas to plot?
-        if myC == 'SL': focus = ['Rathnapura','Colombo','Kandy','Gampaha']
+        if myC == 'SL': focus = ['Colombo','Rathnapura','Kalutara','Mannar']
         elif myC == 'PH': focus = ['NCR']
         elif myC == 'MW': focus = ['Lilongwe','Chitipa']
 
@@ -269,6 +269,17 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
     elif myC == 'SL': svg_file = '../map_files/'+myC+'/lk.svg'
     elif myC == 'MW': svg_file = '../map_files/'+myC+'/mw.svg'
 
+    regional_poverty = pd.read_csv('../inputs/'+myC+'/regional_poverty_rate.csv').set_index(event_level[0])
+    make_map_from_svg(
+        regional_poverty['poverty_rate'], 
+        svg_file,
+        outname=myC+'_regional_poverty_incidence',
+        color_maper=plt.cm.get_cmap('Reds'), 
+        label='Regional poverty incidence [%]',
+        new_title= dem+'Regional poverty incidence [%]',
+        do_qualitative=False,
+        res=2000)  
+
     # Get the poverty headcount info
     #try:
     # Count up the hh that fell into poverty & subsistence:
@@ -303,12 +314,6 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
     pov_df_later.to_csv('../output_country/'+myC+'/permanent_cons_poverty_by_reg.csv')
     pov_df_later.sum().to_csv('../output_country/'+myC+'/permanent_cons_poverty.csv')
 
-    #except:
-    #    try: 
-    #        pov_df_event = pd.read_csv('../output_country/'+myC+'/net_chg_pov_reg_haz_rp.csv', index_col=event_level)
-    #        print('working with saved file')
-    #    except: print('\n\n***Could not load poverty info***\n\n'); assert(False)
-
     # Average over RPs (index = region, hazard)
     pov_df_reg_haz,_ = average_over_rp(pov_df_event[['net_chg_pov_i','net_chg_sub_i','net_chg_pov_c','net_chg_sub_c']],'default_rp')
 
@@ -334,6 +339,13 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
     pov_df_reg_haz['pct_pop_sub_c'] = 1000.*pov_df_reg_haz['net_chg_sub_c']/pov_df_reg_haz['reg_pop'].astype('float')
     pov_df_reg_haz['pct_pop_pov_i'] = 1000.*pov_df_reg_haz['net_chg_pov_i']/pov_df_reg_haz['reg_pop'].astype('float')
     pov_df_reg_haz['pct_pop_sub_i'] = 1000.*pov_df_reg_haz['net_chg_sub_i']/pov_df_reg_haz['reg_pop'].astype('float')
+
+    #
+    regional_poverty['pct_pop_pov_c'] = pov_df_reg_haz.reset_index('hazard')['pct_pop_pov_c'].copy()
+    regional_poverty = regional_poverty.dropna(how='any')
+    plt.scatter(regional_poverty['pct_pop_pov_c']/10.,regional_poverty['poverty_rate'])
+    plt.gcf().savefig('/Users/brian/Desktop/tmp/corr.pdf',format='pdf',bbox_inches='tight')
+    assert(False)
 
     pov_df_reg_haz.to_csv('../output_country/'+myC+'/net_chg_pov_reg_haz.csv')
 
@@ -455,7 +467,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
         new_title= dem+' pushed into poverty by all hazards [%]',
         do_qualitative=False,
         res=2000)
-    
+
     make_map_from_svg(
         1E2*1.E3*(pov_df_region['net_chg_pov_c']/pov_df_region.reg_pop), 
         svg_file,

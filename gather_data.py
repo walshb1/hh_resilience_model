@@ -258,6 +258,10 @@ elif myCountry == 'SL':
     cat_info[economy].replace(prov_code,inplace=True) # replace division code with its name
     cat_info = cat_info.reset_index().set_index([economy,'hhid']).drop(['index'],axis=1)
 
+# Save out regional poverty rate
+(100*cat_info.loc[cat_info.eval('c<pov_line'),'pcwgt'].sum(level=economy)
+ /cat_info['pcwgt'].sum(level=economy)).to_frame(name='poverty_rate').to_csv('../inputs/'+myCountry+'/regional_poverty_rate.csv')
+
 # Shouldn't be losing anything here 
 print('Check total population:',cat_info.pcwgt.sum())
 cat_info.dropna(inplace=True,how='all')
@@ -405,6 +409,16 @@ if myCountry != 'SL':
     hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=1E-8,upper=fa_threshold)    
 
 hazard_ratios[['fa','v']].mean(level=event_level).to_csv('tmp/fa_v.csv')
+
+if False:
+    print(hazard_ratios.head())
+    print(cat_info.head())
+    
+    hazard_ratios = hazard_ratios.reset_index().groupby(economy,sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.k),reshape_data(x.pcwgt),listofquintiles),
+                                                                                                            'quintile',sort_val='k'))
+    hazard_ratios.to_csv('~/Desktop/tmp/'+myCountry+'_hazrat.csv')
+    assert(False)
+#flag
 
 # Get optimal reconstruction rate
 _pi = df['avg_prod_k'].mean()
