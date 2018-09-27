@@ -287,6 +287,12 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
                     -pov_df.loc[pov_df.eval('(c_initial<=pov_line)'),'pcwgt'].sum(level=event_level)).to_frame(name='net_chg_pov_c')
     pov_df_event['net_chg_pov_i'] = (pov_df.loc[pov_df.eval('(i_pre_reco<=pov_line)'),'pcwgt'].sum(level=event_level)
                                      -pov_df.loc[pov_df.eval('(c_initial<=pov_line)'),'pcwgt'].sum(level=event_level))
+    try: 
+        pov_df_event['net_chg_pov_c_children'] = (pov_df.loc[pov_df.eval('(c_pre_reco<=pov_line)'),['N_children','hhwgt']].prod(axis=1).sum(level=event_level)
+                                                  -pov_df.loc[pov_df.eval('(c_initial<=pov_line)'),['N_children','hhwgt']].prod(axis=1).sum(level=event_level))
+        pov_df_event['net_chg_pov_i_children'] = (pov_df.loc[pov_df.eval('(i_pre_reco<=pov_line)'),['N_children','hhwgt']].prod(axis=1).sum(level=event_level)
+                                                  -pov_df.loc[pov_df.eval('(c_initial<=pov_line)'),['N_children','hhwgt']].prod(axis=1).sum(level=event_level))
+    except: pass
 
     # hack!
     if myC == 'MW':
@@ -315,7 +321,11 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
     pov_df_later.sum().to_csv('../output_country/'+myC+'/permanent_cons_poverty.csv')
 
     # Average over RPs (index = region, hazard)
-    pov_df_reg_haz,_ = average_over_rp(pov_df_event[['net_chg_pov_i','net_chg_sub_i','net_chg_pov_c','net_chg_sub_c']],'default_rp')
+    try: pov_df_reg_haz,_ = average_over_rp(pov_df_event[['net_chg_pov_i','net_chg_sub_i',
+                                                          'net_chg_pov_c','net_chg_sub_c',
+                                                          'net_chg_pov_c_children']],'default_rp')
+    except: pov_df_reg_haz,_ = average_over_rp(pov_df_event[['net_chg_pov_i','net_chg_sub_i','net_chg_pov_c','net_chg_sub_c']],'default_rp')
+    
 
     #if myC == 'MW':
     #    pov_df_reg_haz.loc['Blantyre'] = pov_df_reg_haz.loc[['Blantyre','Blantyre City']].sum()
@@ -339,15 +349,14 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
     pov_df_reg_haz['pct_pop_sub_c'] = 1000.*pov_df_reg_haz['net_chg_sub_c']/pov_df_reg_haz['reg_pop'].astype('float')
     pov_df_reg_haz['pct_pop_pov_i'] = 1000.*pov_df_reg_haz['net_chg_pov_i']/pov_df_reg_haz['reg_pop'].astype('float')
     pov_df_reg_haz['pct_pop_sub_i'] = 1000.*pov_df_reg_haz['net_chg_sub_i']/pov_df_reg_haz['reg_pop'].astype('float')
-
     #
-    regional_poverty['pct_pop_pov_c'] = pov_df_reg_haz.reset_index('hazard')['pct_pop_pov_c'].copy()
-    regional_poverty = regional_poverty.dropna(how='any')
-    plt.scatter(regional_poverty['pct_pop_pov_c']/10.,regional_poverty['poverty_rate'])
-    plt.gcf().savefig('/Users/brian/Desktop/tmp/corr.pdf',format='pdf',bbox_inches='tight')
-    assert(False)
-
     pov_df_reg_haz.to_csv('../output_country/'+myC+'/net_chg_pov_reg_haz.csv')
+    #
+    if False:
+        regional_poverty['pct_pop_pov_c'] = pov_df_reg_haz.reset_index('hazard')['pct_pop_pov_c'].copy()
+        regional_poverty = regional_poverty.dropna(how='any')
+        plt.scatter(regional_poverty['pct_pop_pov_c']/10.,regional_poverty['poverty_rate'])
+        plt.gcf().savefig('/Users/brian/Desktop/tmp/corr.pdf',format='pdf',bbox_inches='tight')
 
     # Write out latex tables by hazard
     for _typ, _haz in pov_df_reg_haz.reset_index().set_index(event_level[0]).groupby(['hazard']):
@@ -358,6 +367,9 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
 
     # Sum over hazards (index = region)
     pov_df_region = pov_df_reg_haz[['net_chg_pov_i','net_chg_sub_i','net_chg_pov_c','net_chg_sub_c']].sum(level=event_level[0])
+    try: pov_df_region['net_chg_pov_c_children'] = pov_df_reg_haz[['net_chg_pov_c_children']].sum(level=event_level[0])
+    except: pass
+
     pov_df_region['reg_pop'] = pov_df_event['reg_pop'].mean(level=event_level[0])
     pov_df_region['init_pov'] = pov_df_event['init_pov'].mean(level=event_level[0])
     pov_df_region['init_sub'] = pov_df_event['init_sub'].mean(level=event_level[0])
@@ -447,6 +459,21 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
                 res=2000)
 
             plt.close('all')
+
+    pov_df_region = pov_df_region.drop('Total')
+    try:
+        pov_df_region.to_csv('~/Desktop/tmp/children.csv')
+        make_map_from_svg(
+            pov_df_region['net_chg_pov_c_children']/1E3,
+            svg_file,
+            outname=myC+'_new_child_poverty_incidence_allHaz_allRPs',
+            color_maper=plt.cm.get_cmap('Reds'), 
+            label='Net change in children in consumption poverty\neach year from all hazards (thousands)',
+            new_title='Net change in children in consumption poverty each year from all hazards',
+            do_qualitative=True,
+            res=2000)
+    except: assert(False)
+    assert(False)
 
     make_map_from_svg(
         pov_df_region['net_chg_pov_c']/1E3,

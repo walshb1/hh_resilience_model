@@ -782,6 +782,13 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     if optionPDS == 'fiji_SPS' or optionPDS == 'fiji_SPP':
         macro_event['error_incl'] = 1.0
         macro_event['error_excl'] = 0.0
+    elif 'samurdhi_scaleup' in optionPDS:
+        try:
+            macro_event['error_incl'] = float(optionPDS[-2:])*1E-2
+            macro_event['error_excl'] = 0.0  
+        except:
+            macro_event['error_incl'] = 1.0
+            macro_event['error_excl'] = 0.0
     elif optionT=='perfect':
         macro_event['error_incl'] = 0
         macro_event['error_excl'] = 0    
@@ -834,13 +841,20 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
         macro_event['aid'] = 0
         optionB='no'
 
-    elif optionPDS == 'fiji_SPP': cats_event_iah = run_fijian_SPP(macro_event,cats_event_iah)        
-    elif optionPDS=='fiji_SPS': cats_event_iah = run_fijian_SPS(macro_event,cats_event_iah)   
+    elif 'samurdhi_scaleup' in optionPDS:
+        #print(cats_event_iah[['pcwgt','gsp_samurdhi']].prod(axis=1).sum(level=['hazard','rp']))
+        # ^ should sum to 1, but ~15% goes to the 3 provinces not covered in SSBN flood maps
+
+        cats_event_iah.loc[cats_event_iah.eval('helped_cat=="helped"'),'help_received'] = (1./12)*cats_event_iah.loc[cats_event_iah.eval('helped_cat=="helped"'),'pcsamurdhi']
+        # From Fiji model: all households enrolled in samurdhi, independent of affected status, get 1 month's payout
+        
+    elif optionPDS == 'fiji_SPP': cats_event_iah = run_fijian_SPP(macro_event,cats_event_iah)
+    elif optionPDS=='fiji_SPS': cats_event_iah = run_fijian_SPS(macro_event,cats_event_iah)
 
     elif optionPDS=='unif_poor':
         # For this policy: help_received by all helped hh = shareable (0.8) * average losses (dk) of lowest quintile
         cats_event_iah.loc[cats_event_iah.eval('helped_cat=="helped"'),'help_received'] = macro_event['shareable'] * cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),[loss_measure,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),'pcwgt'].sum(level=event_level)
-
+        
     elif optionPDS=='unif_poor_only':
         # For this policy: help_received by all helped hh in 1st quintile = shareable (0.8) * average losses (dk) of lowest quintile
         cats_event_iah.loc[cats_event_iah.eval('(helped_cat=="helped")&(quintile==1)'),'help_received']=macro_event['shareable']*cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),[loss_measure,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),'pcwgt'].sum(level=event_level)
@@ -1276,8 +1290,8 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
 
                 with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','wb') as pout:
                     pickle.dump(opt_in.loc[opt_in.index.unique()],pout)
-                with open('../optimization_libs/'+myC+'_optimal_savings_rate_proto2.p','wb') as pout2:
-                    pickle.dump(opt_in.loc[opt_in.index.unique()],pout2,protocol=2)
+                #with open('../optimization_libs/'+myC+'_optimal_savings_rate_proto2.p','wb') as pout2:
+                #    pickle.dump(opt_in.loc[opt_in.index.unique()],pout2,protocol=2)
 
             except: 
                 with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','wb') as pout:

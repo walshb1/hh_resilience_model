@@ -150,11 +150,13 @@ sp_out['avg_value_SPall'] = cat_info[['pcsoc','pcwgt']].prod(axis=1).sum(level=e
 sp_out['sp_over_c'] = cat_info.loc[cat_info['pcsoc']!=0].eval('pcwgt*pcsoc/c').sum(level=economy)/cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum(level=economy)
 sp_out['sp_over_call'] = cat_info.eval('pcwgt*pcsoc/c').sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
 
+try: sp_out['frac_receive_samurdhi'] = 100*cat_info.loc[cat_info['pcsamurdhi']!=0,'pcwgt'].sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
+except: pass
+
 sp_out.loc['NATL_AVG','frac_receive_SP'] = 100*cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum()/cat_info['pcwgt'].sum()
 sp_out.loc['NATL_AVG','avg_value_SP'] = cat_info.loc[cat_info['pcsoc']!=0,['pcsoc','pcwgt']].prod(axis=1).sum()/cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum()
 sp_out.loc['NATL_AVG','avg_value_SPall'] = cat_info[['pcsoc','pcwgt']].prod(axis=1).sum()/cat_info['pcwgt'].sum()
 sp_out.loc['NATL_AVG','sp_over_c'] = cat_info.loc[cat_info['pcsoc']!=0,['pcsoc','pcwgt']].prod(axis=1).sum()/cat_info.loc[cat_info['pcsoc']!=0,['c','pcwgt']].prod(axis=1).sum()
-
 sp_out.to_csv('../output_country/'+myCountry+'/sp_receipts_by_region.csv')
 
 cat_info = cat_info.reset_index('hhid')
@@ -188,9 +190,10 @@ try: print('\nAverage income (Adults-eq)',cat_info[['aeinc','aewgt']].prod(axis=
 except: pass
 
 print('--> Individuals in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),'pcwgt'].sum()/1.E6,3)),'million')
-print('-----> Families in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),'hhwgt'].sum()/1.E6,3)),'million')
+print('-----> Households in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),'hhwgt'].sum()/1.E6,3)),'million')
 
 try:
+    print('-----> Children in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),['N_children','hhwgt']].prod(axis=1).sum()/1.E6,3)),'million')
     print('------> Individuals in poverty (exclusive):', float(round(cat_info.loc[cat_info.eval('aeinc<=pov_line & aeinc>sub_line'),'pcwgt'].sum()/1E6,3)),'million')
     print('---------> Families in poverty (exclusive):', float(round(cat_info.loc[cat_info.eval('aeinc<=pov_line & aeinc>sub_line'),'hhwgt'].sum()/1E6,3)),'million')
     print('--> Individuals in subsistence (exclusive):', float(round(cat_info.loc[cat_info.eval('aeinc<=sub_line'),'pcwgt'].sum()/1E6,3)),'million')
@@ -273,7 +276,7 @@ cat_info = cat_info.fillna(0)
 # Cleanup dfs for writing out
 cat_info_col = [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','code','np','score','v','c','pcsoc','social','c_5','hhsize',
                 'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds','has_ew',
-                'SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin']
+                'SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin','pcsamurdhi','gsp_samurdhi','frac_remittance','N_children']
 cat_info = cat_info.drop([i for i in cat_info.columns if (i in cat_info.columns and i not in cat_info_col)],axis=1)
 cat_info_index = cat_info.drop([i for i in cat_info.columns if i not in [economy,'hhid']],axis=1)
 
@@ -476,6 +479,7 @@ cat_info = cat_info.drop([icol for icol in ['level_0','index'] if icol in cat_in
 #cat_info = cat_info.drop([i for i in ['province'] if i != economy],axis=1)
 cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index=True)
 
+
 # If we have 2 sets of data on k, gdp, look at them now:
 try:
     summary_df = pd.DataFrame({'FIES':df['avg_prod_k'].mean()*cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy)/1E9,
@@ -496,7 +500,7 @@ except: print('Dont have 2 datasets for GDP. Just using hh survey data.')
 hazard_ratios= hazard_ratios.drop(['frac_destroyed','grdp_to_assets'],axis=1).drop(["flood_fluv_def"],level="hazard")
 hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
 
-print(hazard_ratios.head())
+
 
 # Compare assets from survey to assets from AIR-PCRAFI    
 if myCountry == 'FJ':

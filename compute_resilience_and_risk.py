@@ -206,8 +206,15 @@ if __name__ == '__main__':
             # --> 
 
         if myCountry == 'SL':
-            pds_str = ['no','unif_poor','unif_poor_only','unif_poor_q12','prop_q1','prop_q12']#'_infsavings'
+            pds_str = ['no',
+                       'unif_poor','unif_poor_only','unif_poor_q12','prop_q1','prop_q12',
+                       'samurdhi_scaleup','samurdhi_scaleup00','samurdhi_scaleup33','samurdhi_scaleup66'
+                       ]#'_infsavings'
             pol_str = ['']
+            
+            if debug:
+                launch_compute_resilience_and_risk_thread(myCountry,'','no')
+                assert(False)
 
         if myCountry == 'MW':
             pds_str = ['no','unif_poor']
