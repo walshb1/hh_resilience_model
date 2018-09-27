@@ -79,18 +79,26 @@ def get_places(myC,economy):
             df_hhsize = pd.read_csv(inputs+'HIES2016/sec_1_demographic_information.csv')
 
             df_hhsize['hhsize'] = df_hhsize.groupby(['District','Sector','Psu','Snumber','Hhno'])['Person_Serial_No'].transform('count')
+
+            # Set flag if HH has children
+            df_hhsize['is_child'] = 0
+            df_hhsize.loc[(df_hhsize['Birth_Year']>=98)|(df_hhsize['Birth_Year']<18),'is_child'] = 1
             
             df_hhsize = pd.merge(df_hhsize.reset_index(),df_hhwgt.reset_index(),on=['District','Sector','Psu'])
 
-            df_hhsize['hhid'] = df_hhsize['District'].astype('str')+df_hhsize['Sector'].astype('str')+df_hhsize['Psu'].astype('str')+df_hhsize['Snumber'].astype('str')+df_hhsize['Hhno'].astype('str')
-            
+            df_hhsize['hhid'] = (df_hhsize['District'].astype('str')+df_hhsize['Sector'].astype('str')
+                                 +df_hhsize['Psu'].astype('str')+df_hhsize['Snumber'].astype('str')+df_hhsize['Hhno'].astype('str'))
             df_hhsize = df_hhsize.reset_index().set_index(['District','Sector','Psu','Snumber','Hhno']).sort_index()
 
             # Now get rid of duplicates: 
-            df = df_hhsize[['hhsize','hhwgt']].mean(level=['District','Sector','Psu','Snumber','Hhno'])            
+            df = df_hhsize[['hhsize','hhwgt']].mean(level=['District','Sector','Psu','Snumber','Hhno'])
+            df['N_children'] = df_hhsize['is_child'].sum(level=['District','Sector','Psu','Snumber','Hhno'])
+
             df.to_csv(inputs+'/HIES2016/df_hhwgt_and_hhsize.csv')
             # this will be used in get_survey_data, rather than redoing hhsize
             
+            
+
             df = df.reset_index().rename(columns={'District':'district'}).set_index('district')
             df['headcount'] = df[['hhsize','hhwgt']].prod(axis=1)
             
@@ -668,6 +676,9 @@ def load_survey_data(myC):
  
         df = df.reset_index().set_index(['District','hhid']).drop(['index','Psu','Snumber','Hhno'],axis=1)
 
+        # Does the HH have children?
+        
+
         #########################
         # Add expenditures info:
         # Food:
@@ -740,18 +751,24 @@ def load_survey_data(myC):
         df_social = df_social.sum(level=['District','hhid'])
         df_social['hhsoc'] = df_social.eval('12.*(Pension+Disability_And_Relief+Samurdhi+Elder+Tb+Scholar+Sc_Lunch+Threeposha)+Income_Forign+Income_Local')
         df_social['hhremittance'] = df_social.eval('Income_Forign+Income_Local')
+        df_social['hhsamurdhi'] = df_social.eval('12.*Samurdhi')
         df_social['frac_remittance'] = df_social.eval('hhremittance/hhsoc')
         
         df['hhsoc'] = 0; df['frac_remittance'] = 0
         df['hhsoc'].update(df_social['hhsoc'])
         df['frac_remittance'].update(df_social['frac_remittance'])
-        
+
         df['hhsoc'] = df['hhsoc'].clip(upper=df['hhinc'])
         #df['hhremittance'] = df['hhremittance'].clip(upper=df['hhinc'])
         # ^ By construction, can't be above 1
-
         df['pcsoc'] = df.eval('hhsoc/hhsize')
         
+        df['hhsamurdhi'] = 0
+        df['hhsamurdhi'].update(df_social['hhsamurdhi'])
+        df['pcsamurdhi'] = df.eval('hhsamurdhi/hhsize')
+        df['gsp_samurdhi'] = df['pcsamurdhi']/df[['pcwgt','pcsamurdhi']].prod(axis=1).sum()
+        df = df.drop('hhsamurdhi',axis=1)
+
         # Get early warning info
         df_ew = pd.read_csv(inputs+'/HIES2016/sec_6a_durable_goods.csv').fillna(0)  
         df_ew['hhid'] = (df_ew['District'].astype('str')+df_ew['Sector'].astype('str')
