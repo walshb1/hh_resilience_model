@@ -23,6 +23,7 @@ from libraries.lib_gather_data import *
 from libraries.lib_sea_level_rise import *
 from libraries.replace_with_warning import *
 from libraries.lib_agents import optimize_reco
+from libraries.lib_sp_analysis import run_sp_analysis
 
 warnings.filterwarnings('always',category=UserWarning)
 
@@ -141,25 +142,10 @@ cat_info['pcsoc'] = cat_info['pcsoc'].clip(upper=0.99*cat_info['c'])
 # --> pcinc_s seems to be what they use to calculate poverty...
 # --> can be converted to pcinc_ppp11 by dividing by (365*21.1782)
 
-cat_info = cat_info.reset_index().set_index(['hhid',economy])
-sp_out = pd.DataFrame(index=cat_info.sum(level=economy).index.copy())
+#cat_info = cat_info.reset_index().set_index(['hhid',economy])
+run_sp_analysis(myCountry,cat_info.copy())
+#cat_info = cat_info.reset_index('hhid')
 
-sp_out['frac_receive_SP'] = 100*cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
-sp_out['avg_value_SP'] = cat_info.loc[cat_info['pcsoc']!=0,['pcsoc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum(level=economy)
-sp_out['avg_value_SPall'] = cat_info[['pcsoc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
-sp_out['sp_over_c'] = cat_info.loc[cat_info['pcsoc']!=0].eval('pcwgt*pcsoc/c').sum(level=economy)/cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum(level=economy)
-sp_out['sp_over_call'] = cat_info.eval('pcwgt*pcsoc/c').sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
-
-try: sp_out['frac_receive_samurdhi'] = 100*cat_info.loc[cat_info['pcsamurdhi']!=0,'pcwgt'].sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
-except: pass
-
-sp_out.loc['NATL_AVG','frac_receive_SP'] = 100*cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum()/cat_info['pcwgt'].sum()
-sp_out.loc['NATL_AVG','avg_value_SP'] = cat_info.loc[cat_info['pcsoc']!=0,['pcsoc','pcwgt']].prod(axis=1).sum()/cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum()
-sp_out.loc['NATL_AVG','avg_value_SPall'] = cat_info[['pcsoc','pcwgt']].prod(axis=1).sum()/cat_info['pcwgt'].sum()
-sp_out.loc['NATL_AVG','sp_over_c'] = cat_info.loc[cat_info['pcsoc']!=0,['pcsoc','pcwgt']].prod(axis=1).sum()/cat_info.loc[cat_info['pcsoc']!=0,['c','pcwgt']].prod(axis=1).sum()
-sp_out.to_csv('../output_country/'+myCountry+'/sp_receipts_by_region.csv')
-
-cat_info = cat_info.reset_index('hhid')
 
 # Cash receipts, abroad & domestic, other gifts
 cat_info['social'] = (cat_info['pcsoc']/cat_info['c']).fillna(0)
@@ -212,26 +198,6 @@ pd.DataFrame({'population':cat_info['pcwgt'].sum(level=economy),
 # Change the name: district to code, and create an multi-level index 
 cat_info = cat_info.rename(columns={'district':'code','HHID':'hhid'})
 
-# Assing weighted household consumption to quintiles within each province
-print('Finding quintiles')
-listofquintiles=np.arange(0.20, 1.01, 0.20)
-cat_info = cat_info.reset_index().groupby(economy,sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),listofquintiles),'quintile'))
-# 'c_5_nat' is the upper consumption limit for the lowest 5% throughout country
-percentiles_05 = np.arange(0.05, 1.01, 0.05) #create a list of deciles 
-my_c5 = match_percentiles(cat_info,perc_with_spline(reshape_data(cat_info.c),reshape_data(cat_info.pcwgt),percentiles_05),'pctle_05_nat')
-cat_info['c_5_nat'] = cat_info.loc[cat_info.pctle_05_nat==1,'c'].max()
-
-cat_info = cat_info.reset_index().groupby(economy,sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),percentiles_05),'pctle_05'))
-if 'level_0' in cat_info.columns:
-    cat_info = cat_info.drop(['level_0','index'],axis=1)
-cat_info_c_5 = cat_info.reset_index().groupby(economy,sort=True).apply(lambda x:x.loc[x.pctle_05==1,'c'].max())
-cat_info = cat_info.reset_index().set_index([economy,'hhid']) #change the name: district to code, and create an multi-level index 
-cat_info['c_5'] = broadcast_simple(cat_info_c_5,cat_info.index)
-cat_info['c_5'] = cat_info.c_5.fillna(cat_info.c_5.mean(level=economy).min())
-# ^ this is a line to prevent c_5 from being left empty due to paucity of hh from a given province (for Rotuma, FJ)
-
-cat_info.drop([icol for icol in ['level_0','index','pctle_05','pctle_05_nat'] if icol in cat_info.columns],axis=1,inplace=True)
-
 # tau_tax = total value of social as fraction of total C
 # gamma_SP = Fraction of social that goes to each hh
 print('Get the tax used for domestic social transfer and the share of Social Protection')
@@ -239,8 +205,8 @@ df['tau_tax'], cat_info['gamma_SP'] = social_to_tx_and_gsp(economy,cat_info)
 
 # Calculate K from C
 print('Calculating capital from income')
-cat_info['k'] = ((cat_info['c']/df['avg_prod_k'])*((1-cat_info['social'])/(1-df['tau_tax']))).clip(lower=0.)
-
+cat_info['k'] = ((cat_info['c']/df['avg_prod_k'].mean())*((1-cat_info['social'])/(1-df['tau_tax'].mean()))).clip(lower=0.)
+print('Derived capital from income')
 
 if myCountry == 'FJ':
     #replace division codes with names
@@ -261,7 +227,8 @@ elif myCountry == 'SL':
     cat_info[economy].replace(prov_code,inplace=True) # replace division code with its name
     cat_info = cat_info.reset_index().set_index([economy,'hhid']).drop(['index'],axis=1)
 
-# Save out regional poverty rate
+print('Save out regional poverty rates')
+print(cat_info.head())
 (100*cat_info.loc[cat_info.eval('c<pov_line'),'pcwgt'].sum(level=economy)
  /cat_info['pcwgt'].sum(level=economy)).to_frame(name='poverty_rate').to_csv('../inputs/'+myCountry+'/regional_poverty_rate.csv')
 
@@ -275,8 +242,8 @@ cat_info = cat_info.fillna(0)
 
 # Cleanup dfs for writing out
 cat_info_col = [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','code','np','score','v','c','pcsoc','social','c_5','hhsize',
-                'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds','has_ew',
-                'SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin','pcsamurdhi','gsp_samurdhi','frac_remittance','N_children']
+                'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
+                'has_ew','SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin','pcsamurdhi','gsp_samurdhi','frac_remittance','N_children']
 cat_info = cat_info.drop([i for i in cat_info.columns if (i in cat_info.columns and i not in cat_info_col)],axis=1)
 cat_info_index = cat_info.drop([i for i in cat_info.columns if i not in [economy,'hhid']],axis=1)
 

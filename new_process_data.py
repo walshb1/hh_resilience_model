@@ -36,7 +36,7 @@ mpl.rcParams['legend.facecolor'] = 'white'
 import warnings
 warnings.filterwarnings('always',category=UserWarning)
 
-myCountry = 'PH'
+myCountry = 'SL'
 if len(sys.argv) >= 2: myCountry = sys.argv[1]
 print('Running '+myCountry)
 
@@ -114,6 +114,7 @@ for _pds in ['no']+pds_sims:
         pds_effects_out['ROI_event_'+_pds] = pds_effects_out['dw_DELTA_'+_pds]/(1E-6*pds_effects['event_cost'])
 
 pds_effects_out.to_csv(out_files+'pds_effects.csv')
+assert(False)
 
 if False:
     for iPol in all_policies:
