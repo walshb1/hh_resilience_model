@@ -3,20 +3,21 @@ import matplotlib
 matplotlib.use('AGG')
 
 import gc
+import math
 import pickle
-
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from scipy.interpolate import interp1d
-import math
 import seaborn as sns
+import matplotlib.pyplot as plt
 
-from libraries.pandas_helper import get_list_of_index_names, broadcast_simple, concat_categories
-from libraries.lib_gather_data import social_to_tx_and_gsp, get_hh_savings
+
+from scipy.interpolate import interp1d
+from libraries.lib_agents import smart_savers
+from libraries.lib_scaleout import get_scaleout_recipients
 from libraries.lib_fiji_sps import run_fijian_SPP, run_fijian_SPS
-from libraries.lib_country_dir import *
-from libraries.lib_agents import *
+from libraries.lib_gather_data import social_to_tx_and_gsp, get_hh_savings
+from libraries.pandas_helper import get_list_of_index_names, broadcast_simple, concat_categories
+from libraries.lib_country_dir import get_to_USD, get_subsistence_line, average_over_rp, average_over_rp1
 
 pd.set_option('display.width', 220)
 
@@ -510,19 +511,19 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         print('Using hh response: avoid subsistence '+str(round(float(cats_event_ia['c_min'].mean()),2)))
 
         # STEP 2: Get savings rate
-        try:
+        if myC == 'PH':
             sub_file_name = '../output_country/'+myC+'/hh_savings_in_subsistence_reg.csv'
             df_subsistence_sav = pd.read_csv(sub_file_name).rename(columns={'w_regn':'region',
                                                                             'hh_q1':'sub_savings_q1',
                                                                             'hh_q3':'sub_savings_q3'})[['region','sub_savings_q1','sub_savings_q3']]
             df_subsistence_sav['region'].replace(pd.read_excel('../inputs/'+myC+'/FIES_regions.xlsx')[['region_code','region_name']].set_index('region_code').squeeze(),inplace=True)
-            df_subsistence_sav[['sub_savings_q1','sub_savings_q3']] = df_subsistence_sav[['sub_savings_q1','sub_savings_q3']].clip(lower=1000.)
+            df_subsistence_sav[['sub_savings_q1','sub_savings_q3']] = df_subsistence_sav[['sub_savings_q1','sub_savings_q3']].clip(lower=50.)
 
-            cats_event_ia = pd.merge(cats_event_ia.reset_index(),df_subsistence_sav.reset_index(),on=['region']).set_index(['region','hazard','rp','hhid','affected_cat'])
-            cats_event_ia = cats_event_ia.drop([i for i in ['index','index_x','index_y','level_0'] if i in cats_event_ia.columns])
-        except: 
-            cats_event_ia['sub_savings_q1'] = 500.
-            cats_event_ia['sub_savings_q3'] = 50.
+            cats_event_ia = pd.merge(cats_event_ia.reset_index(),df_subsistence_sav.reset_index(),on=event_level[0]).set_index(event_level+['hhid','affected_cat'])
+            cats_event_ia = cats_event_ia.drop([i for i in ['index','index_x','index_y','level_0'] if i in cats_event_ia.columns],axis=1)
+        else: 
+            cats_event_ia['sub_savings_q1'] = 1.
+            cats_event_ia['sub_savings_q3'] = 1.
             
         # Case 1:
         # --> hh was affected (did lose some assets)
@@ -751,13 +752,16 @@ def calculate_response(myCountry,pol_str,macro_event,cats_event_ia,public_costs,
                        optionFee='tax',optionT='data', optionPDS='unif_poor', optionB='data',loss_measure='dk_private',fraction_inside=1, share_insured=.25):
 
     cats_event_iah = broadcast_simple(cats_event_ia, helped_cats).reset_index().set_index(event_level)
+    cats_event_iah['hhid'] = cats_event_iah['hhid'].astype('str')
 
     # Baseline case (no insurance):
     cats_event_iah['help_received'] = 0
     cats_event_iah['help_fee'] =0
     
-    macro_event, cats_event_iah, public_costs = compute_response(myCountry, pol_str,macro_event, cats_event_iah, public_costs, event_level,default_rp,option_CB,optionT=optionT, 
-                                                                 optionPDS=optionPDS, optionB=optionB, optionFee=optionFee, fraction_inside=fraction_inside, loss_measure = loss_measure)
+    macro_event, cats_event_iah, public_costs = compute_response(myCountry, pol_str,macro_event, cats_event_iah, public_costs, 
+                                                                 event_level,default_rp,option_CB,optionT=optionT,optionPDS=optionPDS, 
+                                                                 optionB=optionB, optionFee=optionFee, fraction_inside=fraction_inside, 
+                                                                 loss_measure = loss_measure)
     
     cats_event_iah.drop(['protection'],axis=1, inplace=True)
     return macro_event, cats_event_iah, public_costs
@@ -823,7 +827,9 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
         cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),aWGT]*=(  cats_event_iah['error_incl'])  
         cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='na'),aWGT]*=(1-cats_event_iah['error_incl'])
 
-    cats_event_iah = cats_event_iah.reset_index().set_index(df_index).drop([icol for icol in ['index','error_excl','error_incl'] if icol in cats_event_iah.columns],axis=1)
+    cats_event_iah = cats_event_iah.reset_index().set_index(df_index).drop([icol for icol in ['index',
+                                                                                              'error_excl',
+                                                                                              'error_incl'] if icol in cats_event_iah.columns],axis=1)
     #cats_event_iah = cats_event_iah.drop(['index'],axis=1)
     
     # MAXIMUM NATIONAL SPENDING ON SCALE UP
@@ -846,8 +852,17 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
         # ^ should sum to 1, but ~15% goes to the 3 provinces not covered in SSBN flood maps
 
         cats_event_iah.loc[cats_event_iah.eval('helped_cat=="helped"'),'help_received'] = (1./12)*cats_event_iah.loc[cats_event_iah.eval('helped_cat=="helped"'),'pcsamurdhi']
-        # From Fiji model: all households enrolled in samurdhi, independent of affected status, get 1 month's payout
-        
+        # Based on the TC Winston response in Fiji: all households enrolled in samurdhi get 1 month's payout independent of losses
+        # can be done with perfect or imperfect targeting...
+
+    elif 'scaleout_samurdhi' in optionPDS:
+        ix_in = cats_event_iah.index.names
+        cats_event_iah = cats_event_iah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])
+        cats_event_iah['help_received'] = get_scaleout_recipients(optionPDS,cats_event_iah,'PMT')
+        #                                 ^ comes back with FULL index = [economy, hazard, rp, hhid, affected_cat, helped_cat]
+        cats_event_iah = cats_event_iah.reset_index().set_index(ix_in).drop(['index','enrolled_in_samurdhi'],axis=1) 
+
+
     elif optionPDS == 'fiji_SPP': cats_event_iah = run_fijian_SPP(macro_event,cats_event_iah)
     elif optionPDS=='fiji_SPS': cats_event_iah = run_fijian_SPS(macro_event,cats_event_iah)
 
@@ -996,6 +1011,8 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
     ###################
     #calc_delta_welfare
     cats_event_iah['dc_post_reco'], cats_event_iah['dw'] = [0,0]
+    
+    print(cats_event_iah.head())
     cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dc_post_reco'], cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dw'] = calc_delta_welfare(myCountry,cats_event_iah,macro_event,
                                                                                                                                       pol_str,optionPDS)
     assert(cats_event_iah['dc_post_reco'].shape[0] == cats_event_iah['dc_post_reco'].dropna().shape[0])
@@ -1536,6 +1553,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     ##################################
 
     temp = temp.reset_index().set_index([i for i in mic_ix])
+    
     return temp['dc_net'], temp['dw']
 
 

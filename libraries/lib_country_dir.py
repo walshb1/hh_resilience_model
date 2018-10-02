@@ -70,7 +70,7 @@ def get_places(myC,economy):
         df = pd.read_excel(inputs+'HIES 2013-14 Housing Data.xlsx',sheetname='Sheet1').set_index('Division').dropna(how='all')[['HHsize','Weight']].prod(axis=1).sum(level='Division').to_frame()
         df.columns = ['population']
         return df
-
+    
     if myC == 'SL':
         if True:
             df_hhwgt = pd.read_csv(inputs+'HIES2016/weight2016.csv')
@@ -93,6 +93,11 @@ def get_places(myC,economy):
             # Now get rid of duplicates: 
             df = df_hhsize[['hhsize','hhwgt']].mean(level=['District','Sector','Psu','Snumber','Hhno'])
             df['N_children'] = df_hhsize['is_child'].sum(level=['District','Sector','Psu','Snumber','Hhno'])
+            # count children
+            df['ethnicity'] = df_hhsize.loc[df_hhsize['Person_Serial_No']==1,'Ethnicity']
+            # label ethnicity (1=sinhala, 2=tamil, 3=indian tamil, 4=moors, 5=malay, 6=burgher, 7=other)
+            df['religion'] = df_hhsize.loc[df_hhsize['Person_Serial_No']==1,'Religion']
+            # label religion (1=buddhist, 2=hindu, 3=islam, 4=christian, 9=other0
 
             df.to_csv(inputs+'/HIES2016/df_hhwgt_and_hhsize.csv')
             # this will be used in get_survey_data, rather than redoing hhsize
@@ -145,7 +150,8 @@ def get_places_dict(myC):
     return p_code,r_code
 
 def load_survey_data(myC):
-    
+
+    df = None
     #Each survey/country should have the following:
     # -> hhid
     # -> hhinc
@@ -226,8 +232,6 @@ def load_survey_data(myC):
         dfE['labor_ag_unpaid'] = 0
         dfE.loc[dfE['hh_e06_8a']=='UNPAID HOUSEHOLD LABOR(AGRIC)','labor_ag_unpaid'] = 1.
         df['labor_ag_unpaid'] = dfE['labor_ag_unpaid'].sum(level='hhid')
-
-        print(dfE.head())
 
         # --> N hh members working in ganyu        
         dfE['labor_ganyu'] = 0
@@ -402,7 +406,9 @@ def load_survey_data(myC):
         print('Setting c to pcinc') 
         df['c'] = df['pcinc'].copy()
 
-        return df
+
+
+
 
     elif myC == 'PH':
         df = pd.read_csv(inputs+'fies2015.csv',usecols=['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn',
@@ -537,8 +543,6 @@ def load_survey_data(myC):
         df = df.drop([_c for _c in ['country','decile_nat','decile_reg','est_sav','tot_savings','savings','invest',
                                     'annual_savings','index','level_0','cash_domestic'] if _c in df.columns],axis=1)
 
-        return df.reset_index()
-
     elif myC == 'FJ':
         
         # This is an egregious hack, but deadlines are real
@@ -662,7 +666,8 @@ def load_survey_data(myC):
         print('Setting c to pcinc') 
         df['c'] = df['pcinc'].copy()
 
-        return df
+
+
 
     elif myC == 'SL':
             
@@ -675,8 +680,6 @@ def load_survey_data(myC):
         df['dist_name'] = [dist_names[_dn] for _dn in df['District'].values]
  
         df = df.reset_index().set_index(['District','hhid']).drop(['index','Psu','Snumber','Hhno'],axis=1)
-
-        # Does the HH have children?
         
 
         #########################
@@ -775,11 +778,10 @@ def load_survey_data(myC):
                          +df_ew['Psu'].astype('str')+df_ew['Snumber'].astype('str')+df_ew['Hhno'].astype('str'))
         df_ew = df_ew.reset_index().set_index(['District','hhid']).sort_index().drop(['index','Sector','Month','Psu','Snumber','Hhno','Nhh','Result'],axis=1)    
         
-        df_ew['has_ew'] = df_ew.eval('Radio + Tv + Telephone + Telephone_Mobile + Computers').clip(upper=1)             
-
-        df['has_ew'] = 0
-        df['has_ew'].update(df_ew['has_ew'])
-                
+        df_ew['has_ew'] = 0
+        df_ew.loc[df_ew.eval('(Radio==1)|(Tv==1)|(Telephone==1)|(Telephone_Mobile==1)|(Computers==1)'),'has_ew'] = 1
+        df['has_ew'] = df_ew['has_ew'].copy()
+        
         # Set flag for whether household is poor
         sl_pov_by_dist = get_poverty_line('SL',by_district=True).reset_index()
         sl_pov_by_dist.columns = ['dist_name','pov_line']
@@ -807,9 +809,22 @@ def load_survey_data(myC):
         df['c'] = df['pcinc'].copy()
         df = df.reset_index().rename(columns={'District':'district'}).set_index(['district','hhid']).drop(['c_food','c_nonfood','c_boarders'],axis=1)  
 
-        return df
+    # Assing weighted household consumption to quintiles within each province
+    print('Finding quintiles')
+    economy = df.index.names[0]
+    listofquintiles=np.arange(0.20, 1.01, 0.20)
+    df = df.reset_index().groupby(economy,sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),listofquintiles),'quintile'))
+    
+    #df = df.reset_index().groupby(economy,sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),percentiles_05),'pctle_05'))
+    #df_c_5 = df.reset_index().groupby(economy,sort=True).apply(lambda x:x.loc[x.pctle_05==1,'c'].max())
+    #df = df.reset_index().set_index([economy,'hhid']) #change the name: district to code, and create an multi-level index 
+    #df['c_5'] = broadcast_simple(df_c_5,df.index)
+    #df['c_5'] = df.c_5.fillna(df.c_5.mean(level=economy).min())
+    # ^ this is a line to prevent c_5 from being left empty due to paucity of hh from a given province (for Rotuma, FJ)
 
-    else: return None
+    df.drop([icol for icol in ['level_0','index','pctle_05','pctle_05_nat'] if icol in df.columns],axis=1,inplace=True)
+
+    return df
 
 def get_df2(myC):
 
@@ -1159,7 +1174,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         # PDNS with total regional losses from 2017 landslides
 
         # try landslides
-        path = os.getcwd()+'/../inputs/SL/suranga/Landslide/*.xls'
+        path = os.getcwd()+'/../inputs/SL/data_hunting/suranga/Landslide/*.xls'
         landslide_df = None
         for f in glob.glob(path):
             
@@ -1175,7 +1190,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
             else: landslide_df = new_reg.copy()
 
         # This file has # hh (affected, damaged, and destroyed, by District)
-        landslide_df.to_csv('../inputs/SL/suranga/Landslide/fa_landslide.csv')
+        landslide_df.to_csv('../inputs/SL/data_hunting/suranga/Landslide/fa_landslide.csv')
 
         # Need to compare to household survey
         # ^ but what to do if I have a vulnerability
@@ -1250,7 +1265,7 @@ def get_pop_scale_fac(myC):
 
 def get_avg_prod(myC):
     
-    if myC == 'PH': return 0.3379608025890020#0.273657188280276
+    if myC == 'PH': return 0.273657188280276#0.3379608025890020
     elif myC == 'FJ': return 0.336139019412
     elif myC == 'SL': return 0.337960802589002
     elif myC == 'MW': return 0.253076569219416

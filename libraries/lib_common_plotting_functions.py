@@ -11,6 +11,7 @@ greys_pal = sns.color_palette('Greys', n_colors=9)
 q_labels = ['Poorest quintile','Second','Third',
             'Fourth','Wealthiest']
 
+paired_pal = sns.color_palette('Paired', n_colors=12)
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.4)
 #q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 
