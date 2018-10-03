@@ -472,8 +472,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
             new_title='Net change in children in consumption poverty each year from all hazards',
             do_qualitative=True,
             res=2000)
-    except: assert(False)
-    assert(False)
+    except: pass
 
     make_map_from_svg(
         pov_df_region['net_chg_pov_c']/1E3,

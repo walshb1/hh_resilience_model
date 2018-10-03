@@ -899,6 +899,8 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     #######################################
     # Save out info on the costs of these policies
     my_sp_costs = pd.DataFrame({'event_cost':cats_event_iah[['help_received','pcwgt']].prod(axis=1).sum(level=event_level)},index=cats_event_iah.sum(level=event_level).index)
+    my_sp_costs['n_enrolled'] = cats_event_iah.loc[cats_event_iah['help_received']!=0,'pcwgt'].sum(level=event_level)
+    my_sp_costs['reg_frac_enrolled'] = 100.*cats_event_iah.loc[cats_event_iah['help_received']!=0,'pcwgt'].sum(level=event_level)/cats_event_iah['pcwgt'].sum(level=event_level)
     my_sp_costs=my_sp_costs.reset_index('rp')
     my_sp_costs['avg_admin_cost'],_ = average_over_rp(my_sp_costs.reset_index().set_index(event_level)['event_cost'])
 
@@ -906,8 +908,13 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     my_sp_costs['avg_natl_cost'] = my_sp_costs['avg_admin_cost'].mean(level=[event_level[0],event_level[1]]).sum()
     my_sp_costs.to_csv('../output_country/'+myCountry+'/sp_costs_'+optionPDS+'.csv')
 
-    #actual aid reduced by capacity
-    # ^ Not implemented for now
+
+
+    #######################################
+    #Actual aid reduced by capacity
+    # ^ ...not implemented for now
+
+
 		
     #######################################
     # Above code calculated the benefits
@@ -926,8 +933,7 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     # Uncomment this line for tax assessment after disaster
     #public_costs = public_costs.rename(columns={'transfer_pds_PE':'transfer_pds'})
 
-    try: cats_event_iah = cats_event_iah.drop(['level_0'],axis=1)
-    except: pass
+    cats_event_iah = cats_event_iah.drop([_c for _c in ['index','level_0'] if _c in cats_event_iah.columns],axis=1)
 
     # this will do for hh in the affected province
     if optionFee=='tax':
@@ -1276,7 +1282,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     else:
         try:
             print('TRY: load savings optima from file')
-            with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','rb') as p:        
+            with open('../optimization_libs/'+myC+'_'+optionPDS+'_optimal_savings_rate.p','rb') as p:        
                 opt_lib =  pickle.load(p).to_dict()
                 temp['sav_offset_to'] = temp.apply(lambda x:opt_lib['sav_offset_to'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
                 temp['t_exhaust_sav'] = temp.apply(lambda x:opt_lib['t_exhaust_sav'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
@@ -1299,19 +1305,19 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
             opt_in = opt_in.reset_index().set_index(['c','dk0','hh_reco_rate','avg_prod_k','sav_f']).drop('index',axis=1)
 
             try:
-                with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','rb') as p:
+                with open('../optimization_libs/'+myC+'_'+optionPDS+'_optimal_savings_rate.p','rb') as p:
                     opt_lib = pickle.load(p)
                     print(opt_lib.shape,' entries in optimization library.')
                     opt_in = opt_in.combine_first(opt_lib)
                     print(opt_in.shape,' entries in optimization library.')
 
-                with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','wb') as pout:
+                with open('../optimization_libs/'+myC+'_'+optionPDS+'_optimal_savings_rate.p','wb') as pout:
                     pickle.dump(opt_in.loc[opt_in.index.unique()],pout)
-                #with open('../optimization_libs/'+myC+'_optimal_savings_rate_proto2.p','wb') as pout2:
+                #with open('../optimization_libs/'+myC+'_'+optionPDS+'_optimal_savings_rate.p','wb') as pout2:
                 #    pickle.dump(opt_in.loc[opt_in.index.unique()],pout2,protocol=2)
 
             except: 
-                with open('../optimization_libs/'+myC+'_optimal_savings_rate.p','wb') as pout:
+                with open('../optimization_libs/'+myC+'_'+optionPDS+'_optimal_savings_rate.p','wb') as pout:
                     pickle.dump(opt_in.loc[opt_in.index.unique()], pout)    
     gc.collect()
 

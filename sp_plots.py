@@ -71,7 +71,7 @@ plt.gca().get_figure().savefig(out+'sp_costs.pdf',format='pdf')
 
 
 ########################################################################
-# Samurdhi is a constant payout, so show bar plot without RP dependence
+# Samurdhi is a constant payout, but there is still RP-dependence
 # - cost of disbursement (annual & when event occurs)
 # - well-being benefit (annual & when event occurs)
 # - cost-benefit ratio
@@ -81,7 +81,7 @@ plt.gca().get_figure().savefig(out+'sp_costs.pdf',format='pdf')
 pds_effects = pds_effects.reset_index('rp')
 
 _wid = 0.45
-rp_range = [5]
+rp_range = [5,10,25,50,100]
 affected_place = ['Colombo','Rathnapura','all']
 for _place in affected_place:
     for _rp in rp_range:
@@ -89,7 +89,7 @@ for _place in affected_place:
         plt.figure(figsize=(6,6))
 
         for _x, _sp in enumerate(['samurdhi_scaleup','samurdhi_scaleup66','samurdhi_scaleup33','samurdhi_scaleup00']):
-            sp_files[_sp] = sp_files[_sp].reset_index()
+            sp_files[_sp] = sp_files[_sp].reset_index().drop([_c for _c in ['index','level_0'] if _c in sp_files[_sp].columns],axis=1)
 
             _criteria = '(rp==@_rp)'
             if _place != 'all': _criteria+='&(district==@_place)'
@@ -143,6 +143,91 @@ for _place in affected_place:
         plt.grid(False)
         sns.despine(bottom=True)
 
-        plt.title(('1 month-equivalent top-up to existing\nSamurdhi enrollees in '+_place+'\nafter qualifying flood').replace('in all ',''),loc='right',pad=-25)
+        plt.title(('1 month-equivalent top-up to existing\nSamurdhi enrollees in '+_place+'\nafter '+str(_rp)+'-year flood').replace('in all ',''),loc='right',pad=-25)
 
         plt.gca().get_figure().savefig('../output_plots/SL/samurdhi/cost_benefit_'+(_place+'_').replace('all_','')+'rp'+str(_rp)+'.pdf',format='pdf',bbox_inches='tight')
+
+
+########################################################################
+# This one compares scaling up vs out. 
+# - Samurdhi is a constant payout, but there is still RP-dependence
+# - cost of disbursement (annual & when event occurs)
+# - well-being benefit (annual & when event occurs)
+# - cost-benefit ratio
+
+# number of beneficiaries
+# --> this can vary totally independently between scaleup & out
+# --> ... depends for scaleup on coverage of samurdhi
+# --> ... depends for scaleout on the PMT threshold 
+
+# x-axis is targeting error
+# y-axis is in mUSD
+
+_wid = 0.45
+rp_range = [5,10,25,50,100]
+affected_place = ['Colombo','Rathnapura','all']
+for _place in affected_place:
+    for _rp in rp_range:
+        plt.close('all')
+        plt.figure(figsize=(6,6))
+
+        n_info = []
+        for _x, _sp in enumerate(['samurdhi_scaleup00','scaleout_samurdhi']):
+            # Both scenarios = perfect targeting. 
+            # NB: means I'm a dum-dum for setting different conventions for up & out
+
+            sp_files[_sp] = sp_files[_sp].reset_index().drop([_c for _c in ['index','level_0'] if _c in sp_files[_sp].columns],axis=1)
+
+            _criteria = '(rp==@_rp)'
+            if _place != 'all': _criteria+='&(district==@_place)'
+
+            _benefit = pds_effects.loc[pds_effects.eval(_criteria),'dw_DELTA_'+_sp].sum()*to_usd
+            _cost = sp_files[_sp].loc[sp_files[_sp].eval(_criteria),'event_cost'].sum()*to_usd/1.E6
+
+            if _x == 1: _xos = _benefit/100
+            _cb = r'$\frac{benefit}{cost}$ = '+str(round(_benefit/_cost,2))
+            _cstr = 'Cost: '+str(round(_cost,2))
+            _bstr = 'Benefit: '+str(round(_benefit,2))
+
+            plt.bar(_x,(_benefit-_cost),bottom=_cost,color=q_colors[_x+1],alpha=0.6,width=_wid)
+        
+            # ratio
+            plt.annotate(_cb,xy=(_x,_benefit+_xos),ha='center',va='bottom',weight='bold')
+
+            if _x == 1:
+                # benefit
+                plt.plot([_x-_wid/2,_x+_wid/2],[_benefit,_benefit],lw=2,color=q_colors[_x+1])
+                plt.annotate(_bstr+'M',xy=(_x-1.02*_wid/2,_benefit+_xos/10),ha='right',va='bottom',fontsize=8,weight='bold')
+
+                # cost
+                plt.plot([_x-_wid/2,_x+_wid/2],[_cost,_cost],lw=2,color=q_colors[_x+1])
+                plt.annotate(_cstr+'M',xy=(_x-1.02*_wid/2,_cost+_xos/10),ha='right',va='bottom',fontsize=8,weight='bold')
+                
+            else:            
+                # benefit
+                plt.plot([_x-_wid/2,_x+_wid/2],[_benefit,_benefit],lw=2,color=q_colors[_x+1])
+                plt.annotate(_bstr+'M',xy=(_x+1.02*_wid/2,_benefit+_xos/10),ha='left',va='bottom',fontsize=8,weight='bold')
+                
+                # cost
+                plt.plot([_x-_wid/2,_x+_wid/2],[_cost,_cost],lw=2,color=q_colors[_x+1])
+                plt.annotate(_cstr+'M',xy=(_x+1.02*_wid/2,_cost+_xos/10),ha='left',va='bottom',fontsize=8,weight='bold')
+        
+            n_info.append(str(float(round(sp_files[_sp].loc[sp_files[_sp].eval(_criteria)].eval('n_enrolled').sum()/
+                                          sp_files[_sp].loc[sp_files[_sp].eval(_criteria)].eval('n_enrolled/reg_frac_enrolled').sum(),1))))
+                              
+        #plt.xlim(-0.75,3.5)
+        plt.ylim(-0.05)
+
+        plt.xticks([0,1])
+
+        plt.gca().set_xticklabels(['Scaleup to affected\nSamurdhi enrollees\n('+n_info[0]+'% of district\nare beneficiaries)',
+                                   'Scaleout to affected\nusing PMT\n('+n_info[1]+'% of district\nare beneficiaries)'],size=9)
+        plt.ylabel('Cost, benefit of post-disaster support [mil. USD]',labelpad=10,weight='bold',linespacing=1.5)
+        plt.grid(False)
+        sns.despine(left=True)
+
+        plt.title(('1 month-equivalent Samurdhi\npayment to '+_place+'\nafter '+str(_rp)+'-year flood\n(perfect targeting)').replace('in all ',''),loc='left',pad=-25)
+
+        plt.gca().get_figure().savefig('../output_plots/SL/samurdhi/up_vs_out_cb_'+(_place+'_').replace('all_','')+'rp'+str(_rp)+'.pdf',format='pdf',bbox_inches='tight')
+
+

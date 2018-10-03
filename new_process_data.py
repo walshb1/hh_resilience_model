@@ -114,7 +114,6 @@ for _pds in ['no']+pds_sims:
         pds_effects_out['ROI_event_'+_pds] = pds_effects_out['dw_DELTA_'+_pds]/(1E-6*pds_effects['event_cost'])
 
 pds_effects_out.to_csv(out_files+'pds_effects.csv')
-assert(False)
 
 if False:
     for iPol in all_policies:
@@ -436,11 +435,10 @@ elif myCountry == 'MW': myHaz = [['Lilongwe','Chitipa'],get_all_hazards(myCountr
 ##################################################################
 # This code generates output on poverty dimensions
 # ^ this is by household, so we use iah
-if True:
+if False:
     run_poverty_duration_plot(myCountry)
     run_poverty_tables_and_maps(myCountry,iah.reset_index().set_index(event_level),event_level)
     map_recovery_time('PH')
-assert(False)
 
 ##################################################################
 # This code generates the histograms showing income before & after disaster (in local_curr)
@@ -461,16 +459,16 @@ if True:
 # This code generates the histograms showing income before & after disaster (in USD)
 # ^ this is at household level, so we'll use iah
 if True:            
-    with Pool(processes=3,maxtasksperchild=1) as pool:
+    with Pool(processes=2,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
-        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[iah],myHaz[0],myHaz[1],myHaz[2],['USD'])))
-        #except: pass
+        try: pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[iah],myHaz[0],myHaz[1],myHaz[2],['USD'])))
+        except: pass
 
 ##################################################################
 # This code generates the histograms including [k,dk,dc,dw,&pds]
 # ^ this is by province/region, so it will use iah_res
 if True:
-    with Pool(processes=3,maxtasksperchild=1) as pool:
+    with Pool(processes=2,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
         pool.starmap(plot_impact_by_quintile,list(product([myCountry],myHaz[0],myHaz[1],myHaz[2],[iah_res])))  
 
@@ -479,6 +477,6 @@ if True:
 # This code generates the histograms 
 # ^ this is only for affected hosueholds, so it will use iah
 if True:
-    with Pool(processes=3,maxtasksperchild=1) as pool:
+    with Pool(processes=2,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
         pool.starmap(plot_relative_losses,list(product([myCountry],myHaz[0],myHaz[1],myHaz[2],[iah])))  
