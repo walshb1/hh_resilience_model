@@ -3,7 +3,7 @@ import matplotlib as mpl
 import pandas as pd
 import os, glob
 
-from libraries.lib_common_plotting_functions import title_legend_labels,q_colors
+from libraries.lib_common_plotting_functions import title_legend_labels,q_colors,greys_pal
 
 import seaborn as sns
 pairs_pal = sns.color_palette('Paired', n_colors=12)
@@ -197,20 +197,20 @@ for _place in affected_place:
             if _x == 1:
                 # benefit
                 plt.plot([_x-_wid/2,_x+_wid/2],[_benefit,_benefit],lw=2,color=q_colors[_x+1])
-                plt.annotate(_bstr+'M',xy=(_x-1.02*_wid/2,_benefit+_xos/10),ha='right',va='bottom',fontsize=8,weight='bold')
+                plt.annotate(_bstr+'M',xy=(_x-1.02*_wid/2,_benefit+_xos/10),ha='right',va='bottom',fontsize=8,style='italic')
 
                 # cost
                 plt.plot([_x-_wid/2,_x+_wid/2],[_cost,_cost],lw=2,color=q_colors[_x+1])
-                plt.annotate(_cstr+'M',xy=(_x-1.02*_wid/2,_cost+_xos/10),ha='right',va='bottom',fontsize=8,weight='bold')
+                plt.annotate(_cstr+'M',xy=(_x-1.02*_wid/2,_cost+_xos/10),ha='right',va='bottom',fontsize=8,style='italic')
                 
             else:            
                 # benefit
                 plt.plot([_x-_wid/2,_x+_wid/2],[_benefit,_benefit],lw=2,color=q_colors[_x+1])
-                plt.annotate(_bstr+'M',xy=(_x+1.02*_wid/2,_benefit+_xos/10),ha='left',va='bottom',fontsize=8,weight='bold')
+                plt.annotate(_bstr+'M',xy=(_x+1.02*_wid/2,_benefit+_xos/10),ha='left',va='bottom',fontsize=8,style='italic')
                 
                 # cost
                 plt.plot([_x-_wid/2,_x+_wid/2],[_cost,_cost],lw=2,color=q_colors[_x+1])
-                plt.annotate(_cstr+'M',xy=(_x+1.02*_wid/2,_cost+_xos/10),ha='left',va='bottom',fontsize=8,weight='bold')
+                plt.annotate(_cstr+'M',xy=(_x+1.02*_wid/2,_cost+_xos/10),ha='left',va='bottom',fontsize=8,style='italic')
         
             n_info.append(str(float(round(sp_files[_sp].loc[sp_files[_sp].eval(_criteria)].eval('n_enrolled').sum()/
                                           sp_files[_sp].loc[sp_files[_sp].eval(_criteria)].eval('n_enrolled/reg_frac_enrolled').sum(),1))))
@@ -226,7 +226,8 @@ for _place in affected_place:
         plt.grid(False)
         sns.despine(left=True)
 
-        plt.title(('1 month-equivalent Samurdhi\npayment to '+_place+'\nafter '+str(_rp)+'-year flood\n(perfect targeting)').replace('in all ',''),loc='left',pad=-25)
+        plt.title(('1 month-equivalent Samurdhi\npayment to '+_place+'\nafter '+str(_rp)+'-year flood').replace('to all ',''),loc='left',color=greys_pal[7],pad=-25)
+        plt.annotate('Perfect targeting',xy=(0.0,0.89),xycoords='axes fraction',color=greys_pal[5],style='italic')
 
         plt.gca().get_figure().savefig('../output_plots/SL/samurdhi/up_vs_out_cb_'+(_place+'_').replace('all_','')+'rp'+str(_rp)+'.pdf',format='pdf',bbox_inches='tight')
 

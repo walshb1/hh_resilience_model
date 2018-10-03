@@ -178,7 +178,7 @@ def run_poverty_duration_plot(myC):
     _to_tex = _to_tex.reset_index().set_index(geo)
     _to_tex = _to_tex.loc[_to_tex.eval('(hazard=="PF")&(rp==10)&(decile==1)')].sort_values('Consumption',ascending=False)
     
-    _to_tex[['Income','Consumption']].to_latex('latex/'+myC+'_poverty_duration.tex')
+    _to_tex[['Income','Consumption']].to_latex('latex/'+myC+'/poverty_duration.tex')
 
     ######################
     # Plot consumption and income poverty (separately)
@@ -363,7 +363,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
         _haz = _haz.copy()
         _haz.loc['Total'] = _haz.sum()
         _haz[['net_chg_pov_i','net_chg_sub_i',
-              'net_chg_pov_c','net_chg_sub_c']].fillna(0).sort_values(['net_chg_pov_c'],ascending=False).astype('int').to_latex('latex/poverty_net_change_by_haz_'+str(_typ)+'.tex')
+              'net_chg_pov_c','net_chg_sub_c']].fillna(0).sort_values(['net_chg_pov_c'],ascending=False).astype('int').to_latex('latex/'+myC+'/poverty_net_change_by_haz_'+str(_typ)+'.tex')
 
     # Sum over hazards (index = region)
     pov_df_region = pov_df_reg_haz[['net_chg_pov_i','net_chg_sub_i','net_chg_pov_c','net_chg_sub_c']].sum(level=event_level[0])
@@ -398,12 +398,13 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
     pov_df_region.loc['Total',['pct_increase_sub_c']] = 100.*pov_df_region['net_chg_sub_c'].sum()/pov_df_region['init_sub'].sum()
 
     pov_df_region[['net_chg_pov_i','net_chg_sub_i',
-                   'net_chg_pov_c','net_chg_sub_c']] = (1E-3*pov_df_region[['net_chg_pov_i','net_chg_sub_i','net_chg_pov_c','net_chg_sub_c']]).round(1)
+                   'net_chg_pov_c','net_chg_sub_c']] = (pov_df_region[['net_chg_pov_i','net_chg_sub_i','net_chg_pov_c','net_chg_sub_c']]).round(1)
     pov_df_region[['pct_increase_pov_i','pct_increase_sub_i',
                    'pct_increase_pov_c','pct_increase_sub_c']] = pov_df_region[['pct_increase_pov_i','pct_increase_sub_i',
                                                                                 'pct_increase_pov_c','pct_increase_sub_c']].round(1)
 
-    pov_df_region[['net_chg_pov_c','pct_increase_pov_c','net_chg_sub_c','pct_increase_sub_c']].fillna(0).sort_values(['net_chg_pov_c'],ascending=False).to_latex('latex/poverty_all_haz.tex')
+    pov_df_region[['net_chg_pov_c','pct_increase_pov_c',
+                   'net_chg_sub_c','pct_increase_sub_c']].fillna(0).sort_values(['net_chg_pov_c'],ascending=False).to_latex('latex/'+myC+'/poverty_all_haz.tex')
 
     # Sum over hazards (just totals left)
     _ = pov_df_region.reset_index().copy()
