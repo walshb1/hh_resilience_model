@@ -206,9 +206,9 @@ if __name__ == '__main__':
             # --> 
 
         if myCountry == 'SL':
-            pds_str = ['no',
-                       'unif_poor','unif_poor_only','unif_poor_q12','prop_q1','prop_q12',
-                       'samurdhi_scaleup','samurdhi_scaleup00','samurdhi_scaleup33','samurdhi_scaleup66','scaleout_samurdhi']
+            pds_str = ['scaleout_samurdhi','samurdhi_scaleup','samurdhi_scaleup00','no',
+                       'samurdhi_scaleup33','samurdhi_scaleup66',
+                       'unif_poor','unif_poor_only','unif_poor_q12','prop_q1','prop_q12']
             #'infsavings' also implemented
             pol_str = ['']
             
@@ -224,7 +224,7 @@ if __name__ == '__main__':
             print('Running in debug mode!')
             launch_compute_resilience_and_risk_thread(myCountry,'','unif_poor')
         else:
-            with Pool(processes=1,maxtasksperchild=1) as pool:
+            with Pool(processes=3,maxtasksperchild=1) as pool:
                 print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))
                 pool.starmap(launch_compute_resilience_and_risk_thread, list(product([myCountry],pol_str,pds_str)))
             

@@ -172,9 +172,10 @@ def get_scaleout_recipients(optionPDS,hh_df,ranking_var):
     hh_df.loc[hh_df['helped_cat'] == 'na','help_received'] = 0
     hh_df = hh_df.reset_index().set_index(hh_df_ix)
     # ^ 1) helped_cat = na
-    hh_df.loc[hh_df['enrolled_in_samurdhi']==True,'help_received'] = 0
-    # ^ 2) anyone already receiving Samurdhi
     hh_df.loc[hh_df['PMT'] > aid_cutoff,'help_received'] = 0
-    # ^ 3) anyone whose PMT exceeds threshold
+    # ^ 2) anyone whose PMT exceeds threshold
+
+    #hh_df.loc[hh_df['enrolled_in_samurdhi']==True,'help_received'] = 0
+    ## ^ 3) anyone already receiving Samurdhi
 
     return(hh_df['help_received'])
