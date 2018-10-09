@@ -3,16 +3,16 @@
 import matplotlib
 matplotlib.use('AGG')
 
-from libraries.lib_compute_resilience_and_risk import get_weighted_mean
-from libraries.lib_poverty_tables_and_maps import run_poverty_duration_plot, run_poverty_tables_and_maps, map_recovery_time
-from libraries.replace_with_warning import *
-from libraries.lib_country_dir import *
-from libraries.lib_common_plotting_functions import *
 from libraries.maps_lib import *
-
-from libraries.lib_plot_income_and_consumption_distributions import plot_income_and_consumption_distributions
-from libraries.lib_plot_impact_by_quintile import plot_impact_by_quintile, plot_relative_losses
+from libraries.lib_country_dir import *
+from libraries.lib_scaleout import get_pmt
 from libraries.lib_average_over_rp import *
+from libraries.replace_with_warning import *
+from libraries.lib_common_plotting_functions import *
+from libraries.lib_compute_resilience_and_risk import get_weighted_mean
+from libraries.lib_plot_impact_by_quintile import plot_impact_by_quintile, plot_relative_losses
+from libraries.lib_plot_income_and_consumption_distributions import plot_income_and_consumption_distributions
+from libraries.lib_poverty_tables_and_maps import run_poverty_duration_plot, run_poverty_tables_and_maps, map_recovery_time
 
 from scipy.stats import norm
 import matplotlib.mlab as mlab
@@ -88,7 +88,7 @@ public_costs['dw_tot_curr'] = public_costs[['dw_pub','dw_soc']].sum(axis=1)/df_b
 public_costs_sum = public_costs.loc[public_costs['contributer']!=public_costs.index.get_level_values(event_level[0]),['dw_tot_curr']].sum(level=[economy,'hazard','rp'])
 #
 
-iah = pd.read_csv(out_files+'iah_tax_unif_poor_.csv', index_col=[economy,'hazard','rp','hhid','affected_cat','helped_cat']).sort_index()
+iah = pd.read_csv(out_files+'iah_tax_scaleout_samurdhi_universal_.csv', index_col=[economy,'hazard','rp','hhid','affected_cat','helped_cat']).sort_index()
 df = pd.read_csv(out_files+'results_tax_unif_poor_.csv', index_col=[economy,'hazard','rp'])
 macro = pd.read_csv(out_files+'macro_tax_unif_poor_.csv', index_col=[economy,'hazard','rp'])
 
@@ -96,22 +96,23 @@ macro = pd.read_csv(out_files+'macro_tax_unif_poor_.csv', index_col=[economy,'ha
 pds_effects_out = pd.DataFrame(index=pd.read_csv(out_files+'sp_costs_no.csv').set_index([economy,'hazard','rp']).index)
 for _pds in ['no']+pds_sims:
 
-    ####
-    hh_summary = pd.read_csv(out_files+'my_summary_'+_pds+'.csv').set_index([economy,'hazard','rp'])
-
-    ####
-    pds_effects = pd.read_csv(out_files+'sp_costs_'+_pds+'.csv').set_index([economy,'hazard','rp'])
-
-    # DW costs of risk sharing in each SP scenario
-    public_costs_pds = pd.read_csv(out_files+'public_costs_tax_'+_pds+'_.csv').set_index([economy,'hazard','rp'])
-    public_costs_pds['dw_tot_curr'] = 1E-6*public_costs_pds[['dw_pub','dw_soc']].sum(axis=1)/df.wprime.mean()
-    public_costs_pds_sum = public_costs_pds.loc[public_costs_pds['contributer']!=public_costs_pds.index.get_level_values(event_level[0]),['dw_tot_curr']].sum(level=[economy,'hazard','rp'])
-    #
-    pds_effects_out['dw_'+_pds] = hh_summary['dw_tot']+public_costs_pds_sum['dw_tot_curr']
-    #
-    if _pds != 'no': 
-        pds_effects_out['dw_DELTA_'+_pds] = pds_effects_out['dw_no'] - pds_effects_out['dw_'+_pds]
-        pds_effects_out['ROI_event_'+_pds] = pds_effects_out['dw_DELTA_'+_pds]/(1E-6*pds_effects['event_cost'])
+    try:
+        ####
+        hh_summary = pd.read_csv(out_files+'my_summary_'+_pds+'.csv').set_index([economy,'hazard','rp'])
+        ####
+        pds_effects = pd.read_csv(out_files+'sp_costs_'+_pds+'.csv').set_index([economy,'hazard','rp'])
+        
+        # DW costs of risk sharing in each SP scenario
+        public_costs_pds = pd.read_csv(out_files+'public_costs_tax_'+_pds+'_.csv').set_index([economy,'hazard','rp'])
+        public_costs_pds['dw_tot_curr'] = 1E-6*public_costs_pds[['dw_pub','dw_soc']].sum(axis=1)/df.wprime.mean()
+        public_costs_pds_sum = public_costs_pds.loc[public_costs_pds['contributer']!=public_costs_pds.index.get_level_values(event_level[0]),['dw_tot_curr']].sum(level=[economy,'hazard','rp'])
+        #
+        pds_effects_out['dw_'+_pds] = hh_summary['dw_tot']+public_costs_pds_sum['dw_tot_curr']
+        #
+        if _pds != 'no': 
+            pds_effects_out['dw_DELTA_'+_pds] = pds_effects_out['dw_no'] - pds_effects_out['dw_'+_pds]
+            pds_effects_out['ROI_event_'+_pds] = pds_effects_out['dw_DELTA_'+_pds]/(1E-6*pds_effects['event_cost'])
+    except: pass
 
 pds_effects_out.to_csv(out_files+'pds_effects.csv')
 
@@ -328,14 +329,15 @@ iah_out_q1['% total RW'] = (100.*iah_out_q1['Well-being risk']*to_usd/iah_out['W
 iah_out_q1['SE capacity']*=100.
 iah_out_q1['SE capacity']=iah_out_q1['SE capacity'].round(1)
 
-iah_out_q1[['Asset risk','% total RA','SE capacity','Well-being risk','% total RW']].sort_values(['Well-being risk'],ascending=False).astype('int').to_latex('latex/'+myCountry+'/risk_q1_by_economy.tex')
+iah_out_q1[['Asset risk','% total RA','SE capacity',
+            'Well-being risk','% total RW']].sort_values(['Well-being risk'],ascending=False).astype('int').to_latex('latex/'+myCountry+'/risk_q1_by_economy.tex')
 
 iah_out_q1['Asset risk']*=to_usd
 iah_out_q1['Well-being risk']*=to_usd
-iah_out_q1[['Asset risk','% total RA','SE capacity','Well-being risk','% total RW']].sort_values(['Well-being risk'],ascending=False).astype('int').to_latex('latex/'+myCountry+'/risk_q1_by_economy_usd.tex')
+iah_out_q1[['Asset risk','% total RA','SE capacity',
+            'Well-being risk','% total RW']].sort_values(['Well-being risk'],ascending=False).astype('int').to_latex('latex/'+myCountry+'/risk_q1_by_economy_usd.tex')
 
 print('Wrote latex! Q1 sums: ',iah_out_q1.sum())
-assert(False)
 
 iah_out_q1['pop_q1']  = iah_res.loc[iah_res.quintile==1,'pcwgt'].sum(level=event_level).mean(level=event_level[0])/1.E3
 #iah_out_q1['grdp_q1'] = iah_res.loc[iah_res.quintile==1,['pcwgt','c']].prod(axis=1).sum(level=event_level).mean(level=event_level[0])
@@ -433,24 +435,209 @@ elif myCountry == 'PH': myHaz = [['I - Ilocos','II - Cagayan Valley','CAR'],['HU
 elif myCountry == 'SL': myHaz = [['Colombo','Rathnapura','Kalutara','Mannar'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
 elif myCountry == 'MW': myHaz = [['Lilongwe','Chitipa'],get_all_hazards(myCountry,iah_res),get_all_rps(myCountry,iah_res)]
 
+
+##################################################################
+listofquintiles=np.arange(0.20, 1.01, 0.20)
+quint_labels = ['Poorest\nquintile','Second','Third','Fourth','Wealthiest\nquintile']
+
+iah_res['hhid'] = iah_res['hhid'].astype('str')
+iah_res = iah_res.set_index('hhid')
+pmt,_ = get_pmt(iah_res)
+iah_res['PMT'] = pmt
+
+for _loc in myHaz[0]:
+    for _haz in myHaz[1]:
+        for _rp in myHaz[2]:
+            
+            plt.cla()
+            _ = iah_res.loc[(iah_res[economy]==_loc)&(iah_res['hazard']==_haz)&(iah_res['rp']==_rp)].copy()
+            _ = _.reset_index().groupby(economy,sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.PMT),reshape_data(x.pcwgt),listofquintiles),'quintile','PMT'))
+
+            _ = _.sort_values('c',ascending=True)
+            _['truth_dk0_cum'] = _[['pcwgt','dk0']].prod(axis=1).cumsum()
+            _['truth_pcwgt_cum'] = _['pcwgt'].cumsum()
+            _['truth_dw_cum'] = _[['pcwgt','dw']].prod(axis=1).cumsum()
+                
+            _ = _.sort_values('PMT',ascending=True)
+            _['dk0_cum'] = _[['pcwgt','dk0']].prod(axis=1).cumsum()
+            _['pcwgt_cum'] = _['pcwgt'].cumsum()
+            _['dw_cum'] = _[['pcwgt','dw']].prod(axis=1).cumsum()
+            _['pds_cost_cum'] = _[['pcwgt','help_received']].prod(axis=1).cumsum()
+            _['pds_dw_cum'] = _[['pcwgt','pds_dw']].prod(axis=1).cumsum()
+            _['delta_dw_cum'] = _['dw_cum']-_['pds_dw_cum']
+            
+            ### PMT-ranked population coverage [%]
+            plt.plot(100.*_['pcwgt_cum']/_['pcwgt'].sum(),
+                     100.*_['dk0_cum']/_[['pcwgt','dk0']].prod(axis=1).sum())
+            if False:
+                plt.plot(100.*_['pcwgt_cum']/_['pcwgt'].sum(),
+                         100.*_['dk0_cum']/_[['pcwgt','dk0']].prod(axis=1).sum())
+
+            plt.xlabel('PMT-ranked population coverage [%]',labelpad=8,fontsize=12)
+            plt.ylabel('Cumulative asset losses [%]',labelpad=8,fontsize=12)
+            plt.xlim(0);plt.ylim(-0.1)
+            plt.gca().xaxis.set_ticks([20,40,60,80,100])
+            sns.despine()
+            plt.grid(False)
+            
+            plt.gcf().savefig('../output_plots/SL/PMT/pcwgt_vs_dk0_'+_loc+'_'+_haz+'_'+str(_rp)+'.pdf',format='pdf',bbox_inches='tight')
+            plt.cla()
+
+            #####################################
+            ### PMT threshold vs dk (normalized)
+            plt.plot(_['PMT'],100.*_['dk0_cum']/_[['pcwgt','dk0']].prod(axis=1).sum(),linewidth=1.8,zorder=99)
+
+            for _q in [1,2,3,4,5]:
+                _q_x = _.loc[_['quintile']==_q,'PMT'].max()
+                _q_y = 100.*_.loc[_['quintile']<=_q,['pcwgt','dk0']].prod(axis=1).sum()/_[['pcwgt','dk0']].prod(axis=1).sum()
+                if _q == 1: _q_yprime = _q_y/20
+                
+                plt.plot([_q_x,_q_x],[0,_q_y],color=greys_pal[4],ls=':',linewidth=1.5,zorder=91)
+                plt.annotate(quint_labels[_q-1],xy=(_q_x,_q_y+_q_yprime),color=greys_pal[6],ha='right',va='bottom',weight='bold',style='italic',fontsize=8,zorder=91)
+
+            if True:
+                plt.scatter(_['PMT'],100.*_['dk0_cum']/_[['pcwgt','dk0']].prod(axis=1).sum(),alpha=0.08,s=6,zorder=10)
+
+            plt.xlabel('Upper PMT threshold for post-disaster support',labelpad=8,fontsize=12)
+            plt.ylabel('Cumulative asset losses [%]',labelpad=8,fontsize=12)
+            plt.xlim(825);plt.ylim(-0.1)
+            
+            sns.despine()
+            plt.grid(False)
+            
+            plt.gcf().savefig('../output_plots/SL/PMT/pmt_vs_dk_norm_'+_loc+'_'+_haz+'_'+str(_rp)+'.pdf',format='pdf',bbox_inches='tight')
+
+
+            #####################################
+            ### PMT threshold vs dk & dw
+            plt.cla()
+            plt.plot(_['PMT'],_['dk0_cum']*to_usd*1E-6,color=q_colors[1],linewidth=1.8,zorder=99)
+            plt.plot(_['PMT'],_['dw_cum']*to_usd*1E-6,color=q_colors[3],linewidth=1.8,zorder=99)
+
+            plt.annotate('Asset losses',xy=(_['PMT'].max(),_['dk0_cum'].max()*to_usd*1E-6),color=q_colors[1],weight='bold',ha='left',va='top',fontsize=10)
+            plt.annotate('Welfare losses',xy=(_['PMT'].max(),_['dw_cum'].max()*to_usd*1E-6),color=q_colors[3],weight='bold',ha='left',va='top',fontsize=10)
+
+            for _q in [1,2,3,4,5]:
+                _q_x = _.loc[_['quintile']==_q,'PMT'].max()
+                _q_y = max(_.loc[_['quintile']<=_q,['pcwgt','dk0']].prod(axis=1).sum()*to_usd*1E-6,
+                           _.loc[_['quintile']<=_q,['pcwgt','dw']].prod(axis=1).sum()*to_usd*1E-6)
+                if _q == 1: _q_yprime = _q_y/20
+                
+                plt.plot([_q_x,_q_x],[0,_q_y],color=greys_pal[4],ls=':',linewidth=1.5,zorder=91)
+                plt.annotate(quint_labels[_q-1],xy=(_q_x,_q_y+_q_yprime),color=greys_pal[6],ha='right',va='bottom',style='italic',fontsize=8,zorder=91)
+
+            if False:
+                plt.scatter(_['PMT'],_['truth_dk0_cum']*to_usd*1E-6,alpha=0.08,s=6,zorder=10)
+
+            plt.xlabel('Household income [PMT]',labelpad=8,fontsize=12)
+            plt.ylabel('Cumulative losses [mil. USD]',labelpad=8,fontsize=12)
+            plt.xlim(825);plt.ylim(-0.1)
+            
+            plt.title(' '+str(_rp)+'-year '+haz_dict[_haz].lower()+'\n  in '+_loc,loc='left',color=greys_pal[7],pad=-25,fontsize=15)
+
+            sns.despine()
+            plt.grid(False)
+            
+            plt.gcf().savefig('../output_plots/SL/PMT/pmt_vs_dk0_'+_loc+'_'+_haz+'_'+str(_rp)+'.pdf',format='pdf',bbox_inches='tight')
+            plt.close('all')
+
+            #####################################
+            ### Cost vs benefit of PMT
+            plt.cla()
+            plt.plot(_['PMT'],_['pds_cost_cum']*to_usd*1E-6,color=q_colors[1],linewidth=1.8,zorder=99)
+            plt.plot(_['PMT'],_['delta_dw_cum']*to_usd*1E-6,color=q_colors[3],linewidth=1.8,zorder=99)
+
+            plt.annotate('PDS cost',xy=(_['PMT'].max(),_['pds_cost_cum'].max()*to_usd*1E-6),color=q_colors[1],weight='bold',ha='left',va='top',fontsize=10)
+            plt.annotate('Avoided\nwelfare losses',xy=(_['PMT'].max(),_['delta_dw_cum'].max()*to_usd*1E-6),color=q_colors[3],weight='bold',ha='left',va='top',fontsize=10)
+
+            #for _q in [1,2,3,4,5]:
+            #    _q_x = _.loc[_['quintile']==_q,'PMT'].max()
+            #    _q_y = max(_.loc[_['quintile']<=_q,['pcwgt','dk0']].prod(axis=1).sum()*to_usd*1E-6,
+            #               _.loc[_['quintile']<=_q,['pcwgt','dw']].prod(axis=1).sum()*to_usd*1E-6)
+            #    if _q == 1: _q_yprime = _q_y/20
+                
+            #    plt.plot([_q_x,_q_x],[0,_q_y],color=greys_pal[4],ls=':',linewidth=1.5,zorder=91)
+            #    plt.annotate(quint_labels[_q-1],xy=(_q_x,_q_y+_q_yprime),color=greys_pal[6],ha='right',va='bottom',style='italic',fontsize=8,zorder=91)
+
+            #if False:
+            #    plt.scatter(_['PMT'],_['truth_dk0_cum']*to_usd*1E-6,alpha=0.08,s=6,zorder=10)
+
+            plt.xlabel('Upper PMT threshold for post-disaster support',labelpad=8,fontsize=12)
+            plt.ylabel('Cost & benefit [mil. USD]',labelpad=8,fontsize=12)
+            plt.xlim(840);plt.ylim(0)
+            
+            plt.title(' '+str(_rp)+'-year '+haz_dict[_haz].lower()+'\n  in '+_loc,loc='left',color=greys_pal[7],pad=-25,fontsize=15)
+
+            sns.despine()
+            plt.grid(False)
+            
+            plt.gcf().savefig('../output_plots/SL/PMT/pmt_cost_vs_benefit_'+_loc+'_'+_haz+'_'+str(_rp)+'.pdf',format='pdf',bbox_inches='tight')
+            plt.close('all')            
+
+
+            #####################################
+            ### Cost vs benefit of PMT
+            _c1,_c1b = paired_pal[2],paired_pal[3]
+            _c2,_c2b = paired_pal[0],paired_pal[1]
+
+            plt.cla()
+            
+            #plt.scatter(_['PMT'],(_['pds_cost_cum']*to_usd).diff()/_['pcwgt'],color=_c1,s=4,zorder=98,alpha=0.25)
+            plt.scatter(_['PMT'],(_['delta_dw_cum']*to_usd).diff()/_['pcwgt'],color=_c2,s=4,zorder=98,alpha=0.25)
+
+            _window = 20
+            #plt.plot(_['PMT'],pd.rolling_mean((_['pds_cost_cum']*to_usd).diff(),_window),color=_c1b,lw=1.0,zorder=98)
+            #plt.plot(_['PMT'],pd.rolling_mean((_['delta_dw_cum']*to_usd).diff(),_window),color=_c2b,lw=1.0,zorder=98)
+            plt.plot(_['PMT'],(_['pds_cost_cum']*to_usd).diff()/_['pcwgt'],color=_c1b,lw=1.0,zorder=98)
+            plt.plot(_['PMT'],pd.rolling_mean((_['delta_dw_cum']*to_usd).diff()/_['pcwgt'],_window),color=_c2b,lw=1.0,zorder=98)
+            _y_max = 1.10*pd.rolling_mean((_['delta_dw_cum']*to_usd).diff()/_['pcwgt'],_window).max()
+
+            for _q in [1,2,3,4,5]:
+                _q_x = min(1150,_.loc[_['quintile']==_q,'PMT'].max())
+                #_q_y = max(_.loc[_['quintile']<=_q,['pcwgt','dk0']].prod(axis=1).sum()*to_usd,
+                #           _.loc[_['quintile']<=_q,['pcwgt','dw']].prod(axis=1).sum()*to_usd))
+                if _q == 1: 
+                    _q_xprime = (_q_x-840)/40
+                    _q_yprime = _y_max/200
+
+                plt.plot([_q_x,_q_x],[0,_y_max],color=greys_pal[4],ls=':',linewidth=1.5,zorder=91)
+                plt.annotate(quint_labels[_q-1],xy=(_q_x-_q_xprime,_y_max),color=greys_pal[6],ha='right',va='top',style='italic',fontsize=7,zorder=99)
+
+            plt.annotate('PDS cost',xy=(_['PMT'].max()-_q_xprime,((_['pds_cost_cum']*to_usd).diff()/_['pcwgt']).mean()+_q_yprime),
+                         color=_c1b,weight='bold',ha='right',va='bottom',fontsize=8)
+            #plt.annotate('Avoided\nwelfare losses',xy=(_['PMT'].max()-_q_xprime,pd.rolling_mean((_['delta_dw_cum']*to_usd/_['pcwgt']).diff(),_window).min()+_q_yprime),
+            #             color=_c2b,weight='bold',ha='right',va='bottom',fontsize=8)
+            
+            plt.xlabel('Upper PMT threshold for post-disaster support',labelpad=8,fontsize=12)
+            plt.ylabel('Marginal impact at threshold [USD per next enrollee]',labelpad=8,fontsize=12)
+            plt.xlim(850,1150);plt.ylim(0,_y_max)
+            
+            plt.title(str(_rp)+'-year '+haz_dict[_haz].lower()+'\nin '+_loc,loc='right',color=greys_pal[7],pad=10,fontsize=15)
+
+            sns.despine()
+            plt.grid(False)
+            
+            plt.gcf().savefig('../output_plots/SL/PMT/pmt_slope_cost_vs_benefit_'+_loc+'_'+_haz+'_'+str(_rp)+'.pdf',format='pdf',bbox_inches='tight')
+            plt.close('all')            
+assert(False)
 ##################################################################
 # This code generates output on poverty dimensions
 # ^ this is by household, so we use iah
-if True:
-    run_poverty_duration_plot(myCountry)
-    run_poverty_tables_and_maps(myCountry,iah.reset_index().set_index(event_level),event_level)
-    map_recovery_time('PH')
+if False:
+    #run_poverty_duration_plot(myCountry)
+    #run_poverty_tables_and_maps(myCountry,iah.reset_index().set_index(event_level),event_level)
+    map_recovery_time(myCountry)
 
 ##################################################################
 # This code generates the histograms showing income before & after disaster (in local_curr)
 # ^ this is at household level, so we'll use iah
+if False:            
+    
+    for _A in myHaz[0]:
+        for _B in myHaz[1]:
+            for _C in myHaz[2]:
+                plot_income_and_consumption_distributions('SL',iah,_A,_B,_C,'USD')
 
-#for _A in myHaz[0]:
-#    for _B in myHaz[1]:
-#        for _C in myHaz[2]:
-#            plot_income_and_consumption_distributions('SL',iah,_A,_B,_C)
-
-if True:            
     with Pool(processes=3,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
         try: pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[iah],myHaz[0],myHaz[1],myHaz[2])))
@@ -468,6 +655,12 @@ if True:
 ##################################################################
 # This code generates the histograms including [k,dk,dc,dw,&pds]
 # ^ this is by province/region, so it will use iah_res
+
+for _A in myHaz[0]:
+    for _B in myHaz[1]:
+        for _C in myHaz[2]:
+            plot_impact_by_quintile('SL',_A,_B,_C,iah_res)
+assert(False)
 if True:
     with Pool(processes=2,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
@@ -477,7 +670,7 @@ if True:
 ##################################################################
 # This code generates the histograms 
 # ^ this is only for affected hosueholds, so it will use iah
-if True:
+if False:
     with Pool(processes=2,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
         pool.starmap(plot_relative_losses,list(product([myCountry],myHaz[0],myHaz[1],myHaz[2],[iah])))  

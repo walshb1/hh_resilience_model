@@ -168,7 +168,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
 
 if __name__ == '__main__':
 
-    myCountry = 'PH'
+    myCountry = 'SL'
     debug = False
 
     if len(sys.argv) > 1: myCountry = sys.argv[1]    
@@ -206,14 +206,15 @@ if __name__ == '__main__':
             # --> 
 
         if myCountry == 'SL':
-            pds_str = ['scaleout_samurdhi','samurdhi_scaleup','samurdhi_scaleup00','no',
+            pds_str = ['scaleout_samurdhi_universal','scaleout_samurdhi',
+                       'samurdhi_scaleup','samurdhi_scaleup00','no',
                        'samurdhi_scaleup33','samurdhi_scaleup66',
                        'unif_poor','unif_poor_only','unif_poor_q12','prop_q1','prop_q12']
             #'infsavings' also implemented
             pol_str = ['']
             
             if debug:
-                launch_compute_resilience_and_risk_thread(myCountry,'','no')
+                launch_compute_resilience_and_risk_thread(myCountry,'','scaleout_samurdhi_universal')
                 assert(False)
 
         if myCountry == 'MW':

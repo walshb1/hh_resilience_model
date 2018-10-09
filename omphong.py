@@ -20,6 +20,67 @@ q_colors = [pubugn_pal[1],pubugn_pal[3],pubugn_pal[5],pubugn_pal[6],pubugn_pal[8
 q_labels = ['Poorest\nquintile','Second','Third','Fourth','Wealthiest\nquintile']
 
 ############################################
+# Do quick agriculture plot
+if True:
+    try: _df = pd.read_csv('../inputs/PH/FIES2015_ompong.csv')
+    except:
+        _df = pd.read_csv('../inputs/PH/FIES2015.csv')
+        _df = _df.loc[_df.eval('(w_regn==1)|(w_regn==2)|(w_regn==14)')]
+        _df.to_csv('../inputs/PH/FIES2015_ompong.csv')
+
+    _df['pcwgt'] = _df.eval('hhwgt*fsize')
+    _df['agpcinc'] = _df.eval('aginc/fsize')
+    
+    pov_line = get_poverty_line('PH')
+    sf_aginc = (26.8*_df[['hhwgt','aginc']].prod(axis=1).sum()*1E-9/202.2)/(_df[['hhwgt','aginc']].prod(axis=1).sum()*1E-9)
+    #           ^ total ag losses from Ompong                       ^ AG national accounts
+    
+    _df['pcinc_final'] = _df.eval('pcinc-@sf_aginc*agpcinc')
+
+    # Calculate poverty headcount
+    pov_increase = _df.loc[(_df['pcinc']>pov_line)&(_df.eval('pcinc-@sf_aginc*agpcinc<=@pov_line')),'pcwgt'].sum()
+    pov_gap_init = 1.-_df.loc[_df['pcinc']<pov_line,['pcinc','pcwgt']].prod(axis=1).sum()/(_df.loc[_df['pcinc']<pov_line,'pcwgt'].sum()*pov_line)
+    pov_gap_final = 1.-(_df.loc[_df.eval('(pcinc_final<=@pov_line)'),['pcinc_final','pcwgt']].prod(axis=1).sum()
+                        /(_df.loc[_df.eval('(pcinc_final<=@pov_line)'),'pcwgt'].sum()*pov_line))
+
+    pov_gap_povfinal = 1.-(_df.loc[_df.eval('(pcinc<=@pov_line)'),['pcinc_final','pcwgt']].prod(axis=1).sum()
+                           /(_df.loc[_df.eval('(pcinc<=@pov_line)'),'pcwgt'].sum()*pov_line))
+
+    print('ag fraction of total hh income:',_df[['agpcinc','pcwgt']].prod(axis=1).sum()/_df[['pcinc','pcwgt']].prod(axis=1).sum())
+    print('poverty increse:',pov_increase)
+    print('initial poverty gap:',pov_gap_init)
+    print('final poverty gap:',pov_gap_final)
+    print('final povgap for hh in pov before ompong:',pov_gap_povfinal)
+    
+    pov_line/=1E3
+    _df['pcwgt']/=1E3
+    _df['agpcinc']/=1E3
+    _df['pcinc']/=1E3
+
+    cf_heights, bins = np.histogram(_df.eval('pcinc-(@sf_aginc*agpcinc)'), bins=800,weights=_df['pcwgt'])   
+    ci_heights, _ = np.histogram(_df['pcinc'], bins=bins,weights=_df['pcwgt'])
+
+    plt.gca().bar(bins[:-1], cf_heights, width=(bins[1]-bins[0]), align='edge', 
+                  label='Less '+str(round(100*sf_aginc,1))+'% of\nagricultural income', facecolor=q_colors[1],edgecolor=None,linewidth=0,alpha=0.65,zorder=97)
+    plt.gca().step(bins[1:], ci_heights, label='FIES income', linewidth=1.2,color=greys_pal[5],zorder=98) 
+
+    plt.plot([pov_line,pov_line],[0,700],color=greys_pal[7],zorder=97.5)
+    plt.plot([pov_line-0.67,pov_line],[598.5,598.5],color=greys_pal[7],zorder=97.5,clip_on=False)
+    plt.annotate('Poverty line',xy=(get_poverty_line('PH')/1E3,14),xycoords='data',rotation=90,weight='bold',zorder=99,va='bottom',ha='right',fontsize=8)
+    plt.legend(loc='upper right')
+
+    plt.xlim(0,60)
+    plt.ylim(0,600)
+    plt.xlabel('Per capita income [,000 PhP per year]',weight='bold',labelpad=8)
+    plt.ylabel('Population [,000]',weight='bold',labelpad=8)
+
+    sns.despine();plt.grid(False)
+    plt.gcf().savefig('/Users/brian/Desktop/Dropbox/Bank/ompong/plots/agriculture.pdf',format='pdf',bbox_inches='tight')
+
+
+assert(False)
+
+############################################
 # Get fa
 if False:
     fa_file = pd.read_csv('../intermediate/PH/hazard_ratios.csv')
@@ -80,7 +141,7 @@ if True:
         #summary.loc[(summary.hazard=='PF')&(summary.rp!=2000)].plot('dk_tot','poverty_change',ax=ax,color=brew_pal[2],label='Precipitation flood',lw=2.0)
         #summary.loc[(summary.hazard=='SS')&(summary.rp!=2000)].plot('dk_tot','poverty_change',ax=ax,color=brew_pal[5],label='Storm surge')
 
-        for _rp in [25,50,100,200]:
+        for _rp in [1,10,25]:
             _x = float(summary.loc[(summary.hazard==_d[0])&(summary.rp==_rp),'dk_tot'])
             _yhi = float(summary.loc[(summary.hazard==_d[0])&(summary.rp==_rp),'poverty_change'])
             plt.plot([_x,_x],[0,_yhi],linestyle=':',color=greys_pal[4],zorder=10)
@@ -96,11 +157,11 @@ if True:
         plt.ylabel('Consumption poverty increase (thousands)',labelpad=8,weight='bold')
 
         if _d[0] == 'HU':
-            plt.xlim(0,200)
-            plt.ylim(0,3000)
+            plt.xlim(0,50)
+            plt.ylim(0,800)
         elif _d[0] == 'PF': 
-            plt.xlim(0,45)
-            plt.ylim(0,650)
+            plt.xlim(0,8)
+            plt.ylim(0,110)
 
         plt.grid(False)
         sns.despine()
@@ -160,7 +221,7 @@ if True:
     #print(_quintiles.sum(level=['hazard','rp']))
     #print(summary.head())
 
-    rp_range = [25,50,100,200]
+    rp_range = [1,10,25]
     quints = [1,2,3,4,5]
     wid = 0.8
     
@@ -179,6 +240,10 @@ if True:
                 plt.bar(quints,np.array(_quint.loc[_quint.rp==rp_range[-1],'tot_asset_loss'])/1.E9-np.array(_quint.loc[_quint.rp==rp_range[0],'tot_asset_loss']/1E9),
                         bottom=np.array(_quint.loc[_quint.rp==rp_range[0],'tot_asset_loss'].copy()/1E9),
                         width=wid,color=q_colors,alpha=0.8)
+
+                plt.annotate(('Total '+_d[1].lower()+' damage to\nhousing & infrastructure:\n     '+str(round(_quint.loc[_quint.rp==rp_range[0],'tot_asset_loss'].sum()/1E9,1))
+                              +' billion PhP\n    '+r'$-$'+str(round(np.array(_quint.loc[_quint.rp==rp_range[-1],'tot_asset_loss'].sum())/1.E9,1))+' billion PhP')
+                             ,xy=(0.1,0.9),xycoords='axes fraction',ha='left',va='top',weight='bold',linespacing=1.5)
                     
             elif _fom =='rel_asset_loss':
                 plt.bar(quints,np.array(100*_quint.loc[_quint.rp==rp_range[-1],'rel_asset_loss'])-np.array(100*_quint.loc[_quint.rp==rp_range[0],'rel_asset_loss']),

@@ -122,8 +122,8 @@ def reco_time_plots(myC,ompong=False):
     elif myC == 'SL': rp_range = [5,10,25,50,100,250,500,1000]
 
     if ompong: 
-        rp_range = [25]
-        rp_hi = '200'
+        rp_range = [10]
+        rp_hi = '10'
     for irp in rp_range:
         print('Running',irp)
 
@@ -164,16 +164,19 @@ def reco_time_plots(myC,ompong=False):
 
                 ###########
                 if not ompong: crit_grpB = '(rp=='+str(irp)+')&('+economy+'=='+_regB+')'
-                elif ompong: crit_grpB = '(rp=='+rp_hi+')&('+economy+'=='+_regB+')'
-                heightsB, _ = np.histogram(_povdur.loc[_povdur.eval(crit_grpB),'optimal_t_reco'],bins=_b,weights=_povdur.loc[_povdur.eval(crit_grpB)].pcwgt)
+                elif ompong: 
+                    crit_grpB = '(rp=='+rp_hi+')&('+economy+'=='+_regB+')'
+                    if rp_hi != str(irp):
+                        heightsB, _ = np.histogram(_povdur.loc[_povdur.eval(crit_grpB),'optimal_t_reco'],bins=_b,weights=_povdur.loc[_povdur.eval(crit_grpB)].pcwgt)
 
                 meanB = _povdur.loc[_povdur.eval(crit_grpB),['optimal_t_reco','pcwgt']].prod(axis=1).sum()/_povdur.loc[_povdur.eval(crit_grpB),'pcwgt'].sum()
                 meanlossB = _povdur.loc[_povdur.eval(crit_grpB),['dk0','pcwgt']].prod(axis=1).sum()/_povdur.loc[_povdur.eval(crit_grpB),'pcwgt'].sum()
                 affpopB = _povdur.loc[_povdur.eval(crit_grpB),'pcwgt'].sum()
 
                 sumwgtA = sum(heightsA)/100        
-                sumwgtB = sum(heightsB)/100
-        
+                try: sumwgtB = sum(heightsB)/100
+                except:pass
+
                 ax.bar(_b[:-1],heightsA/sumwgtA, width=(_b[1]-_b[0]), align='center', facecolor=q_colors[0],alpha=0.60,linewidth=0)
                 ax.step(_b[:-1],heightsA/sumwgtA, linewidth=1.2,color=q_colors[0],zorder=100,where='mid')
                 
@@ -188,8 +191,8 @@ def reco_time_plots(myC,ompong=False):
                     else: 
                         strmeanlossA = str(int(meanlossA))[:2]+',000'
                         strmeanlossB = str(int(meanlossB))[:2]+',000'
-                        straffpopA = str(int(affpopA))[:1]+','+str(int(affpopA))[-6:-3]+',000'
-                        straffpopB = str(int(affpopB))[:1]+','+str(int(affpopB))[-6:-3]+',000'
+                        straffpopA = str(int(affpopA))[-6:-3]+',000'
+                        straffpopB = str(int(affpopB))[-6:-3]+',000'
                         print(round(meanlossA/1E3,3),'-->',strmeanlossA)
                         print(round(meanlossB/1E3,3),'-->',strmeanlossB)
                         print(round(affpopA/1E3,3),'-->',straffpopA)
@@ -210,7 +213,7 @@ def reco_time_plots(myC,ompong=False):
                                 xy=(meanA+0.2,_ymax),ha='left',va='top',size=7.5,color=greys_pal[7],weight='light',linespacing=1.3)
                 else: 
                     ax.annotate((r"$\bf{"+str(irp)+"-year\ \ event}$"+"\n"
-                                 +r"Population affected: "+straffpopA+"\n"
+                                 +r"Population directly affected: "+straffpopA+"\n"
                                  +r"Mean per cap asset loss"
                                  +": "+strmeanlossA+" PhP\n"
                                  +r"Mean recovery time: "+strmeanA+" years"),
@@ -218,25 +221,26 @@ def reco_time_plots(myC,ompong=False):
 
                 if not plot_both: ax.step(_b[:-1],heightsB/sumwgtB, linewidth=1.2,color=greys_pal[5],where='mid')
                 else: 
-                    _shift = 0.8
-                    plt.plot([meanB,meanB],[0,_shift*_ymax],color=q_colors[1])
-                    if not ompong: 
-                        ax.annotate((r"$\bf{Region:\ "+_regB.replace('"','')+r"}$"+"\n"
-                                     +r"Mean per cap asset loss ($\Delta k^{eff}$)"
-                                     +": US\$"+strmeanlossB+"\n"
-                                     +r"Mean recovery time ($\tau$): "+strmeanB+" years"),
-                                    xy=(meanB+0.2,_shift*_ymax),ha='left',va='top',size=7.5,color=greys_pal[7],weight='light',linespacing=1.3)
-                    else: 
-                        ax.annotate((r"$\bf{"+rp_hi+"-year\ \ event}$"+"\n"
-                                     +r"Population affected: "+straffpopB+"\n"
-                                     +r"Mean per cap asset loss"
-                                     +": "+strmeanlossB+" PhP\n"
-                                     +r"Mean recovery time: "+strmeanB+" years"),
-                                    xy=(meanB+0.2,_shift*_ymax),ha='left',va='top',size=7.5,color=greys_pal[7],weight='light',linespacing=1.3)
+                    if not ompong or rp_hi != str(irp):
+                        _shift = 0.8
+                        plt.plot([meanB,meanB],[0,_shift*_ymax],color=q_colors[1])
+                        if not ompong: 
+                            ax.annotate((r"$\bf{Region:\ "+_regB.replace('"','')+r"}$"+"\n"
+                                         +r"Mean per cap asset loss ($\Delta k^{eff}$)"
+                                         +": US\$"+strmeanlossB+"\n"
+                                         +r"Mean recovery time ($\tau$): "+strmeanB+" years"),
+                                        xy=(meanB+0.2,_shift*_ymax),ha='left',va='top',size=7.5,color=greys_pal[7],weight='light',linespacing=1.3)
+                        else: 
+                            ax.annotate((r"$\bf{"+rp_hi+"-year\ \ event}$"+"\n"
+                                         +r"Population affected: "+straffpopB+"\n"
+                                         +r"Mean per cap asset loss"
+                                         +": "+strmeanlossB+" PhP\n"
+                                         +r"Mean recovery time: "+strmeanB+" years"),
+                                        xy=(meanB+0.2,_shift*_ymax),ha='left',va='top',size=7.5,color=greys_pal[7],weight='light',linespacing=1.3)
             
                         
-                    ax.bar(_b[:-1],heightsB/sumwgtB, width=(_b[1]-_b[0]), align='center', facecolor=q_colors[1],alpha=0.60,linewidth=0)
-                    ax.step(_b[:-1],heightsB/sumwgtB, linewidth=1.2,color=q_colors[1],zorder=100,where='mid')
+                        ax.bar(_b[:-1],heightsB/sumwgtB, width=(_b[1]-_b[0]), align='center', facecolor=q_colors[1],alpha=0.60,linewidth=0)
+                        ax.step(_b[:-1],heightsB/sumwgtB, linewidth=1.2,color=q_colors[1],zorder=100,where='mid')
 
                 if not ompong: plt.title('Event: '+str(irp)+'-year '+_haz_dict[_haz],fontsize=11,weight='bold',loc='right')
                 plt.xlabel(r'Optimal recovery time ($\tau_h$) [years]',fontsize=11,weight='bold',labelpad=8)
@@ -344,14 +348,15 @@ def format_delta_p(delta_p):
     delta_p_int = int(delta_p)
     delta_p = int(delta_p)
 
-    if delta_p_int >= 1E6:
-        delta_p = str(delta_p)[:-6]+','+str(delta_p)[-6:]
+    #if delta_p_int >= 1E6:
+    #    delta_p = str(delta_p)[:-6]+','+str(delta_p)[-6:]
     if delta_p_int >= 1E3:         
         delta_p = str(delta_p)[:-3]+','+str(delta_p)[-3:]
     return(str(delta_p))
 
 
-reco_time_plots(myCountry,ompong=False)
+reco_time_plots(myCountry,ompong=True)
+assert(False)
 
 #######################
 # Load output files

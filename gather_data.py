@@ -223,6 +223,9 @@ elif myCountry == 'SL':
     df = df.reset_index()
     df[economy].replace(prov_code,inplace=True)
 
+    print(df.head())
+    assert(False)
+
     cat_info = cat_info.reset_index()
     cat_info[economy].replace(prov_code,inplace=True) # replace division code with its name
     cat_info = cat_info.reset_index().set_index([economy,'hhid']).drop(['index'],axis=1)

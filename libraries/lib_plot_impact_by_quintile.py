@@ -30,7 +30,7 @@ def plot_relative_losses(myCountry,aProv,aDis,anRP,iah):
     print('Ratio:',_poor/_nonpoor,'\n\n')
 
 
-def plot_impact_by_quintile(myCountry,aProv,aDis,anRP,iah_res):
+def plot_impact_by_quintile(myCountry,aProv,aDis,anRP,iah_res,optionPDS):
 
     output_plots = '../output_plots/'+myCountry+'/'
     economy = get_economic_unit(myCountry)

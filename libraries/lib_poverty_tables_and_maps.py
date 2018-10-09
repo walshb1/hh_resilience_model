@@ -46,13 +46,13 @@ def map_recovery_time(myC,HAZ=['PF'],RP=[100],RECO=['75','80','90']):
         for _rp in RP:
             for _reco in RECO:
 
-                _ = df.loc[(df.hazard == _haz)&(df.rp == _rp)].set_index(['region'])
+                _ = df.loc[(df.hazard == _haz)&(df.rp == _rp)].set_index(df.columns[0])
                 _.loc[_['time_recovery_'+_reco]==-1,'time_recovery_'+_reco] = 10
 
                 make_map_from_svg(
                     _['time_recovery_'+_reco], 
                     svg_file,
-                    outname='time_to_recover_'+_reco+'pct_'+_haz+str(_rp),
+                    outname=myC+'_time_to_recover_'+_reco+'pct_'+_haz+str(_rp),
                     color_maper=plt.cm.get_cmap('Purples'), 
                     label='Time to reconstruct '+_reco+'% of assets destroyed \nby '+str(_rp)+'-year '+haz_dict[_haz].lower()+' [years]',
                     new_title='',
