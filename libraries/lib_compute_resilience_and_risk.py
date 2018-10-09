@@ -858,7 +858,10 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     elif 'scaleout_samurdhi' in optionPDS:
         ix_in = cats_event_iah.index.names
         cats_event_iah = cats_event_iah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])
-        cats_event_iah['help_received'] = get_scaleout_recipients(optionPDS,cats_event_iah,'PMT')
+        
+        aid_cutoff = 887
+        if 'universal' in optionPDS: aid_cutoff = 10000
+        cats_event_iah['help_received'] = get_scaleout_recipients(optionPDS,cats_event_iah,'PMT',aid_cutoff)
         #                                 ^ comes back with FULL index = [economy, hazard, rp, hhid, affected_cat, helped_cat]
         cats_event_iah = cats_event_iah.reset_index().set_index(ix_in).drop(['index','enrolled_in_samurdhi'],axis=1) 
 

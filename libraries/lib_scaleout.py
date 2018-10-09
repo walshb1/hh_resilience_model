@@ -138,7 +138,7 @@ def get_pmt(hh_df, aid_cutoff=887):
     return pmt_df['PMT'], aid_cutoff
 
 
-def get_scaleout_recipients(optionPDS,hh_df,ranking_var):
+def get_scaleout_recipients(optionPDS,hh_df,ranking_var,aid_cutoff):
     hh_df_ix = hh_df.index.names
 
     # This function returns a list of recipients of PDS, along with the value of their receipt
@@ -162,7 +162,7 @@ def get_scaleout_recipients(optionPDS,hh_df,ranking_var):
     # ^ use transform('max') to apply payout to all hh
 
     # GET PMT (function defined in this file, above)
-    pmt_df, aid_cutoff = get_pmt(hh_df)
+    pmt_df, aid_cutoff = get_pmt(hh_df,aid_cutoff)
 
     hh_df = pd.merge(hh_df.reset_index(),pmt_df.reset_index(),on='hhid').set_index(hh_df_ix)
 
