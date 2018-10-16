@@ -822,10 +822,10 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     cats_event_iah = pd.merge(cats_event_iah.reset_index(),macro_event.reset_index()[[i for i in macro_event.index.names]+['error_excl','error_incl']],on=[i for i in macro_event.index.names])
 
     for aWGT in ['hhwgt','pcwgt','aewgt']:
-        cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='a') ,aWGT]*=(1-cats_event_iah['error_excl'])
-        cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='a') ,aWGT]*=(  cats_event_iah['error_excl'])
-        cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    & (cats_event_iah.affected_cat=='na'),aWGT]*=(  cats_event_iah['error_incl'])  
-        cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')& (cats_event_iah.affected_cat=='na'),aWGT]*=(1-cats_event_iah['error_incl'])
+        cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    &(cats_event_iah.affected_cat=='a') ,aWGT]*=(1-cats_event_iah['error_excl'])
+        cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')&(cats_event_iah.affected_cat=='a') ,aWGT]*=(  cats_event_iah['error_excl'])
+        cats_event_iah.loc[(cats_event_iah.helped_cat=='helped')    &(cats_event_iah.affected_cat=='na'),aWGT]*=(  cats_event_iah['error_incl'])  
+        cats_event_iah.loc[(cats_event_iah.helped_cat=='not_helped')&(cats_event_iah.affected_cat=='na'),aWGT]*=(1-cats_event_iah['error_incl'])
 
     cats_event_iah = cats_event_iah.reset_index().set_index(df_index).drop([icol for icol in ['index',
                                                                                               'error_excl',
@@ -864,7 +864,6 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
         cats_event_iah['help_received'] = get_scaleout_recipients(optionPDS,cats_event_iah,'PMT',aid_cutoff)
         #                                 ^ comes back with FULL index = [economy, hazard, rp, hhid, affected_cat, helped_cat]
         cats_event_iah = cats_event_iah.reset_index().set_index(ix_in).drop(['index','enrolled_in_samurdhi'],axis=1) 
-
 
     elif optionPDS == 'fiji_SPP': cats_event_iah = run_fijian_SPP(macro_event,cats_event_iah)
     elif optionPDS=='fiji_SPS': cats_event_iah = run_fijian_SPS(macro_event,cats_event_iah)

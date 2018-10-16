@@ -169,7 +169,7 @@ def get_scaleout_recipients(optionPDS,hh_df,ranking_var,aid_cutoff):
     # So now all hh get a payout.
     # Which groups don't get PDS?
     hh_df = hh_df.reset_index('helped_cat')
-    hh_df.loc[hh_df['helped_cat'] == 'na','help_received'] = 0
+    hh_df.loc[hh_df['helped_cat'] == 'not_helped','help_received'] = 0
     hh_df = hh_df.reset_index().set_index(hh_df_ix)
     # ^ 1) helped_cat = na
     hh_df.loc[hh_df['PMT'] > aid_cutoff,'help_received'] = 0
