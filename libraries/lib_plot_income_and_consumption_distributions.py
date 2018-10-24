@@ -29,8 +29,10 @@ def axis_data_coords_sys_transform(axis_obj_in,xin,yin,inverse=False):
         yout = ydelta2 / ydelta
     return xout,yout
 
-def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,currency=''):
+def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsistence=True,currency=''):
     economy = iah.columns[0]
+
+    iah = iah.loc[iah.pcwgt_no!=0].copy()
 
     try: plt.close('all')
     except: pass
@@ -88,16 +90,16 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,currency=''
 
         # Income/Cons dist immediately after disaster
         cf_heights, cf_bins = np.histogram(sf_x*iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),_fom+'_pre_reco'].clip(upper=upper_clip), bins=c_bins[1],
-                                           weights=iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt']/get_pop_scale_fac(myC)[0])
+                                           weights=iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt_no']/get_pop_scale_fac(myC)[0])
         if c_bins[0] is None: c_bins = [cf_bins,cf_bins]
 
         # Income dist before disaster
         ci_heights, _bins = np.histogram(sf_x*iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'c_initial'].clip(upper=upper_clip), bins=c_bins[1],
-                                         weights=iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt']/get_pop_scale_fac(myC)[0])
+                                         weights=iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt_no']/get_pop_scale_fac(myC)[0])
 
         # Income dist after reconstruction
         #cf_reco_hgt, _bins = np.histogram(sf_x*iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'c_post_reco'].clip(upper=upper_clip), bins=c_bins[1],
-        #                                  weights=iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt']/get_pop_scale_fac(myC)[0])
+        #                                  weights=iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt_no']/get_pop_scale_fac(myC)[0])
 
         sns.despine()
         plt.gca().grid(False,axis='x')
@@ -105,13 +107,33 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,currency=''
         ax.step(c_bins[1][1:], ci_heights, label=aReg+' - FIES income', linewidth=1.2,color=greys_pal[6])
         #leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
         plt.ylim(0)
-        ax.get_figure().savefig(output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_1of3.pdf',format='pdf',bbox_inches='tight')
+        
+        _success = False
+        _counter = 0
+        while not _success and _counter < 10:
+            try:
+                _fout = output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_1of3.pdf'
+                ax.get_figure().savefig(_fout,format='pdf',bbox_inches='tight')
+                _success = True
+            except:
+                print('no good! try again in plot_income_and_consumption_distributions (1/3)')
+                _counter+=1
 
         #ax.step(c_bins[1][:-1], cf_heights, label=aReg+' - post-disaster', facecolor=q_colors[1],alpha=0.45)
         ax.bar(c_bins[1][:-1], cf_heights, width=(c_bins[1][1]-c_bins[1][0]), align='edge', 
                label=aReg+' - post-disaster', facecolor=q_colors[1],edgecolor=None,linewidth=0,alpha=0.65)
         #leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
-        ax.get_figure().savefig(output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_2of3.pdf',format='pdf',bbox_inches='tight')
+
+        _success = False
+        _counter = 10
+        while not _success and _counter < 10:
+            try:
+                _fout = output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_2of3.pdf'
+                ax.get_figure().savefig(_fout,format='pdf',bbox_inches='tight')
+                _success = True
+            except:
+                print('no good! try again in plot_income_and_consumption_distributions (2/3)')
+                _counter+=1
 
         plt.annotate('Pre-disaster '+_fom_lab.lower()+'\n(reported)',xy=(c_bins[1][-2],ci_heights[-1]),xytext=(c_bins[1][-4],ci_heights[-1]*1.06),
                      arrowprops=dict(arrowstyle="-",facecolor=greys_pal[8],connectionstyle="angle,angleA=0,angleB=90,rad=5"),
@@ -132,9 +154,9 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,currency=''
         #leg.get_frame().set_linewidth(0.2)
 
         if not simple_plot:
-            ax.annotate('Total asset losses: '+str(round(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),['pcwgt','dk0']].prod(axis=1).sum()/mny[1],1))+mny[0],
+            ax.annotate('Total asset losses: '+str(round(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),['pcwgt_no','dk0']].prod(axis=1).sum()/mny[1],1))+mny[0],
                         xy=(0.03,-0.18), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
-            ax.annotate('Reg. well-being losses: '+str(round(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),['pcwgt','dw']].prod(axis=1).sum()/(df.wprime.mean()*mny[1]),1))+mny[0],
+            ax.annotate('Reg. well-being losses: '+str(round(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),['pcwgt_no','dw']].prod(axis=1).sum()/(df.wprime.mean()*mny[1]),1))+mny[0],
                         xy=(0.03,-0.50), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
             ax.annotate('Natl. liability: '+str(round(float(public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),['transfer_pub']].sum()*1.E3/mny[1]),1))+mny[0],
                         xy=(0.03,-0.92), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
@@ -142,21 +164,21 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,currency=''
                         xy=(0.03,-1.24), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
 
         try:
-            net_chg_pov_c = int(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_pre_reco<=pov_line)'),'pcwgt'].sum()
-                                -iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_initial<=pov_line)'),'pcwgt'].sum())
-            net_chg_pov_i = int(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(i_pre_reco<=pov_line)'),'pcwgt'].sum()
-                                -iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_initial<=pov_line)'),'pcwgt'].sum())
+            net_chg_pov_c = int(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_pre_reco<=pov_line)'),'pcwgt_no'].sum()
+                                -iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_initial<=pov_line)'),'pcwgt_no'].sum())
+            net_chg_pov_i = int(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(i_pre_reco<=pov_line)'),'pcwgt_no'].sum()
+                                -iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_initial<=pov_line)'),'pcwgt_no'].sum())
         except:
-            net_chg_pov_c = int(iah.loc[iah.eval('district==@aReg & hazard==@aDis & c_pre_reco<=pov_line'),'pcwgt'].sum()
-                                -iah.loc[iah.eval('district==@aReg & hazard==@aDis & c_initial<=pov_line'),'pcwgt'].sum())
-            net_chg_pov_i = int(iah.loc[iah.eval('district==@aReg & hazard==@aDis & i_pre_reco<=pov_line'),'pcwgt'].sum()
-                                -iah.loc[iah.eval('district==@aReg & hazard==@aDis & c_initial<=pov_line'),'pcwgt'].sum())
+            net_chg_pov_c = int(iah.loc[iah.eval('district==@aReg & hazard==@aDis & c_pre_reco<=pov_line'),'pcwgt_no'].sum()
+                                -iah.loc[iah.eval('district==@aReg & hazard==@aDis & c_initial<=pov_line'),'pcwgt_no'].sum())
+            net_chg_pov_i = int(iah.loc[iah.eval('district==@aReg & hazard==@aDis & i_pre_reco<=pov_line'),'pcwgt_no'].sum()
+                                -iah.loc[iah.eval('district==@aReg & hazard==@aDis & c_initial<=pov_line'),'pcwgt_no'].sum())
 
         net_chg_pov = int(round(net_chg_pov_i/100.,0)*100)
         if _fom == 'c': net_chg_pov = int(round(net_chg_pov_c/100.,0)*100)
         #print('c:',net_chg_pov_c,' i:',net_chg_pov_i)
 
-        try: net_chg_pov_pct = abs(round(100.*float(net_chg_pov)/float(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt'].sum()),1))
+        try: net_chg_pov_pct = abs(round(100.*float(net_chg_pov)/float(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt_no'].sum()),1))
         except: net_chg_pov_pct = 0
 
         trans = ax.get_xaxis_transform() # x in data units, y in axes fraction
@@ -167,7 +189,7 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,currency=''
 
         _,pov_anno_y_data = axis_data_coords_sys_transform(ax,0,pov_anno_y,inverse=False)
         _,sub_anno_y_data = axis_data_coords_sys_transform(ax,0,sub_anno_y,inverse=False)
-
+    
         plt.plot([sf_x*iah.pov_line.mean(),sf_x*iah.pov_line.mean()],[0,pov_anno_y_data],'k-',lw=2.,color=greys_pal[8],zorder=100,alpha=0.85)
         ax.annotate('Poverty line',xy=(sf_x*1.1*iah.pov_line.mean(),pov_anno_y),xycoords=trans,ha='left',va='top',fontsize=9,
                     annotation_clip=False,weight='bold',color=greys_pal[7])
@@ -177,14 +199,15 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,currency=''
                     xycoords=trans,ha='left',va='top',fontsize=9,annotation_clip=False)
 
         sub_line, net_chg_sub = get_subsistence_line(myC), None
-        
-        if sub_line is not None:
-            net_chg_sub = int(round((iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_pre_reco<=@sub_line)'),'pcwgt'].sum()
-                                     -iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_initial<=@sub_line)'),'pcwgt'].sum())/100.,0)*100)
-            if _fom == 'i': net_chg_sub = int(round((iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(i_pre_reco<=@sub_line)'),'pcwgt'].sum()
-                                                     -iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_initial<=@sub_line)'),'pcwgt'].sum())/100.,0)*100)
+        if not label_subsistence: sub_line = None
 
-            try: net_chg_sub_pct = round(100.*float(net_chg_sub)/float(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt'].sum()),1)
+        if sub_line is not None:
+            net_chg_sub = int(round((iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_pre_reco<=@sub_line)'),'pcwgt_no'].sum()
+                                     -iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_initial<=@sub_line)'),'pcwgt_no'].sum())/100.,0)*100)
+            if _fom == 'i': net_chg_sub = int(round((iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(i_pre_reco<=@sub_line)'),'pcwgt_no'].sum()
+                                                     -iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_initial<=@sub_line)'),'pcwgt_no'].sum())/100.,0)*100)
+
+            try: net_chg_sub_pct = round(100.*float(net_chg_sub)/float(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt_no'].sum()),1)
             except: net_chg_sub_pct = 0
 
             plt.plot([sf_x*sub_line,sf_x*sub_line],[0,sub_anno_y_data ],'k-',lw=2.0,color=greys_pal[8],zorder=100,alpha=0.85)
@@ -197,10 +220,17 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,currency=''
         #print(aReg,aDis,anRP,net_chg_pov,'people into poverty &',net_chg_sub,'into subsistence') 
 
         fig = ax.get_figure()
-        fig.savefig(output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_'+currency[-3:].lower()+'.pdf',format='pdf',bbox_inches='tight')
-        #fig.savefig(output_plots+'png/npr_poverty_k_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'.png',format='png')
-        plt.clf()
-        plt.close('all')
-        print('wrote '+aReg+'_poverty_'+_fom+'_'+aDis+'_'+str(anRP)+'.pdf')
+        
+        _success = False
+        while not _success:
+            try:
+                _fout = output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_'+currency[-3:].lower()+'.pdf'
+                fig.savefig(_fout,format='pdf',bbox_inches='tight')
+                plt.clf(); plt.close('all')
+                _success = True
+                print('wrote '+aReg+'_poverty_'+_fom+'_'+aDis+'_'+str(anRP)+'.pdf')
+            except:
+                print('no good! try again in plot_income_and_consumption_distributions')
+
 
         #except: print('Error running '+aDis+' '+aDis+' '+anRP)
