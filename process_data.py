@@ -355,8 +355,7 @@ def format_delta_p(delta_p):
     return(str(delta_p))
 
 
-reco_time_plots(myCountry,ompong=True)
-assert(False)
+#reco_time_plots(myCountry,ompong=False)
 
 #######################
 # Load output files

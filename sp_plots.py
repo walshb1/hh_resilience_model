@@ -4,12 +4,15 @@ import pandas as pd
 import os, glob
 
 from libraries.lib_common_plotting_functions import title_legend_labels,q_colors,greys_pal
+from libraries.lib_country_dir import average_over_rp
+from libraries.lib_pds_dict import pds_crit_dict,pds_colors
 
 import seaborn as sns
 pairs_pal = sns.color_palette('Paired', n_colors=12)
 
 sns.set_style('whitegrid')
 mpl.rcParams['legend.facecolor'] = 'white'
+pd.set_option('display.width', 220)
 
 myCountry = 'SL'
 out = '../output_plots/'+myCountry+'/'
@@ -67,7 +70,6 @@ for _sp in sort_order:
 title_legend_labels(plt,'Sri Lanka','Return Period [years]','SP cost when event occurs [M USD]',[1,1000])
 plt.xscale('log')
 plt.gca().get_figure().savefig(out+'sp_costs.pdf',format='pdf')
-
 
 
 ########################################################################
@@ -230,5 +232,56 @@ for _place in affected_place:
         plt.annotate('Perfect targeting',xy=(0.0,0.89),xycoords='axes fraction',color=greys_pal[5],style='italic')
 
         plt.gca().get_figure().savefig('../output_plots/SL/samurdhi/up_vs_out_cb_'+(_place+'_').replace('all_','')+'rp'+str(_rp)+'.pdf',format='pdf',bbox_inches='tight')
+        plt.cla()
 
+plt.close('all')
 
+########################################################################
+# This one plots dW for several PDS options, with RP on the x-axis
+# --> ROI labeled
+plt.cla()
+
+pds_effects = pd.read_csv('../output_country/'+myCountry+'/pds_effects.csv').set_index(['district','hazard','rp'])
+
+pds_to_plot = ['samurdhi_scaleup','samurdhi_scaleup00','scaleout_samurdhi','scaleout_samurdhi_universal']
+for _pds in pds_to_plot:
+    pds_effects['dw_DELTA_'+_pds]/=150
+    pds_effects['cost_'+_pds] = pds_effects['dw_DELTA_'+_pds]/pds_effects['ROI_event_'+_pds]
+    pds_effects = pds_effects.drop('ROI_event_'+_pds,axis=1)
+pds_effects = pds_effects.drop([_c for _c in pds_effects.columns if 'ROI_event_' in _c],axis=1)
+
+pds_effects = pds_effects.sum(level=['rp']).reset_index()
+pds_effects = pds_effects.loc[pds_effects.rp>=10]
+
+pds_effects_avg,_ = average_over_rp(pds_effects.set_index('rp'))
+pds_effects_avg = pds_effects_avg.sum().to_frame().T
+print(pds_effects_avg)
+
+for _pds in pds_to_plot:
+
+    if int(pds_effects_avg['cost_'+_pds]) < 1:
+        _cost_str = str(int(round(pds_effects_avg['cost_'+_pds]*1E3,0)))+'K'
+    else: _cost_str = str(float(round(pds_effects_avg['cost_'+_pds],2)))+'M'
+
+    plt.loglog(pds_effects.rp,pds_effects['dw_DELTA_'+_pds],color=pds_colors[_pds],linewidth=2)
+    plt.annotate(pds_crit_dict[_pds].replace(' (','\n('),xy=(1.1*pds_effects.iloc[-1]['rp'],1.01*pds_effects.iloc[-1]['dw_DELTA_'+_pds]),
+                 ha='left',va='bottom',fontsize=8,color=greys_pal[7],weight='bold')
+    plt.annotate('Annual cost = '+_cost_str+'\nProgram ROI = '+str(round(float(pds_effects_avg.eval('dw_DELTA_'+_pds+'/cost_'+_pds)),1)),
+                 xy=(1.1*pds_effects.iloc[-1]['rp'],0.98*pds_effects.iloc[-1]['dw_DELTA_'+_pds]),va='top',fontsize=8,color=greys_pal[7])
+
+plt.title('Expected benefit of ASP (payout = 1 month of Samurdhi)\nin Sri Lanka, by RP and beneficiary group',loc='left',fontsize=15,color=greys_pal[7],linespacing=1.5,pad=15)
+#plt.annotate('One month Samurdhi topup to',xy=(0.96,1.04),xycoords='axes fraction',color=greys_pal[7],fontsize=8,weight='bold',annotation_clip=False,ha='left',va='bottom')
+plt.xlabel('Return period [years]',labelpad=10,fontsize=10)
+plt.xlim(5)
+plt.xticks([10,25,50,100,500,1000])
+plt.gca().set_xticklabels([10,25,50,100,500,1000],size=8)
+
+plt.ylabel('Avoided well-being losses [mil. USD]',labelpad=10,fontsize=10)
+#;plt.ylim(1E3,1E5)
+plt.yticks([1E0,5E0,1E1,2.5E1])
+plt.gca().set_yticklabels(['1','5','10','25'],size=8)
+
+sns.despine()
+plt.grid(False)
+
+plt.gca().get_figure().savefig('../output_plots/SL/samurdhi/benefit_vs_rp.pdf',format='pdf',bbox_inches='tight')

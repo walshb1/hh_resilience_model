@@ -607,7 +607,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         # NPV consumption losses accounting for reconstruction and productivity of capital (pre-response)
         cats_event_ia['macro_multiplier'] = (macro_event['avg_prod_k'].mean(level=event_level)+cats_event_ia['hh_reco_rate'])/(const_rho+cats_event_ia['hh_reco_rate'])  
         # ^ Gamma in the technical paper
-        cats_event_ia['dc_npv_pre'] = cats_event_ia[['dc0','macro_multiplier']].prod(axis=1)
+        #cats_event_ia['dc_npv_pre'] = cats_event_ia[['dc0','macro_multiplier']].prod(axis=1)
     
     return macro_event, cats_event_ia, public_costs
 
@@ -1018,11 +1018,14 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
 
     ###################
     #calc_delta_welfare
-    cats_event_iah['dc_post_reco'], cats_event_iah['dw'] = [0,0]
+    cats_event_iah['dc_pre_reco'], cats_event_iah['dc_post_reco'], cats_event_iah['dw'] = [0,0,0]
     
-    print(cats_event_iah.head())
-    cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dc_post_reco'], cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dw'] = calc_delta_welfare(myCountry,cats_event_iah,macro_event,
-                                                                                                                                      pol_str,optionPDS)
+    _dc_pre_reco,_dc_post_reco,_dw = calc_delta_welfare(myCountry,cats_event_iah,macro_event,pol_str,optionPDS)
+    cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dc_pre_reco'] = _dc_pre_reco
+    cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dc_post_reco'] = _dc_post_reco
+    cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dw'] = _dw 
+
+    assert(cats_event_iah['dc_pre_reco'].shape[0] == cats_event_iah['dc_pre_reco'].dropna().shape[0])
     assert(cats_event_iah['dc_post_reco'].shape[0] == cats_event_iah['dc_post_reco'].dropna().shape[0])
     assert(cats_event_iah['dw'].shape[0] == cats_event_iah['dw'].dropna().shape[0])
 
@@ -1507,9 +1510,13 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     temp['dw'] = temp['dw'].clip(upper=my_dw_limit*my_natl_wprime)
     # apply upper limit to DW
      
+
+
+    ################################
     # Re-merge temp and temp_na
     temp = pd.concat([temp,temp_na]).reset_index().set_index([i for i in mic_ix]).sort_index()
     temp['dc_net'] = temp['dc_net'].fillna(temp['dc_t'])
+    temp['dc_net_t0'] = temp['dc_net_t0'].fillna(0)
 
     if temp['dw'].shape[0] != temp.dropna(subset=['dw']).shape[0]:
         temp['dw'] = temp['dw'].fillna(-1E9)
@@ -1520,6 +1527,8 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     print('dw:',temp['dw'].shape[0],'dw.dropna:',temp.dropna(subset=['dw']).shape[0])
     assert(temp[['dc_t','dc_net','dw']].shape[0] == temp.dropna(subset=['dc_t','dc_net','dw'],how='any').shape[0])
 
+
+    ################################
     # Divide by dw'
     temp['dw_curr'] = temp['dw']/my_natl_wprime
 
@@ -1561,9 +1570,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     ##################################
 
     temp = temp.reset_index().set_index([i for i in mic_ix])
-    
-    return temp['dc_net'], temp['dw']
-
+    return temp['dc_net_t0'],temp['dc_net'],temp['dw']
 
 def welf1(c,elast,comp):
     """"Welfare function"""
