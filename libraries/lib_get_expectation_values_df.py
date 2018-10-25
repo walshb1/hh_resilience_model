@@ -31,7 +31,7 @@ def get_expectation_values_df(myC,economy,iah,pds_options,base_str='no',use_aewg
     iah_avg['dk0']         = iah[[  'dk0','pcwgt_'+base_str]].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_avg['pcwgt_'+base_str]
     iah_avg['i_pre_reco'] = iah[['i_pre_reco','pcwgt_'+base_str]].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_avg['pcwgt_'+base_str]
     iah_avg['di_pre_reco'] = iah[['di_pre_reco','pcwgt_'+base_str]].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_avg['pcwgt_'+base_str]
-    iah_avg['dc_pre_reco'] = iah[['dc_pre_reco','pcwgt_'+base_str]].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_avg['pcwgt_'+base_str]
+    iah_avg['c_pre_reco'] = iah[['c_pre_reco','pcwgt_'+base_str]].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_avg['pcwgt_'+base_str]
 
     for _ipds in [_c for _c in iah.columns if ('dw_' in _c) or ('help_received_' in _c)]:
         iah_avg[_ipds]     = (iah[[_ipds,'pcwgt_'+base_str]].prod(axis=1).sum(level=[economy,'hazard','rp','hhid'])/iah_avg['pcwgt_'+base_str])
