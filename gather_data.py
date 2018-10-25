@@ -146,7 +146,6 @@ cat_info['pcsoc'] = cat_info['pcsoc'].clip(upper=0.99*cat_info['c'])
 run_sp_analysis(myCountry,cat_info.copy())
 #cat_info = cat_info.reset_index('hhid')
 
-
 # Cash receipts, abroad & domestic, other gifts
 cat_info['social'] = (cat_info['pcsoc']/cat_info['c']).fillna(0)
 # --> All of this is selected & defined in lib_country_dir
@@ -222,9 +221,6 @@ elif myCountry == 'SL':
     #replace division codes with names
     df = df.reset_index()
     df[economy].replace(prov_code,inplace=True)
-
-    print(df.head())
-    assert(False)
 
     cat_info = cat_info.reset_index()
     cat_info[economy].replace(prov_code,inplace=True) # replace division code with its name

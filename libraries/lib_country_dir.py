@@ -178,6 +178,10 @@ def load_survey_data(myC):
                                               'upoor':'issub',
                                               'case_id':'hhid',
                                               'adulteq':'hhsize_ae'}).set_index(['hhid']).sort_index()
+        df.district = df.district.astype('object')
+        df.ispoor = df.ispoor.astype('object')
+        df.issub = df.issub.astype('object')
+
         df['pcwgt'] = df[['hhwgt','hhsize']].prod(axis=1)
         df['pcinc'] = df['hhinc']/df['hhsize']
 
@@ -195,8 +199,8 @@ def load_survey_data(myC):
         #need dwelling info
         dfF = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_F.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
         #df['general_construction'] = dfF['hh_f06'].copy()
-        df['wall'] = dfF['hh_f07'].copy()
-        df['roof'] = dfF['hh_f08'].copy()
+        df['wall'] = dfF['hh_f07'].copy().astype('object')
+        df['roof'] = dfF['hh_f08'].copy().astype('object')
         #df['floor'] = dfF['hh_f09'].copy()
 
         # AXFIN (also in mod F)

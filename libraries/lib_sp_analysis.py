@@ -10,7 +10,8 @@ def run_sp_analysis(myCountry,cat_info):
     cat_info = cat_info.reset_index().set_index(['hhid',economy])
 
     sp_out = pd.DataFrame(index=cat_info.sum(level=economy).index.copy())
-    
+    sp_out.index = sp_out.index.astype(str)
+
     sp_out['frac_receive_SP'] = 100*cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
     sp_out['avg_value_SP'] = cat_info.loc[cat_info['pcsoc']!=0,['pcsoc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info.loc[cat_info['pcsoc']!=0,'pcwgt'].sum(level=economy)
     sp_out['avg_value_SPall'] = cat_info[['pcsoc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
