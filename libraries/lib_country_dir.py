@@ -409,10 +409,8 @@ def load_survey_data(myC):
         
         print('Setting c to pcinc') 
         df['c'] = df['pcinc'].copy()
-
-
-
-
+        
+        df = df.reset_index().set_index('district').drop([_i for _i in ['index'] if _i in df.columns])
 
     elif myC == 'PH':
         df = pd.read_csv(inputs+'fies2015.csv',usecols=['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn',
@@ -815,10 +813,11 @@ def load_survey_data(myC):
 
     # Assing weighted household consumption to quintiles within each province
     print('Finding quintiles')
+
     economy = df.index.names[0]
     listofquintiles=np.arange(0.20, 1.01, 0.20)
     df = df.reset_index().groupby(economy,sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),listofquintiles),'quintile'))
-    
+
     #df = df.reset_index().groupby(economy,sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),percentiles_05),'pctle_05'))
     #df_c_5 = df.reset_index().groupby(economy,sort=True).apply(lambda x:x.loc[x.pctle_05==1,'c'].max())
     #df = df.reset_index().set_index([economy,'hhid']) #change the name: district to code, and create an multi-level index 

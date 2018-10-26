@@ -871,7 +871,7 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     elif optionPDS=='unif_poor':
         # For this policy: help_received by all helped hh = shareable (0.8) * average losses (dk) of lowest quintile
         cats_event_iah.loc[cats_event_iah.eval('helped_cat=="helped"'),'help_received'] = macro_event['shareable'] * cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),[loss_measure,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),'pcwgt'].sum(level=event_level)
-        
+
     elif optionPDS=='unif_poor_only':
         # For this policy: help_received by all helped hh in 1st quintile = shareable (0.8) * average losses (dk) of lowest quintile
         cats_event_iah.loc[cats_event_iah.eval('(helped_cat=="helped")&(quintile==1)'),'help_received']=macro_event['shareable']*cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),[loss_measure,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),'pcwgt'].sum(level=event_level)
@@ -1302,6 +1302,10 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
 
             opt_in = temp[['c','dk0','hh_reco_rate','sav_f','sav_offset_to','t_exhaust_sav']].copy()
             opt_in['avg_prod_k'] = macro.avg_prod_k.mean()
+
+            if opt_in.dropna().shape[0]!=opt_in.shape[0]:
+                opt_in.to_csv('~/Desktop/tmp/MW_fail.csv')
+                assert(opt_in.dropna().shape[0]==opt_in.shape[0])
 
             opt_in[['c','dk0','sav_f']] = opt_in[['c','dk0','sav_f']].astype('int')
             opt_in[['hh_reco_rate','avg_prod_k']] = opt_in[['hh_reco_rate','avg_prod_k']].round(3)
