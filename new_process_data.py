@@ -77,8 +77,11 @@ for f in glob.glob(path+pattern):
     if f != base_str:
         all_pds_options.append(f.replace(path,'').replace('sp_costs_','').replace('.csv',''))
 print(all_pds_options)
+
+if my_PDS not in all_pds_options: my_PDS = 'no'
+
 #pds_options = [all_pds_options[0]]
-pds_options = [my_PDS]+[_pds for _pds in ['unif_poor','samurdhi_scaleup','scaleout_samurdhi_universal'] if _pds != my_PDS]
+pds_options = [my_PDS]+[_pds for _pds in ['unif_poor','samurdhi_scaleup','scaleout_samurdhi_universal'] if (_pds != my_PDS) and (_pds in all_pds_options)]
 
 policy_options = []#['_exp095','_exr095','_ew100','_vul070','_vul070r','_rec067']
 
