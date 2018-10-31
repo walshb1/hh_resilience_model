@@ -939,11 +939,11 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         return df_prv,df_prv
 
     elif myC == 'MW':
-        df_haz = pd.read_excel(inputs+'/GAR_PML_curve_MW.xlsx',sheetname='PML(mUSD)')[['rp','Earthquake','Flood','Drought']].set_index('rp')
-        tot_exposure = float(pd.read_excel(inputs+'/GAR_PML_curve_MW.xlsx',sheetname='total_exposed_val').loc['Malawi','Total Exposure'].squeeze())
+        df_haz = pd.read_excel(inputs+'GAR/GAR_PML_curve_MW.xlsx',sheetname='PML(mUSD)')[['rp','Earthquake','Flood','Drought']].set_index('rp')
+        tot_exposure = float(pd.read_excel(inputs+'GAR/GAR_PML_curve_MW.xlsx',sheetname='total_exposed_val').loc['Malawi','Total Exposure'].squeeze())
 
-        ag_exposure_gross = float(pd.read_excel(inputs+'/GAR_PML_curve_MW.xlsx',sheetname='total_exposed_val').loc['Malawi','Gross value, maize'].squeeze())
-        ag_exposure_net = float(pd.read_excel(inputs+'/GAR_PML_curve_MW.xlsx',sheetname='total_exposed_val').loc['Malawi','Net value, maize'].squeeze())
+        ag_exposure_gross = float(pd.read_excel(inputs+'GAR/GAR_PML_curve_MW.xlsx',sheetname='total_exposed_val').loc['Malawi','Gross value, maize'].squeeze())
+        ag_exposure_net = float(pd.read_excel(inputs+'GAR/GAR_PML_curve_MW.xlsx',sheetname='total_exposed_val').loc['Malawi','Net value, maize'].squeeze())
 
         df_haz = df_haz.rename(columns={'Earthquake':'EQ','Flood':'FF','Drought':'DR'})
 
@@ -960,17 +960,34 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         df_haz = df_haz.reset_index().set_index(['hazard','rp']).sort_index()
 
         df_haz['hh_share'] = 1.0
-
+        
         # Need to broadcast to district
         df_geo = get_places('MW','district')
         df_geo['country'] = 'MW'
         df_haz['country'] = 'MW'
-    
+        
+        rms_pop = pd.read_excel(inputs+'masdap/malawi_exposure.xls',sheet_name='malawi_exposure')[['FID','POP']].rename(columns={'FID':'district','POP':'rms_pop'})
+        rms_pop['district'] = rms_pop['district'].str.replace('malawi_exposure.','')
+        rms_pop['district'].replace(pd.read_csv(inputs+'MW_code_region_district.csv')[['code','district']].astype('str').set_index('code').to_dict()['district'],inplace=True)
+        rms_pop = rms_pop.reset_index().set_index('district').sort_index().drop('index',axis=1)
+        rms_pop['hies_pop'] = df_geo['population'].copy()
+        # ^ weird--hies_pop and rms_pop are really divergent.
+        # --> HIES sums to 13.1M; RMS to 12.8M
+
+        
+        print(rms_pop.head())
+        #print(rms_pop.head())
+        assert(False)
+
+
         df_geo = df_geo.reset_index().set_index('country')
         df_haz = df_haz.reset_index().set_index('country')
         
         df_haz = pd.merge(df_geo.reset_index(),df_haz.reset_index(),on=['country'],how='outer').set_index(['district','hazard','rp']).sort_index()
         df_haz = df_haz.drop(['country','population','PML'],axis=1)
+
+        print(df_haz.head())
+        assert(False)
 
         return df_haz, df_haz
         
