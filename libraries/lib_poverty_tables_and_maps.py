@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from libraries.maps_lib import make_map_from_svg, purge
 from libraries.lib_average_over_rp import average_over_rp
-from libraries.lib_country_dir import get_demonym,get_poverty_line,get_currency
+from libraries.lib_country_dir import get_demonym,get_poverty_line,get_currency, get_economic_unit
 from libraries.lib_gather_data import match_percentiles,perc_with_spline,reshape_data
 from libraries.lib_common_plotting_functions import title_legend_labels,sns_pal
 import glob
@@ -25,16 +25,18 @@ haz_dict = {'SS':'Storm surge',
             'DR':'Drought',
             'FF':'Fluvial flood'}
 
-def map_recovery_time(myC,HAZ=['PF'],RP=[100],RECO=['75','80','90']):
+def map_recovery_time(myC,HAZ,RP=[100],RECO=['25','75','90']):
     df = pd.read_csv('../output_country/'+myC+'/time_to_recovery_no.csv')
 
     # hack
-    if myC == 'MW':
-        df.loc['Blantyre'] = df.loc[['Blantyre','Blantyre City']].sum()
-        df.loc['Lilongwe'] = df.loc[['Lilongwe','Lilongwe City']].sum()
-        df.loc['Mzimba'] = df.loc[['Mzimba','Mzuzu City']].sum()
-        df.loc['Zomba Non-City'] = df.loc[['Zomba Non-City','Zomba City']].sum() 
-        df = df_prov.drop(['Blantyre City','Lilongwe City', 'Mzuzu City', 'Zomba City'],axis=0)
+    #if myC == 'MW':
+    #    print(df.head())
+    #    print(df.loc[df.district=='Blantyre'])
+    #    df.loc[df.district=='Blantyre'] = df.loc[(df.district=='Blantyre')|(df.district=='Blantyre City')].sum()
+    #    df.loc[df.district=='Lilongwe'] = df.loc[(df.district=='Lilongwe')|(df.district=='Lilongwe City')].sum()
+    #    df.loc[df.district=='Mzimba'] = df.loc[(df.district=='Mzimba')|(df.district=='Mzuzu City')].sum()
+    #    df.loc[df.district=='Zomba Non-City'] = df.loc[(df.district=='Zomba Non-City')|(df.district=='Zomba City')].sum() 
+    #    df = df_prov.drop(['Blantyre City','Lilongwe City', 'Mzuzu City', 'Zomba City'],axis=0)
 
     # Look for the map (svg) file here
     svg_file = ''
@@ -42,11 +44,16 @@ def map_recovery_time(myC,HAZ=['PF'],RP=[100],RECO=['75','80','90']):
     elif myC == 'SL': svg_file = '../map_files/'+myC+'/lk.svg'
     elif myC == 'MW': svg_file = '../map_files/'+myC+'/mw.svg'
 
-    for _haz in HAZ:
+    
+
+    for _haz in [HAZ]:
         for _rp in RP:
             for _reco in RECO:
 
-                _ = df.loc[(df.hazard == _haz)&(df.rp == _rp)].set_index(df.columns[0])
+                _ = df.loc[(df.hazard == _haz)&(df.rp == _rp)].set_index(get_economic_unit(myC))
+                print(_.head())
+                
+
                 _.loc[_['time_recovery_'+_reco]==-1,'time_recovery_'+_reco] = 10
 
                 make_map_from_svg(
@@ -59,7 +66,7 @@ def map_recovery_time(myC,HAZ=['PF'],RP=[100],RECO=['75','80','90']):
                     do_qualitative=False,
                     res=2000)
 
-def run_poverty_duration_plot(myC):
+def run_poverty_duration_plot(myC,myHaz='HU'):
 
     # Load file with geographical (region/province/district) as index
     df = pd.read_csv('../output_country/'+myC+'/poverty_duration_no.csv')
@@ -93,7 +100,7 @@ def run_poverty_duration_plot(myC):
 
     ############################
     # Do some plotting
-    #plot_crit = '(t_pov_bool)&(hazard=="PF")&(rp==500)'
+    #plot_crit = '(t_pov_bool)&(hazard==@myHaz)&(rp==500)'
 
     #df.loc[df.eval(plot_crit)].plot.hexbin('dk0','t_pov_cons')
     #plt.gca().get_figure().savefig('../output_plots/'+myC+'/poverty_duration_hexbin_no.pdf',format='pdf')
@@ -176,7 +183,7 @@ def run_poverty_duration_plot(myC):
     _to_tex['Consumption'] = _cons_to_tex.round(1)
   
     _to_tex = _to_tex.reset_index().set_index(geo)
-    _to_tex = _to_tex.loc[_to_tex.eval('(hazard=="PF")&(rp==10)&(decile==1)')].sort_values('Consumption',ascending=False)
+    _to_tex = _to_tex.loc[_to_tex.eval('(hazard==@myHaz)&(rp==10)&(decile==1)')].sort_values('Consumption',ascending=False)
     
     _to_tex[['Income','Consumption']].to_latex('latex/'+myC+'/poverty_duration.tex')
 
@@ -191,12 +198,12 @@ def run_poverty_duration_plot(myC):
 
     for ipov in ['t_pov_cons_avg','t_pov_inc_avg']:
         # Do the plotting
-        #ax = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot.scatter('decile',ipov+'no',color=sns_pal[1],lw=0,label='Natl. average (RP = 5 years)',zorder=99)
-        #df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==1000)')].plot.scatter('decile',ipov+'no',color=sns_pal[3],lw=0,label='Natl. average (RP = 1000 years)',zorder=98,ax=ax)
+        #ax = df_dec.loc[df_dec.eval('(hazard==@myHaz)&(rp==10)')].plot.scatter('decile',ipov+'no',color=sns_pal[1],lw=0,label='Natl. average (RP = 5 years)',zorder=99)
+        #df_dec.loc[df_dec.eval('(hazard==@myHaz)&(rp==1000)')].plot.scatter('decile',ipov+'no',color=sns_pal[3],lw=0,label='Natl. average (RP = 1000 years)',zorder=98,ax=ax)
 
         try:
-            ax = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot('decile',ipov+'no',color=sns_pal[1],zorder=97,label='')
-            df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==1000)')].plot('decile',ipov+'no',color=sns_pal[3],zorder=96,label='',ax=ax)
+            ax = df_dec.loc[df_dec.eval('(hazard==@myHaz)&(rp==10)')].plot('decile',ipov+'no',color=sns_pal[1],zorder=97,label='')
+            df_dec.loc[df_dec.eval('(hazard==@myHaz)&(rp==1000)')].plot('decile',ipov+'no',color=sns_pal[3],zorder=96,label='',ax=ax)
         except: pass
 
         icol = 4
@@ -207,8 +214,8 @@ def run_poverty_duration_plot(myC):
         elif myC == 'MW': focus = ['Lilongwe','Chitipa']
 
         for iloc in focus:
-            df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot.scatter('decile',ipov+'_'+iloc,color=sns_pal[icol],lw=0,label=iloc+' (RP = 5 years)',zorder=95,ax=ax)
-            df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].plot('decile',ipov+'_'+iloc,color=sns_pal[icol],zorder=94,label='',ax=ax)
+            df_dec.loc[df_dec.eval('(hazard==@myHaz)&(rp==10)')].plot.scatter('decile',ipov+'_'+iloc,color=sns_pal[icol],lw=0,label=iloc+' (RP = 5 years)',zorder=95,ax=ax)
+            df_dec.loc[df_dec.eval('(hazard==@myHaz)&(rp==10)')].plot('decile',ipov+'_'+iloc,color=sns_pal[icol],zorder=94,label='',ax=ax)
             icol+=1
 
         # Do the formatting
@@ -219,7 +226,7 @@ def run_poverty_duration_plot(myC):
         # Do the saving
         ax.get_figure().savefig('../output_plots/'+myC+'/'+ipov+'_by_decile.pdf',format='pdf')
         plt.cla()    
-
+    
     ######################
     # Plot consumption and income poverty (separately), with alternative SPs
     _lab = {'t_pov_cons_avg':'Average time to exit poverty\n(income net of reconstruction & savings) [months]',
@@ -229,8 +236,8 @@ def run_poverty_duration_plot(myC):
     ax = plt.gca()
     for ipov in ['t_pov_cons_avg','t_pov_inc_avg']:
         # Do the plotting
-        _df_5 = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==10)')].copy()
-        _df_1000 = df_dec.loc[df_dec.eval('(hazard=="PF")&(rp==1000)')].copy()
+        _df_5 = df_dec.loc[df_dec.eval('(hazard==@myHaz)&(rp==10)')].copy()
+        _df_1000 = df_dec.loc[df_dec.eval('(hazard==@myHaz)&(rp==1000)')].copy()
 
         for iSP in _sp:
 
@@ -257,7 +264,7 @@ def run_poverty_duration_plot(myC):
 
     return True
 
-def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp']):
+def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],myHaz='HU'):
 
     # Load demonym for this country
     dem = get_demonym(myC)
@@ -296,11 +303,11 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
     except: pass
 
     # hack!
-    if myC == 'MW':        
-        pov_df_event.loc['Blantyre'] = pov_df_event.loc[['Blantyre','Blantyre City']].sum()
-        pov_df_event.loc['Lilongwe'] = pov_df_event.loc[['Lilongwe','Lilongwe City']].sum()
-        pov_df_event.loc['Mzimba'] = pov_df_event.loc[['Mzimba','Mzuzu City']].sum()
-        pov_df_event.loc['Zomba Non-City'] = pov_df_event.loc[['Zomba Non-City','Zomba City']].sum() 
+    if myC == 'MW':
+        pov_df_event.loc['Blantyre'] = pov_df_event.loc[['Blantyre','Blantyre City']].sum(level=event_level)
+        pov_df_event.loc['Lilongwe'] = pov_df_event.loc[['Lilongwe','Lilongwe City']].sum(level=event_level)
+        pov_df_event.loc['Mzimba'] = pov_df_event.loc[['Mzimba','Mzuzu City']].sum(level=event_level)
+        pov_df_event.loc['Zomba Non-City'] = pov_df_event.loc[['Zomba Non-City','Zomba City']].sum(level=event_level) 
         pov_df_event = pov_df_event.drop(['Blantyre City','Lilongwe City', 'Mzuzu City', 'Zomba City'],axis=0)
         
     pov_df_event['net_chg_sub_c'] = (pov_df.loc[pov_df.eval('(c_pre_reco<=sub_line)'),'pcwgt_no'].sum(level=event_level).fillna(0)
@@ -436,8 +443,8 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'])
              [250,1E3,' (thousands)'],
              [500,1E3,' (thousands)'],
              [1000,1E3,' (thousands)']]
-
-    for myDis in ['PF']:
+    
+    for myDis in [myHaz]:
         for myRP in [[10,1E0,'']]:
 
             make_map_from_svg(

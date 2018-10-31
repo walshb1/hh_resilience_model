@@ -712,33 +712,34 @@ if myCountry == 'SL':
 ##################################################################
 # This code generates output on poverty dimensions
 # ^ this is by household (iah != iah_avg here)
-if False:
+if True:
 
     _myiah = myiah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])[['pcwgt_no',
                                                                                               'c_initial','c_post_reco',
                                                                                               'i_pre_reco','c_pre_reco','dc_pre_reco',
                                                                                               'pov_line','sub_line']].copy()
     _myiah = _myiah.loc[_myiah['pcwgt_no']!=0]
-
-    run_poverty_duration_plot(myCountry)
-    run_poverty_tables_and_maps(myCountry,_myiah,event_level)
-    map_recovery_time(myCountry)
+    
+    run_poverty_duration_plot(myCountry,myHaz[1][0])
+    #                                   ^ first hazard in the country we're running
+    #run_poverty_tables_and_maps(myCountry,_myiah,event_level,myHaz[1][0])
+    map_recovery_time(myCountry,myHaz[1][1])
 
 ##################################################################
 # This code generates the histograms showing income before & after disaster (in local_curr)
 # ^ this is at household level (iah != iah_avg here)
-if False:
-    with Pool(processes=3,maxtasksperchild=1) as pool:
+if True:
+    with Pool(processes=4,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
-        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[iah_avg.copy()],myHaz[0],myHaz[1],myHaz[2],[False])))
+        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[myiah.copy()],myHaz[0],myHaz[1],myHaz[2],[False])))
 
 ##################################################################
 # This code generates the histograms showing income before & after disaster (in USD)
 # ^ this is at household level (iah != iah_avg here)
-if False:         
+if True:         
     with Pool(processes=3,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
-        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[iah_avg.copy()],myHaz[0],myHaz[1],myHaz[2],[False],['USD'])))
+        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[myiah.copy()],myHaz[0],myHaz[1],myHaz[2],[False],['USD'])))
 
 ##################################################################
 # This code generates the histograms including [k,dk,dc,dw,&pds]
@@ -752,7 +753,7 @@ if True:
 ##################################################################
 # This code generates the histograms 
 # ^ this is only for affected households (iah = iah_avg here) <--because we're summing, not averaging
-if False:
+if True:
     with Pool(processes=3,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
         pool.starmap(plot_relative_losses,list(product([myCountry],myHaz[0],myHaz[1],myHaz[2],[myiah.copy()])))  

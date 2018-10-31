@@ -30,7 +30,8 @@ def axis_data_coords_sys_transform(axis_obj_in,xin,yin,inverse=False):
     return xout,yout
 
 def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsistence=True,currency=''):
-    economy = iah.columns[0]
+    iah = iah.reset_index()
+    economy = get_economic_unit(myC)
 
     iah = iah.loc[iah.pcwgt_no!=0].copy()
 
@@ -42,7 +43,6 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
         aReg = 'path of Typhoon Mangkhut'
     else: reg_crit = '('+economy+'==@aReg)'
         
-
     economy = get_economic_unit(myC)
     output_plots = os.getcwd()+'/../output_plots/'+myC+'/'
 
@@ -52,7 +52,9 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
     if myC == 'SL': 
         upper_clip = 3.25E5
         if aReg == 'Rathnapura': upper_clip = 2.5E5
-    if myC == 'MW': upper_clip = 1.E4
+    if myC == 'MW': 
+        if aReg == 'Lilongwe': upper_clip = 4.0E5
+        else: upper_clip = 2.5E5
 
     c_bins = [None,50]
 
@@ -66,13 +68,10 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
     simple_plot = True
     
     sf_x = 1
-    if currency.lower() == 'usd': 
-        sf_x = get_currency(myC)[2]
-    elif myC == 'PH': 
-        currency = 'kPhP'
-        sf_x = 1E-3
+    if currency.lower() == 'usd': sf_x = get_currency(myC)[2]
+    elif myC == 'PH': currency = 'kPhP'; sf_x = 1E-3
+    elif myC == 'MW': currency = ',000 MWK'; sf_x = 1E-3
     else: currency = get_currency(myC)[0]
-  
 
     for _fom,_fom_lab in [('i','Income'),
                           ('c','Consumption')]:
@@ -80,17 +79,18 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
         ax=plt.gca()
 
         plt.xlim(0,sf_x*upper_clip)
+
         if aReg == 'II - Cagayan Valley' and aDis == 'HU' and anRP == 25: plt.ylim(0,400)
         elif aReg == 'Rathnapura': plt.ylim(0,105)
 
-        mny = get_currency(myC)
         plt.xlabel(_fom_lab+r' ['+currency+' per person, per year]',labelpad=8)
         plt.ylabel('Population'+get_pop_scale_fac(myC)[1],labelpad=8)
         plt.title(str(anRP)+'-year '+haz_dict[aDis].lower()+' in '+aReg)
-
+        
         # Income/Cons dist immediately after disaster
         cf_heights, cf_bins = np.histogram(sf_x*iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),_fom+'_pre_reco'].clip(upper=upper_clip), bins=c_bins[1],
-                                           weights=iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt_no']/get_pop_scale_fac(myC)[0])
+                                           weights=iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt_no']/get_pop_scale_fac(myC)[0])        
+
         if c_bins[0] is None: c_bins = [cf_bins,cf_bins]
 
         # Income dist before disaster
@@ -124,8 +124,7 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
                label=aReg+' - post-disaster', facecolor=q_colors[1],edgecolor=None,linewidth=0,alpha=0.65)
         #leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
 
-        _success = False
-        _counter = 10
+        _success = False; _counter = 0
         while not _success and _counter < 10:
             try:
                 _fout = output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_2of3.pdf'
@@ -137,9 +136,9 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
 
         plt.annotate('Pre-disaster '+_fom_lab.lower()+'\n(reported)',xy=(c_bins[1][-2],ci_heights[-1]),xytext=(c_bins[1][-4],ci_heights[-1]*1.06),
                      arrowprops=dict(arrowstyle="-",facecolor=greys_pal[8],connectionstyle="angle,angleA=0,angleB=90,rad=5"),
-                     clip_on=False,size=7,weight='light',ha='right',va='center',color=greys_pal[8])
+                     annotation_clip=False,size=7,weight='light',ha='right',va='center',color=greys_pal[8])
         plt.annotate('Post-disaster '+_fom_lab.lower()+'\n(modeled)',xy=((c_bins[1][-2]+c_bins[1][-1])/1.99,cf_heights[-1]*0.90),xytext=(c_bins[1][-4],cf_heights[-1]*0.90),
-                     arrowprops=dict(arrowstyle="-",facecolor=greys_pal[4]),clip_on=False,size=7,weight='light',ha='right',va='center',color=blues_pal[8])
+                     arrowprops=dict(arrowstyle="-",facecolor=greys_pal[4]),annotation_clip=False,size=7,weight='light',ha='right',va='center',color=blues_pal[8])
 
         #ax.bar(c_bins[1][:-1], cf_reco_hgt, width=(c_bins[1][1]-c_bins[1][0]), label=aReg+' - post-reconstruction', facecolor=q_colors[1],edgecolor=q_colors[1],alpha=0.65)
         #ax.step(c_bins[1][1:], ci_heights, label=aReg+' - FIES income', linewidth=1.2,color=greys_pal[8])            
@@ -154,13 +153,13 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
         #leg.get_frame().set_linewidth(0.2)
 
         if not simple_plot:
-            ax.annotate('Total asset losses: '+str(round(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),['pcwgt_no','dk0']].prod(axis=1).sum()/mny[1],1))+mny[0],
+            ax.annotate('Total asset losses: '+str(round(sf_x*iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),['pcwgt_no','dk0']].prod(axis=1).sum(),1))+currency,
                         xy=(0.03,-0.18), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
-            ax.annotate('Reg. well-being losses: '+str(round(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),['pcwgt_no','dw']].prod(axis=1).sum()/(df.wprime.mean()*mny[1]),1))+mny[0],
+            ax.annotate('Reg. well-being losses: '+str(round(sf_x*iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),['pcwgt_no','dw']].prod(axis=1).sum()/df.wprime.mean(),1))+currency,
                         xy=(0.03,-0.50), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
-            ax.annotate('Natl. liability: '+str(round(float(public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),['transfer_pub']].sum()*1.E3/mny[1]),1))+mny[0],
+            ax.annotate('Natl. liability: '+str(round(float(sf_x*public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),['transfer_pub']].sum()*1.E3),1))+currency,
                         xy=(0.03,-0.92), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
-            ax.annotate('Natl. well-being losses: '+str(round(float(public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),'dw_tot_curr'].sum()*1.E3/mny[1]),1))+mny[0].replace('b','m'),
+            ax.annotate('Natl. well-being losses: '+str(round(sf_x*float(public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),'dw_tot_curr'].sum()),1))+',000 '+currency,
                         xy=(0.03,-1.24), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
 
         try:
@@ -221,8 +220,8 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
 
         fig = ax.get_figure()
         
-        _success = False
-        while not _success:
+        _success = False; _counter = 0
+        while not _success and _counter < 4:
             try:
                 _fout = output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_'+currency[-3:].lower()+'.pdf'
                 fig.savefig(_fout,format='pdf',bbox_inches='tight')
@@ -231,6 +230,4 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
                 print('wrote '+aReg+'_poverty_'+_fom+'_'+aDis+'_'+str(anRP)+'.pdf')
             except:
                 print('no good! try again in plot_income_and_consumption_distributions')
-
-
-        #except: print('Error running '+aDis+' '+aDis+' '+anRP)
+                _counter+= 1
