@@ -1,5 +1,5 @@
 ##################################
-#Import packages for data analysis
+# Import packages for data analysis
 import matplotlib
 matplotlib.use('AGG')
 
@@ -11,6 +11,7 @@ from libraries.lib_average_over_rp import *
 from libraries.replace_with_warning import *
 #from libraries.pandas_helper import broadcast_simple
 from libraries.lib_common_plotting_functions import *
+#from libraries.maps_lib import make_map_from_svg, purge
 from libraries.lib_compute_resilience_and_risk import get_weighted_mean
 from libraries.lib_get_expectation_values_df import get_expectation_values_df
 from libraries.lib_plot_impact_by_quintile import plot_impact_by_quintile, plot_relative_losses
@@ -235,11 +236,32 @@ for iPDS in ['no']+pds_options:
 
 iah_out.to_csv(out_files+'risk_by_economy_hazard_rp.csv')
 
+
+
 # 3) Average over RP & update resilience
 iah_out,_ = average_over_rp(iah_out)
 iah_out['SE capacity']  = iah_out['Asset risk']/iah_out['Well-being risk']
 iah_out.to_csv(out_files+'risk_by_economy_hazard.csv')
+if True:
+    svg_file = get_svg_file(myCountry)
+    for _h in get_all_hazards(myCountry,iah_out):
+
+        make_map_from_svg(
+            iah_out.loc[(slice(None),(_h)),'Asset risk'].sum(level=economy)*1E-6*to_usd,
+            svg_file,
+            outname=myCountry+'_expected_losses_'+_h,
+            color_maper=plt.cm.get_cmap('Reds'), 
+            label='Annual asset losses to '+haz_dict[_h].lower()+'s [mil. USD]',
+            new_title='',
+            do_qualitative=False,
+            res=2000)
+
+    purge('img/','map_of_*.png')
+    purge('img/','legend_of_*.png')
+    purge('img/','map_of_*.svg')
+    purge('img/','legend_of_*.svg')
 # ^ Save out risk to assets & welfare & resilience by economy/hazard/PDS
+
 
 
 # 4) Write tables with just NO PDS
@@ -252,7 +274,7 @@ _['Total'] = _.sum(axis=1)
 _.loc['Total'] = _.sum()
 _.sort_values('Total',ascending=False).round(0).to_latex('latex/'+myCountry+'/risk_by_economy_hazard.tex')
 # USD
-_ = (no_pds['Asset risk']/1.E6).round(1).unstack().copy()*to_usd*1.E3
+_ = (no_pds['Asset risk']/1.E6).round(1).unstack().copy()*to_usd
 _['Total'] = _.sum(axis=1)
 _.loc['Total'] = _.sum(axis=0)
 _.sort_values('Total',ascending=False).round(1).to_latex('latex/'+myCountry+'/risk_by_economy_hazard_usd.tex')
@@ -313,6 +335,8 @@ no_pds_q1['SE capacity']=no_pds_q1['SE capacity'].round(1)
 no_pds_q1.loc['Total',['% total RA','% total RW']] = no_pds_q1.loc['Total','Asset risk']/iah_out['Asset risk'].sum()
 no_pds_q1.loc['Total',['% total RA','% total RW']] = no_pds_q1.loc['Total','Well-being risk']/iah_out['Well-being risk'].sum()
 
+print(no_pds_q1.head(30))
+no_pds_q1 = no_pds_q1.fillna(0)
 
 no_pds_q1[['Asset risk','% total RA','SE capacity',
            'Well-being risk','% total RW']].sort_values(['Well-being risk'],ascending=False).astype('int').to_latex('latex/'+myCountry+'/risk_q1_by_economy.tex')
@@ -712,7 +736,7 @@ if myCountry == 'SL':
 ##################################################################
 # This code generates output on poverty dimensions
 # ^ this is by household (iah != iah_avg here)
-if True:
+if False:
 
     _myiah = myiah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])[['pcwgt_no',
                                                                                               'c_initial','c_post_reco',
@@ -722,7 +746,7 @@ if True:
     
     run_poverty_duration_plot(myCountry,myHaz[1][0])
     #                                   ^ first hazard in the country we're running
-    #run_poverty_tables_and_maps(myCountry,_myiah,event_level,myHaz[1][0])
+    run_poverty_tables_and_maps(myCountry,_myiah,event_level,myHaz[1][0])
     map_recovery_time(myCountry,myHaz[1][1])
 
 ##################################################################

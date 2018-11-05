@@ -447,28 +447,29 @@ cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index
 
 
 # If we have 2 sets of data on k, gdp, look at them now:
-try:
-    summary_df = pd.DataFrame({'FIES':df['avg_prod_k'].mean()*cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy)/1E9,
-                               'GRDP':df['avg_prod_k'].mean()*hazard_ratios['grdp_to_assets'].mean(level=economy)/1E9})
-    summary_df.loc['Total'] = summary_df.sum()
-    summary_df['Ratio'] = 100.*summary_df['FIES'].divide(summary_df['GRDP'])
+summary_df = pd.DataFrame({'FIES':df['avg_prod_k'].mean()*cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy)/1E9})
+try: summary_df['GRDP'] = df['avg_prod_k'].mean()*hazard_ratios['grdp_to_assets'].mean(level=economy)*1.E-9
+except: pass
+summary_df.loc['Total'] = summary_df.sum()
 
-    print(summary_df.round(1))
-
-    summary_df.round(1).to_latex('latex/grdp_table.tex')
-    summary_df.to_csv(intermediate+'/gdp.csv')
+try: 
+    summary_df['Ratio'] = 100.*summary_df.eval('FIES/GRDP')
 
     totals = summary_df[['FIES','GRDP']].sum().squeeze()
     ratio = totals[0]/totals[1]
     print(totals, ratio)
-except: print('Dont have 2 datasets for GDP. Just using hh survey data.')  
+
+except: print('Dont have 2 datasets for GDP. Just using hh survey data.')
+
+print(summary_df.round(1))
+summary_df.round(1).to_latex('latex/'+myCountry+'/grdp_table.tex')
+summary_df.to_csv(intermediate+'/gdp.csv')
 
 hazard_ratios= hazard_ratios.drop(['frac_destroyed','grdp_to_assets'],axis=1).drop(["flood_fluv_def"],level="hazard")
 hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
 
 
-
-# Compare assets from survey to assets from AIR-PCRAFI    
+# Compare assets from survey to assets from AIR-PCRAFI
 if myCountry == 'FJ':
 
     df_haz = df_haz.reset_index()

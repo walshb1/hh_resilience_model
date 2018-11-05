@@ -18,6 +18,18 @@ def purge(dir, pattern):
     for f in glob.glob(dir+pattern):
         os.remove(f)
 
+def get_svg_file(myC):
+    svg_file = ''
+    if myC == 'PH': svg_file = '../map_files/'+myC+'/BlankSimpleMapRegional.svg'
+    elif myC == 'SL': svg_file = '../map_files/'+myC+'/lk.svg'
+    elif myC == 'MW': svg_file = '../map_files/'+myC+'/mw.svg'
+    else:
+        try: svg_file = '../map_files/'+myC+'/'+myC.lower()+'.svg'
+        except: 
+            print('cannot find map file!')
+            assert(False)
+    return svg_file
+
 def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_cmap("Blues"), label = "", outfolder ="img/" ,
                       svg_handle='class',new_title=None, do_qualitative=False, res=1000, verbose=True):
     """Makes a cloropleth map and a legend from a panda series and a blank svg map. 
