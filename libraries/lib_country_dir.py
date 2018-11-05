@@ -72,49 +72,51 @@ def get_places(myC,economy):
         return df
     
     if myC == 'SL':
-        if True:
-            df_hhwgt = pd.read_csv(inputs+'HIES2016/weight2016.csv')
-            df_hhwgt = df_hhwgt.rename(columns={'Finalweight':'hhwgt'})
 
-            df_hhsize = pd.read_csv(inputs+'HIES2016/sec_1_demographic_information.csv')
+        df_hhwgt = pd.read_csv(inputs+'HIES2016/weight2016.csv')
+        df_hhwgt = df_hhwgt.rename(columns={'Finalweight':'hhwgt'})
 
-            df_hhsize['hhsize'] = df_hhsize.groupby(['District','Sector','Psu','Snumber','Hhno'])['Person_Serial_No'].transform('count')
+        df_hhsize = pd.read_csv(inputs+'HIES2016/sec_1_demographic_information.csv')
 
-            # Set flag if HH has children
-            df_hhsize['is_child'] = 0
-            df_hhsize.loc[(df_hhsize['Birth_Year']>=98)|(df_hhsize['Birth_Year']<18),'is_child'] = 1
+        df_hhsize['hhsize'] = df_hhsize.groupby(['District','Sector','Psu','Snumber','Hhno'])['Person_Serial_No'].transform('count')
+
+        # Set flag if HH has children
+        df_hhsize['is_child'] = 0
+        df_hhsize.loc[(df_hhsize['Birth_Year']>=98)|(df_hhsize['Birth_Year']<18),'is_child'] = 1
             
-            df_hhsize = pd.merge(df_hhsize.reset_index(),df_hhwgt.reset_index(),on=['District','Sector','Psu'])
+        df_hhsize = pd.merge(df_hhsize.reset_index(),df_hhwgt.reset_index(),on=['District','Sector','Psu'])
 
-            df_hhsize['hhid'] = (df_hhsize['District'].astype('str')+df_hhsize['Sector'].astype('str')
-                                 +df_hhsize['Psu'].astype('str')+df_hhsize['Snumber'].astype('str')+df_hhsize['Hhno'].astype('str'))
-            df_hhsize = df_hhsize.reset_index().set_index(['District','Sector','Psu','Snumber','Hhno']).sort_index()
+        df_hhsize['hhid'] = (df_hhsize['District'].astype('str')+df_hhsize['Sector'].astype('str')
+                             +df_hhsize['Psu'].astype('str')+df_hhsize['Snumber'].astype('str')+df_hhsize['Hhno'].astype('str'))
+        df_hhsize = df_hhsize.reset_index().set_index(['District','Sector','Psu','Snumber','Hhno']).sort_index()
+        
+        # Now get rid of duplicates: 
+        df = df_hhsize[['hhsize','hhwgt']].mean(level=['District','Sector','Psu','Snumber','Hhno'])
+        df['N_children'] = df_hhsize['is_child'].sum(level=['District','Sector','Psu','Snumber','Hhno'])
+        # count children
+        df['ethnicity'] = df_hhsize.loc[df_hhsize['Person_Serial_No']==1,'Ethnicity']
+        # label ethnicity (1=sinhala, 2=tamil, 3=indian tamil, 4=moors, 5=malay, 6=burgher, 7=other)
+        df['religion'] = df_hhsize.loc[df_hhsize['Person_Serial_No']==1,'Religion']
+        # label religion (1=buddhist, 2=hindu, 3=islam, 4=christian, 9=other0
 
-            # Now get rid of duplicates: 
-            df = df_hhsize[['hhsize','hhwgt']].mean(level=['District','Sector','Psu','Snumber','Hhno'])
-            df['N_children'] = df_hhsize['is_child'].sum(level=['District','Sector','Psu','Snumber','Hhno'])
-            # count children
-            df['ethnicity'] = df_hhsize.loc[df_hhsize['Person_Serial_No']==1,'Ethnicity']
-            # label ethnicity (1=sinhala, 2=tamil, 3=indian tamil, 4=moors, 5=malay, 6=burgher, 7=other)
-            df['religion'] = df_hhsize.loc[df_hhsize['Person_Serial_No']==1,'Religion']
-            # label religion (1=buddhist, 2=hindu, 3=islam, 4=christian, 9=other0
-
-            df.to_csv(inputs+'/HIES2016/df_hhwgt_and_hhsize.csv')
-            # this will be used in get_survey_data, rather than redoing hhsize
+        df.to_csv(inputs+'/HIES2016/df_hhwgt_and_hhsize.csv')
+        # this will be used in get_survey_data, rather than redoing hhsize
             
+        df = df.reset_index().rename(columns={'District':'district'}).set_index('district')
+        df['headcount'] = df[['hhsize','hhwgt']].prod(axis=1)
             
-
-            df = df.reset_index().rename(columns={'District':'district'}).set_index('district')
-            df['headcount'] = df[['hhsize','hhwgt']].prod(axis=1)
-            
-            df = df['headcount'].sum(level='district').to_frame(name='pop')
-            # ^ return this
+        df = df['headcount'].sum(level='district').to_frame(name='pop')
+        # ^ return this
 
         return df
 
     if myC == 'MW':
 
-        df_agg = pd.read_stata(inputs+'consumption_aggregates_poverty_ihs4.dta').set_index(['district','case_id']).dropna(how='all')
+        df_agg = pd.read_stata(inputs+'consumption_aggregates_poverty_ihs4.dta')
+        df_agg['district'].replace('Nkhatabay','Nkhata Bay',inplace=True)
+        df_agg['district'].replace('Zomba Non-City','Zomba',inplace=True)
+        df_agg = df_agg.set_index(['district','case_id']).dropna(how='all').drop([_c for _c in ['index'] if _c in df_agg.columns],axis=1)
+
         df_agg = df_agg[['hh_wgt','hhsize']].prod(axis=1).sum(level='district').to_frame()
         df_agg.columns = ['population']
 
@@ -169,7 +171,9 @@ def load_survey_data(myC):
 
         df_agg = pd.read_stata(inputs+'consumption_aggregates_poverty_ihs4.dta').set_index(['case_id']).dropna(how='all')
         df = df_agg[['district','hh_wgt','rexpagg','pline_2016','upline_2016','poor','upoor','hhsize','adulteq']].copy()
-        
+        df['district'].replace('Nkhatabay','Nkhata Bay',inplace=True)
+        df['district'].replace('Zomba Non-City','Zomba',inplace=True)
+
         df = df.reset_index().rename(columns={'hh_wgt':'hhwgt',
                                               'rexpagg':'hhinc',
                                               'pline_2016':'pov_line',
@@ -963,32 +967,85 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         
         # Need to broadcast to district
         df_geo = get_places('MW','district')
+
         df_geo['country'] = 'MW'
         df_haz['country'] = 'MW'
         
-        rms_pop = pd.read_excel(inputs+'masdap/malawi_exposure.xls',sheet_name='malawi_exposure')[['FID','POP']].rename(columns={'FID':'district','POP':'rms_pop'})
-        rms_pop['district'] = rms_pop['district'].str.replace('malawi_exposure.','')
-        rms_pop['district'].replace(pd.read_csv(inputs+'MW_code_region_district.csv')[['code','district']].astype('str').set_index('code').to_dict()['district'],inplace=True)
-        rms_pop = rms_pop.reset_index().set_index('district').sort_index().drop('index',axis=1)
-        rms_pop['hies_pop'] = df_geo['population'].copy()
-        # ^ weird--hies_pop and rms_pop are really divergent.
-        # --> HIES sums to 13.1M; RMS to 12.8M
+        rms_haz = pd.read_excel(inputs+'masdap/malawi_exposure.xls',sheet_name='malawi_exposure').rename(columns={'Dist_Name':'district','POP':'rms_pop'}).drop(['FID','the_geom'],axis=1)
+        rms_haz['district'].replace(pd.read_csv(inputs+'MW_code_region_district.csv')[['code','district']].astype('str').set_index('code').to_dict()['district'],inplace=True)
+        rms_haz = rms_haz.reset_index().set_index('district').sort_index().drop('index',axis=1)
+        df_geo['rms_population'] = rms_haz['rms_pop'].copy()
+        df_geo.to_csv(inputs+'population_hies_vs_rms.csv')
+        # --> HIES sums to 16.3M; RMS to 12.8M, and pop of most districts in RMS is about 80% of HIES
 
+        ################################
+        # Work with RMS_haz
+        # 1) stack RPs
+
+        rms_haz = rms_haz.reset_index()
+        _init_haz = rms_haz.copy()
         
-        print(rms_pop.head())
-        #print(rms_pop.head())
-        assert(False)
+        # stack affected_population first
+        rms_haz = rms_haz.set_index([_c for _c in rms_haz.columns if 'APOP_RP' not in _c])
+        rms_haz = rms_haz.stack()
+        rms_haz.name = 'aff_pop'
+        rms_haz = rms_haz.reset_index().set_index('district')
+        rms_haz = rms_haz.rename(columns={'level_41':'rp'})
+        rms_haz['rp'] = rms_haz['rp'].str.replace('APOP_RP','')
+        rms_haz = rms_haz.reset_index().set_index(['district','rp'])
 
+        # stack asset categories into RP
+        for exp_data in [['AH_RP','aff_hh'],['ASPS_RP','aff_semiperm'],['ATS_RP','aff_trad'],['APS_RP','aff_perm']]:
+            _ = _init_haz.copy()
+            rms_haz = rms_haz.drop([_c for _c in _.columns if exp_data[0] in _c],axis=1)
 
-        df_geo = df_geo.reset_index().set_index('country')
-        df_haz = df_haz.reset_index().set_index('country')
+            _ = _.set_index([_c for _c in _.columns if exp_data[0] not in _c])        
+            _.columns = [_c.replace(exp_data[0],'') for _c in _.columns]
+            _.columns.name = 'rp'
+            _ = _.stack().reset_index().set_index(['district','rp'])
+            rms_haz[exp_data[1]] = _[0].copy()
+
+        for _fa in [['aff_pop','rms_pop'],['aff_hh','HH'],['aff_semiperm','N_SPST'],['aff_trad','N_TS'],['aff_perm','N_PST']]:
+            rms_haz['fa_'+_fa[0][4:]] = rms_haz[_fa[0]]/rms_haz[_fa[1]]
+            #rms_haz = rms_haz.drop(_fa,axis=1)
+
+        rms_haz.to_csv(inputs+'rms_haz.csv')
+        # I can see that the types of structures don't add information, and there is minimal RP-dependence
+        # --> solution: average over RP, and find characteristic fa for each district
+        # fix index
+        rhx = rms_haz.index
+        rms_haz.index = rms_haz.index.set_levels([rhx.levels[0].astype(str), rhx.levels[-1].astype(int)])
+        # average over rp, keeping only 'fa_pop'
+        rms_haz_dist,_ = average_over_rp(rms_haz['fa_pop'])
+        rms_haz_dist.columns = ['fa']
+        rms_haz_dist['avg_n_aff'],_ = average_over_rp(rms_haz['aff_pop'])
+        rms_haz_dist['rms_pop'] = rms_haz['rms_pop'].mean(level='district')
+
+        rms_fa_national = float(rms_haz_dist['avg_n_aff'].sum()/rms_haz_dist['rms_pop'].sum())
+
+        # calc fraction of total affected
+        #rms_haz_dist['frac_aff'] = rms_haz_dist['avg_n_aff']/rms_haz_dist['avg_n_aff'].sum()
+        rms_haz_dist.to_csv(inputs+'rms_haz_district_level.csv')
+
+        # Merge the datasets
+        df_haz = pd.merge(df_geo.reset_index(),df_haz.reset_index(),on=['country'],how='outer').set_index(['district']).sort_index()
+        df_haz['ff_frac_aff'] = 1;
+        df_haz.loc[df_haz.hazard=='FF','ff_frac_aff'] = rms_haz_dist['fa']/rms_fa_national
+        # Special hack for cities
+        df_haz = df_haz.reset_index()
         
-        df_haz = pd.merge(df_geo.reset_index(),df_haz.reset_index(),on=['country'],how='outer').set_index(['district','hazard','rp']).sort_index()
-        df_haz = df_haz.drop(['country','population','PML'],axis=1)
+        for _city in [['Blantyre City','Blantyre'],
+                      ['Lilongwe City','Lilongwe'],
+                      ['Mzuzu City','Mzimba'],
+                      ['Zomba City','Zomba']]:          
+            _s = '(district=="'+_city[0]+'")&(hazard=="FF")'
+            df_haz.loc[df_haz.eval(_s),'ff_frac_aff'] = df_haz.loc[df_haz.eval(_s),'ff_frac_aff'].fillna(df_haz.loc[df_haz.eval(_s.replace(_city[0],_city[1])),'ff_frac_aff'].mean())
 
-        print(df_haz.head())
-        assert(False)
+        # Combine columns
+        df_haz['frac_destroyed'] = df_haz[['frac_destroyed','ff_frac_aff']].prod(axis=1)
 
+        df_haz.to_csv('~/Desktop/tmp/df_haz.csv')
+        df_haz = df_haz.drop(['country','population','PML','ff_frac_aff'],axis=1) 
         return df_haz, df_haz
         
     elif myC == 'FJ':
