@@ -379,15 +379,7 @@ if myCountry != 'SL':
 
 hazard_ratios[['fa','v']].mean(level=event_level).to_csv('tmp/fa_v.csv')
 
-if False:
-    print(hazard_ratios.head())
-    print(cat_info.head())
-    
-    hazard_ratios = hazard_ratios.reset_index().groupby(economy,sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.k),reshape_data(x.pcwgt),listofquintiles),
-                                                                                                            'quintile',sort_val='k'))
-    hazard_ratios.to_csv('~/Desktop/tmp/'+myCountry+'_hazrat.csv')
-    assert(False)
-#flag
+
 
 # Get optimal reconstruction rate
 _pi = df['avg_prod_k'].mean()
