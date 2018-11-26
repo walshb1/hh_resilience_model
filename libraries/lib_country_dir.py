@@ -170,7 +170,7 @@ def load_survey_data(myC):
     if myC == 'MW':
 
         df_agg = pd.read_stata(inputs+'consumption_aggregates_poverty_ihs4.dta').set_index(['case_id']).dropna(how='all')
-        df = df_agg[['district','hh_wgt','rexpagg','pline_2016','upline_2016','poor','upoor','hhsize','adulteq']].copy()
+        df = df_agg[['district','hh_wgt','rexpagg','pline_2016','upline_2016','poor','upoor','hhsize','adulteq','urban']].copy()
         df['district'].replace('Nkhatabay','Nkhata Bay',inplace=True)
         df['district'].replace('Zomba Non-City','Zomba',inplace=True)
 
@@ -178,13 +178,13 @@ def load_survey_data(myC):
                                               'rexpagg':'hhinc',
                                               'pline_2016':'pov_line',
                                               'upline_2016':'sub_line',
-                                              'poor':'ispoor',
-                                              'upoor':'issub',
                                               'case_id':'hhid',
                                               'adulteq':'hhsize_ae'}).set_index(['hhid']).sort_index()
         df.district = df.district.astype('object')
-        df.ispoor = df.ispoor.astype('object')
-        df.issub = df.issub.astype('object')
+        df['ispoor'],df['issub'] = 0,0
+        df.loc[df['poor']=='Poor','ispoor'] = 1
+        df.loc[df['upoor']=='Ultra-poor','issub'] = 1
+        df = df.drop(['poor','upoor'],axis=1)
 
         df['pcwgt'] = df[['hhwgt','hhsize']].prod(axis=1)
         df['pcinc'] = df['hhinc']/df['hhsize']
@@ -822,15 +822,10 @@ def load_survey_data(myC):
     listofquintiles=np.arange(0.20, 1.01, 0.20)
     df = df.reset_index().groupby(economy,sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),listofquintiles),'quintile'))
 
-    #df = df.reset_index().groupby(economy,sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),percentiles_05),'pctle_05'))
-    #df_c_5 = df.reset_index().groupby(economy,sort=True).apply(lambda x:x.loc[x.pctle_05==1,'c'].max())
-    #df = df.reset_index().set_index([economy,'hhid']) #change the name: district to code, and create an multi-level index 
-    #df['c_5'] = broadcast_simple(df_c_5,df.index)
-    #df['c_5'] = df.c_5.fillna(df.c_5.mean(level=economy).min())
-    # ^ this is a line to prevent c_5 from being left empty due to paucity of hh from a given province (for Rotuma, FJ)
+    listofdeciles = np.arange(0.10, 1.01, 0.10)
+    df = df.reset_index().groupby(economy,sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),listofdeciles),'decile'))
 
     df.drop([icol for icol in ['level_0','index','pctle_05','pctle_05_nat'] if icol in df.columns],axis=1,inplace=True)
-
     return df
 
 def get_df2(myC):
@@ -874,6 +869,9 @@ def get_wb_or_penn_data(myC):
     wb['Ktot'] = wb.gdp_pc_pp*wb['pop']/K.avg_prod_k
     wb['GDP'] = wb.gdp_pc_pp*wb['pop']
     wb['avg_prod_k'] = K.avg_prod_k
+    print(wb['avg_prod_k'])
+    assert(False)
+
     wb['iso2'] = names_to_iso2
     return wb.set_index('iso2').loc[myC,['Ktot','GDP','avg_prod_k']]
     
@@ -1046,6 +1044,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
 
         df_haz.to_csv('~/Desktop/tmp/df_haz.csv')
         df_haz = df_haz.drop(['country','population','PML','ff_frac_aff'],axis=1) 
+
         return df_haz, df_haz
         
     elif myC == 'FJ':
@@ -1279,6 +1278,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
     else: return None,None
 
 def get_poverty_line(myC,by_district=True,sec=None):
+    pov_line = 0.0
     
     if myC == 'PH': pov_line = 22302.6775#21240.2924
 
@@ -1302,9 +1302,9 @@ def get_poverty_line(myC,by_district=True,sec=None):
         # apply PPP to estimate 2016 value...
         pov_line *= 11445.5/11669.1
 
-    elif myC == 'MW': pov_line = 137427.98
-    else: pov_line = 0.0
-    
+    elif myC == 'MW': 
+        pov_line = 137427.98
+
     return pov_line
 
 def get_subsistence_line(myC):

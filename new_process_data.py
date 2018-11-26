@@ -57,6 +57,8 @@ haz_dict = {'SS':'Storm surge',
 
 to_usd = get_currency(myCountry)[2]
 
+places_to_drop = None
+#if myCountry == 'MW': places_to_drop = ['Blantyre City','Lilongwe City','Mzuzu City','Zomba City']
 
 ##################################
 # Set directories (where to look for files)
@@ -67,7 +69,7 @@ out_files = os.getcwd()+'/../output_country/'+myCountry+'/'
 # Set policy params
 drm_pov_sign = -1 # toggle subtraction or addition of dK to affected people's incomes
 
-my_PDS = 'unif_poor'#'scaleout_samurdhi'#'scaleout_samurdhi_universal'#'samurdhi_scaleup'#'samurdhi_scaleup00'#
+my_PDS = 'no'#'unif_poor'#'scaleout_samurdhi'#'scaleout_samurdhi_universal'#'samurdhi_scaleup'#'samurdhi_scaleup00'#
 base_str = 'no'
 
 path = os.getcwd()+'/../output_country/'+myCountry+'/'
@@ -81,8 +83,10 @@ print(all_pds_options)
 
 if my_PDS not in all_pds_options: my_PDS = 'no'
 
+pds_options = []
+if my_PDS != base_str:
+    pds_options = [_pds for _pds in ['unif_poor','samurdhi_scaleup','scaleout_samurdhi_universal'] if (_pds != base_str) and (_pds in all_pds_options)]
 #pds_options = [all_pds_options[0]]
-pds_options = [my_PDS]+[_pds for _pds in ['unif_poor','samurdhi_scaleup','scaleout_samurdhi_universal'] if (_pds != my_PDS) and (_pds in all_pds_options)]
 
 policy_options = []#['_exp095','_exr095','_ew100','_vul070','_vul070r','_rec067']
 
@@ -128,8 +132,6 @@ except:
 iah['c_post_reco']  = iah.eval('c_initial+@drm_pov_sign*dc_post_reco')
 # ^ income & consumption before & after reconstruction
 
-#print(iah.loc[iah.eval('(c_initial>sub_line)&(c_pre_reco<sub_line)'),'pcwgt_no'].sum())
-#assert(False)
 
 ##################################
 # Add all the PDS info (hh- and event-level) that I'm going to need
@@ -140,6 +142,9 @@ for iPDS in ['no']+pds_options:
         _eval_str = '(pc_fee+help_fee-help_received_'+base_str+')'
         iah['net_help_received_'+iPDS] = iah.eval(_eval_str)
         
+        if base_str == 'no' and iah['help_fee'].sum() != 0: assert(False)
+        # ^ Sanity check
+
         iah = iah.drop(['pc_fee','help_fee'],axis=1)
         # ^ Post-disaster support: net received help
 
@@ -242,7 +247,15 @@ iah_out.to_csv(out_files+'risk_by_economy_hazard_rp.csv')
 iah_out,_ = average_over_rp(iah_out)
 iah_out['SE capacity']  = iah_out['Asset risk']/iah_out['Well-being risk']
 iah_out.to_csv(out_files+'risk_by_economy_hazard.csv')
-if True:
+if myCountry == 'MW':
+    iah_out = iah_out.reset_index()
+    for _hack in [['Blantyre City','Blantyre'],
+                  ['Lilongwe City','Lilongwe'],
+                  ['Mzuzu City','Mzimba'],
+                  ['Zomba City','Zomba']]:
+        iah_out.loc[iah_out[event_level[0]]==_hack[0],event_level[0]]=_hack[1]
+    iah_out = iah_out.reset_index().set_index(event_level[:-1])
+if False:
     svg_file = get_svg_file(myCountry)
     for _h in get_all_hazards(myCountry,iah_out):
 
@@ -254,14 +267,14 @@ if True:
             label='Annual asset losses to '+haz_dict[_h].lower()+'s [mil. USD]',
             new_title='',
             do_qualitative=False,
-            res=2000)
+            res=2000,
+            drop_spots=places_to_drop)
 
     purge('img/','map_of_*.png')
     purge('img/','legend_of_*.png')
     purge('img/','map_of_*.svg')
     purge('img/','legend_of_*.svg')
 # ^ Save out risk to assets & welfare & resilience by economy/hazard/PDS
-
 
 
 # 4) Write tables with just NO PDS
@@ -282,7 +295,7 @@ _.sort_values('Total',ascending=False).round(1).to_latex('latex/'+myCountry+'/ri
 
 # Sum over hazards
 no_pds = no_pds.sum(level=economy)
-no_pds[['Asset risk','Well-being risk']]/=1.E6 # no_pds is thousands [1E3]
+no_pds[['Asset risk','Well-being risk']]/=1.E9 # no_pds is thousands [1E3]
 no_pds['SE capacity']  = 100.*no_pds['Asset risk']/no_pds['Well-being risk']
 
 no_pds.loc['Total'] = [float(no_pds['Asset risk'].sum()),
@@ -307,12 +320,15 @@ no_pds['SE capacity']  = 100.*no_pds['Asset risk']/no_pds['Well-being risk']
 no_pds[['Asset risk','SE capacity','Well-being risk']].sort_values(['Well-being risk'],ascending=False).round(1).to_latex('latex/'+myCountry+'/risk_by_economy_usd.tex')
 print('Wrote latex! Sums:\n',no_pds.loc['Total',['Asset risk','Well-being risk']])
 
-
 ####################################
 # Save out iah by economic unit, *only for poorest quintile*
-no_pds_q1 = pd.DataFrame(index=iah_avg.sum(level=[economy,'hazard','rp']).index)
-no_pds_q1['Asset risk'] = iah_avg.loc[(iah_avg.quintile==1),['dk0','pcwgt_no']].prod(axis=1).sum(level=[economy,'hazard','rp'])*1E-3
-no_pds_q1['Well-being risk'] = iah_avg.loc[(iah_avg.quintile==1),['dw_no','pcwgt_no']].prod(axis=1).sum(level=[economy,'hazard','rp'])*1E-3
+no_pds_q1 = pd.DataFrame(index=iah.sum(level=[economy,'hazard','rp']).index)
+
+no_pds_q1['Asset risk'] = iah.loc[(iah.quintile==1),['dk0','pcwgt_no']].prod(axis=1).sum(level=[economy,'hazard','rp'])*1E-6
+no_pds_q1['Well-being risk'] = iah.loc[(iah.quintile==1),['dw_no','pcwgt_no']].prod(axis=1).sum(level=[economy,'hazard','rp'])*1E-6
+no_pds_q1['TOTAL Asset risk'] = iah[['dk0','pcwgt_no']].prod(axis=1).sum(level=[economy,'hazard','rp'])*1E-6
+no_pds_q1['TOTAL Well-being risk'] = iah[['dw_no','pcwgt_no']].prod(axis=1).sum(level=[economy,'hazard','rp'])*1E-6
+# needs external DWs!!!
 
 no_pds_q1.to_csv(out_files+'risk_q1_by_economy_hazard_rp.csv')
 no_pds_q1,_ = average_over_rp(no_pds_q1,'default_rp')
@@ -321,37 +337,37 @@ no_pds_q1.to_csv(out_files+'risk_q1_by_economy_hazard.csv')
 
 
 no_pds_q1 = no_pds_q1.sum(level=economy)
-no_pds_q1.loc['Total'] = [float(no_pds_q1['Asset risk'].sum()),
-                           float(no_pds_q1['Well-being risk'].sum()),
-                           float(no_pds_q1['Asset risk'].sum()/no_pds_q1['Well-being risk'].sum())]
-no_pds_q1['SE capacity']  = no_pds_q1['Asset risk']/no_pds_q1['Well-being risk']
+no_pds_q1.loc['Total',['Asset risk','Well-being risk',
+                       'TOTAL Asset risk','TOTAL Well-being risk','SE capacity']] = [float(no_pds_q1['Asset risk'].sum()),
+                                                                                     float(no_pds_q1['Well-being risk'].sum()),
+                                                                                     float(no_pds_q1['TOTAL Asset risk'].sum()),
+                                                                                     float(no_pds_q1['TOTAL Well-being risk'].sum()),
+                                                                                     100.*float(no_pds_q1['Asset risk'].sum()/no_pds_q1['Well-being risk'].sum())]
+no_pds_q1['SE capacity']  = 100.*no_pds_q1['Asset risk']/no_pds_q1['Well-being risk']
 no_pds_q1.to_csv(out_files+'risk_q1_by_economy.csv')
 
-no_pds_q1['% total RA'] = (100.*1E3*no_pds_q1['Asset risk']/iah_out['Asset risk'].sum(level=economy)).round(1)
-no_pds_q1['% total RW'] = (100.*1E3*no_pds_q1['Well-being risk']/iah_out['Well-being risk'].sum(level=economy)).round(1)
-no_pds_q1['SE capacity']*=100.
-no_pds_q1['SE capacity']=no_pds_q1['SE capacity'].round(1)
+no_pds_q1['% total RA'] = 100.*no_pds_q1['Asset risk']/no_pds_q1['TOTAL Asset risk']
+no_pds_q1['% total RW'] = 100.*no_pds_q1['Well-being risk']/no_pds_q1['TOTAL Well-being risk']
 
-no_pds_q1.loc['Total',['% total RA','% total RW']] = no_pds_q1.loc['Total','Asset risk']/iah_out['Asset risk'].sum()
-no_pds_q1.loc['Total',['% total RA','% total RW']] = no_pds_q1.loc['Total','Well-being risk']/iah_out['Well-being risk'].sum()
+no_pds_q1.loc['Total',['% total RA','% total RW']] = 100*no_pds_q1.loc['Total','Asset risk']/no_pds_q1['TOTAL Asset risk'].sum()
+no_pds_q1.loc['Total',['% total RA','% total RW']] = 100*no_pds_q1.loc['Total','Well-being risk']/no_pds_q1['TOTAL Well-being risk'].sum()
 
 print(no_pds_q1.head(30))
 no_pds_q1 = no_pds_q1.fillna(0)
 
 no_pds_q1[['Asset risk','% total RA','SE capacity',
-           'Well-being risk','% total RW']].sort_values(['Well-being risk'],ascending=False).astype('int').to_latex('latex/'+myCountry+'/risk_q1_by_economy.tex')
+           'Well-being risk','% total RW']].sort_values(['Well-being risk'],ascending=False).round(1).to_latex('latex/'+myCountry+'/risk_q1_by_economy.tex')
 
 no_pds_q1['Asset risk']*=to_usd
 no_pds_q1['Well-being risk']*=to_usd
 no_pds_q1[['Asset risk','% total RA','SE capacity',
-           'Well-being risk','% total RW']].sort_values(['Well-being risk'],ascending=False).astype('int').to_latex('latex/'+myCountry+'/risk_q1_by_economy_usd.tex')
+           'Well-being risk','% total RW']].sort_values(['Well-being risk'],ascending=False).round(1).to_latex('latex/'+myCountry+'/risk_q1_by_economy_usd.tex')
 print('Wrote latex! Q1 sums: ',no_pds_q1.sum())
 
 
 
-
-no_pds_q1['pop_q1']  = iah_avg.loc[iah_avg.quintile==1,'pcwgt_no'].sum(level=event_level).mean(level=event_level[0])/1.E3
-#iah_out_q1['grdp_q1'] = iah_avg.loc[iah_avg.quintile==1,['pcwgt_no','c_initial']].prod(axis=1).sum(level=event_level).mean(level=event_level[0])
+no_pds_q1['pop_q1']  = iah.loc[iah.quintile==1,'pcwgt_no'].sum(level=event_level).mean(level=event_level[0])/1.E3
+#iah_out_q1['grdp_q1'] = iah.loc[iah.quintile==1,['pcwgt_no','c_initial']].prod(axis=1).sum(level=event_level).mean(level=event_level[0])
 
 _ = no_pds_q1.drop('Total',axis=0)[['pop_q1','Asset risk','Well-being risk']].copy()
 
@@ -366,18 +382,19 @@ _.loc['Total'] = [_['pop_q1'].sum(),
 
 _['pop_q1'] = _['pop_q1'].astype('int')
 
-_[['pop_q1','Asset risk pc','Well-being risk pc']].round(2).sort_values('Well-being risk pc',ascending=False).to_latex('latex/'+myCountry+'/risk_pc_q1_by_economy.tex')
-_[['pop_q1','Asset risk pc','Well-being risk pc']].round(2).sort_values('Well-being risk pc',ascending=False).to_csv('latex/'+myCountry+'/risk_pc_q1_by_economy.csv')
+_[['pop_q1','Asset risk pc','Well-being risk pc']].round(2).sort_values('Well-being risk pc',ascending=False).to_latex('latex/'+myCountry+'/risk_pc_q1_by_economy_usd.tex')
+_[['pop_q1','Asset risk pc','Well-being risk pc']].round(2).sort_values('Well-being risk pc',ascending=False).to_csv('latex/'+myCountry+'/risk_pc_q1_by_economy_usd.csv')
 
 _ = _.drop('Total')
-_['Asset risk pc'] *= to_usd
-_['Well-being risk pc'] *= to_usd
+_['Asset risk pc'] /= to_usd
+_['Well-being risk pc'] /= to_usd
 _.loc['Total'] = [_['pop_q1'].sum(),
                   _['Asset risk'].sum(),
                   _['Well-being risk'].sum(),
                   _['Asset risk'].sum()*1.E3/_['pop_q1'].sum(),
                   _['Well-being risk'].sum()*1.E3/_['pop_q1'].sum()]
-_[['pop_q1','Asset risk pc','Well-being risk pc']].round(2).sort_values('Well-being risk pc',ascending=False).to_latex('latex/'+myCountry+'/risk_pc_q1_by_economy_usd.tex')
+_[['pop_q1','Asset risk pc','Well-being risk pc']].round(2).sort_values('Well-being risk pc',ascending=False).to_latex('latex/'+myCountry+'/risk_pc_q1_by_economy.tex')
+assert(False)
 
 # Save out iah
 iah_out = pd.DataFrame(index=iah_avg.sum(level=['hazard','rp']).index)
@@ -397,6 +414,8 @@ iah_out.to_csv(out_files+'risk_total.csv')
 # --> could use iah here, or could use expectation value (iah_avg).
 # This affects the results!
 # --> that's because, for poverty line (binary), it matters whether you use the whole household, or its fractional pieces
+
+iah = iah.drop([_c for _c in ['welf_class','province','pcexp','axfin','optimal_hh_reco_rate'] if _c in iah.columns],axis=1)
 
 # --> leaning toward iah
 myiah = iah.copy(deep=True)
@@ -449,7 +468,8 @@ myHaz = None
 if myCountry == 'FJ': myHaz = [['Ba','Lau','Tailevu'],get_all_hazards(myCountry,myiah),[1,10,100,500,1000]]
 #elif myCountry == 'PH': myHaz = [['V - Bicol','II - Cagayan Valley','NCR','IVA - CALABARZON','ARMM','CAR'],['HU','EQ'],[10,25,50,100,250,500]]
 #elif myCountry == 'PH': myHaz = [['ompong'],['HU','PF','SS'],[10,50,100,200,500]]
-elif myCountry == 'PH': myHaz = [['I - Ilocos','II - Cagayan Valley','CAR'],['HU'],[25,100]]
+#elif myCountry == 'PH': myHaz = [['I - Ilocos','II - Cagayan Valley','CAR'],['HU','EQ'],[25,100]]
+elif myCountry == 'PH': myHaz = [['II - Cagayan Valley'],['HU'],[25,50,100,250,500]]
 elif myCountry == 'SL': myHaz = [['Rathnapura','Colombo'],get_all_hazards(myCountry,myiah),get_all_rps(myCountry,myiah)]
 elif myCountry == 'MW': myHaz = [['Lilongwe','Chitipa'],get_all_hazards(myCountry,myiah),get_all_rps(myCountry,myiah)]
 
@@ -733,10 +753,12 @@ if myCountry == 'SL':
                 plt.gcf().savefig('../output_plots/SL/PMT/pmt_slope_cost_vs_benefit_'+_loc+'_'+_haz+'_'+str(_rp)+'_'+my_PDS+'.pdf',format='pdf',bbox_inches='tight')
                 plt.close('all')  
 
+
+print(myiah.columns)
 ##################################################################
 # This code generates output on poverty dimensions
 # ^ this is by household (iah != iah_avg here)
-if False:
+if True:
 
     _myiah = myiah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])[['pcwgt_no',
                                                                                               'c_initial','c_post_reco',
@@ -746,30 +768,30 @@ if False:
     
     run_poverty_duration_plot(myCountry,myHaz[1][0])
     #                                   ^ first hazard in the country we're running
-    run_poverty_tables_and_maps(myCountry,_myiah,event_level,myHaz[1][0])
-    map_recovery_time(myCountry,myHaz[1][1])
-
-##################################################################
-# This code generates the histograms showing income before & after disaster (in local_curr)
-# ^ this is at household level (iah != iah_avg here)
-if True:
-    with Pool(processes=4,maxtasksperchild=1) as pool:
-        print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
-        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[myiah.copy()],myHaz[0],myHaz[1],myHaz[2],[False])))
+    run_poverty_tables_and_maps(myCountry,_myiah,event_level,myHaz[1][0],drop_spots=places_to_drop)
+    map_recovery_time(myCountry,myHaz[1][0],drop_spots=places_to_drop)
 
 ##################################################################
 # This code generates the histograms showing income before & after disaster (in USD)
 # ^ this is at household level (iah != iah_avg here)
 if True:         
-    with Pool(processes=3,maxtasksperchild=1) as pool:
+    with Pool(processes=2,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
-        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[myiah.copy()],myHaz[0],myHaz[1],myHaz[2],[False],['USD'])))
+        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[myiah.copy()],myHaz[0],myHaz[1],myHaz[2],[True],['USD'])))
+
+##################################################################
+# This code generates the histograms showing income before & after disaster (in local_curr)
+# ^ this is at household level (iah != iah_avg here)
+if True:
+    with Pool(processes=2,maxtasksperchild=1) as pool:
+        print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
+        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[myiah.copy()],myHaz[0],myHaz[1],myHaz[2],[True])))
 
 ##################################################################
 # This code generates the histograms including [k,dk,dc,dw,&pds]
 # ^ this is by province/region, so it will use myiah (iah = iah_avg here)
 if True:
-    with Pool(processes=3,maxtasksperchild=1) as pool:
+    with Pool(processes=2,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2],[my_PDS]))),'THREADS')
         pool.starmap(plot_impact_by_quintile,list(product([myCountry],myHaz[0],myHaz[1],myHaz[2],[myiah.copy()],[my_PDS])))  
 
@@ -778,6 +800,6 @@ if True:
 # This code generates the histograms 
 # ^ this is only for affected households (iah = iah_avg here) <--because we're summing, not averaging
 if True:
-    with Pool(processes=3,maxtasksperchild=1) as pool:
+    with Pool(processes=2,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
         pool.starmap(plot_relative_losses,list(product([myCountry],myHaz[0],myHaz[1],myHaz[2],[myiah.copy()])))  
