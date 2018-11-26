@@ -31,7 +31,7 @@ def get_svg_file(myC):
     return svg_file
 
 def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_cmap("Blues"), label = "", outfolder ="img/" ,
-                      svg_handle='class',new_title=None, do_qualitative=False, res=1000, verbose=True):
+                      svg_handle='class',new_title=None, do_qualitative=False, res=1000, verbose=True,drop_spots=None):
     """Makes a cloropleth map and a legend from a panda series and a blank svg map. 
     Assumes the index of the series matches the SVG classes
     Saves the map in SVG, and in PNG if Inkscape is installed.
@@ -40,6 +40,11 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
     
     #simplifies the index to lower case without space
     series_in.index = series_in.index.str.lower().str.replace(" ","_").str.replace("-","_").str.replace(".","_").str.replace("(","_").str.replace(")","_")
+    if drop_spots is not None: 
+        __ds = []
+        for _ds in drop_spots:
+            __ds.append(_ds.lower().replace(" ","_").replace("-","_").replace(".","_").replace("(","_").replace(")","_"))
+        series_in = series_in.drop(__ds)
 
     #compute the colors 
     color = data_to_rgb(series_in,color_maper=color_maper,do_qual=do_qualitative)

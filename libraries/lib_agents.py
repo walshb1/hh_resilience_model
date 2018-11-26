@@ -4,7 +4,7 @@ import numpy as np
 def smart_savers(c,dc0,hhrr,pi,Vsav,_cttot=1):
 
     if dc0 == 0: return 0,10
-    if hhrr == 0: return Vsav/10,10
+    if hhrr == 0: return int(round(min(dc0,max(dc0-(2/3)*Vsav,0.)),0)), 1.
 
     gamma = dc0
     last_result = None
@@ -23,7 +23,7 @@ def smart_savers(c,dc0,hhrr,pi,Vsav,_cttot=1):
                     print('RESULT!:\ngamma = ',gamma,'& beta = ',beta,' & t = ',_t)
                     print('CHECK:',dc0*np.e**(-hhrr*_t),' gamma = ',gamma)
                 
-                if _t >= 10: return 0, 10.
+                if _t >= 10: return int(round(min(dc0,max(dc0-(2/3)*Vsav,0.)),0.)), 1.
                 return int(round(gamma,0)), round(_t,3)
 
         except: pass

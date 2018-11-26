@@ -117,8 +117,8 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     
     pub_costs_inf.to_csv(output+'pub_costs_inf_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     pub_costs_pds.to_csv(output+'pub_costs_pds_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
-
-    if True:
+    
+    if not debug:
         # For people outside affected province, do the collections for public asset reco & PDS happen at the same time?
         # -> Doesn't matter, because they use their savings, meaning it's perfectly spread out over time
         public_costs = calc_dw_outside_affected_province(macro_event, cat_info, pub_costs_inf, pub_costs_pds,event_level,is_local_welfare)
@@ -169,13 +169,13 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
 if __name__ == '__main__':
 
     myCountry = 'SL'
-    debug = False
+    global debug; debug = False
 
     if len(sys.argv) > 1: myCountry = sys.argv[1]    
     if len(sys.argv) > 2 and (sys.argv[2] == 'true' or sys.argv[2] == 'True'): debug = True
     
     if myCountry == 'PH':
-        pds_str = ['prop']#'unif_poor_only','prop_q1']#,'unif_poor','no']
+        pds_str = ['unif_poor','no','prop','unif_poor_only','prop_q1']
         pol_str = ['']
 
         if debug: launch_compute_resilience_and_risk_thread(myCountry,'','no')#_infsavings also an option
@@ -214,7 +214,7 @@ if __name__ == '__main__':
             pol_str = ['']                
 
         if myCountry == 'MW':
-            pds_str = ['no','unif_poor']
+            pds_str = ['unif_poor','no']
             pol_str = ['']
             
         if debug:

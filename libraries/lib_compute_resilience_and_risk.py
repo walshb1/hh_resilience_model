@@ -1261,9 +1261,14 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
 
     # First, assign savings
     # --> sav_f = intial savings at initialization. will decrement as hh spend savings.
-    try: temp['sav_f'] = get_hh_savings(temp[['pcwgt','c',mac_ix[0],'ispoor']],myC,mac_ix[0],pol_str).round(2)
-    except: temp['sav_f'] = get_hh_savings(temp[['pcwgt','c',mac_ix[0],'ispoor']],myC,mac_ix[0],pol_str)
-    temp = temp.drop([i for i in ['index','province','ispoor'] if i in temp.columns],axis=1)
+    hh_sav = get_hh_savings(myC,mac_ix[0],pol_str)
+    hh_sav['hhid'] = hh_sav['hhid'].astype(temp['hhid'].dtype)
+    
+    temp = pd.merge(temp.reset_index(),hh_sav.reset_index(),on='hhid').rename(columns={'annual_savings':'sav_f'})
+    try: temp['sav_f'] = temp['sav_f'].round(2)
+    except: pass
+
+    temp = temp.drop([i for i in ['index','index_x','index_y','province','ispoor'] if i in temp.columns],axis=1)
 
     ################################
     # SAVINGS
@@ -1454,8 +1459,10 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
         
         ########################
         # Mark dc_net at time t=0
-        if _t == 0: temp['dc_net_t0'] = temp['dc_net'].copy()
-            
+        if _t == 0: 
+            temp['dc_net_t0'] = temp['dc_net'].copy()
+            temp.loc[(temp.region=='II - Cagayan Valley')&(temp.hazard=='HU')].to_csv('~/Desktop/tmp/CV_HU.csv')
+
         ########################
         # Increment time in poverty
         temp.loc[temp.eval('c-di_t<=pov_line'),'t_pov_inc'] += step_dt

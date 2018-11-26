@@ -93,8 +93,9 @@ if myCountry == 'PH':
     df['psa_pop'] = df.sum(level=economy)
     df = df.mean(level=economy)
 
-
 cat_info = cat_info.reset_index().set_index(economy).drop([_c for _c in ['index'] if _c in cat_info.columns],axis=1)
+cat_info[['hhid','decile','quintile']].to_csv('../intermediate/'+myCountry+'/hh_rankings.csv')
+
 
 # Define per capita income (in local currency)
 df['gdp_pc_prov'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
@@ -114,7 +115,10 @@ if False:
 if myCountry == 'PH':
     df['pct_diff'] = 100.*(df['psa_pop']-df['pop'])/df['pop']
 
-#Vulnerability
+
+########################################
+########################################
+# Asset vulnerability
 print('Getting vulnerabilities')
 vul_curve = get_vul_curve(myCountry,'wall')
 for thecat in vul_curve.desc.unique():
@@ -135,6 +139,14 @@ if myCountry != 'FJ':
         cat_info.loc[cat_info.roof.values == thecat,'v'] += vul_curve.loc[vul_curve.desc.values == thecat].v.values
     cat_info.v = cat_info.v/2
 
+    
+
+
+
+########################################
+########################################
+# Random stuff--needs to be sorted
+# FLAG: what's the below line doing here? needs to go to the right place.
 cat_info['pcsoc'] = cat_info['pcsoc'].clip(upper=0.99*cat_info['c'])
 # --> What's the difference between income & consumption/disbursements?
 # --> totdis = 'total family disbursements'    
@@ -168,6 +180,7 @@ except: cat_info['sub_line'] = 0
 cat_info = cat_info.reset_index().set_index(event_level[0])
 
 print('Total population:',int(cat_info.pcwgt.sum()))
+print('Total population (AE):',int(cat_info.aewgt.sum()))
 print('Total n households:',int(cat_info.hhwgt.sum()))
 
 print('Average income - (adults) ',cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info[['pcwgt']].sum())
@@ -175,14 +188,15 @@ try: print('\nAverage income (Adults-eq)',cat_info[['aeinc','aewgt']].prod(axis=
 except: pass
 
 print('--> Individuals in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),'pcwgt'].sum()/1.E6,3)),'million')
+print('-->          AE in poverty (inc):', float(round(cat_info.loc[(cat_info.aeinc <= cat_info.pov_line),'aewgt'].sum()/1.E6,3)),'million')
 print('-----> Households in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),'hhwgt'].sum()/1.E6,3)),'million')
 
 try:
     print('-----> Children in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),['N_children','hhwgt']].prod(axis=1).sum()/1.E6,3)),'million')
-    print('------> Individuals in poverty (exclusive):', float(round(cat_info.loc[cat_info.eval('aeinc<=pov_line & aeinc>sub_line'),'pcwgt'].sum()/1E6,3)),'million')
-    print('---------> Families in poverty (exclusive):', float(round(cat_info.loc[cat_info.eval('aeinc<=pov_line & aeinc>sub_line'),'hhwgt'].sum()/1E6,3)),'million')
-    print('--> Individuals in subsistence (exclusive):', float(round(cat_info.loc[cat_info.eval('aeinc<=sub_line'),'pcwgt'].sum()/1E6,3)),'million')
-    print('-----> Families in subsistence (exclusive):', float(round(cat_info.loc[cat_info.eval('aeinc<=sub_line'),'hhwgt'].sum()/1E6,3)),'million')
+    print('------> Individuals in poverty (exclusive):', float(round(cat_info.loc[cat_info.eval('pcinc<=pov_line & pcinc>sub_line'),'pcwgt'].sum()/1E6,3)),'million')
+    print('---------> Families in poverty (exclusive):', float(round(cat_info.loc[cat_info.eval('pcinc<=pov_line & pcinc>sub_line'),'hhwgt'].sum()/1E6,3)),'million')
+    print('--> Individuals in subsistence (exclusive):', float(round(cat_info.loc[cat_info.eval('pcinc<=sub_line'),'pcwgt'].sum()/1E6,3)),'million')
+    print('-----> Families in subsistence (exclusive):', float(round(cat_info.loc[cat_info.eval('pcinc<=sub_line'),'hhwgt'].sum()/1E6,3)),'million')
 except: print('No subsistence info...')
 
 print('\n--> Number in poverty (flagged poor):',float(round(cat_info.loc[(cat_info.ispoor==1),'pcwgt'].sum()/1E6,3)),'million')
@@ -193,6 +207,10 @@ pd.DataFrame({'population':cat_info['pcwgt'].sum(level=economy),
               'n_sub':cat_info.loc[cat_info.eval('pcinc<=sub_line'),'pcwgt'].sum(level=economy),
               'pctPoor':100.*cat_info.loc[cat_info.ispoor==1,'pcwgt'].sum(level=economy)/cat_info['pcwgt'].sum(level=economy)}).to_csv('../output_country/'+myCountry+'/poverty_rate.csv')
 # Could also look at urban/rural if we have that divide
+try:
+    print('\n--> Rural poverty (flagged poor):',float(round(cat_info.loc[(cat_info.ispoor==1)&(cat_info.urban=='RURAL'),'pcwgt'].sum()/1E6,3)),'million')
+    print('\n--> Urban poverty (flagged poor):',float(round(cat_info.loc[(cat_info.ispoor==1)&(cat_info.urban=='URBAN'),'pcwgt'].sum()/1E6,3)),'million')
+except: pass
 
 # Change the name: district to code, and create an multi-level index 
 cat_info = cat_info.rename(columns={'district':'code','HHID':'hhid'})
@@ -316,6 +334,7 @@ elif myCountry == 'FJ':
     df_haz = df_haz.reset_index().set_index([economy,'hazard','rp']).sum(level=[economy,'hazard','rp'])
     # All the magic happens inside get_hazard_df()
 
+
 # Turn losses into fraction
 cat_info = cat_info.reset_index().set_index([economy])
 hazard_ratios = cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy).to_frame(name='HIES_capital')
@@ -377,8 +396,22 @@ if myCountry != 'SL':
     hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = (hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold).clip(upper=0.95)
     hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=1E-8,upper=fa_threshold)    
 
-hazard_ratios[['fa','v']].mean(level=event_level).to_csv('tmp/fa_v.csv')
 
+if myCountry == 'MW':
+
+    hazard_renorm = pd.DataFrame({'total_k':hazard_ratios[['k','pcwgt']].prod(axis=1),
+                                  'exp_loss':hazard_ratios[['k','pcwgt','fa','v']].prod(axis=1)},index=hazard_ratios.index.copy()).sum(level=event_level)
+    #
+    hazard_renorm_aal,_ = average_over_rp(hazard_renorm)
+    hazard_renorm_aal = hazard_renorm_aal.sum(level='hazard')
+    #
+    GAR_eq_aal = 8.2*(1/get_currency(myCountry)[2])*1.E6
+    #
+    eq_scale_factor = GAR_eq_aal/float(hazard_renorm_aal.loc['EQ']['exp_loss'])
+    #
+    hazard_ratios['fa'] *= eq_scale_factor
+
+hazard_ratios[['fa','v']].mean(level=event_level).to_csv('tmp/fa_v.csv')
 
 
 # Get optimal reconstruction rate
@@ -388,12 +421,11 @@ _rho = df['rho'].mean()
 print('Running hh_reco_rate optimization')
 hazard_ratios['hh_reco_rate'] = 0
 
+v_to_reco_rate = {}
 try: 
     v_to_reco_rate = pickle.load(open('../optimization_libs/'+myCountry+'_v_to_reco_rate.p','rb'))
     pickle.dump(v_to_reco_rate, open('../optimization_libs/'+myCountry+'_v_to_reco_rate_proto2.p', 'wb'),protocol=2)
-except:
-    print('Was not able to load v to hh_reco_rate library from ../optimization_libs/'+myCountry+'_v_to_reco_rate.p')
-    v_to_reco_rate = {}
+except: print('Was not able to load v to hh_reco_rate library from ../optimization_libs/'+myCountry+'_v_to_reco_rate.p')
 
 try: hazard_ratios['hh_reco_rate'] = hazard_ratios.apply(lambda x:v_to_reco_rate[round(x.v,2)],axis=1)
 except:
@@ -412,15 +444,14 @@ except:
 
 # Set hh_reco_rate = 0 for drought
 hazard_ratios.loc[hazard_ratios.index.get_level_values('hazard') == 'DR','hh_reco_rate'] = 0
+# no drought recovery. lasts forever. eep.
 
-while True:
+if myCountry == 'PH':
     _path = '/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/'
     _ = hazard_ratios.reset_index().copy()
     
     plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==10)],['v'],[''],_path+'vulnerabilities_log.pdf',uclip=1,nBins=25,xlab='Asset vulnerability ($v_h$)',logy=True)
     plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==10)],['v'],[''],_path+'vulnerabilities.pdf',uclip=1,nBins=25,xlab='Asset vulnerability ($v_h$)',logy=False)
-
-    break
 
 cat_info = cat_info.reset_index().set_index([economy,'hhid'])
 

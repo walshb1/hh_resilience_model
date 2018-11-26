@@ -25,7 +25,7 @@ haz_dict = {'SS':'Storm surge',
             'DR':'Drought',
             'FF':'Fluvial flood'}
 
-def map_recovery_time(myC,HAZ,RP=[100],RECO=['25','75','90']):
+def map_recovery_time(myC,HAZ,RP=[100],RECO=['25','75','90'],drop_spots=None):
     df = pd.read_csv('../output_country/'+myC+'/time_to_recovery_no.csv')
 
     # hack
@@ -66,7 +66,7 @@ def map_recovery_time(myC,HAZ,RP=[100],RECO=['25','75','90']):
                     do_qualitative=False,
                     res=2000)
 
-def run_poverty_duration_plot(myC,myHaz='HU'):
+def run_poverty_duration_plot(myC,myHaz='HU',drop_spots=None):
 
     # Load file with geographical (region/province/district) as index
     df = pd.read_csv('../output_country/'+myC+'/poverty_duration_no.csv')
@@ -264,7 +264,7 @@ def run_poverty_duration_plot(myC,myHaz='HU'):
 
     return True
 
-def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],myHaz='HU'):
+def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],myHaz='HU',drop_spots=None):
 
     # Load demonym for this country
     dem = get_demonym(myC)
@@ -282,10 +282,11 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],
         svg_file,
         outname=myC+'_regional_poverty_incidence',
         color_maper=plt.cm.get_cmap('Reds'), 
-        label='Regional poverty incidence [%]',
-        new_title= dem+'Regional poverty incidence [%]',
+        label='Regional poverty rate [%]',
+        new_title= dem+'Regional poverty rate [%]',
         do_qualitative=False,
-        res=2000)  
+        res=2000,
+        drop_spots=drop_spots)  
 
     # Get the poverty headcount info
     #try:
@@ -410,10 +411,12 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],
                    'pct_increase_pov_c','pct_increase_sub_c']] = pov_df_region[['pct_increase_pov_i','pct_increase_sub_i',
                                                                                 'pct_increase_pov_c','pct_increase_sub_c']].round(1)
 
+    pov_df_region[['net_chg_pov_c','net_chg_sub_c']]/=1.E3
+    pov_df_region[['net_chg_pov_c','net_chg_sub_c']] = (pov_df_region[['net_chg_pov_c','net_chg_sub_c']].round(0)).astype('int')
+    pov_df_region[['pct_increase_pov_c','pct_increase_sub_c']] = (pov_df_region[['pct_increase_pov_c','pct_increase_sub_c']]).round(1)
     pov_df_region[['net_chg_pov_c','pct_increase_pov_c',
                    'net_chg_sub_c','pct_increase_sub_c']].fillna(0).sort_values(['net_chg_pov_c'],ascending=False).to_latex('latex/'+myC+'/poverty_all_haz.tex')
-
-    pov_df_region.to_csv('~/Desktop/tmp/pov_df_region.csv')
+    #pov_df_region.to_csv('~/Desktop/tmp/pov_df_region.csv')
 
     # Sum over hazards (just totals left)
     _ = pov_df_region.reset_index().copy()
@@ -455,7 +458,8 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],
                 label=dem+' pushed into consumption poverty by '+str(myRP[0])+'-yr '+myDis+myRP[2],
                 new_title=dem+' pushed into consumption poverty by '+str(myRP[0])+'-yr '+myDis+myRP[2],
                 do_qualitative=False,
-                res=2000)
+                res=2000,
+                drop_spots=drop_spots)
             
             make_map_from_svg(
                 (pov_df_event.loc[(pov_df_event.hazard==myDis)&(pov_df_event.rp==myRP[0]),'net_chg_pov_c']
@@ -466,7 +470,8 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],
                 label='Percent of regional pop. pushed into\nconsumption poverty by '+str(myRP[0])+'-yr '+myDis,
                 new_title='Percent of regional pop. pushed into\nconsumption poverty by '+str(myRP[0])+'-yr '+myDis,
                 do_qualitative=False,
-                res=2000)
+                res=2000,
+                drop_spots=drop_spots) 
 
             plt.close('all')
 
@@ -481,7 +486,8 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],
             label='Net change in children in consumption poverty\neach year from all hazards (thousands)',
             new_title='Net change in children in consumption poverty each year from all hazards',
             do_qualitative=True,
-            res=2000)
+            res=2000,
+            drop_spots=drop_spots) 
     except: pass
 
     make_map_from_svg(
@@ -492,27 +498,30 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],
         label='Net change in '+dem+' in consumption poverty\neach year from all hazards (thousands)',
         new_title='Net change in '+dem+' in consumption poverty each year from all hazards',
         do_qualitative=False,
-        res=2000)
+        res=2000,
+        drop_spots=drop_spots) 
 
     make_map_from_svg(
-        1.E2*(pov_df_region['net_chg_pov_c']/pov_df_region['init_pov']), 
+        1.E2*1E3*(pov_df_region['net_chg_pov_c']/pov_df_region['init_pov']), 
         svg_file,
         outname=myC+'_new_poverty_as_pct_of_incidence_pct_allHaz_allRPs',
         color_maper=plt.cm.get_cmap('Reds'), 
-        label='Annual consumption poverty increase\nas % of regional poverty incidence',
+        label='Annual consumption poverty increase\nas % of regional poverty rate',
         new_title= dem+' pushed into poverty by all hazards [%]',
         do_qualitative=False,
-        res=2000)
+        res=2000,
+        drop_spots=drop_spots) 
 
     make_map_from_svg(
-        1.E2*(pov_df_region['net_chg_pov_c']/pov_df_region.reg_pop), 
+        1.E2*1E3*(pov_df_region['net_chg_pov_c']/pov_df_region.reg_pop), 
         svg_file,
         outname=myC+'_new_poverty_incidence_pct_allHaz_allRPs',
         color_maper=plt.cm.get_cmap('Reds'), 
         label='Annual consumption poverty increase\nas % of regional population',
         new_title= dem+' pushed into poverty by all hazards [%]',
         do_qualitative=False,
-        res=2000)
+        res=2000,
+        drop_spots=drop_spots) 
     
     make_map_from_svg(
         pov_df_region['net_chg_sub_c']/1E3, 
@@ -522,7 +531,8 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],
         label='Number of '+dem+' pushed into consumption subsistence\neach year by all hazards (thousands)',
         new_title='Number of '+dem+' pushed into consumption\nsubsistence each year by all hazards',
         do_qualitative=False,
-        res=2000)
+        res=2000,
+        drop_spots=drop_spots) 
     
     make_map_from_svg(
         100.*pov_df_region.net_chg_sub_c/pov_df_region.reg_pop,
@@ -532,7 +542,8 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],
         label= dem+' pushed into consumption subsistence\neach year by all hazards [% of regional pop.]',
         new_title= dem+' pushed into consumption subsistence\nby all hazards [%]',
         do_qualitative=False,
-        res=2000)
+        res=2000,
+        drop_spots=drop_spots) 
 
     purge('img/','map_of_*.png')
     purge('img/','legend_of_*.png')

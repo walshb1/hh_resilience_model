@@ -47,7 +47,7 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
     output_plots = os.getcwd()+'/../output_plots/'+myC+'/'
 
     upper_clip = 1E6
-    if myC == 'PH': upper_clip = 1.25E5
+    if myC == 'PH': upper_clip = 1.5E5
     if myC == 'FJ': upper_clip = 2E4
     if myC == 'SL': 
         upper_clip = 3.25E5
@@ -77,10 +77,11 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
                           ('c','Consumption')]:
 
         ax=plt.gca()
+        plt.cla()
 
         plt.xlim(0,sf_x*upper_clip)
 
-        if aReg == 'II - Cagayan Valley' and aDis == 'HU' and anRP == 25: plt.ylim(0,400)
+        if aReg == 'II - Cagayan Valley' and aDis == 'HU': plt.ylim(0,400)
         elif aReg == 'Rathnapura': plt.ylim(0,105)
 
         plt.xlabel(_fom_lab+r' ['+currency+' per person, per year]',labelpad=8)
