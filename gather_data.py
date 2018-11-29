@@ -187,9 +187,11 @@ print('Average income - (adults) ',cat_info[['pcinc','pcwgt']].prod(axis=1).sum(
 try: print('\nAverage income (Adults-eq)',cat_info[['aeinc','aewgt']].prod(axis=1).sum()/cat_info[['aewgt']].sum())
 except: pass
 
-print('--> Individuals in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),'pcwgt'].sum()/1.E6,3)),'million')
-print('-->          AE in poverty (inc):', float(round(cat_info.loc[(cat_info.aeinc <= cat_info.pov_line),'aewgt'].sum()/1.E6,3)),'million')
-print('-----> Households in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),'hhwgt'].sum()/1.E6,3)),'million')
+try:
+    print('--> Individuals in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),'pcwgt'].sum()/1.E6,3)),'million')
+    print('-->          AE in poverty (inc):', float(round(cat_info.loc[(cat_info.aeinc <= cat_info.pov_line),'aewgt'].sum()/1.E6,3)),'million')
+    print('-----> Households in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),'hhwgt'].sum()/1.E6,3)),'million')
+except: pass
 
 try:
     print('-----> Children in poverty (inc):', float(round(cat_info.loc[(cat_info.pcinc <= cat_info.pov_line),['N_children','hhwgt']].prod(axis=1).sum()/1.E6,3)),'million')

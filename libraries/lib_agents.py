@@ -52,11 +52,10 @@ def optimize_reco(pi, rho, v, verbose=False):
         integ = 0
         for _t in np.linspace(0,x_max,dt_step):
             integ += np.e**(-_t*(rho+_l)) * ((pi+_l)*_t-1) * (pi-(pi+_l)*v*np.e**(-_l*_t))**(-eta)
-            print(integ)
 
         if last_integ and ((last_integ < 0 and integ > 0) or (last_integ > 0 and integ < 0)):
-            print('\n Found the Minimum!\n lambda = ',last_lambda,'--> integ = ',last_integ)
-            print('lambda = ',_l,'--> integ = ',integ)
+            #print('\n Found the Minimum!\n lambda = ',last_lambda,'--> integ = ',last_integ)
+            #print('lambda = ',_l,'--> integ = ',integ)
             return (_l+last_lambda)/2
             
         last_integ = integ
