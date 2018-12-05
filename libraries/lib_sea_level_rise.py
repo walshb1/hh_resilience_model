@@ -9,14 +9,14 @@ def get_SLR_hazard(myC,df):
     # ^ record initial index of input df so that it can be returned in same format...    
 
     # Load additional files
-    #tikina_all = pd.read_excel(os.getcwd()+'/../../country_docs/FJ/fji_pcode_list_v03.xls',sheetname='NEW TIKINA ALPHABETICAL',usecols=['TIKINA','PROVINCE','Admin 2 Pcode'])
+    #tikina_all = pd.read_excel(os.getcwd()+'/../../country_docs/FJ/fji_pcode_list_v03.xls',sheetname='NEW TIKINA ALPHABETICAL')[['TIKINA','PROVINCE','Admin 2 Pcode']]
     #tikina_all.columns = ['tikina','province','admin_2_pcode']
 
-    tikina_no_coast = pd.read_excel(os.getcwd()+'/../../country_docs/FJ/tikina_no_coast.xlsx',usecols=['tikina_no_coast'])
+    tikina_no_coast = pd.read_excel(os.getcwd()+'/../inputs/FJ/tikina_no_coast.xlsx')[['tikina_no_coast']]
     tikina_no_coast.columns = ['Tikina']
     tikina_no_coast['has_coast'] = 0
 
-    slr_exposure = pd.read_csv(os.getcwd()+'/../inputs/FJ/fiji_results_exposure_v1.csv',usecols=['time','assets_below_1p0','assets_below_2p0'])
+    slr_exposure = pd.read_csv(os.getcwd()+'/../inputs/FJ/fiji_results_exposure_v1.csv')[['time','assets_below_1p0','assets_below_2p0']]
     slr_exposure['assets_below_1p0'] *= (1.E6/0.48)
     slr_exposure['assets_below_2p0'] *= (1.E6/0.48)
     # ^ exposure values for 2030/50/2100, all in millions of USD. PCRAFI/Exposure info in FJD
