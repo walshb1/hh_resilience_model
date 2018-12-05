@@ -1,7 +1,7 @@
 # This script provides data input for the resilience indicator multihazard model for the Philippines, Fiji, Sri Lanka, and (eventually) Malawi. 
 # Restructured from the global model and developed by Jinqiang Chen and Brian Walsh
 
-# Magic
+# Compiler/Python interface (Magic)
 from IPython import get_ipython
 get_ipython().magic('reset -f')
 get_ipython().magic('load_ext autoreload')
@@ -17,6 +17,7 @@ import warnings
 import sys
 import pickle
 
+# Import local libraries
 from libraries.lib_asset_info import *
 from libraries.lib_country_dir import *
 from libraries.lib_gather_data import *
@@ -24,13 +25,25 @@ from libraries.lib_sea_level_rise import *
 from libraries.replace_with_warning import *
 from libraries.lib_agents import optimize_reco
 from libraries.lib_sp_analysis import run_sp_analysis
-
 warnings.filterwarnings('always',category=UserWarning)
 
-if len(sys.argv) < 2:
-    print('Need to list country. Currently implemented: MW, PH, FJ, SL')
-    myCountry = 'MW'
-else: myCountry = sys.argv[1]
+#####################################
+# Which country are we running over? 
+# --> This variable <sys.argv> is the first optional argument on the command line
+# --> If you're not using command line and/or don't know how to pass an argument, set <myCountry> in the "else:" loop equal to your country:
+#
+# -- 1) BO = Bolivia
+# or 2) FJ = Fiji 
+# or 3) MW = Malawi
+# or 4) PH = Philippines
+# or 5) SL = Sri Lanka
+#
+if len(sys.argv) >= 2: myCountry = sys.argv[1]
+else: 
+    myCountry = 'BO'
+    print('Setting country to BO. Currently implemented: MW, PH, FJ, SL, BO')
+#####################################
+
 
 # Set up directories/tell code where to look for inputs & where to save outputs
 intermediate = set_directories(myCountry)
@@ -46,31 +59,31 @@ event_level = [economy, 'hazard', 'rp']
 df = get_places(myCountry,economy)
 prov_code,region_code = get_places_dict(myCountry)
 
-# Secondary dataframe, if necessary
-# For PH: this is GDP per cap info from FIES2013
-#df2 = get_df2(myCountry)
-
 ###Define parameters
 df['avg_prod_k']             = get_avg_prod(myCountry) # average productivity of capital, value from the global resilience model
-df['shareable']              = asset_loss_covered      # target of asset losses to be covered by scale up
+df['shareable']              = nominal_asset_loss_covered_by_PDS # target of asset losses to be covered by scale up
 df['T_rebuild_K']            = reconstruction_time     # Reconstruction time
 df['income_elast']           = inc_elast               # income elasticity
 df['max_increased_spending'] = max_support             # 5% of GDP in post-disaster support maximum, if everything is ready
 df['pi']                     = reduction_vul           # how much early warning reduces vulnerability
-
-#df['rho']                    = discount_rate           # discount rate
 df['rho']                    = 0.3*df['avg_prod_k']    # discount rate
 # ^ We have been using a constant discount rate = 0.06
 # --> BUT: this breaks the assumption that hh are in steady-state equilibrium before the hazard
 
-# Protected from events with RP < 'protection'
+
+##########################
+# Countries will be 'protected' from events with RP < 'protection'
+# --> means that asset losses (dK) will be set to zero for these events
 df['protection'] = 1
 if myCountry == 'SL': df['protection'] = 5
 
+
+##########################
 # Big function loads standardized hh survey info
 cat_info = load_survey_data(myCountry)
 print('Survey population:',cat_info.pcwgt.sum())
 
+#  below is messy--should be in <load_survey_data>
 if myCountry == 'PH':
     
     # Standardize province info
@@ -93,61 +106,51 @@ if myCountry == 'PH':
     df['psa_pop'] = df.sum(level=economy)
     df = df.mean(level=economy)
 
-cat_info = cat_info.reset_index().set_index(economy).drop([_c for _c in ['index'] if _c in cat_info.columns],axis=1)
-cat_info[['hhid','decile','quintile']].to_csv('../intermediate/'+myCountry+'/hh_rankings.csv')
+cat_info = cat_info.reset_index().set_index([economy,'hhid'])
+try: cat_info = cat_info.drop('index',axis=1)
+except: pass
+# Now we have a dataframe called <cat_info> with the household info.
+# Index = [economy (='region';'district'; country-dependent), hhid]
 
 
-# Define per capita income (in local currency)
+
+########################################
+# Calculate regional averages from household info
 df['gdp_pc_prov'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
+# ^ per capita income (in local currency), regional average
 df['gdp_pc_nat'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info['pcwgt'].sum()
-# ^ this is per capita income
-
+# ^ this is per capita income (local currency), national average
 df['pop'] = cat_info.pcwgt.sum(level=economy)
+# ^ regional population
+try: df['pct_diff'] = 100.*(df['psa_pop']-df['pop'])/df['pop']
+except: pass
+# ^ (Philippines specific) compare PSA population to FIES population
 
-if False:
-    print(cat_info.head())
-    df['gdp_hh_nat_monthly'] = cat_info.eval('(pcinc*pcwgt)').sum()/cat_info['hhwgt'].sum()/12.
-    df.loc['Total','pop'] = df['pop'].sum()
-    print(df.head(30))
-    assert(False)
-
-
-if myCountry == 'PH':
-    df['pct_diff'] = 100.*(df['psa_pop']-df['pop'])/df['pop']
 
 
 ########################################
 ########################################
 # Asset vulnerability
 print('Getting vulnerabilities')
+
 vul_curve = get_vul_curve(myCountry,'wall')
 for thecat in vul_curve.desc.unique():
-
-    if myCountry == 'PH': cat_info.loc[cat_info.walls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
-    if myCountry == 'FJ': cat_info.loc[cat_info.Constructionofouterwalls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
-    # Fiji doesn't have info on roofing, but it does have info on the condition of outer walls. Include that as a multiplier?
-    if myCountry == 'SL': cat_info.loc[cat_info.walls.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
-    if myCountry == 'MW': cat_info.loc[cat_info.wall.values == thecat,'v'] = vul_curve.loc[vul_curve.desc.values == thecat].v.values
-
+    hh_private_asset_vulnerability = float(vul_curve.loc[vul_curve.desc.values == thecat,'v'])    
+    cat_info.loc[cat_info['walls'] == thecat,'v'] = hh_private_asset_vulnerability
+    # Fiji doesn't have info on roofing, but it does have info on the *condition* of outer walls. Include that as a multiplier?
+    
 # Get roofing data (but Fiji doesn't have this info)
-if myCountry != 'FJ':
+try:
     print('Getting roof info')
     vul_curve = get_vul_curve(myCountry,'roof')
     for thecat in vul_curve.desc.unique():
-        print(thecat)
-
         cat_info.loc[cat_info.roof.values == thecat,'v'] += vul_curve.loc[vul_curve.desc.values == thecat].v.values
     cat_info.v = cat_info.v/2
-
+except: pass
     
-
-
-
 ########################################
 ########################################
 # Random stuff--needs to be sorted
-# FLAG: what's the below line doing here? needs to go to the right place.
-cat_info['pcsoc'] = cat_info['pcsoc'].clip(upper=0.99*cat_info['c'])
 # --> What's the difference between income & consumption/disbursements?
 # --> totdis = 'total family disbursements'    
 # --> totex = 'total family expenditures'
@@ -257,7 +260,9 @@ cat_info.dropna(inplace=True,how='all')
 print('Check total population (after dropna):',cat_info.pcwgt.sum())
 
 # Exposure
-cat_info = cat_info.fillna(0)
+print('check:',cat_info.shape[0],'=?',cat_info.dropna().shape[0])
+#cat_info.to_csv('~/Desktop/tmp/check.csv')
+cat_info =cat_info.dropna()
 
 # Cleanup dfs for writing out
 cat_info_col = [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','code','np','score','v','c','pcsoc','social','c_5','hhsize',
