@@ -482,59 +482,59 @@ def load_survey_data(myC):
                                                                                            'decile_reg',sort_val='pcinc')).drop(['index'],axis=1)
         df = df.reset_index().set_index(['w_regn','decile_nat','decile_reg']).drop('index',axis=1)
         
-        df['annual_savings'] = df['pcinc']-df['pcexp']
+        df['precautionary_savings'] = df['pcinc']-df['pcexp']
 
         # Savings rate by national decile
         _ = pd.DataFrame(index=df.sum(level='decile_nat').index)
         _['income'] = df[['pcinc','pcwgt']].prod(axis=1).sum(level='decile_nat')/df['pcwgt'].sum(level='decile_nat')
         _['expenditures'] = df[['pcexp','pcwgt']].prod(axis=1).sum(level='decile_nat')/df['pcwgt'].sum(level='decile_nat')
-        _['annual_savings'] = _['income']-_['expenditures']
-        _.sort_index().to_csv('../output_country/'+myC+'/hh_savings_by_decile.csv')
+        _['precautionary_savings'] = _['income']-_['expenditures']
+        _.sort_index().to_csv('../intermediate/'+myC+'/hh_savings_by_decile.csv')
 
         # Savings rate by decile (regionally-defined) & region
         _ = pd.DataFrame(index=df.sum(level=['w_regn','decile_reg']).index)
         _['income'] = df[['pcinc','pcwgt']].prod(axis=1).sum(level=['w_regn','decile_reg'])/df['pcwgt'].sum(level=['w_regn','decile_reg'])
         _['expenditures'] = df[['pcexp','pcwgt']].prod(axis=1).sum(level=['w_regn','decile_reg'])/df['pcwgt'].sum(level=['w_regn','decile_reg'])
-        _['annual_savings'] = _['income']-_['expenditures']
-        _.sort_index().to_csv('../output_country/'+myC+'/hh_savings_by_decile_and_region.csv')
+        _['precautionary_savings'] = _['income']-_['expenditures']
+        _.sort_index().to_csv('../intermediate/'+myC+'/hh_savings_by_decile_and_region.csv')
 
         # Savings rate for hh in subsistence (natl average)
         listofquartiles=np.arange(0.25, 1.01, 0.25)
-        df = df.reset_index().groupby('country',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.annual_savings),reshape_data(x.pcwgt),listofquartiles),
-                                                                                            'nat_sav_quartile',sort_val='annual_savings'))
-        df = df.reset_index().groupby('w_regn',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.annual_savings),reshape_data(x.pcwgt),listofquartiles),
-                                                                                           'reg_sav_quartile',sort_val='annual_savings')).drop(['index'],axis=1)
+        df = df.reset_index().groupby('country',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.precautionary_savings),reshape_data(x.pcwgt),listofquartiles),
+                                                                                            'nat_sav_quartile',sort_val='precautionary_savings'))
+        df = df.reset_index().groupby('w_regn',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.precautionary_savings),reshape_data(x.pcwgt),listofquartiles),
+                                                                                           'reg_sav_quartile',sort_val='precautionary_savings')).drop(['index'],axis=1)
         df = df.reset_index().set_index(['w_regn','decile_nat','decile_reg']).drop('index',axis=1).sort_index()
 
         _ = pd.DataFrame()
         _.loc['subsistence_savings_rate','hh_avg'] = (df.loc[df.pcinc<get_subsistence_line(myC)].eval('pcwgt*(pcinc-pcexp)').sum()
                                                       /df.loc[df.pcinc<get_subsistence_line(myC),'pcwgt'].sum())
-        _.loc['subsistence_savings_rate','hh_q1'] = df.loc[df.nat_sav_quartile==1,'annual_savings'].max()
-        _.loc['subsistence_savings_rate','hh_q2'] = df.loc[df.nat_sav_quartile==2,'annual_savings'].max()
-        _.loc['subsistence_savings_rate','hh_q3'] = df.loc[df.nat_sav_quartile==3,'annual_savings'].max()
+        _.loc['subsistence_savings_rate','hh_q1'] = df.loc[df.nat_sav_quartile==1,'precautionary_savings'].max()
+        _.loc['subsistence_savings_rate','hh_q2'] = df.loc[df.nat_sav_quartile==2,'precautionary_savings'].max()
+        _.loc['subsistence_savings_rate','hh_q3'] = df.loc[df.nat_sav_quartile==3,'precautionary_savings'].max()
 
 
-        _.sort_index().to_csv('../output_country/'+myC+'/hh_savings_in_subsistence_natl.csv')
+        _.sort_index().to_csv('../intermediate/'+myC+'/hh_savings_in_subsistence_natl.csv')
 
         # Savings rate for hh in subsistence (by region)
         _ = pd.DataFrame()
         _['hh_avg'] = (df.loc[df.pcinc<get_subsistence_line(myC)].eval('pcwgt*(pcinc-pcexp)').sum(level='w_regn')
                        /df.loc[df.pcinc<get_subsistence_line(myC),'pcwgt'].sum(level='w_regn'))
-        _['hh_q1'] = df.loc[df.reg_sav_quartile==1,'annual_savings'].max(level='w_regn')
-        _['hh_q2'] = df.loc[df.reg_sav_quartile==2,'annual_savings'].max(level='w_regn')
-        _['hh_q3'] = df.loc[df.reg_sav_quartile==3,'annual_savings'].max(level='w_regn')
-        _.sort_index().to_csv('../output_country/'+myC+'/hh_savings_in_subsistence_reg.csv')
+        _['hh_q1'] = df.loc[df.reg_sav_quartile==1,'precautionary_savings'].max(level='w_regn')
+        _['hh_q2'] = df.loc[df.reg_sav_quartile==2,'precautionary_savings'].max(level='w_regn')
+        _['hh_q3'] = df.loc[df.reg_sav_quartile==3,'precautionary_savings'].max(level='w_regn')
+        _.sort_index().to_csv('../intermediate/'+myC+'/hh_savings_in_subsistence_reg.csv')
 
         if False:
             _.plot.scatter('income','expenditures')
             plt.gcf().savefig('../output_plots/PH/income_vs_exp_by_decile_PH.pdf',format='pdf')
             plt.cla()
             
-            _.plot.scatter('income','annual_savings')
+            _.plot.scatter('income','precautionary_savings')
             plt.gcf().savefig('../output_plots/PH/net_income_vs_exp_by_decile_PH.pdf',format='pdf')
             plt.cla()
             
-            df.boxplot(column='annual_savings',by='decile')
+            df.boxplot(column='aprecautionary_savings',by='decile')
             plt.ylim(-1E5,1E5)
             plt.gcf().savefig('../output_plots/PH/net_income_by_exp_decile_boxplot_PH.pdf',format='pdf')
             plt.cla()
@@ -546,7 +546,7 @@ def load_survey_data(myC):
         # Drop unused columns
         df = df.reset_index().set_index(['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn'])
         df = df.drop([_c for _c in ['country','decile_nat','decile_reg','est_sav','tot_savings','savings','invest',
-                                    'annual_savings','index','level_0','cash_domestic'] if _c in df.columns],axis=1)
+                                    'precautionary_savings','index','level_0','cash_domestic'] if _c in df.columns],axis=1)
 
     elif myC == 'FJ':
         

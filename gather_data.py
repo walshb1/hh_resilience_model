@@ -273,15 +273,6 @@ cat_info_index = cat_info.drop([i for i in cat_info.columns if i not in [economy
 
 #########################
 # HAZARD INFO
-#
-# This is the GAR
-#hazard_ratios = pd.read_csv(inputs+'/PHL_frac_value_destroyed_gar_completed_edit.csv').set_index([economy, 'hazard', 'rp'])
-
-# PHILIPPINES:
-# This is the AIR dataset:
-# df_haz is already in pesos
-# --> Need to think about public assets
-#df_haz = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population.xlsx','Loss_Results','all','Agg')
 
 df_haz,df_tikina = get_hazard_df(myCountry,economy,agg_or_occ='Agg',rm_overlap=True)
 if myCountry == 'FJ': _ = get_SLR_hazard(myCountry,df_tikina)
@@ -437,7 +428,7 @@ except: print('Was not able to load v to hh_reco_rate library from ../optimizati
 try: hazard_ratios['hh_reco_rate'] = hazard_ratios.apply(lambda x:v_to_reco_rate[round(x.v,2)],axis=1)
 except:
     for _n, _i in enumerate(hazard_ratios.index):
-        if round(_n/len(hazard_ratios.index)*100,2)%1 == 0:
+        if round(_n/len(hazard_ratios.index)*100,3)%10 == 0:
             print(round(_n/len(hazard_ratios.index)*100,2),'% of way through')
 
         _v = round(hazard_ratios.loc[_i,'v'],2)

@@ -1,7 +1,3 @@
-#from IPython import get_ipython
-#get_ipython().magic('reset -f')
-#get_ipython().magic('load_ext autoreload')
-#get_ipython().magic('autoreload 2')
 import matplotlib
 matplotlib.use('AGG')
 
@@ -174,23 +170,15 @@ if __name__ == '__main__':
     if len(sys.argv) > 1: myCountry = sys.argv[1]    
     if len(sys.argv) > 2 and (sys.argv[2] == 'true' or sys.argv[2] == 'True'): debug = True
     
-    if myCountry == 'PH':
-        pds_str = ['unif_poor','no','prop','unif_poor_only','prop_q1']
-        pol_str = ['']
+    if myCountry == 'PH':    
+        pds_str = ['no','unif_poor']#,'prop','unif_poor_only','prop_q1']
+        pol_str = ['']       
 
-        if debug: launch_compute_resilience_and_risk_thread(myCountry,'','no')#_infsavings also an option
-        else:
-            for _pds in pds_str:
-                launch_compute_resilience_and_risk_thread(myCountry,'',_pds)
-        
-    else: 
-
-        if myCountry == 'FJ':
-            pds_str = ['no']
-            pol_str = ['',
-                       '_noPT',
-                       'fiji_SPS',     # Fijian social protection PLUS <-- Gets transferred to pds_str(optionPDS)!
-                       'fiji_SPP']
+ 
+    elif myCountry == 'FJ':
+            pds_str = ['no','unif_poor',
+                       'fiji_SPS', 'fiji_SPP'] # Fijian social protection (winston-like) & SP PLUS
+            pol_str = ['']
                        # '_exp095',      # reduce exposure of poor by 5% (of total exposure!)
                        # '_exr095',      # reduce exposure of rich by 5% (of total exposure!)
                        # '_pcinc_p_110', # increase per capita income of poor people by 10%
@@ -205,25 +193,27 @@ if __name__ == '__main__':
             # --> universal access to finance
             # --> 
 
-        if myCountry == 'SL':
-            pds_str = ['no','scaleout_samurdhi_universal','scaleout_samurdhi',
-                       'samurdhi_scaleup','samurdhi_scaleup00',
-                       'samurdhi_scaleup33','samurdhi_scaleup66',
-                       'unif_poor','unif_poor_only','unif_poor_q12','prop_q1','prop_q12']
-            #'infsavings' also implemented
-            pol_str = ['']                
+    elif myCountry == 'SL':
+        pds_str = ['no','scaleout_samurdhi_universal','scaleout_samurdhi',
+                   'samurdhi_scaleup','samurdhi_scaleup00','samurdhi_scaleup33','samurdhi_scaleup66',
+                   'unif_poor','unif_poor_only','unif_poor_q12','prop_q1','prop_q12']# 12 total
+        #'infsavings' also implemented
+        pol_str = ['']                
 
-        if myCountry == 'MW':
-            pds_str = ['unif_poor','no']
-            pol_str = ['']
-            
-        if debug:
-            print('Running in debug mode!')
-            if myCountry == 'SL': 
-                launch_compute_resilience_and_risk_thread(myCountry,'','unif_poor')
-            else: launch_compute_resilience_and_risk_thread(myCountry,'','no')
-        else:
-            with Pool(processes=3,maxtasksperchild=1) as pool:
-                print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))
-                pool.starmap(launch_compute_resilience_and_risk_thread, list(product([myCountry],pol_str,pds_str)))
+    elif myCountry == 'MW':
+        pds_str = ['unif_poor','no']
+        pol_str = ['']
+             
+
+        
+    # These lines launch
+    if debug:
+        print('Running in debug (+PH) mode!')
+        launch_compute_resilience_and_risk_thread(myCountry,'','no')
+    elif myCountry == 'PH': 
+        for _pds in pds_str: launch_compute_resilience_and_risk_thread(myCountry,'',_pds)
+    else:
+        with Pool(processes=3,maxtasksperchild=1) as pool:
+            print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))
+            pool.starmap(launch_compute_resilience_and_risk_thread, list(product([myCountry],pol_str,pds_str)))
             

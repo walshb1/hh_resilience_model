@@ -2,6 +2,7 @@
 import matplotlib
 matplotlib.use('AGG')
 
+import os
 import gc
 import math
 import pickle
@@ -10,12 +11,12 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-
 from scipy.interpolate import interp1d
 from libraries.lib_agents import smart_savers
+from libraries.lib_get_hh_savings import get_hh_savings
 from libraries.lib_scaleout import get_scaleout_recipients
+from libraries.lib_gather_data import social_to_tx_and_gsp
 from libraries.lib_fiji_sps import run_fijian_SPP, run_fijian_SPS
-from libraries.lib_gather_data import social_to_tx_and_gsp, get_hh_savings
 from libraries.pandas_helper import get_list_of_index_names, broadcast_simple, concat_categories
 from libraries.lib_country_dir import get_to_USD, get_subsistence_line, average_over_rp, average_over_rp1
 
@@ -293,8 +294,9 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     cats_event = cats_event.reset_index()
 
     for __ix in _ix:
-        print(__ix)
-        cats_event[__ix] = cats_event[__ix].astype('category')
+        if __ix == 'hhid' or __ix == 'rp': 
+            cats_event[__ix] = cats_event[__ix].astype('int')
+        else: cats_event[__ix] = cats_event[__ix].astype('category')
     cats_event = cats_event.reset_index().set_index(_ix)
     #######################
 
@@ -307,8 +309,11 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     # Transfer vulnerability from haz_ratios to cats_event:
     cats_event['v'] = hazard_ratios_event['v']
 
-    cats_event['optimal_hh_reco_rate'] = hazard_ratios_event['hh_reco_rate']
+    cats_event['optimal_hh_reco_rate'] = hazard_ratios_event['hh_reco_rate'].copy()
     cats_event['optimal_hh_reco_rate'] = cats_event['optimal_hh_reco_rate'].fillna(0)
+    # optimize_reco in lib_agents doesn't look at dk_private (just k, v, pi, etc)
+    # --> this creates a weird effect for hh without private losses....
+    # Why would there be a situation where dk_pub > 0, and dk_private = 0?
 
     hazard_ratios_event = hazard_ratios_event.drop(['v','hh_reco_rate'],axis=1)
 
@@ -491,18 +496,22 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
 
         # Leaving out all terms without time-dependence
         # EG: + cats_event_ia['pc_fee'] + cats_event_ia['pds']
-
         # Define dc0 for all households in province where disaster occurred
-        cats_event_ia['hh_reco_rate'] = cats_event_ia['optimal_hh_reco_rate']
-        cats_event_ia['dc0_prv'] = cats_event_ia['di0_prv'] + cats_event_ia['optimal_hh_reco_rate']*cats_event_ia['dk_private']
-        cats_event_ia['dc0_pub'] = cats_event_ia['di0_pub']
-        cats_event_ia['dc0'] = cats_event_ia['dc0_prv'] + cats_event_ia['dc0_pub']
+
+        # In the Philippines, some hh suffer public but not private losses.
+        # --> This comes directly from AIR. Their bug, not ours...
+        cats_event_ia.loc[cats_event_ia['dk_private']==0,'optimal_hh_reco_rate'] = 0.
+
+        cats_event_ia['hh_reco_rate'] = cats_event_ia['optimal_hh_reco_rate'].copy()
+        cats_event_ia['dc0_prv'] = cats_event_ia.eval('di0_prv+(optimal_hh_reco_rate*dk_private)')
+        cats_event_ia['dc0_pub'] = cats_event_ia['di0_pub'].copy()
+        cats_event_ia['dc0'] = cats_event_ia.eval('dc0_prv+dc0_pub')
 
         # Get indexing right, so there are not multiple entries with same index:
         cats_event_ia = cats_event_ia.reset_index().set_index(event_level+['hhid','affected_cat'])
 
         # We will classify these hh responses for studying dw
-        cats_event_ia['welf_class'] = 0
+        cats_event_ia['welf_class'] = -1
 
         # Define consumption floor 
         # STEP 1: Get subsistence line
@@ -512,7 +521,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
 
         # STEP 2: Get savings rate
         if myC == 'PH':
-            sub_file_name = '../output_country/'+myC+'/hh_savings_in_subsistence_reg.csv'
+            sub_file_name = '../intermediate/'+myC+'/hh_savings_in_subsistence_reg.csv'
             df_subsistence_sav = pd.read_csv(sub_file_name).rename(columns={'w_regn':'region',
                                                                             'hh_q1':'sub_savings_q1',
                                                                             'hh_q3':'sub_savings_q3'})[['region','sub_savings_q1','sub_savings_q3']]
@@ -570,23 +579,28 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         _c3 = cats_event_ia.query(c3_crit)[['c','c_min','dk_private','di0_prv','di0','dc0_prv','dc0_pub','dc0','sub_savings_q1']].copy()
         _c3['welf_class']   = 3
 
-        # --> Households can't afford to fund reco at optimal value, so they save all income above the min (Q3):
+        # --> Households can't afford to fund reco at optimal value, so they save all income above the min (Q1):
         _c3['hh_reco_rate'] = _c3.eval('(sub_savings_q1)/dk_private')
+
         _c3['dc0_prv']      = _c3['di0_prv'] + _c3[['hh_reco_rate','dk_private']].prod(axis=1)
         _c3['dc0']          = _c3['dc0_prv'] + _c3['dc0_pub']
 
         if _c3.shape[0] > 0: 
             assert(_c3['hh_reco_rate'].min()>=0)
-            cats_event_ia.loc[_c3.index.tolist(),['dc0','dc0_prv','hh_reco_rate','welf_class']] = _c3[['dc0','dc0_prv','hh_reco_rate','welf_class']]
+            cats_event_ia.loc[_c3.index.tolist(),['dc0','dc0_prv','hh_reco_rate','welf_class']] = _c3[['dc0','dc0_prv','hh_reco_rate','welf_class']].copy()
         print('C3: '+str(round(float(100*cats_event_ia.loc[cats_event_ia.welf_class==3].shape[0])
                                /float(cats_event_ia.loc[cats_event_ia.dk0!=0].shape[0]),2))+'% of hh do not optimize to avoid subsistence')
 
         # Case 4:
         # -> Everyone else has hh_reco_rate = 0
-        cats_event_ia.loc[cats_event_ia.eval('(welf_class==4)&(dk0!=0)'),['welf_class','hh_reco_rate']] = 4,0.
-        if cats_event_ia.loc[cats_event_ia.eval('(welf_class==4)&(dk0!=0)')].shape[0] != 0:
-            print(cats_event_ia.loc[cats_event_ia.eval('(welf_class==4)&(dk0!=0)')].shape[0],'unclassified hh! Possible bug!')
-            cats_event_ia.loc[cats_event_ia.eval('(welf_class==4)&(dk0!=0)')].to_csv('tmp/unclassified_hh.csv')
+        c4_crit = '(dk_private==0)|(c-di0<sub_savings_q1)'
+        cats_event_ia.loc[cats_event_ia.eval(c4_crit),['welf_class','hh_reco_rate']] = 4,0.
+        #if cats_event_ia.loc[cats_event_ia.eval('(welf_class==4)')].shape[0] != 0:
+        #    print(cats_event_ia.loc[cats_event_ia.eval('(welf_class==4)')].shape[0],'verry poor hh! Watch out for them!')
+
+        # The rest:
+        if cats_event_ia.loc[cats_event_ia.eval('(welf_class==-1)&(dk_private!=0)')].shape[0] != 0:
+            cats_event_ia.loc[cats_event_ia.eval('(welf_class==-1)&(dk_private!=0)')].to_csv('tmp/unclassified_hh.csv')
 
         # make plot here: (income vs. length of reco)
         if cats_event_ia.loc[(cats_event_ia.dc0 > cats_event_ia.c)].shape[0] != 0:
@@ -1012,8 +1026,9 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
     cats_event_iah = cats_event_iah.reset_index()
 
     for __ix in _ix:
-        print(__ix)
-        cats_event_iah[__ix] = cats_event_iah[__ix].astype('category')
+        if __ix == 'hhid' or __ix == 'rp': 
+            cats_event_iah[__ix] = cats_event_iah[__ix].astype('int')
+        else: cats_event_iah[__ix] = cats_event_iah[__ix].astype('category')
     cats_event_iah = cats_event_iah.reset_index().set_index(_ix)
 
     ###################
@@ -1259,12 +1274,15 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     temp['dk_prv_t'] = temp['dk_private'].copy()
     # use this to count down as hh rebuilds
 
+
     # First, assign savings
     # --> sav_f = intial savings at initialization. will decrement as hh spend savings.
+    temp = temp.set_index('hhid')
     hh_sav = get_hh_savings(myC,mac_ix[0],pol_str)
-    hh_sav['hhid'] = hh_sav['hhid'].astype(temp['hhid'].dtype)
-    
-    temp = pd.merge(temp.reset_index(),hh_sav.reset_index(),on='hhid').rename(columns={'annual_savings':'sav_f'})
+    hh_sav.index = hh_sav.index.astype('int')
+
+    temp = pd.merge(temp.reset_index(),hh_sav.reset_index(),on='hhid').rename(columns={'precautionary_savings':'sav_f'})
+
     try: temp['sav_f'] = temp['sav_f'].round(2)
     except: pass
 
@@ -1297,10 +1315,11 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
                 temp['sav_offset_to'] = temp.apply(lambda x:opt_lib['sav_offset_to'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
                 temp['t_exhaust_sav'] = temp.apply(lambda x:opt_lib['t_exhaust_sav'][(int(x.c), int(x.dk0), round(x.hh_reco_rate,3), round(float(macro.avg_prod_k.mean()),3), int(x.sav_f))],axis=1)
             print('SUCCESS!')
-            gc.collect()
 
         except: 
             print('FAIL: finding optimal savings numerically')
+            pickle_path = '../optimization_libs/'+myC+'_'+optionPDS+'_optimal_savings_rate.p'
+            if os.path.exists(pickle_path): os.remove(pickle_path)
 
             _opt_ct, _opt_tot = 0, temp.shape[0]
             temp[['sav_offset_to','t_exhaust_sav']] = temp.apply(lambda x:pd.Series(smart_savers(x.c,x.dc0,x.hh_reco_rate,macro.avg_prod_k.mean(),x.sav_f,_opt_tot)),axis=1)
@@ -1318,21 +1337,9 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
             # 2 dfs for merging
             opt_in = opt_in.reset_index().set_index(['c','dk0','hh_reco_rate','avg_prod_k','sav_f']).drop('index',axis=1)
 
-            try:
-                with open('../optimization_libs/'+myC+'_'+optionPDS+'_optimal_savings_rate.p','rb') as p:
-                    opt_lib = pickle.load(p)
-                    print(opt_lib.shape,' entries in optimization library.')
-                    opt_in = opt_in.combine_first(opt_lib)
-                    print(opt_in.shape,' entries in optimization library.')
+            with open('../optimization_libs/'+myC+'_'+optionPDS+'_optimal_savings_rate.p','wb') as pout:
+                pickle.dump(opt_in.loc[opt_in.index.unique()], pout)
 
-                with open('../optimization_libs/'+myC+'_'+optionPDS+'_optimal_savings_rate.p','wb') as pout:
-                    pickle.dump(opt_in.loc[opt_in.index.unique()],pout)
-                #with open('../optimization_libs/'+myC+'_'+optionPDS+'_optimal_savings_rate.p','wb') as pout2:
-                #    pickle.dump(opt_in.loc[opt_in.index.unique()],pout2,protocol=2)
-
-            except: 
-                with open('../optimization_libs/'+myC+'_'+optionPDS+'_optimal_savings_rate.p','wb') as pout:
-                    pickle.dump(opt_in.loc[opt_in.index.unique()], pout)    
     gc.collect()
 
     # Define parameters of welfare integration
@@ -1383,17 +1390,17 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
         # NB: this doesn't change income--just consumption
         
         # welf_class == 1: let them run
-        recalc_crit_1 = '(welf_class==1) & (hh_reco_rate!=0) & (dk_prv_t>0) & (dc_t>c | dc_t<0)'
+        recalc_crit_1 = '(welf_class<=1) & (dk_prv_t>0) & (dc_t>c | dc_t<0)'
         if pol_str != '_infsavings' and temp.loc[temp.eval(recalc_crit_1)].shape[0] != 0: assert(False)
 
         # welf_class == 2|3: keep consumption at minumum (subsistence-sub_savings_q3) until they can afford macro_reco_frac without going into subsistence
-        recalc_crit_2 = '(welf_class!=1) & (dk_prv_t>0) & (c-di_t-c_min+sub_savings_q3)>0 & (hh_reco_rate < optimal_hh_reco_rate | dc_t>c | dc_t<0)'
+        recalc_crit_2 = '(welf_class==2|welf_class==3) & (dk_prv_t>0) & (c-di_t-c_min+sub_savings_q3)>0 & (hh_reco_rate < optimal_hh_reco_rate | dc_t>c | dc_t<0)'
         recalc_hhrr_2 = '(c-di_t-c_min+sub_savings_q3)/dk_prv_t'        
 
-        recalc_crit_3 = '(welf_class!=1) & (dk_prv_t>0) & (c-di_t-c_min+sub_savings_q3)<=0 & (c-di_t-sub_savings_q1)>0 & (hh_reco_rate < optimal_hh_reco_rate | dc_t>c | dc_t<0)'
+        recalc_crit_3 = '(welf_class==2|welf_class==3) & (dk_prv_t>0) & (c-di_t-c_min+sub_savings_q3)<=0 & (c-di_t-sub_savings_q1)>0 & (hh_reco_rate < optimal_hh_reco_rate | dc_t>c | dc_t<0)'
         recalc_hhrr_3 = 'sub_savings_q1/dk_prv_t'
 
-        stop_criterion_A = '(c-di_t-sub_savings_q1<0)&(hh_reco_rate!=0)'
+        stop_criterion_A = '(c-di_t-sub_savings_q1<=1)&(hh_reco_rate!=0)'
         stop_criterion_B = '(dk_prv_t<=0.01)&(hh_reco_rate!=0)'
 
         if round(10.*_t,1)%1==0:
@@ -1459,9 +1466,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
         
         ########################
         # Mark dc_net at time t=0
-        if _t == 0: 
-            temp['dc_net_t0'] = temp['dc_net'].copy()
-            temp.loc[(temp.region=='II - Cagayan Valley')&(temp.hazard=='HU')].to_csv('~/Desktop/tmp/CV_HU.csv')
+        if _t == 0: temp['dc_net_t0'] = temp['dc_net'].copy()
 
         ########################
         # Increment time in poverty
