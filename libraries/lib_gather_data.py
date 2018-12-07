@@ -256,58 +256,13 @@ def AIR_extreme_events(df_air,df_aal,sec='',per=''):
 
     return df_air
     
-    
-def get_hh_savings(myC, econ_unit, pol, fstr=None):
-    hh_df = pd.read_csv('../intermediate/'+myC+'/cat_info.csv')
-
-    # First check the policy string, in case we're doing something experimental 
-    if pol == '_nosavings': return 0
-    elif pol == '_nosavingsdata': return hh_df.eval('c/12')
-    elif pol == '_infsavings': return 1.E9
-    
-    #_s = pd.DataFrame({'c':hh_df.c,'pcwgt':hh_df.pcwgt,econ_unit:hh_df[econ_unit],'ispoor':hh_df.ispoor},index=hh_df.index)
-
-    # Now run country-dependent options: 
-    if myC == 'SL' or myC == 'MW': return hh_df['c']/12.    
-    
-    elif myC == 'PH':
-
-        # LOAD DECILE INFO
-        df_decile = pd.read_csv('../intermediate/'+myC+'/hh_rankings.csv')[['hhid','decile']]
-        df_decile['hhid'] = df_decile['hhid'].astype('str')
-        hh_df['hhid'] = hh_df['hhid'].astype('str')
-
-        hh_df = pd.merge(hh_df.reset_index(),df_decile.reset_index(),on='hhid')
-
-        # LOAD SAVINGS INFO
-        df_sav = pd.read_csv('../output_country/PH/hh_savings_by_decile_and_region.csv').rename(columns={'w_regn':'region',
-                                                                                                         'decile_reg':'decile'})
-        r_code = pd.read_excel('../inputs/PH/FIES_regions.xlsx')[['region_code','region_name']].set_index('region_code').squeeze()
-        df_sav['region'].replace(r_code,inplace=True)
-        df_sav['annual_savings'] = df_sav['annual_savings'].clip(lower=0)
-
-        ###############################
-        ## BUG!!!! 
-        ## ---> this code assigns copies of the same hh to different deciles
-        #listofquintiles=np.arange(0.10, 1.01, 0.10)
-        #hh_df = hh_df.reset_index().groupby('region',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),listofquintiles),
-        #                                                                                   'decile_reg',sort_val='c'))
-        #hh_df = pd.merge(hh_df.reset_index(),df_sav.reset_index(),on=['region','decile_reg'])
-        ##############################
-        
-        hh_df = pd.merge(hh_df.reset_index(),df_sav.reset_index(),on=['region','decile'])
-        print(hh_df.head())
-
-        return hh_df[['hhid','annual_savings']]
-    
-    return 0
 
 def get_subnational_gdp_macro(myCountry,_hr,avg_prod_k):
     hr_init = _hr.shape[0]
 
     if myCountry == 'PH':
 
-        grdp = pd.read_csv('../inputs/PH/phil_grdp.csv',usecols=['region','2015'])
+        grdp = pd.read_csv('../inputs/PH/phil_grdp.csv')[['region','2015']]
         grdp.columns = ['_region','grdp']
         grdp['region_lower'] = grdp['_region'].str.lower()
 
