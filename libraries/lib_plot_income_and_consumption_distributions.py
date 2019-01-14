@@ -98,6 +98,10 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
         ci_heights, _bins = np.histogram(sf_x*iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'c_initial'].clip(upper=upper_clip), bins=c_bins[1],
                                          weights=iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt_no']/get_pop_scale_fac(myC)[0])
 
+        ## Income/Cons dist immediately after disaster
+        #cf_heights, cf_bins = np.histogram(sf_x*iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),_fom+'_pre_reco'].clip(upper=upper_clip), bins=c_bins[1],
+        #                                   weights=iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt_no']/get_pop_scale_fac(myC)[0])
+
         # Income dist after reconstruction
         #cf_reco_hgt, _bins = np.histogram(sf_x*iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'c_post_reco'].clip(upper=upper_clip), bins=c_bins[1],
         #                                  weights=iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt_no']/get_pop_scale_fac(myC)[0])
@@ -117,12 +121,12 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
                 ax.get_figure().savefig(_fout,format='pdf',bbox_inches='tight')
                 _success = True
             except:
-                print('no good! try again in plot_income_and_consumption_distributions (1/3)')
+                print('no good! try again in plot_income_and_consumption_distributions (1/3-'+str(_counter)+')')
                 _counter+=1
 
         #ax.step(c_bins[1][:-1], cf_heights, label=aReg+' - post-disaster', facecolor=q_colors[1],alpha=0.45)
-        ax.bar(c_bins[1][:-1], cf_heights, width=(c_bins[1][1]-c_bins[1][0]), align='edge', 
-               label=aReg+' - post-disaster', facecolor=q_colors[1],edgecolor=None,linewidth=0,alpha=0.65)
+        ax.bar(c_bins[1][:-1], -(ci_heights-cf_heights), width=(c_bins[1][1]-c_bins[1][0]), align='edge', 
+               label=aReg+' - post-disaster', facecolor=q_colors[1],edgecolor=None,linewidth=0,alpha=0.65,bottom=ci_heights)
         #leg = ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=9,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
 
         _success = False; _counter = 0

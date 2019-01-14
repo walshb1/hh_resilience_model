@@ -394,7 +394,6 @@ _.loc['Total'] = [_['pop_q1'].sum(),
                   _['Asset risk'].sum()*1.E3/_['pop_q1'].sum(),
                   _['Well-being risk'].sum()*1.E3/_['pop_q1'].sum()]
 _[['pop_q1','Asset risk pc','Well-being risk pc']].round(2).sort_values('Well-being risk pc',ascending=False).to_latex('latex/'+myCountry+'/risk_pc_q1_by_economy.tex')
-assert(False)
 
 # Save out iah
 iah_out = pd.DataFrame(index=iah_avg.sum(level=['hazard','rp']).index)
@@ -754,11 +753,10 @@ if myCountry == 'SL':
                 plt.close('all')  
 
 
-print(myiah.columns)
 ##################################################################
 # This code generates output on poverty dimensions
 # ^ this is by household (iah != iah_avg here)
-if True:
+if False:
 
     _myiah = myiah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])[['pcwgt_no',
                                                                                               'c_initial','c_post_reco',
@@ -774,7 +772,7 @@ if True:
 ##################################################################
 # This code generates the histograms showing income before & after disaster (in USD)
 # ^ this is at household level (iah != iah_avg here)
-if True:         
+if False:         
     with Pool(processes=2,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
         pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[myiah.copy()],myHaz[0],myHaz[1],myHaz[2],[True],['USD'])))
@@ -790,7 +788,7 @@ if True:
 ##################################################################
 # This code generates the histograms including [k,dk,dc,dw,&pds]
 # ^ this is by province/region, so it will use myiah (iah = iah_avg here)
-if True:
+if False:
     with Pool(processes=2,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2],[my_PDS]))),'THREADS')
         pool.starmap(plot_impact_by_quintile,list(product([myCountry],myHaz[0],myHaz[1],myHaz[2],[myiah.copy()],[my_PDS])))  
@@ -799,7 +797,7 @@ if True:
 ##################################################################
 # This code generates the histograms 
 # ^ this is only for affected households (iah = iah_avg here) <--because we're summing, not averaging
-if True:
+if False:
     with Pool(processes=2,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
         pool.starmap(plot_relative_losses,list(product([myCountry],myHaz[0],myHaz[1],myHaz[2],[myiah.copy()])))  
