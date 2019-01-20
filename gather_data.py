@@ -28,18 +28,18 @@ from libraries.lib_sp_analysis import run_sp_analysis
 warnings.filterwarnings('always',category=UserWarning)
 
 #####################################
-# Which country are we running over? 
+# Which country are we running over?
 # --> This variable <sys.argv> is the first optional argument on the command line
 # --> If you're not using command line and/or don't know how to pass an argument, set <myCountry> in the "else:" loop equal to your country:
 #
 # -- 1) BO = Bolivia
-# or 2) FJ = Fiji 
+# or 2) FJ = Fiji
 # or 3) MW = Malawi
 # or 4) PH = Philippines
 # or 5) SL = Sri Lanka
 #
 if len(sys.argv) >= 2: myCountry = sys.argv[1]
-else: 
+else:
     myCountry = 'BO'
     print('Setting country to BO. Currently implemented: MW, PH, FJ, SL, BO')
 #####################################
@@ -85,11 +85,11 @@ print('Survey population:',cat_info.pcwgt.sum())
 
 #  below is messy--should be in <load_survey_data>
 if myCountry == 'PH':
-    
+
     # Standardize province info
     get_hhid_FIES(cat_info)
     cat_info = cat_info.rename(columns={'w_prov':'province','w_regn':'region'}).reset_index()
-    cat_info['province'].replace(prov_code,inplace=True)     
+    cat_info['province'].replace(prov_code,inplace=True)
     cat_info['region'].replace(region_code,inplace=True)
     cat_info = cat_info.reset_index().set_index(economy).drop(['index','level_0'],axis=1)
 
@@ -135,10 +135,10 @@ print('Getting vulnerabilities')
 
 vul_curve = get_vul_curve(myCountry,'wall')
 for thecat in vul_curve.desc.unique():
-    hh_private_asset_vulnerability = float(vul_curve.loc[vul_curve.desc.values == thecat,'v'])    
+    hh_private_asset_vulnerability = float(vul_curve.loc[vul_curve.desc.values == thecat,'v'])
     cat_info.loc[cat_info['walls'] == thecat,'v'] = hh_private_asset_vulnerability
     # Fiji doesn't have info on roofing, but it does have info on the *condition* of outer walls. Include that as a multiplier?
-    
+
 # Get roofing data (but Fiji doesn't have this info)
 try:
     print('Getting roof info')
@@ -147,12 +147,12 @@ try:
         cat_info.loc[cat_info.roof.values == thecat,'v'] += vul_curve.loc[vul_curve.desc.values == thecat].v.values
     cat_info.v = cat_info.v/2
 except: pass
-    
+
 ########################################
 ########################################
 # Random stuff--needs to be sorted
 # --> What's the difference between income & consumption/disbursements?
-# --> totdis = 'total family disbursements'    
+# --> totdis = 'total family disbursements'
 # --> totex = 'total family expenditures'
 # --> pcinc_s seems to be what they use to calculate poverty...
 # --> can be converted to pcinc_ppp11 by dividing by (365*21.1782)
@@ -169,11 +169,11 @@ cat_info['social'] = (cat_info['pcsoc']/cat_info['c']).fillna(0)
 print('Getting pov line')
 cat_info = cat_info.reset_index().set_index('hhid')
 if 'pov_line' not in cat_info.columns:
-    try: 
+    try:
         cat_info.loc[cat_info.Sector=='Urban','pov_line'] = get_poverty_line(myCountry,'Urban')
         cat_info.loc[cat_info.Sector=='Rural','pov_line'] = get_poverty_line(myCountry,'Rural')
         cat_info['sub_line'] = get_subsistence_line(myCountry)
-    except: 
+    except:
         try: cat_info['pov_line'] = get_poverty_line(myCountry,by_district=False)
         except: cat_info['pov_line'] = 0
 
@@ -217,7 +217,7 @@ try:
     print('\n--> Urban poverty (flagged poor):',float(round(cat_info.loc[(cat_info.ispoor==1)&(cat_info.urban=='URBAN'),'pcwgt'].sum()/1E6,3)),'million')
 except: pass
 
-# Change the name: district to code, and create an multi-level index 
+# Change the name: district to code, and create an multi-level index
 cat_info = cat_info.rename(columns={'district':'code','HHID':'hhid'})
 
 # tau_tax = total value of social as fraction of total C
@@ -254,7 +254,7 @@ print(cat_info.head())
 (100*cat_info.loc[cat_info.eval('c<pov_line'),'pcwgt'].sum(level=economy)
  /cat_info['pcwgt'].sum(level=economy)).to_frame(name='poverty_rate').to_csv('../inputs/'+myCountry+'/regional_poverty_rate.csv')
 
-# Shouldn't be losing anything here 
+# Shouldn't be losing anything here
 print('Check total population:',cat_info.pcwgt.sum())
 cat_info.dropna(inplace=True,how='all')
 print('Check total population (after dropna):',cat_info.pcwgt.sum())
@@ -284,7 +284,7 @@ if myCountry == 'PH':
                        'Davao del Norte':'Davao',
                        'Metropolitan Manila':'Manila',
                        'Dinagat Islands':'Surigao del Norte'}
-    df_haz['province'].replace(AIR_prov_rename,inplace=True) 
+    df_haz['province'].replace(AIR_prov_rename,inplace=True)
 
     # Add NCR 2-4 to AIR dataset
     df_NCR = pd.DataFrame(df_haz.loc[(df_haz.province == 'Manila')])
@@ -293,14 +293,14 @@ if myCountry == 'PH':
 
     df_NCR['province'] = 'NCR-3rd Dist.'
     df_haz = df_haz.append(df_NCR)
-    
+
     df_NCR['province'] = 'NCR-4th Dist.'
     df_haz = df_haz.append(df_NCR)
 
     # In AIR, we only have 'Metropolitan Manila'
     # Distribute losses among Manila & NCR 2-4 according to assets
     cat_info = cat_info.reset_index()
-    k_NCR = cat_info.loc[((cat_info.province == 'Manila') | (cat_info.province == 'NCR-2nd Dist.') 
+    k_NCR = cat_info.loc[((cat_info.province == 'Manila') | (cat_info.province == 'NCR-2nd Dist.')
                           | (cat_info.province == 'NCR-3rd Dist.') | (cat_info.province == 'NCR-4th Dist.')), ['k','pcwgt']].prod(axis=1).sum()
 
     for k_type in ['value_destroyed_prv','value_destroyed_pub']:
@@ -308,7 +308,7 @@ if myCountry == 'PH':
         df_haz.loc[df_haz.province == 'NCR-2nd Dist.',k_type] *= cat_info.loc[cat_info.province == 'NCR-2nd Dist.', ['k','pcwgt']].prod(axis=1).sum()/k_NCR
         df_haz.loc[df_haz.province == 'NCR-3rd Dist.',k_type] *= cat_info.loc[cat_info.province == 'NCR-3rd Dist.', ['k','pcwgt']].prod(axis=1).sum()/k_NCR
         df_haz.loc[df_haz.province == 'NCR-4th Dist.',k_type] *= cat_info.loc[cat_info.province == 'NCR-4th Dist.', ['k','pcwgt']].prod(axis=1).sum()/k_NCR
-        
+
     # Add region info to df_haz:
     df_haz = df_haz.reset_index().set_index('province')
     cat_info = cat_info.reset_index().set_index('province')
@@ -327,7 +327,7 @@ if myCountry == 'PH':
     #df_haz.loc[df_haz.hh_share>1.].to_csv('~/Desktop/hh_share.csv')
 
 elif myCountry == 'SL': df_haz['hh_share'] = 1.
-    
+
 elif myCountry == 'FJ':
     df_haz = df_haz.reset_index().set_index([economy,'hazard','rp']).sum(level=[economy,'hazard','rp'])
     # All the magic happens inside get_hazard_df()
@@ -347,7 +347,7 @@ if myCountry == 'PH':
 elif myCountry == 'FJ':
     pass
     # --> fa is losses/(exposed_value*v)
-    #hazard_ratios['frac_destroyed'] = hazard_ratios['fa'] 
+    #hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
 
 elif myCountry == 'SL':
     pass
@@ -380,7 +380,7 @@ hazard_ratios = hazard_ratios.drop([i for i in ['index'] if i in hazard_ratios.c
 fa_threshold = 0.95
 
 # Calculate avg vulnerability at event level, and use that to find fa
-# --> v_mean is weighted by capital & pc_weight 
+# --> v_mean is weighted by capital & pc_weight
 v_mean = (hazard_ratios[['pcwgt','k','v']].prod(axis=1).sum(level=event_level)/hazard_ratios[['pcwgt','k']].prod(axis=1).sum(level=event_level)).to_frame(name='v_mean')
 #v_mean.name = 'v_mean'
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),v_mean.reset_index(),on=event_level).reset_index().set_index(event_level+['hhid']).sort_index().drop('index',axis=1)
@@ -390,9 +390,9 @@ if myCountry != 'SL':
     # Normally, we pull fa out of frac_destroyed.
     # --> for SL, I think we have fa (not frac_destroyed) from HIES
     hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v_mean']).fillna(1E-8)
-    
+
     hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = (hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold).clip(upper=0.95)
-    hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=1E-8,upper=fa_threshold)    
+    hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=1E-8,upper=fa_threshold)
 
 
 if myCountry == 'MW':
@@ -420,7 +420,7 @@ print('Running hh_reco_rate optimization')
 hazard_ratios['hh_reco_rate'] = 0
 
 v_to_reco_rate = {}
-try: 
+try:
     v_to_reco_rate = pickle.load(open('../optimization_libs/'+myCountry+'_v_to_reco_rate.p','rb'))
     pickle.dump(v_to_reco_rate, open('../optimization_libs/'+myCountry+'_v_to_reco_rate_proto2.p', 'wb'),protocol=2)
 except: print('Was not able to load v to hh_reco_rate library from ../optimization_libs/'+myCountry+'_v_to_reco_rate.p')
@@ -447,7 +447,7 @@ hazard_ratios.loc[hazard_ratios.index.get_level_values('hazard') == 'DR','hh_rec
 if myCountry == 'PH':
     _path = '/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/'
     _ = hazard_ratios.reset_index().copy()
-    
+
     plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==10)],['v'],[''],_path+'vulnerabilities_log.pdf',uclip=1,nBins=25,xlab='Asset vulnerability ($v_h$)',logy=True)
     plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==10)],['v'],[''],_path+'vulnerabilities.pdf',uclip=1,nBins=25,xlab='Asset vulnerability ($v_h$)',logy=False)
 
@@ -473,7 +473,7 @@ try: summary_df['GRDP'] = df['avg_prod_k'].mean()*hazard_ratios['grdp_to_assets'
 except: pass
 summary_df.loc['Total'] = summary_df.sum()
 
-try: 
+try:
     summary_df['Ratio'] = 100.*summary_df.eval('FIES/GRDP')
 
     totals = summary_df[['FIES','GRDP']].sum().squeeze()
@@ -496,23 +496,22 @@ if myCountry == 'FJ':
     df_haz = df_haz.reset_index()
     my_df = ((df[['gdp_pc_prov','pop']].prod(axis=1))/df['avg_prod_k']).to_frame(name='HIES')
     my_df['PCRAFI'] = df_haz.ix[(df_haz.rp==1)&(df_haz.hazard=='TC'),['Division','Exp_Value']].set_index('Division')
-   
+
     my_df['HIES']/=1.E9
     my_df['PCRAFI']/=1.E9
-    
+
     ax = my_df.plot.scatter('PCRAFI','HIES')
     fit_line = np.polyfit(my_df['PCRAFI'],my_df['HIES'],1)
     ax.plot()
-    
+
     plt.xlim(0.,8.)
     plt.ylim(0.,5.)
-    
+
     my_linspace_x = np.array(np.linspace(plt.gca().get_xlim()[0],plt.gca().get_xlim()[1],10))
     my_linspace_y = fit_line[0]*my_linspace_x+fit_line[1]
-    
+
     plt.plot(my_linspace_x,my_linspace_y)
     plt.annotate(str(round(100.*my_linspace_x[1]/my_linspace_y[1],1))+'%',[1.,4.])
-    
+
     fig = plt.gcf()
     fig.savefig('HIES_vs_PCRAFI_assets.pdf',format='pdf')
-    
