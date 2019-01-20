@@ -28,7 +28,7 @@ q_colors = [sns_pal[0],sns_pal[1],sns_pal[2],sns_pal[3],sns_pal[5]]
 const_nom_reco_rate, const_pub_reco_rate = None, None
 const_rho, const_ie = None, None
 
-tmp = '~/Desktop/BANK/hh_resilience_model/model/tmp/'
+tmp = './model/tmp/'
 
 def get_weighted_mean(q1,q2,q3,q4,q5,key,weight_key='pcwgt'):
     
