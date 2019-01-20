@@ -23,7 +23,7 @@ reconstruction_time = 3.00 # time needed for reconstruction
 reduction_vul       = 0.20 # how much early warning reduces vulnerability
 inc_elast           = 1.50 # income elasticity
 max_support         = 0.05 # max expenditure on PDS as fraction of GDP (set to 5% based on PHL)
-nominal_asset_loss_covered_by_PDS = 0.80 # also, elsewhere, called 'shareable' 
+nominal_asset_loss_covered_by_PDS = 0.80 # also, elsewhere, called 'shareable'
 
 # Define directories
 def set_directories(myCountry):  # get current directory
@@ -32,7 +32,7 @@ def set_directories(myCountry):  # get current directory
     intermediate  = model+'/../intermediate/'+myCountry+'/' # get outputs data directory
 
     # If the depository directories don't exist, create one:
-    if not os.path.exists(inputs): 
+    if not os.path.exists(inputs):
         print('You need to put the country survey files in a directory titled ','/inputs/'+myCountry+'/')
         assert(False)
     if not os.path.exists(intermediate):
@@ -41,27 +41,32 @@ def set_directories(myCountry):  # get current directory
     return intermediate
 
 def get_economic_unit(myC):
-    
-    if myC == 'PH': return 'region'#'province'
-    elif myC == 'FJ': return 'Division'#'tikina'
-    elif myC == 'SL': return 'district'
-    elif myC == 'MW': return 'district'
-    else: return None
+    d = {'PH':'region',
+    'FJ':'Division',
+    'SL':'district',
+    'MW':'district'}
+    try:
+        return d[myC]
+    except KeyError:
+        return None
 
 def get_currency(myC):
-    
-    if myC == 'PH': return ['b. PhP',1.E9,1./50.]
-    elif myC == 'FJ': return ['k. F\$',1.E3,1./2.]
-    elif myC == 'SL': return ['LKR',1.E9,1./150.]
-    elif myC == 'MW': return ['MWK',1.E9,1./724.64]
-    else: return ['XXX',1.E0]
+    d = {'PH': ['b. PhP',1.E9,1./50.],
+    'FJ': ['k. F\$',1.E3,1./2.],
+    'SL': ['LKR',1.E9,1./150.],
+    'MW': ['MWK',1.E9,1./724.64],
+    }
+    try:
+        return d[myC]
+    except KeyError:
+        return ['XXX',1.E0]
 
 def get_places(myC,economy):
     # This df should have just province code/name and population
 
     if myC == 'PH':
         df = pd.read_excel(inputs+'population_2015.xlsx',sheet_name='population').set_index('province')
-        df['psa_pop']      = df['population']    # Provincial population        
+        df['psa_pop']      = df['population']    # Provincial population
         df.drop(['population'],axis=1,inplace=True)
         return df
 
@@ -69,7 +74,7 @@ def get_places(myC,economy):
         df = pd.read_excel(inputs+'HIES 2013-14 Housing Data.xlsx',sheet_name='Sheet1').set_index('Division').dropna(how='all')[['HHsize','Weight']].prod(axis=1).sum(level='Division').to_frame()
         df.columns = ['population']
         return df
-    
+
     if myC == 'SL':
 
         df_hhwgt = pd.read_csv(inputs+'HIES2016/weight2016.csv')
@@ -82,14 +87,14 @@ def get_places(myC,economy):
         # Set flag if HH has children
         df_hhsize['is_child'] = 0
         df_hhsize.loc[(df_hhsize['Birth_Year']>=98)|(df_hhsize['Birth_Year']<18),'is_child'] = 1
-            
+
         df_hhsize = pd.merge(df_hhsize.reset_index(),df_hhwgt.reset_index(),on=['District','Sector','Psu'])
 
         df_hhsize['hhid'] = (df_hhsize['District'].astype('str')+df_hhsize['Sector'].astype('str')
                              +df_hhsize['Psu'].astype('str')+df_hhsize['Snumber'].astype('str')+df_hhsize['Hhno'].astype('str'))
         df_hhsize = df_hhsize.reset_index().set_index(['District','Sector','Psu','Snumber','Hhno']).sort_index()
-        
-        # Now get rid of duplicates: 
+
+        # Now get rid of duplicates:
         df = df_hhsize[['hhsize','hhwgt']].mean(level=['District','Sector','Psu','Snumber','Hhno'])
         df['N_children'] = df_hhsize['is_child'].sum(level=['District','Sector','Psu','Snumber','Hhno'])
         # count children
@@ -100,10 +105,10 @@ def get_places(myC,economy):
 
         df.to_csv(inputs+'/HIES2016/df_hhwgt_and_hhsize.csv')
         # this will be used in get_survey_data, rather than redoing hhsize
-            
+
         df = df.reset_index().rename(columns={'District':'district'}).set_index('district')
         df['headcount'] = df[['hhsize','hhwgt']].prod(axis=1)
-            
+
         df = df['headcount'].sum(level='district').to_frame(name='pop')
         # ^ return this
 
@@ -120,20 +125,20 @@ def get_places(myC,economy):
         df_agg.columns = ['population']
 
         df_agg = df_agg.sort_values(by='population',ascending=False)
-        
-        return df_agg   
+
+        return df_agg
 
     else: return None
 
 def get_places_dict(myC):
     p_code,r_code = None,None
 
-    if myC == 'PH': 
+    if myC == 'PH':
         p_code = pd.read_excel(inputs+'FIES_provinces.xlsx')[['province_code','province_AIR']].set_index('province_code').squeeze()
         p_code[97] = 'Zamboanga del Norte'
         p_code[98] = 'Zamboanga Sibugay'
         r_code = pd.read_excel(inputs+'FIES_regions.xlsx')[['region_code','region_name']].set_index('region_code').squeeze()
-        
+
     if myC == 'FJ':
         p_code = pd.read_excel(inputs+'Fiji_provinces.xlsx')[['code','name']].set_index('code').squeeze()
 
@@ -146,7 +151,7 @@ def get_places_dict(myC):
         p_code.index = p_code.index.astype(int)
 
         r_code = pd.read_csv(inputs+'MW_code_region_district.csv')[['code','region']].set_index('code').dropna(how='all')
-        r_code.index = r_code.index.astype(int)   
+        r_code.index = r_code.index.astype(int)
 
     return p_code,r_code
 
@@ -165,7 +170,7 @@ def load_survey_data(myC):
     # -> pcsoc
     # -> ispoor
     # -> has_ew
-    
+
     if myC == 'MW':
 
         df_agg = pd.read_stata(inputs+'consumption_aggregates_poverty_ihs4.dta').set_index(['case_id']).dropna(how='all')
@@ -189,13 +194,13 @@ def load_survey_data(myC):
         df['pcinc'] = df['hhinc']/df['hhsize']
 
         df['aeinc'] = df['hhinc']/df['hhsize_ae']
-        df['aewgt'] = df[['hhwgt','hhsize_ae']].prod(axis=1)        
+        df['aewgt'] = df[['hhwgt','hhsize_ae']].prod(axis=1)
 
         # Still need hhsoc & pcsoc
         dfR = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_R.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
         df['hhsoc'] = dfR[['hh_r02a','hh_r02b']].sum(axis=1).sum(level='hhid')
         df['pcsoc'] = df['hhsoc']/df['hhsize']
-    
+
         df['hhsoc_kg_maize'] = dfR['hh_r02c'].sum(level='hhid')
         # ^ not clear what to do with this
 
@@ -240,7 +245,7 @@ def load_survey_data(myC):
         dfE.loc[dfE['hh_e06_8a']=='UNPAID HOUSEHOLD LABOR(AGRIC)','labor_ag_unpaid'] = 1.
         df['labor_ag_unpaid'] = dfE['labor_ag_unpaid'].sum(level='hhid')
 
-        # --> N hh members working in ganyu        
+        # --> N hh members working in ganyu
         dfE['labor_ganyu'] = 0
         dfE.loc[dfE['hh_e06_8a']=='GANYU','labor_ganyu'] = 1.
         df['labor_ganyu'] = dfE['labor_ganyu'].sum(level='hhid')
@@ -264,7 +269,7 @@ def load_survey_data(myC):
         print(df.loc[(df['impact_drought']==1)&(df['has_irrigation']==True),'pcwgt'].sum()/df.loc[(df['has_irrigation']==True),'pcwgt'].sum())
 
         # Total value of sales
-        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_I.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')       
+        _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_I.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
         df['income_crop_wet'] = _df['ag_i03'].sum(level='hhid')
         df['income_crop_wet'] = df['income_crop_wet'].fillna(0)
 
@@ -299,16 +304,16 @@ def load_survey_data(myC):
 
         # rent
         _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_B2.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
-        df['ag_input_cost'] += _df[['ag_b209a','ag_b209b']].sum(axis=1).sum(level='hhid')        
+        df['ag_input_cost'] += _df[['ag_b209a','ag_b209b']].sum(axis=1).sum(level='hhid')
 
         # fertilizer purchased with coupon
         _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_E2.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
         df['ag_input_cost'] += _df['ag_e04'].sum(level='hhid')
-        
+
         # fertilizer purchased without coupon
         _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_F.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
-        df['ag_input_cost'] += _df[['ag_f09','ag_f10']].sum(axis=1).sum(level='hhid')        
-        
+        df['ag_input_cost'] += _df[['ag_f09','ag_f10']].sum(axis=1).sum(level='hhid')
+
         # seed
         _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_H.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
         df['ag_input_cost'] += _df[['ag_h09','ag_h10']].sum(axis=1).sum(level='hhid')
@@ -320,7 +325,7 @@ def load_survey_data(myC):
         df['ag_input_cost'] += _df['ag_o10'].sum(level='hhid')
         _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_Q.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
         df['ag_input_cost'] += _df['ag_q10'].sum(level='hhid')
-  
+
         # cost of livestock inputs
         _df = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/AG_MOD_R2.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
         print(_df.columns)
@@ -343,20 +348,20 @@ def load_survey_data(myC):
         #ax=plt.gca()
         #heights, bins = np.histogram(df.loc[df.ratio_net_to_gross>0,'ratio_net_to_gross'],bins=50,weights=df.loc[df.ratio_net_to_gross>0,'hhwgt']/1.E3)
         #ax.bar(bins[:-1], heights, width=(bins[1]-bins[0]), facecolor='blue',edgecolor=None,linewidth=0,alpha=0.45)
-        #ax.get_figure().savefig('../output_plots/MW/ag_income_net_to_gross_ratio.pdf',format='pdf')        
-        #plt.cla()  
-        
+        #ax.get_figure().savefig('../output_plots/MW/ag_income_net_to_gross_ratio.pdf',format='pdf')
+        #plt.cla()
+
         # Plot net income
         uclip = 3.E5
 
         ax=plt.gca()
         heights, bins = np.histogram(df['income_ag_net'].clip(lower=-1E4,upper=uclip),bins=50,weights=df['hhwgt']/1.E3)
         ax.bar(bins[:-1], heights, width=(bins[1]-bins[0]), facecolor='blue',edgecolor=None,linewidth=0,alpha=0.45)
-        ax.get_figure().savefig('../output_plots/MW/ag_income_net.pdf',format='pdf')        
-        plt.cla()        
-        
+        ax.get_figure().savefig('../output_plots/MW/ag_income_net.pdf',format='pdf')
+        plt.cla()
 
-        # Plot income by stream 
+
+        # Plot income by stream
         ax=plt.gca()
         heights1, bins = np.histogram(df.loc[(df.income_ag_net>0)&(df.income_ganyu!=0),'income_ganyu'].clip(upper=uclip),bins=50,
                                       weights=df.loc[(df.income_ag_net>0)&(df.income_ganyu!=0),'hhwgt']/1.E3)
@@ -382,20 +387,20 @@ def load_survey_data(myC):
         ax.bar(bins[:-1], heights4, width=(bins[1]-bins[0]), edgecolor=None,linewidth=0,alpha=0.45,bottom=heights1+heights2+heights3)
         ax.bar(bins[:-1], heights5, width=(bins[1]-bins[0]), edgecolor=None,linewidth=0,alpha=0.45,bottom=heights1+heights2+heights3+heights4)
         ax.bar(bins[:-1], heights6, width=(bins[1]-bins[0]), edgecolor=None,linewidth=0,alpha=0.45,bottom=heights1+heights2+heights3+heights4+heights5)
-        ax.get_figure().savefig('../output_plots/MW/ag_income.pdf',format='pdf')        
+        ax.get_figure().savefig('../output_plots/MW/ag_income.pdf',format='pdf')
         plt.cla()
 
         df.loc[(df.hhinc<7.5E5)&(df.income_ag_net>0)&(df.income_ag_net<7.5E5)].plot.scatter('hhinc','income_ag_net')
-        plt.gca().get_figure().savefig('../output_plots/MW/ag_income_vs_total.pdf',format='pdf')    
+        plt.gca().get_figure().savefig('../output_plots/MW/ag_income_vs_total.pdf',format='pdf')
         plt.cla()
 
         df['income_ag_net'] = df['income_ag_net'].clip(upper=df['hhinc'])
         df.loc[(df.hhinc<7.5E5)&(df.income_ag_net>0)&(df.income_ag_net<7.5E5)].plot.scatter('hhinc','income_ag_net')
-        plt.gca().get_figure().savefig('../output_plots/MW/ag_income_clipped_vs_total.pdf',format='pdf')    
+        plt.gca().get_figure().savefig('../output_plots/MW/ag_income_clipped_vs_total.pdf',format='pdf')
         plt.cla()
-        
 
-        print('Frac reporting drought:',df.loc[(df.impact_drought==1),'pcwgt'].sum()/df['pcwgt'].sum())        
+
+        print('Frac reporting drought:',df.loc[(df.impact_drought==1),'pcwgt'].sum()/df['pcwgt'].sum())
 
         print('Frac reporting ganyu income:',df.loc[(df.income_ganyu>0),'pcwgt'].sum()/df['pcwgt'].sum())
         print('Frac w/ ganyu income reporting drought:',df.loc[(df.income_ganyu>0)&(df.impact_drought==1),'pcwgt'].sum()/df.loc[(df.income_ganyu>0),'pcwgt'].sum())
@@ -409,10 +414,10 @@ def load_survey_data(myC):
 
         #print(df.loc[(df.impact_drought==1)&(df.income_ag_net>0),'pcwgt'].sum()/df.loc[(df.income_ag_net>0),'pcwgt'].sum())
         #print(df.loc[(df.impact_drought==1)&(df.income_ag_net==0),'pcwgt'].sum()/df.loc[(df.income_ag_net==0),'pcwgt'].sum())
-        
-        print('Setting c to pcinc') 
+
+        print('Setting c to pcinc')
         df['c'] = df['pcinc'].copy()
-        
+
         df = df.reset_index().set_index('district').drop([_i for _i in ['index'] if _i in df.columns])
 
     elif myC == 'PH':
@@ -437,7 +442,7 @@ def load_survey_data(myC):
         df['hhinc'] = df[['pcinc','hhsize']].prod(axis=1)
 
         # These lines use disbursements as proxy for income
-        #df = df.rename(columns={'totdis':'hhinc'}) 
+        #df = df.rename(columns={'totdis':'hhinc'})
         #df['pcinc'] = df['hhinc']/df['hhsize']
 
         df['aeinc']   = df['pcinc'].copy()
@@ -447,7 +452,7 @@ def load_survey_data(myC):
         df['tot_savings'] = df[['savings','invest']].sum(axis=1,skipna=False)
         df['savings'] = df['savings'].fillna(-1)
         df['invest'] = df['invest'].fillna(-1)
-        
+
         df['axfin']  = 0
         df.loc[(df.savings>0)|(df.invest>0),'axfin'] = 1
 
@@ -469,10 +474,10 @@ def load_survey_data(myC):
         plt.xlim(0,60000)
         plt.ylim(0,60000)
         ax.plot()
-        plt.gcf().savefig('../output_plots/PH/hh_est_savings_scatter.pdf',format='pdf')      
-        
+        plt.gcf().savefig('../output_plots/PH/hh_est_savings_scatter.pdf',format='pdf')
+
         print(str(round(100*df[['axfin','hhwgt']].prod(axis=1).sum()/df['hhwgt'].sum(),2))+'% of hh report expenses on savings or investments\n')
-    
+
         # Run savings script
         df['country'] = 'PH'
         listofquintiles=np.arange(0.10, 1.01, 0.10)
@@ -481,7 +486,7 @@ def load_survey_data(myC):
         df = df.reset_index().groupby('w_regn',sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.pcinc),reshape_data(x.pcwgt),listofquintiles),
                                                                                            'decile_reg',sort_val='pcinc')).drop(['index'],axis=1)
         df = df.reset_index().set_index(['w_regn','decile_nat','decile_reg']).drop('index',axis=1)
-        
+
         df['precautionary_savings'] = df['pcinc']-df['pcexp']
 
         # Savings rate by national decile
@@ -529,11 +534,11 @@ def load_survey_data(myC):
             _.plot.scatter('income','expenditures')
             plt.gcf().savefig('../output_plots/PH/income_vs_exp_by_decile_PH.pdf',format='pdf')
             plt.cla()
-            
+
             _.plot.scatter('income','precautionary_savings')
             plt.gcf().savefig('../output_plots/PH/net_income_vs_exp_by_decile_PH.pdf',format='pdf')
             plt.cla()
-            
+
             df.boxplot(column='aprecautionary_savings',by='decile')
             plt.ylim(-1E5,1E5)
             plt.gcf().savefig('../output_plots/PH/net_income_by_exp_decile_boxplot_PH.pdf',format='pdf')
@@ -549,11 +554,11 @@ def load_survey_data(myC):
                                     'precautionary_savings','index','level_0','cash_domestic'] if _c in df.columns],axis=1)
 
     elif myC == 'FJ':
-        
+
         # This is an egregious hack, but deadlines are real
         # 4.632E9 = GDP in USD (2016, WDI)
         # 0.48 = conversion to FJD
-        # --> inc_sf is used to scale PCRAFI/AIR losses to hh assets, 
+        # --> inc_sf is used to scale PCRAFI/AIR losses to hh assets,
         # ----> because hh-based estimate of assets in country is VERY different (factor of 4 for some asset types) from PCRAFI estimate
         inc_sf = (4.632E9/0.48)
 
@@ -591,7 +596,7 @@ def load_survey_data(myC):
         df['aeinc'] = df['hhinc']/df['hhsize_ae']
 
         df['pcsoc']    = df['hhsoc']/df['hhsize']
-            
+
         df_housing = pd.read_excel(inputs+'HIES 2013-14 Housing Data.xlsx',sheet_name='Sheet1').set_index('HHID').dropna(how='all')[['Constructionofouterwalls',
                                                                                                                                     'Conditionofouterwalls',
                                                                                                                                      'Radio','TV','TelephoneLines','Mobilephones',
@@ -624,7 +629,7 @@ def load_survey_data(myC):
         # SP_FAP = FamilyAssistanceProgrampaymentfromSocialWelfare
         df.loc[df.SP_FAP != 0,'SP_FAP'] = True
         df.loc[df.SP_FAP == 0,'SP_FAP'] = False
-    
+
         # SP_PBS = PovertyBenefitsScheme
         df['SP_PBS'] = False
         df.sort_values(by='pcinc',ascending=True,inplace=True)
@@ -662,7 +667,7 @@ def load_survey_data(myC):
         df['SPP_add']  = False
         df.sort_values(by='aeinc',ascending=True,inplace=True)
 
-        # BELOW: these lines assume we're counting AE 
+        # BELOW: these lines assume we're counting AE
         # admission: this is before I learned about cumsum -- it was a very late night in Sydney office.
         # it's really stupid, but it works and I don't have time to fix now
         hhno,hhsum = 0,0
@@ -677,22 +682,22 @@ def load_survey_data(myC):
         df.iloc[hhno:hhno_add].SPP_add = True
 
         df = df.rename(columns={'HHID':'hhid'})
-        print('Setting c to pcinc') 
+        print('Setting c to pcinc')
         df['c'] = df['pcinc'].copy()
-        
+
 
     elif myC == 'SL':
-            
+
         # This file has household weights
         #df = pd.read_csv(inputs+'/HIES2016/weight2016.csv')
         df = pd.read_csv(inputs+'/HIES2016/df_hhwgt_and_hhsize.csv')
         df['hhid'] = df['District'].astype('str')+df['Sector'].astype('str')+df['Psu'].astype('str')+df['Snumber'].astype('str')+df['Hhno'].astype('str')
-           
+
         dist_names = pd.read_excel(inputs+'Admin_level_3__Districts.xls')[['DISTRICT_C','DISTRICT_N']].set_index('DISTRICT_C').to_dict()['DISTRICT_N']
         df['dist_name'] = [dist_names[_dn] for _dn in df['District'].values]
- 
+
         df = df.reset_index().set_index(['District','hhid']).drop(['index','Psu','Snumber','Hhno'],axis=1)
-        
+
 
         #########################
         # Add expenditures info:
@@ -705,7 +710,7 @@ def load_survey_data(myC):
         hh_food['total_value'] = df_food['Value'].sum(level=['District','hhid'])
         #
         df['c_food'] = hh_food['total_value'].copy()*52.
-        
+
         # Non-Food:
         df_nonfood = pd.read_csv(inputs+'/HIES2016/sec_4_2_non_food_consumption_and_expenditure.csv').fillna(0)
         df_nonfood['hhid'] = (df_nonfood['District'].astype('str')+df_nonfood['Sector'].astype('str')
@@ -727,15 +732,15 @@ def load_survey_data(myC):
         df_nonfood.loc[(df_nonfood['Nf_Code']>=3000)&(df_nonfood['Nf_Code']<3300),'frequency'] = 2.  # Clothing & textiles, footwear, & durables (last 6 months)
         df_nonfood.loc[(df_nonfood['Nf_Code']>=3300)&(df_nonfood['Nf_Code']<3400),'frequency'] = 1.  # Durables (last year)
         df_nonfood.loc[(df_nonfood['Nf_Code']>=3400)&(df_nonfood['Nf_Code']<3500),'frequency'] = 12. # Other expenses (last month)
-        df_nonfood.loc[(df_nonfood['Nf_Code']>=3500)&(df_nonfood['Nf_Code']<3600),'frequency'] = 1.  # annually            
+        df_nonfood.loc[(df_nonfood['Nf_Code']>=3500)&(df_nonfood['Nf_Code']<3600),'frequency'] = 1.  # annually
         print('\n\n',df_nonfood.loc[df_nonfood.frequency==0].shape[0],' item(s) in hh survey not counted:\n',df_nonfood.loc[df_nonfood.frequency==0],'\n\n')
-        # 
+        #
         hh_nonfood = pd.DataFrame(index=df_nonfood.sum(level=['District','hhid']).index.copy())
         hh_nonfood['total_value'] = df_nonfood.eval('(Nf_Value)*frequency').sum(level=['District','hhid'])
         #
         df['c_nonfood'] = hh_nonfood['total_value'].copy()
         #
-        
+
         # Servants!
         df_servants = pd.read_csv(inputs+'/HIES2016/sec_4_3_boarders.csv').fillna(0)
         df_servants['hhid'] = (df_servants['District'].astype('str')+df_servants['Sector'].astype('str')
@@ -747,7 +752,7 @@ def load_survey_data(myC):
         #
         df['c_boarders'] = hh_servants['total_value'].copy()
         df = df.fillna(0)
-        
+
         #####################################
         # Sum these streams
         df['hhinc'] = df.eval('c_food+c_nonfood')
@@ -756,8 +761,8 @@ def load_survey_data(myC):
         df['pcwgt'] = df.eval('hhwgt*hhsize')
         df['aewgt'] = df['pcwgt'].copy()
         df['hhsize_ae'] = df['hhsize'].copy()
-        #####################################            
-                        
+        #####################################
+
         # Get hhsoc
         df_social = pd.read_csv(inputs+'/HIES2016/sec_5_5_1_other_income.csv').fillna(0)
         df_social['hhid'] = (df_social['District'].astype('str')+df_social['Sector'].astype('str')
@@ -768,7 +773,7 @@ def load_survey_data(myC):
         df_social['hhremittance'] = df_social.eval('Income_Forign+Income_Local')
         df_social['hhsamurdhi'] = df_social.eval('12.*Samurdhi')
         df_social['frac_remittance'] = df_social.eval('hhremittance/hhsoc')
-        
+
         df['hhsoc'] = 0; df['frac_remittance'] = 0
         df['hhsoc'].update(df_social['hhsoc'])
         df['frac_remittance'].update(df_social['frac_remittance'])
@@ -777,7 +782,7 @@ def load_survey_data(myC):
         #df['hhremittance'] = df['hhremittance'].clip(upper=df['hhinc'])
         # ^ By construction, can't be above 1
         df['pcsoc'] = df.eval('hhsoc/hhsize')
-        
+
         df['hhsamurdhi'] = 0
         df['hhsamurdhi'].update(df_social['hhsamurdhi'])
         df['pcsamurdhi'] = df.eval('hhsamurdhi/hhsize')
@@ -785,29 +790,29 @@ def load_survey_data(myC):
         df = df.drop('hhsamurdhi',axis=1)
 
         # Get early warning info
-        df_ew = pd.read_csv(inputs+'/HIES2016/sec_6a_durable_goods.csv').fillna(0)  
+        df_ew = pd.read_csv(inputs+'/HIES2016/sec_6a_durable_goods.csv').fillna(0)
         df_ew['hhid'] = (df_ew['District'].astype('str')+df_ew['Sector'].astype('str')
                          +df_ew['Psu'].astype('str')+df_ew['Snumber'].astype('str')+df_ew['Hhno'].astype('str'))
-        df_ew = df_ew.reset_index().set_index(['District','hhid']).sort_index().drop(['index','Sector','Month','Psu','Snumber','Hhno','Nhh','Result'],axis=1)    
-        
+        df_ew = df_ew.reset_index().set_index(['District','hhid']).sort_index().drop(['index','Sector','Month','Psu','Snumber','Hhno','Nhh','Result'],axis=1)
+
         df_ew['has_ew'] = 0
         df_ew.loc[df_ew.eval('(Radio==1)|(Tv==1)|(Telephone==1)|(Telephone_Mobile==1)|(Computers==1)'),'has_ew'] = 1
         df['has_ew'] = df_ew['has_ew'].copy()
-        
+
         # Set flag for whether household is poor
         sl_pov_by_dist = get_poverty_line('SL',by_district=True).reset_index()
         sl_pov_by_dist.columns = ['dist_name','pov_line']
-        
+
         df = pd.merge(df.reset_index(),sl_pov_by_dist.reset_index(),on='dist_name').reset_index().set_index(['District','hhid']).drop(['index','level_0'],axis=1)
         assert(df['pov_line'].dropna().shape[0] == df['pov_line'].shape[0]) # <-- check that all districts have a poverty line
-        
+
         df['ispoor'] = False
         df.loc[df['pcinc']<df['pov_line'],'ispoor'] = True
-        
+
         print('Poverty rate:\n',100.*df.loc[df.ispoor==True,'pcwgt'].sum()/df['pcwgt'].sum())
         # ADB stat: In Sri Lanka, 4.1% of the population lives below the national poverty line in 2016.
         # https://www.adb.org/countries/sri-lanka/poverty
-        
+
         # Get housing construction & materials info
         df_housing = pd.read_csv(inputs+'/HIES2016/sec_8_housing.csv').fillna(0)
         df_housing['hhid'] = (df_housing['District'].astype('str')+df_housing['Sector'].astype('str')
@@ -815,11 +820,11 @@ def load_survey_data(myC):
         df_housing = df_housing.reset_index().set_index(['District','hhid']).sort_index().drop(['index','Sector','Month','Psu',
                                                                                                 'Snumber','Hhno','Nhh','Result'],axis=1)[['Walls','Floor','Roof']]
         df_housing = df_housing.rename(columns={_c:_c.lower() for _c in df_housing.columns})
-        
+
         df[['walls','floor','roof']] = df_housing[['walls','floor','roof']].copy()
-        
+
         df['c'] = df['pcinc'].copy()
-        df = df.reset_index().rename(columns={'District':'district'}).set_index(['district','hhid']).drop(['c_food','c_nonfood','c_boarders'],axis=1)  
+        df = df.reset_index().rename(columns={'District':'district'}).set_index(['district','hhid']).drop(['c_food','c_nonfood','c_boarders'],axis=1)
 
     # Assing weighted household consumption to quintiles within each province
     print('Finding quintiles')
@@ -864,13 +869,13 @@ def get_vul_curve(myC,struct):
         df = pd.read_excel(inputs+'vulnerability_curves_MW.xlsx',sheet_name=struct)[['desc','v']]
 
     return df
-    
+
 def get_infra_stocks_data(myC):
     if myC == 'FJ':
         infra_stocks = pd.read_csv(inputs+'infra_stocks.csv',index_col='sector')
         return infra_stocks
     else:return None
-    
+
 def get_wb_or_penn_data(myC):
     #iso2 to iso3 table
     names_to_iso2 = pd.read_csv(inputs+'names_to_iso.csv')[['iso2','country']].drop_duplicates().set_index('country').squeeze()
@@ -884,10 +889,10 @@ def get_wb_or_penn_data(myC):
 
     wb['iso2'] = names_to_iso2
     return wb.set_index('iso2').loc[myC,['Ktot','GDP','avg_prod_k']]
-    
+
 def get_rp_dict(myC):
     return pd.read_csv(inputs+"rp_dict.csv").set_index("old_rp").new_rp
-    
+
 def get_infra_destroyed(myC,df_haz):
 
     #print(get_infra_stocks_data(myC))
@@ -896,11 +901,11 @@ def get_infra_destroyed(myC,df_haz):
     infra_stocks['infra_share'] = infra_stocks.value_k/infra_stocks.value_k.sum()
 
     print(infra_stocks)
-   
+
     hazard_ratios_infra = broadcast_simple(df_haz[['frac_inf','frac_destroyed_inf']],infra_stocks.index)
     hazard_ratios_infra = pd.merge(hazard_ratios_infra.reset_index(),infra_stocks.infra_share.reset_index(),on='sector',how='outer').set_index(['Division','hazard','rp','sector'])
     hazard_ratios_infra['share'] = hazard_ratios_infra['infra_share']*hazard_ratios_infra['frac_inf']
-        
+
     transport_losses = pd.read_csv(inputs+"frac_destroyed_transport.csv").rename(columns={"ti_name":"Tikina"})
     transport_losses['Division'] = (transport_losses['tid']/100).astype('int')
     prov_code,_ = get_places_dict(myC)
@@ -913,13 +918,13 @@ def get_infra_destroyed(myC,df_haz):
     transport_losses = pd.merge(transport_losses.reset_index(),hazard_ratios_infra.frac_destroyed_inf.unstack('sector')['transport'].to_frame(name="frac_destroyed_inf").reset_index(),on=['Division','hazard','rp'],how='outer')
     transport_losses['frac_destroyed'] = transport_losses.frac_destroyed.fillna(transport_losses.frac_destroyed_inf)
     transport_losses = transport_losses.set_index(['Division','hazard','rp'])
-    
+
     hazard_ratios_infra = hazard_ratios_infra.reset_index('sector')
     hazard_ratios_infra.ix[hazard_ratios_infra.sector=='transport','frac_destroyed_inf'] = transport_losses["frac_destroyed"]
     hazard_ratios_infra = hazard_ratios_infra.reset_index().set_index(['Division','hazard','rp','sector'])
 
     return hazard_ratios_infra.rename(columns={'frac_destroyed_inf':'frac_destroyed'})
-    
+
 def get_service_loss(myC):
     if myC == 'FJ':
         service_loss = pd.read_csv(inputs+'service_loss.csv').set_index(['hazard','rp'])[['transport','energy','water']]
@@ -933,21 +938,21 @@ def get_service_loss(myC):
 
 def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
 
-    if myC == 'PH': 
+    if myC == 'PH':
         df_prv = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population_with_EP1.xlsx','Loss_Results','Private',agg_or_occ).reset_index()
         df_pub = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population_with_EP1.xlsx','Loss_Results','Public',agg_or_occ).reset_index()
 
         df_prv.columns = ['province','hazard','rp','value_destroyed_prv']
         df_pub.columns = ['province','hazard','rp','value_destroyed_pub']
-        
+
         df_prv = df_prv.reset_index().set_index(['province','hazard','rp'])
         df_pub = df_pub.reset_index().set_index(['province','hazard','rp'])
 
         df_prv['value_destroyed_pub'] = df_pub['value_destroyed_pub']
         df_prv['hh_share'] = df_prv['value_destroyed_prv']/(df_prv['value_destroyed_pub']+df_prv['value_destroyed_prv'])
-                
+
         df_prv = df_prv.reset_index().drop('index',axis=1).fillna(0)
-        
+
         return df_prv,df_prv
 
     elif myC == 'MW':
@@ -963,7 +968,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         df_haz = df_haz.drop('AAL').stack().to_frame()
         df_haz.index.names = ['rp','hazard']
         df_haz.columns = ['PML']
-        
+
         # For all hazards except drought, frac_destroyed = PML/total_assets
         df_haz['frac_destroyed'] = df_haz['PML']/tot_exposure
         # For drought, frac_destroyed = PML/gross_production_maize
@@ -972,13 +977,13 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         df_haz = df_haz.reset_index().set_index(['hazard','rp']).sort_index()
 
         df_haz['hh_share'] = 1.0
-        
+
         # Need to broadcast to district
         df_geo = get_places('MW','district')
 
         df_geo['country'] = 'MW'
         df_haz['country'] = 'MW'
-        
+
         rms_haz = pd.read_excel(inputs+'masdap/malawi_exposure.xls',sheet_name='malawi_exposure').rename(columns={'Dist_Name':'district','POP':'rms_pop'}).drop(['FID','the_geom'],axis=1)
         rms_haz['district'].replace(pd.read_csv(inputs+'MW_code_region_district.csv')[['code','district']].astype('str').set_index('code').to_dict()['district'],inplace=True)
         rms_haz = rms_haz.reset_index().set_index('district').sort_index().drop('index',axis=1)
@@ -992,7 +997,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
 
         rms_haz = rms_haz.reset_index()
         _init_haz = rms_haz.copy()
-        
+
         # stack affected_population first
         rms_haz = rms_haz.set_index([_c for _c in rms_haz.columns if 'APOP_RP' not in _c])
         rms_haz = rms_haz.stack()
@@ -1007,7 +1012,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
             _ = _init_haz.copy()
             rms_haz = rms_haz.drop([_c for _c in _.columns if exp_data[0] in _c],axis=1)
 
-            _ = _.set_index([_c for _c in _.columns if exp_data[0] not in _c])        
+            _ = _.set_index([_c for _c in _.columns if exp_data[0] not in _c])
             _.columns = [_c.replace(exp_data[0],'') for _c in _.columns]
             _.columns.name = 'rp'
             _ = _.stack().reset_index().set_index(['district','rp'])
@@ -1041,11 +1046,11 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         df_haz.loc[df_haz.hazard=='FF','ff_frac_aff'] = rms_haz_dist['fa']/rms_fa_national
         # Special hack for cities
         df_haz = df_haz.reset_index()
-        
+
         for _city in [['Blantyre City','Blantyre'],
                       ['Lilongwe City','Lilongwe'],
                       ['Mzuzu City','Mzimba'],
-                      ['Zomba City','Zomba']]:          
+                      ['Zomba City','Zomba']]:
             _s = '(district=="'+_city[0]+'")&(hazard=="FF")'
             df_haz.loc[df_haz.eval(_s),'ff_frac_aff'] = df_haz.loc[df_haz.eval(_s),'ff_frac_aff'].fillna(df_haz.loc[df_haz.eval(_s.replace(_city[0],_city[1])),'ff_frac_aff'].mean())
 
@@ -1053,10 +1058,10 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         df_haz['frac_destroyed'] = df_haz[['frac_destroyed','ff_frac_aff']].prod(axis=1)
 
         df_haz.to_csv('~/Desktop/tmp/df_haz.csv')
-        df_haz = df_haz.drop(['country','population','PML','ff_frac_aff'],axis=1) 
+        df_haz = df_haz.drop(['country','population','PML','ff_frac_aff'],axis=1)
 
         return df_haz, df_haz
-        
+
     elif myC == 'FJ':
 
         df_all_ah = pd.read_csv(inputs+'map_tikinas.csv').set_index('Tikina').drop('Country_ID',axis=1)
@@ -1071,10 +1076,10 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         df_bld_oth_tc['hazard'] = 'TC'
         df_bld_oth_et['hazard'] = 'EQTS'
         df_bld_oth = pd.concat([df_bld_oth_tc,df_bld_oth_et])
-        
+
         df_bld_oth['asset_class'] = 'bld_oth'
         df_bld_oth['asset_subclass'] = 'oth'
-        df_bld_oth = df_bld_oth.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass'])  
+        df_bld_oth = df_bld_oth.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass'])
 
         # load residential building values
         df_bld_res_tc =   pd.read_csv(inputs+'fiji_tc_buildings_res_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
@@ -1085,18 +1090,18 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
 
         df_bld_res['asset_class'] = 'bld_res'
         df_bld_res['asset_subclass'] = 'res'
-        df_bld_res = df_bld_res.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass'])  
+        df_bld_res = df_bld_res.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass'])
 
         # Get PCRAFI estimate of total building stock
         df_bld_oth_EV = df_bld_oth['Exp_Value'].sum(level=['hazard']).mean()
         df_bld_res_EV = df_bld_res['Exp_Value'].sum(level=['hazard']).mean()
-      
+
         # Stack RPs in building exposure files
         df_bld_oth.columns.name = 'rp'
         df_bld_res.columns.name = 'rp'
         df_bld_oth = df_bld_oth.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value']).stack().to_frame(name='losses')
         df_bld_res = df_bld_res.reset_index().set_index(['Tikina','Tikina_ID','hazard','asset_class','asset_subclass','Exp_Value']).stack().to_frame(name='losses')
-                
+
         df_bld_oth = df_bld_oth.reset_index().set_index(['Tikina','Tikina_ID','hazard','rp'])
         df_bld_res = df_bld_res.reset_index().set_index(['Tikina','Tikina_ID','hazard','rp'])
 
@@ -1115,7 +1120,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         # load infrastructure values
         df_inf_tc =   pd.read_csv(inputs+'fiji_tc_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
         df_inf_et = pd.read_csv(inputs+'fiji_eqts_infrastructure_tikina.csv').set_index('Tikina').drop('Country_ID',axis=1)
-        
+
         ##### corrects the infrastructure values
         if True:
         #just put False here if the new infrastructure values mess up the results
@@ -1127,11 +1132,11 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
             df_inf_et["Total"] = df_inf_et.Total.fillna(df_inf_et.Exp_Value)
             df_inf_tc["Total"] = df_inf_tc.Total.fillna(df_inf_tc.Exp_Value)
             df_inf_et['Exp_Value'] = df_inf_et.Total
-            df_inf_tc['Exp_Value'] = df_inf_tc.Total     
+            df_inf_tc['Exp_Value'] = df_inf_tc.Total
             df_inf_et = df_inf_et.drop(["Total"],axis=1).set_index("Tikina")
-            df_inf_tc = df_inf_tc.drop(["Total"],axis=1).set_index("Tikina")        
-        
-        df_inf_tc['hazard'] = 'TC'        
+            df_inf_tc = df_inf_tc.drop(["Total"],axis=1).set_index("Tikina")
+
+        df_inf_tc['hazard'] = 'TC'
         df_inf_et['hazard'] = 'EQTS'
         df_inf = pd.concat([df_inf_tc,df_inf_et])
 
@@ -1155,7 +1160,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         df_agr_tc['hazard'] = 'TC'
         df_agr_et['hazard'] = 'EQTS'
         df_agr = pd.concat([df_agr_tc,df_agr_et])
- 
+
         df_agr['asset_class'] = 'agr'
         df_agr['asset_subclass'] = 'all'
 
@@ -1171,14 +1176,14 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         df = pd.concat([df_bld,df_inf,df_agr])
         #df = df.loc[df.rp != 'AAL']
 
-        df = df.reset_index().set_index(['Tikina','Tikina_ID','asset_class','asset_subclass','Exp_Value','hazard','rp'])    
+        df = df.reset_index().set_index(['Tikina','Tikina_ID','asset_class','asset_subclass','Exp_Value','hazard','rp'])
         #df.to_csv('~/Desktop/my_csv.csv')
         df = df.unstack()
 
         df = df.rename(columns={'exceed_2':2475,'exceed_5':975,'exceed_10':475,
                                 'exceed_20':224,'exceed_40':100,'exceed_50':72,
                                 'exceed_65':50,'exceed_90':22,'exceed_99':10,'AAL':1})
-        
+
         df.columns.name = 'rp'
         df = df.stack()
 
@@ -1191,12 +1196,12 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         prov_code,_ = get_places_dict(myC)
         df = df.reset_index().set_index([df.Division.replace(prov_code)]).drop(['index','Division','Tikina_ID','asset_subclass'],axis=1) #replace district code with its name
         df_tikina = df.copy()
-        
+
         df = df.reset_index().set_index(['Division','Tikina','hazard','rp','asset_class'])
 
         df_sum = ((df['value_destroyed'].sum(level=['Division','hazard','rp']))/(df['Exp_Value'].sum(level=['Division','hazard','rp']))).to_frame(name='frac_destroyed')
         # ^ Taking fa from all asset classes
-        
+
         df = df.sum(level=['Division','hazard','rp','asset_class'])
         df = df.reset_index().set_index(['Division','hazard','rp'])
 
@@ -1217,13 +1222,13 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         df_sum['frac_destroyed_bld_oth'] = df.loc[df.asset_class == 'bld_oth','value_destroyed']/df.loc[df.asset_class == 'bld_oth','Exp_Value']
         df_sum['frac_destroyed_bld_res'] = df.loc[df.asset_class == 'bld_res','value_destroyed']/df.loc[df.asset_class == 'bld_res','Exp_Value']
         df_sum['frac_destroyed_agr']     = df.loc[df.asset_class == 'agr','value_destroyed']/df.loc[df.asset_class == 'agr','Exp_Value']
-        
+
         #################
         #adds SSBN floods
         if True:
             df_floods = pd.read_csv(inputs+"flood_fa.csv").rename(columns={"tid":"Tikina_ID","LS2012_pop":"Exp_Value"})
             df_floods['Division'] = (df_floods['Tikina_ID']/100).astype('int').replace(prov_code)
-            
+
             product = [df_sum.reset_index().Division.unique(),df_floods.reset_index().hazard.unique(),df_floods.reset_index().rp.unique()]
             idx = pd.MultiIndex.from_product(product, names=['Division', 'hazard','rp'])
             df_floods_sum = pd.DataFrame(index=idx)
@@ -1231,17 +1236,17 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
             df_floods_sum["frac_destroyed"] = (df_floods.set_index(['Division','hazard','rp'])[["frac_destroyed","Exp_Value"]].prod(axis=1).sum(level=['Division','hazard','rp'])/df_floods.set_index(['Division','hazard','rp'])["Exp_Value"].sum(level=['Division','hazard','rp']))
             df_floods_sum["frac_destroyed_inf"] = df_floods_sum["frac_destroyed"]
             df_floods_sum["frac_inf"] = broadcast_simple(df_sum.frac_inf.mean(level="Division"),df_floods_sum.index)
-            
+
             df_sum = df_sum.append(df_floods_sum.fillna(0)) #the floods are appended in df_sum but only the frac_destroyed and frac_inf columns will have numbers
-        
+
         print('\n')
         print('--> Total BLD =',round(df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp']).mean()/1.E6,1),'M USD (',
               round((100.*df.loc[(df.asset_class == 'bld_oth')|(df.asset_class == 'bld_res'),'Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%)')
         print('--> Total INF =',round(df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp']).mean()/1.E6,1),'M USD (',
               round((100.*df.loc[df.asset_class == 'inf','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%)')
-        print('--> Total AG =',round(df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp']).mean()/1.E6,1),'M USD (', 
+        print('--> Total AG =',round(df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp']).mean()/1.E6,1),'M USD (',
               round((100.*df.loc[df.asset_class == 'agr','Exp_Value'].sum(level=['hazard','rp'])/df['Exp_Value'].sum(level=['hazard','rp'])).mean(),1),'%)\n')
-        
+
         df_sum['Exp_Value'] *= (1.0/0.48) # AIR-PCRAFI in USD(2009?) --> switch to FJD
 
         df_sum = df_sum.reset_index().set_index(['Division'])
@@ -1263,7 +1268,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         path = os.getcwd()+'/../inputs/SL/data_hunting/suranga/Landslide/*.xls'
         landslide_df = None
         for f in glob.glob(path):
-            
+
             new_reg = pd.read_excel(f).set_index(['District','Division'])
             new_reg = new_reg.rename(columns={' Houses Damaged':'Houses Damaged',
                                               ' Houses Destroyed':'Houses Destroyed',
@@ -1289,7 +1294,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
 
 def get_poverty_line(myC,by_district=True,sec=None):
     pov_line = 0.0
-    
+
     if myC == 'PH': pov_line = 22302.6775#21240.2924
 
     elif myC == 'FJ':
@@ -1300,9 +1305,9 @@ def get_poverty_line(myC,by_district=True,sec=None):
             pov_line = 55.12*52.
         elif (sec.lower() == 'rural' or sec.lower() == 'r'):
             povline = 49.50*52.
-        else: 
+        else:
             print('Pov line is variable for urb/rur Fijians! Need to specify which you\'re looking for!')
-            pov_line = 0.0    
+            pov_line = 0.0
 
     elif myC == 'SL':
         pov_line = (pd.read_excel('../inputs/SL/poverty_def_by_district.xlsx').T['2017 Aug Rs.']*12).to_frame()
@@ -1312,13 +1317,13 @@ def get_poverty_line(myC,by_district=True,sec=None):
         # apply PPP to estimate 2016 value...
         pov_line *= 11445.5/11669.1
 
-    elif myC == 'MW': 
+    elif myC == 'MW':
         pov_line = 137427.98
 
     return pov_line
 
 def get_subsistence_line(myC):
-    
+
     if myC == 'PH': sub_line = 14832.0962*(22302.6775/21240.2924)
     elif myC == 'SL':
 
@@ -1343,7 +1348,7 @@ def get_to_USD(myC):
     else: return 0.
 
 def get_pop_scale_fac(myC):
-    
+
     if myC == 'PH': return [1.E3,' [Thousands]']
     elif myC == 'FJ': return [1.E3,' [Thousands]']
     elif myC == 'MW': return [1.E3,' [Thousands]']
@@ -1351,7 +1356,7 @@ def get_pop_scale_fac(myC):
     else: return [1,'']
 
 def get_avg_prod(myC):
-    
+
     if myC == 'PH': return 0.273657188280276#0.3379608025890020
     elif myC == 'FJ': return 0.336139019412
     elif myC == 'SL': return 0.337960802589002
@@ -1359,7 +1364,7 @@ def get_avg_prod(myC):
     assert(False)
 
 def get_demonym(myC):
-    
+
     if myC == 'PH': return 'Filipinos'
     elif myC == 'FJ': return 'Fijians'
     elif myC == 'SL': return 'Sri Lankans'
@@ -1376,7 +1381,7 @@ def scale_hh_income_to_match_GDP(df_o,new_total,flat=False):
         df['hhinc']*=(new_total/tot_inc)
         df['pov_line']*=(new_total/tot_inc)
         return df['hhinc'], df['pov_line']
-    
+
     #[['hhinc','hhwgt','AE','Sector']]
     tot_inc_urb = df.loc[df.Sector=='Urban',['hhinc','hhwgt']].prod(axis=1).sum()
     tot_inc_rur = df.loc[df.Sector=='Rural',['hhinc','hhwgt']].prod(axis=1).sum()
@@ -1384,7 +1389,7 @@ def scale_hh_income_to_match_GDP(df_o,new_total,flat=False):
     nAE = df[['AE','hhwgt']].prod(axis=1).sum()
     nAE_urb = df.loc[df.Sector=='Urban',['AE','hhwgt']].prod(axis=1).sum()
     nAE_rur = df.loc[df.Sector=='Rural',['AE','hhwgt']].prod(axis=1).sum()
-    
+
     f_inc_urb = tot_inc_urb/tot_inc
     f_inc_rur = tot_inc_rur/tot_inc
 
@@ -1393,9 +1398,9 @@ def scale_hh_income_to_match_GDP(df_o,new_total,flat=False):
 
     print('New inc urb',new_inc_urb)
     print('New inc rur',new_inc_rur)
-    
+
     #ep_urb = 0.295#(np.log(new_inc_urb/nAE_urb)-np.log(tot_inc_urb/nAE_urb))/(np.log(tot_inc_urb/nAE_urb)-np.log(55.12*52))-1
-    #ep_rur = 0.295#(np.log(new_inc_rur/nAE_rur)-np.log(tot_inc_rur/nAE_rur))/(np.log(tot_inc_rur/nAE_rur)-np.log(49.50*52))-1  
+    #ep_rur = 0.295#(np.log(new_inc_rur/nAE_rur)-np.log(tot_inc_rur/nAE_rur))/(np.log(tot_inc_rur/nAE_rur)-np.log(49.50*52))-1
 
     ep_urb = 0.30
     ep_rur = 0.30
@@ -1410,7 +1415,7 @@ def scale_hh_income_to_match_GDP(df_o,new_total,flat=False):
     df.loc[(df.Sector=='Rural')&(df.AEinc>1.5*df.pov_line),'new_AEinc'] = (49.50*52)*(df.loc[df.Sector=='Rural','AEinc']/(49.50*52))**(1+ep_rur)
 
     df['ratio'] = df['new_AEinc']/df['AEinc']
-    
+
     #print(df[['AEinc','new_AEinc','ratio']])
 
     print('Old sum:',df[['hhwgt','AE','AEinc']].prod(axis=1).sum())
@@ -1427,7 +1432,7 @@ def scale_hh_income_to_match_GDP(df_o,new_total,flat=False):
     ax.bar(ci_bins[:-1], cf_heights, width=(ci_bins[1]-ci_bins[0]), label='Post-shift', facecolor=q_colors[1],alpha=0.4)
 
     print('in pov before shift:',df.loc[(df.AEinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1).sum())
-    print('in pov after shift:',df.loc[(df.new_AEinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1).sum())    
+    print('in pov after shift:',df.loc[(df.new_AEinc <= df.pov_line),['hhwgt','hhsize']].prod(axis=1).sum())
 
     fig = ax.get_figure()
     plt.xlabel(r'Income [FJD yr$^{-1}$]')
@@ -1441,19 +1446,18 @@ def get_all_hazards(myC,df):
     temp = (df.reset_index().set_index(['hazard'])).copy()
     temp = temp[~temp.index.duplicated(keep='first')]
     return [i for i in temp.index.values]
-        
+
 def get_all_rps(myC,df):
     temp = (df.reset_index().set_index(['rp'])).copy()
     temp = temp[~temp.index.duplicated(keep='first')]
     return [int(i) for i in temp.index.values]
-        
+
 def int_w_commas(in_int):
     in_str = str(in_int)
     in_list = list(in_str)
     out_str = ''
 
     if in_int < 1E3:  return in_str
-    if in_int < 1E6:  return in_str[:-3]+','+in_str[-3:] 
-    if in_int < 1E9:  return in_str[:-6]+','+in_str[-6:-3]+','+in_str[-3:] 
-    if in_int < 1E12: return in_str[:-9]+','+in_str[-9:-6]+','+in_str[-6:-3]+','+in_str[-3:] 
-    
+    if in_int < 1E6:  return in_str[:-3]+','+in_str[-3:]
+    if in_int < 1E9:  return in_str[:-6]+','+in_str[-6:-3]+','+in_str[-3:]
+    if in_int < 1E12: return in_str[:-9]+','+in_str[-9:-6]+','+in_str[-6:-3]+','+in_str[-3:]
