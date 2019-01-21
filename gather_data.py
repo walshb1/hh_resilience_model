@@ -1,4 +1,4 @@
-# This script provides data input for the resilience indicator multihazard model for the Philippines, Fiji, Sri Lanka, and (eventually) Malawi. 
+# This script provides data input for the resilience indicator multihazard model for the Philippines, Fiji, Sri Lanka, and (eventually) Malawi.
 # Restructured from the global model and developed by Jinqiang Chen and Brian Walsh
 
 # Compiler/Python interface (Magic)
@@ -56,7 +56,7 @@ event_level = [economy, 'hazard', 'rp']
 
 #Country dictionaries
 # df = state/province names
-df = get_places(myCountry,economy)
+df = get_places(myCountry)
 prov_code,region_code = get_places_dict(myCountry)
 
 ###Define parameters

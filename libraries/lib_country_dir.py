@@ -27,11 +27,24 @@ nominal_asset_loss_covered_by_PDS = 0.80 # also, elsewhere, called 'shareable'
 
 # Define directories
 def set_directories(myCountry):  # get current directory
+    """Sets global directories for all functions in the library, so set_directories
+    needs to be run before other functions here
+
+    Parameters
+    ----------
+    myCountry : ISO-2 code for country
+
+    Returns
+    -------
+    str
+        intermediates relative folder path
+    """
     global inputs, intermediate
     inputs        = model+'/../inputs/'+myCountry+'/'       # get inputs data directory
     intermediate  = model+'/../intermediate/'+myCountry+'/' # get outputs data directory
 
     # If the depository directories don't exist, create one:
+
     if not os.path.exists(inputs):
         print('You need to put the country survey files in a directory titled ','/inputs/'+myCountry+'/')
         assert(False)
@@ -41,6 +54,7 @@ def set_directories(myCountry):  # get current directory
     return intermediate
 
 def get_economic_unit(myC):
+    """Dictionary lookup of economic unit from ISO-2 key"""
     d = {'PH':'region',
     'FJ':'Division',
     'SL':'district',
@@ -51,6 +65,7 @@ def get_economic_unit(myC):
         return None
 
 def get_currency(myC):
+    """Dictionary lookup of currency, multiplier, and exchange rate from ISO-2 key"""
     d = {'PH': ['b. PhP',1.E9,1./50.],
     'FJ': ['k. F\$',1.E3,1./2.],
     'SL': ['LKR',1.E9,1./150.],
@@ -61,8 +76,28 @@ def get_currency(myC):
     except KeyError:
         return ['XXX',1.E0]
 
-def get_places(myC,economy):
-    # This df should have just province code/name and population
+def get_places(myC):
+    """Returns a df with economic unit and population.
+
+    Country Notes
+    -------------
+    For SL, in addition to calculating population by district which is
+    sum of psus in household * household weights, this function also saves
+    the household weights, sizes, and # children, religion, ethnicity to a
+    csv for future use.
+
+    Parameters
+    ----------
+    myC : str
+        ISO-2 Country reference
+
+    Returns
+    -------
+    DataFrame
+        economic unit is the index
+        population is the first and only column.
+
+    """
 
     if myC == 'PH':
         df = pd.read_excel(inputs+'population_2015.xlsx',sheet_name='population').set_index('province')
@@ -76,40 +111,44 @@ def get_places(myC,economy):
         return df
 
     if myC == 'SL':
-
+        # Get household weightings: relative # of households that each row is expected to represent
         df_hhwgt = pd.read_csv(inputs+'HIES2016/weight2016.csv')
         df_hhwgt = df_hhwgt.rename(columns={'Finalweight':'hhwgt'})
-
+        # Read in demographic information
         df_hhsize = pd.read_csv(inputs+'HIES2016/sec_1_demographic_information.csv')
-
+        # Calculate household size by counting # of person serial numbers per household
         df_hhsize['hhsize'] = df_hhsize.groupby(['District','Sector','Psu','Snumber','Hhno'])['Person_Serial_No'].transform('count')
 
         # Set flag if HH has children
         df_hhsize['is_child'] = 0
+        # could have also looked at 'age' column
         df_hhsize.loc[(df_hhsize['Birth_Year']>=98)|(df_hhsize['Birth_Year']<18),'is_child'] = 1
-
+        # Merge household weights into hhsize
         df_hhsize = pd.merge(df_hhsize.reset_index(),df_hhwgt.reset_index(),on=['District','Sector','Psu'])
-
+        # Set Unique id
         df_hhsize['hhid'] = (df_hhsize['District'].astype('str')+df_hhsize['Sector'].astype('str')
                              +df_hhsize['Psu'].astype('str')+df_hhsize['Snumber'].astype('str')+df_hhsize['Hhno'].astype('str'))
+        # Set index to things that make up that unique ID but not the unique id itself.
         df_hhsize = df_hhsize.reset_index().set_index(['District','Sector','Psu','Snumber','Hhno']).sort_index()
 
-        # Now get rid of duplicates:
+        # Take one row per household
         df = df_hhsize[['hhsize','hhwgt']].mean(level=['District','Sector','Psu','Snumber','Hhno'])
-        df['N_children'] = df_hhsize['is_child'].sum(level=['District','Sector','Psu','Snumber','Hhno'])
         # count children
-        df['ethnicity'] = df_hhsize.loc[df_hhsize['Person_Serial_No']==1,'Ethnicity']
+        df['N_children'] = df_hhsize['is_child'].sum(level=['District','Sector','Psu','Snumber','Hhno'])
         # label ethnicity (1=sinhala, 2=tamil, 3=indian tamil, 4=moors, 5=malay, 6=burgher, 7=other)
-        df['religion'] = df_hhsize.loc[df_hhsize['Person_Serial_No']==1,'Religion']
+        df['ethnicity'] = df_hhsize.loc[df_hhsize['Person_Serial_No']==1,'Ethnicity']
         # label religion (1=buddhist, 2=hindu, 3=islam, 4=christian, 9=other0
+        df['religion'] = df_hhsize.loc[df_hhsize['Person_Serial_No']==1,'Religion']
 
+        # Save to file; used in get_survey_data, rather than redoing hhsize
         df.to_csv(inputs+'/HIES2016/df_hhwgt_and_hhsize.csv')
-        # this will be used in get_survey_data, rather than redoing hhsize
 
-        df = df.reset_index().rename(columns={'District':'district'}).set_index('district')
+        # Get desired economic unit
+        economy = get_economic_unit('SL')
+        df = df.reset_index().rename(columns={'District':economy}).set_index(economy)
         df['headcount'] = df[['hhsize','hhwgt']].prod(axis=1)
 
-        df = df['headcount'].sum(level='district').to_frame(name='pop')
+        df = df['headcount'].sum(level=economy).to_frame(name='pop')
         # ^ return this
 
         return df
@@ -979,7 +1018,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         df_haz['hh_share'] = 1.0
 
         # Need to broadcast to district
-        df_geo = get_places('MW','district')
+        df_geo = get_places('MW')
 
         df_geo['country'] = 'MW'
         df_haz['country'] = 'MW'
