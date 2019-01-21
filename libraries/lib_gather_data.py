@@ -55,10 +55,26 @@ def social_to_tx_and_gsp(economy,cat_info):
 
 
 def perc_with_spline(data, wt, percentiles):
+    """Find the cutoffs in data at each percentile given household weights
+
+    Parameters
+    ----------
+    data : nparray
+        data wanted to find percentiles of
+    wt : type
+        weighting of each row - number of households or people at each data point.
+    percentiles : list-like or ndarray
+        list of percentiles wanted to calculate
+
+    Returns
+    -------
+    ndarray
+        percentile cutoffs for data
+    """
 	assert np.greater_equal(percentiles, 0.0).all(), 'Percentiles less than zero'
 	assert np.less_equal(percentiles, 1.0).all(), 'Percentiles greater than one'
 	data = np.asarray(data)
-	assert len(data.shape) == 1
+	assert len(data.shape) == 1, 'not a 1d array'
 	if wt is None:
 		wt = np.ones(data.shape, np.float)
 	else:
@@ -66,18 +82,41 @@ def perc_with_spline(data, wt, percentiles):
 		assert wt.shape == data.shape
 		assert np.greater_equal(wt, 0.0).all(), 'Not all weights are non-negative.'
 	assert len(wt.shape) == 1
+    # Take the indices that would sort data, and then sorts both data and wt by those indices
 	i = np.argsort(data)
 	sd = np.take(data, i, axis=0)
 	sw = np.take(wt, i, axis=0)
+    # Cumulative population
 	aw = np.add.accumulate(sw)
 	if not aw[-1] > 0:
-	 raise ValueError('Nonpositive weight sum' )
+	 raise ValueError('Nonpositive weight sum')
+    # Calculate percentile by household
 	w = (aw)/aw[-1]
 	# f = UnivariateSpline(w,sd,k=1)
 	f = interp1d(np.append([0],w),np.append([0],sd))
 	return f(percentiles)
 
 def match_percentiles(hhdataframe,quintiles,col_label,sort_val='c'):
+    """Compares hhdataframe to 'quintiles' and returns the data frame with
+    with another column that gives the numerical quintile/decile/percentile
+
+    Parameters
+    ----------
+    hhdataframe : df
+        households dataframe, input from df.groupby('district').apply(lambda x:match_percentiles(*))
+    quintiles : type
+        quintile cutoffs, from perc_with_spline
+    col_label : type
+        label for the column that is output
+    sort_val : type
+        what column to compare to the quintile cutoffs
+
+    Returns
+    -------
+    df
+        hhdataframe with a percentile column
+    """
+    # Label households below the lowest cutoff of col_label
     hhdataframe.loc[hhdataframe[sort_val]<=quintiles[0],col_label]=1
 
     for j in np.arange(1,len(quintiles)):
@@ -93,6 +132,7 @@ def match_quintiles_score(hhdataframe,quintiles):
 
 
 def reshape_data(income):
+    """Basically returns income.values"""
 	data = np.reshape(income.values,(len(income.values)))
 	return data
 

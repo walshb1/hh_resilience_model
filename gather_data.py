@@ -43,7 +43,7 @@ else:
     myCountry = 'BO'
     print('Setting country to BO. Currently implemented: MW, PH, FJ, SL, BO')
 #####################################
-
+myCountry = 'SL'
 
 # Set up directories/tell code where to look for inputs & where to save outputs
 intermediate = set_directories(myCountry)
@@ -59,7 +59,7 @@ event_level = [economy, 'hazard', 'rp']
 df = get_places(myCountry)
 prov_code,region_code = get_places_dict(myCountry)
 
-###Define parameters
+###Define parameters, all coming from lib_country_dir
 df['avg_prod_k']             = get_avg_prod(myCountry) # average productivity of capital, value from the global resilience model
 df['shareable']              = nominal_asset_loss_covered_by_PDS # target of asset losses to be covered by scale up
 df['T_rebuild_K']            = reconstruction_time     # Reconstruction time
