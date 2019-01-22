@@ -468,7 +468,7 @@ if myCountry == 'FJ': myHaz = [['Ba','Lau','Tailevu'],get_all_hazards(myCountry,
 #elif myCountry == 'PH': myHaz = [['V - Bicol','II - Cagayan Valley','NCR','IVA - CALABARZON','ARMM','CAR'],['HU','EQ'],[10,25,50,100,250,500]]
 #elif myCountry == 'PH': myHaz = [['ompong'],['HU','PF','SS'],[10,50,100,200,500]]
 #elif myCountry == 'PH': myHaz = [['I - Ilocos','II - Cagayan Valley','CAR'],['HU','EQ'],[25,100]]
-elif myCountry == 'PH': myHaz = [['II - Cagayan Valley'],['HU'],[25,50,100,250,500]]
+elif myCountry == 'PH': myHaz = [['VIII - Eastern Visayas'],['HU'],[100]]
 elif myCountry == 'SL': myHaz = [['Rathnapura','Colombo'],get_all_hazards(myCountry,myiah),get_all_rps(myCountry,myiah)]
 elif myCountry == 'MW': myHaz = [['Lilongwe','Chitipa'],get_all_hazards(myCountry,myiah),get_all_rps(myCountry,myiah)]
 
@@ -772,7 +772,7 @@ if False:
 ##################################################################
 # This code generates the histograms showing income before & after disaster (in USD)
 # ^ this is at household level (iah != iah_avg here)
-if False:         
+if True:         
     with Pool(processes=2,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
         pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[myiah.copy()],myHaz[0],myHaz[1],myHaz[2],[True],['USD'])))
