@@ -71,30 +71,30 @@ def perc_with_spline(data, wt, percentiles):
     ndarray
         percentile cutoffs for data
     """
-	assert np.greater_equal(percentiles, 0.0).all(), 'Percentiles less than zero'
-	assert np.less_equal(percentiles, 1.0).all(), 'Percentiles greater than one'
-	data = np.asarray(data)
-	assert len(data.shape) == 1, 'not a 1d array'
-	if wt is None:
-		wt = np.ones(data.shape, np.float)
-	else:
-		wt = np.asarray(wt, np.float)
-		assert wt.shape == data.shape
-		assert np.greater_equal(wt, 0.0).all(), 'Not all weights are non-negative.'
-	assert len(wt.shape) == 1
+    assert np.greater_equal(percentiles, 0.0).all(), 'Percentiles less than zero'
+    assert np.less_equal(percentiles, 1.0).all(), 'Percentiles greater than one'
+    data = np.asarray(data)
+    assert len(data.shape) == 1, 'not a 1d array'
+    if wt is None:
+        wt = np.ones(data.shape, np.float)
+    else:
+        wt = np.asarray(wt, np.float)
+        assert wt.shape == data.shape
+        assert np.greater_equal(wt, 0.0).all(), 'Not all weights are non-negative.'
+    assert len(wt.shape) == 1
     # Take the indices that would sort data, and then sorts both data and wt by those indices
-	i = np.argsort(data)
-	sd = np.take(data, i, axis=0)
-	sw = np.take(wt, i, axis=0)
+    i = np.argsort(data)
+    sd = np.take(data, i, axis=0)
+    sw = np.take(wt, i, axis=0)
     # Cumulative population
-	aw = np.add.accumulate(sw)
-	if not aw[-1] > 0:
-	 raise ValueError('Nonpositive weight sum')
+    aw = np.add.accumulate(sw)
+    if not aw[-1] > 0:
+     raise ValueError('Nonpositive weight sum')
     # Calculate percentile by household
-	w = (aw)/aw[-1]
-	# f = UnivariateSpline(w,sd,k=1)
-	f = interp1d(np.append([0],w),np.append([0],sd))
-	return f(percentiles)
+    w = (aw)/aw[-1]
+    # f = UnivariateSpline(w,sd,k=1)
+    f = interp1d(np.append([0],w),np.append([0],sd))
+    return f(percentiles)
 
 def match_percentiles(hhdataframe,quintiles,col_label,sort_val='c'):
     """Compares hhdataframe to 'quintiles' and returns the data frame with
@@ -133,8 +133,8 @@ def match_quintiles_score(hhdataframe,quintiles):
 
 def reshape_data(income):
     """Basically returns income.values"""
-	data = np.reshape(income.values,(len(income.values)))
-	return data
+    data = np.reshape(income.values,(len(income.values)))
+    return data
 
 def get_AIR_data(fname,sname,keep_sec,keep_per):
     # AIR dataset province code to province name
