@@ -32,7 +32,7 @@ def set_directories(myCountry):  # get current directory
 
     Parameters
     ----------
-    myCountry : ISO-2 code for country
+    myCountry : ISO code for country
 
     Returns
     -------
@@ -54,22 +54,24 @@ def set_directories(myCountry):  # get current directory
     return intermediate
 
 def get_economic_unit(myC):
-    """Dictionary lookup of economic unit from ISO-2 key"""
+    """Dictionary lookup of economic unit from ISO key"""
     d = {'PH':'region',
     'FJ':'Division',
     'SL':'district',
-    'MW':'district'}
+    'MW':'district',
+    }
     try:
         return d[myC]
     except KeyError:
         return None
 
 def get_currency(myC):
-    """Dictionary lookup of currency, multiplier, and exchange rate from ISO-2 key"""
+    """Dictionary lookup of currency, multiplier, and exchange rate from ISO key"""
     d = {'PH': ['b. PhP',1.E9,1./50.],
     'FJ': ['k. F\$',1.E3,1./2.],
     'SL': ['LKR',1.E9,1./150.],
     'MW': ['MWK',1.E9,1./724.64],
+    'BO':
     }
     try:
         return d[myC]
@@ -89,7 +91,7 @@ def get_places(myC):
     Parameters
     ----------
     myC : str
-        ISO-2 Country reference
+        ISO Country reference
 
     Returns
     -------
@@ -175,7 +177,7 @@ def get_places_dict(myC):
     Parameters
     ----------
     myC : str
-        ISO-2
+        ISO
 
     Returns
     -------
@@ -1375,7 +1377,7 @@ def get_poverty_line(myC,by_district=True,sec=None):
     Parameters
     ----------
     myC : str
-        ISO-2 of country
+        ISO of country
     by_district : bool
         use a district poverty line, else, use a national level poverty line
     sec : str
