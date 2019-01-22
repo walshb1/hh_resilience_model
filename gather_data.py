@@ -43,7 +43,6 @@ else:
     myCountry = 'BO'
     print('Setting country to BO. Currently implemented: MW, PH, FJ, SL, BO')
 #####################################
-myCountry = 'SL'
 
 # Set up directories/tell code where to look for inputs & where to save outputs
 intermediate = set_directories(myCountry)
