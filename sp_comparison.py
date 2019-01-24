@@ -68,7 +68,7 @@ except:
         _srp = str(_rp)
         print('\nRP = ',_rp)
 
-        _crit = '(dk0!=0)&(region=="V - Bicol")&(hazard=="HU")&(rp==@_rp)'
+        _crit = '(dk0!=0)&(region=="VIII - Eastern Visayas")&(hazard=="HU")&(rp==@_rp)'
 
         _f_wgt_dnm = _f.loc[_f.eval(_crit),'pcwgt'].sum(level=agglev)
         _f_up_wgt_dnm = _f_up.loc[_f_up.eval(_crit),'pcwgt'].sum(level=agglev)
@@ -87,7 +87,7 @@ except:
     _q.to_csv('../output_country/'+myCountry+'/sp_comparison_by_'+agglev+'.csv')
 
 #choose rp to plot:
-_rp = '50'
+_rp = '100'
 
 ax = plt.plot(_q.index,_q['t_pov_cons_no'+_rp])
 plt.plot(_q.index,_q['t_pov_cons_unif_poor'+_rp])
