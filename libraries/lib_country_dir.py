@@ -1,3 +1,4 @@
+import json
 import os, glob
 import pandas as pd
 pd.set_option('display.width', 220)
@@ -59,6 +60,7 @@ def get_economic_unit(myC):
     'FJ':'Division',
     'SL':'district',
     'MW':'district',
+    'BO':'departamento',
     }
     try:
         return d[myC]
@@ -71,7 +73,7 @@ def get_currency(myC):
     'FJ': ['k. F\$',1.E3,1./2.],
     'SL': ['LKR',1.E9,1./150.],
     'MW': ['MWK',1.E9,1./724.64],
-    'BO':
+    'BO': ['BoB',1.E9,1./6.9],
     }
     try:
         return d[myC]
@@ -100,6 +102,13 @@ def get_places(myC):
         population is the first and only column.
 
     """
+    if myC == 'BO':
+        economy = get_economic_unit(myC)
+        df = pd.read_stata(inputs +'BOL_EH_2015.dta')
+        df[economy] = [f[0] for f in df['folio']]
+        df.set_index(economy, inplace = True)
+        df['personas'] = df.factor_expansion*df.miembros_hogar
+        return df['personas'].sum(level = 0).to_frame(name='pop')
 
     if myC == 'PH':
         df = pd.read_excel(inputs+'population_2015.xlsx',sheet_name='population').set_index('province')
@@ -188,6 +197,12 @@ def get_places_dict(myC):
     """
 
     p_code,r_code = None,None
+
+    if myC == 'BO':
+        economy = get_economic_unit(myC)
+        with open(inputs + 'departamentos.json', 'r') as f:
+            p_code = pd.Series(json.load(f), name='nombre_'+ economy)
+        p_code.index.name = economy
 
     if myC == 'PH':
         p_code = pd.read_excel(inputs+'FIES_provinces.xlsx')[['province_code','province_AIR']].set_index('province_code').squeeze()
@@ -901,15 +916,110 @@ def load_survey_data(myC):
         df['c'] = df['pcinc'].copy()
         df = df.reset_index().rename(columns={'District':'district'}).set_index(['district','hhid']).drop(['c_food','c_nonfood','c_boarders'],axis=1)
 
+    elif myC == 'BO':
+        #Each survey/country should have the following:
+        # -> hhid household id
+        # -> hhinc household income? but seems to be expenditure (SL)
+        # -> pcinc household income per person
+        # -> hhwgt number of households this line is 'representative' of
+        # -> pcwgt total population this line is representative of
+        # -> hhsize household size
+        # -> hhsize_ae household size2
+        # -> hhsoc social payments (government and remittances)
+        # -> pcsoc per person social payments
+        # -> ispoor
+        # -> has_ew
+        set_directories('BO')
+        orig = inputs + "ORIGINAL/m11/data_orig/"
+        # Read in data
+        df = pd.read_stata(orig+'eh2015_vivienda.dta')
+        # Uncomment to get stata variable labels if necessary
+        # itr = pd.read_stata(orig+'eh2015_vivienda.dta', iterator = True)
+        # var_labels = itr.variable_labels()
+
+        # Get hhid and hhwgt
+        df.rename(inplace = True, columns={'folio':'hhid',
+                                           'factor':'hhwgt'})
+        df.set_index('hhid', inplace = True)
+
+        # Some families put line breaks between parents and children, so take the count
+        # of personas per folio, rather than the max number of rows. Proof:
+        # a = df_persona.groupby('folio').count()['nro']
+        # b = df_persona[['folio','nro']].groupby('folio').max()['nro']
+        # df_persona.set_index('folio').loc[a[a != b].index]
+
+        # Read in perperson data
+        df_persona = pd.read_stata(orig+'eh2015_persona.dta')
+        df_persona.rename(inplace = True, columns={'folio':'hhid',})
+        df_persona.set_index('hhid', inplace = True)
+
+        # Get the hhsize number of members per household
+        df['hhsize'] = 0
+        df['hhsize'].update(df_persona.groupby(level = 0 ).count()['nro'])
+        # Check that there is at least 1 member per household
+        assert len(df[df['hhsize']==0]) == 0
+        # Assume ae is 1 for children for now
+        df['hhsize_ae'] = df['hhsize']
+
+        # Calculate the number of people that each household in survey would represent
+        df['pcwgt'] = df.hhwgt * df.hhsize
+
+        # Get hhinc
+        df['hhinc'] = 0
+        # Annualize monthly incomes from labor
+        df.hhinc = df_persona.groupby(level = 0).sum()['ylab']*12
+        # Get per capita incomes
+        df['pcinc'] = df.hhinc/ df.hhsize
+
+        # 11 different Poverty lines are included in the eh2015_persona,
+        # These differ by rural/urban, departamento, and then whether
+        # the household is in the La Paz for departamento == 2 or not.
+        # NOTE: There are two poverty lines: z and zext.  zext is 'extreme poverty'
+        # using the former.
+        df['z'] = 0
+        df.z.update(df_persona['z'].groupby(level = 0).mean())
+        df['ispoor'] = df['z']>df['pcinc']
+
+        # get household and per capita social payments
+        df['hhsoc'] = df_persona.groupby(level = 0).sum()['ynolab']*12
+        df['pcsoc'] = df['hhsoc']/df['hhsize']
+
+        # View variable labels
+        # itr_persona = pd.read_stata(orig+'eh2015_persona.dta', iterator = True)
+        # itr_persona.variable_labels()
+
+        # Find communication devices
+        # Equipment ownership of computers, radios and televisions are in eh2015_gastos_equipamiento
+        # Cellphone bills are in eh2015_gastos_noalimentarios
+        # Define early warning as having some expenditure on mobile services or owning computers, radios or televisions.
+
+        # Get Series of cellphone bills
+        df_bills = pd.read_stata(orig + 'eh2015_gastos_noalimentarios.dta', index_col = 'folio')
+        df_bills = df_bills['s8b_10_27']
+
+        # Create multiindex then unstack for ownership of comms equipment
+        df_equip = pd.read_stata(orig+ 'eh2015_gastos_equipamiento.dta').set_index(['folio','item']).sort_index(level = 0)
+        df_equip = df_equip['s8_13'].unstack()
+        comm_devices = ['computadora (laptop o tablet pc, etc.)','radio o radiograbador','televisor']
+        df_equip = df_equip[comm_devices]
+        # rename si to 1 and no to 0
+        for col in comm_devices:
+            df_equip[col].replace(to_replace={'si':1,'no':0}, inplace = True)
+        # Define early warning system as above.
+        df['has_ew'] = (df_equip.sum(axis=1)>0) | (df_bills>0)
+
+        df['c'] = df['pcinc'].copy()
+        df = df.reset_index().set_index(['departamento','hhid'])
     # Assing weighted household consumption to quintiles within each province
     print('Finding quintiles')
-
     economy = df.index.names[0]
     listofquintiles=np.arange(0.20, 1.01, 0.20)
-    # groupby apply
+    # groupby apply takes each economy and then applies the function separately to each economy.
     # https://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.apply.html
     # Finds quintiles by district
     df = df.reset_index().groupby(economy,sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),listofquintiles),'quintile'))
+
+    print('Finding deciles')
     # finds deciles by district
     listofdeciles = np.arange(0.10, 1.01, 0.10)
     df = df.reset_index().groupby(economy,sort=True).apply(lambda x:match_percentiles(x,perc_with_spline(reshape_data(x.c),reshape_data(x.pcwgt),listofdeciles),'decile'))
@@ -1459,6 +1569,7 @@ def get_avg_prod(myC):
     elif myC == 'FJ': return 0.336139019412
     elif myC == 'SL': return 0.337960802589002
     elif myC == 'MW': return 0.253076569219416
+    elif myC == 'BO': return 0.3 # Made up
     assert(False)
 
 def get_demonym(myC):
