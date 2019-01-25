@@ -1569,7 +1569,7 @@ def get_avg_prod(myC):
     elif myC == 'FJ': return 0.336139019412
     elif myC == 'SL': return 0.337960802589002
     elif myC == 'MW': return 0.253076569219416
-    elif myC == 'BO': return 0.3 # Made up
+    elif myC == 'BO': return 0.4218342
     assert(False)
 
 def get_demonym(myC):
@@ -1578,6 +1578,8 @@ def get_demonym(myC):
     elif myC == 'FJ': return 'Fijians'
     elif myC == 'SL': return 'Sri Lankans'
     elif myC == 'MW': return 'Malawians'
+    elif myC == 'BO': return 'Bolivians'
+    assert(False)
 
 def scale_hh_income_to_match_GDP(df_o,new_total,flat=False):
 
