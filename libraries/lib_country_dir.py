@@ -1010,6 +1010,24 @@ def load_survey_data(myC):
 
         df['c'] = df['pcinc'].copy()
         df = df.reset_index().set_index(['departamento','hhid'])
+
+        # See if you can get the following columns
+        # wall, roof - materials used for construction of each part of structure
+        # Separate payments for a particular poverty assistance scheme, like
+        # pov_line
+        # aeinc, aewgt adult equivalent weights
+        # N_children
+        # urban : {'RURAL', "URBAN"}
+        # hhremittance
+        # frac_remittance = df_social.eval('hhremittance/hhsoc')
+        # Full list:
+        # [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','code','np','score','v','c','pcsoc','social','c_5','hhsize',
+                        # 'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
+                        # 'has_ew','SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin','pcsamurdhi','gsp_samurdhi','frac_remittance','N_children']
+
+
+
+
     # Assing weighted household consumption to quintiles within each province
     print('Finding quintiles')
     economy = df.index.names[0]
@@ -1041,6 +1059,23 @@ def get_df2(myC):
     else: return None
 
 def get_vul_curve(myC,struct):
+    """Get vulnerability of materials used in construction.
+
+    Parameters
+    ----------
+    myC : str
+        ISO2 of country
+    struct : str
+        which building structure? Sheet names in vulnerrability curves in xlsx.
+
+    Returns
+    -------
+    df
+        df with two columns -
+            desc:   key used in census for housing material
+
+    """
+
     df = None
 
     if myC == 'PH':
@@ -1443,6 +1478,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         return df_sum,df_tikina
 
     elif myC == 'SL':
+        # Exposures for district x hazard x return period
         df = pd.read_excel(inputs+'hazards_data.xlsx',sheet_name='hazard').dropna(how='any')
         df.hazard = df.hazard.replace({'flood':'PF'})
         df = df.set_index(['district','hazard','rp'])
@@ -1456,7 +1492,6 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         path = os.getcwd()+'/../inputs/SL/data_hunting/suranga/Landslide/*.xls'
         landslide_df = None
         for f in glob.glob(path):
-
             new_reg = pd.read_excel(f).set_index(['District','Division'])
             new_reg = new_reg.rename(columns={' Houses Damaged':'Houses Damaged',
                                               ' Houses Destroyed':'Houses Destroyed',
@@ -1476,6 +1511,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         #print(df.head())
         #assert(False)
 
+        # Why two copies of the same df?
         return df,df
 
     else: return None,None

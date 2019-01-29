@@ -40,9 +40,18 @@ def get_share_from_sheet(PAGER_XL,pager_code_to_aggcat,iso3_to_wb,sheet_name='Ru
     return data_agg[data_agg.index.isin(iso3_to_wb)] #keeps only countries
 
 def social_to_tx_and_gsp(economy,cat_info):
-    #income from social protection PER PERSON as fraction of PER CAPITA social protection
-    '''(tx_tax, gamma_SP) from cat_info[['social','c','weight']] '''
+    """tx_tax Tax revenue used to fund social payments.
+    gsp
+    (tx_tax, gamma_SP) from cat_info[['social','c','weight']]
 
+    Try to exclude remittances (depends on whether df has frac_remittance),
+    otherwise include them bothself.
+
+    Returns
+    -------
+    tau_tax = total value of social as fraction of total C
+    gamma_SP = Fraction of social that goes to each hh
+    """
     try:
         tx_tax = cat_info.eval('(1-frac_remittance)*social*c*pcwgt').sum() / cat_info.eval('c*pcwgt').sum()
         gsp = cat_info.eval('(1-frac_remittance)*social*c')/cat_info.eval('(1-frac_remittance)*social*c*pcwgt').sum()
