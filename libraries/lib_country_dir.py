@@ -43,10 +43,11 @@ def set_directories(myCountry):  # get current directory
 def get_economic_unit(myC):
     
     if myC == 'PH': return 'region'#'province'
-    elif myC == 'FJ': return 'Division'#'tikina'
-    elif myC == 'SL': return 'district'
-    elif myC == 'MW': return 'district'
-    else: return None
+    if myC == 'FJ': return 'Division'#'tikina'
+    if myC == 'SL': return 'district'
+    if myC == 'MW': return 'district'
+    if myC == 'RO': return 'County'
+    assert(False)
 
 def get_currency(myC):
     
@@ -59,10 +60,41 @@ def get_currency(myC):
 def get_places(myC,economy):
     # This df should have just province code/name and population
 
+    if myC == 'RO':
+
+        # Dictionary for standard column names
+        hbs_dict = {'regiune':'Region','judet':'County','codla':'hhcode','coefj':'hhwgt','cpers':'hhsize'}
+
+        # Load df0 and df1
+        df0 = pd.read_stata(inputs+'ROU_2016_HBS_v01_M/Data/Stata/s0.dta')[['regiune','judet','codla','coefj']].rename(columns=hbs_dict).set_index(['Region','County','hhcode'])
+        df1 = pd.read_stata(inputs+'ROU_2016_HBS_v01_M/Data/Stata/s1.dta')[['regiune','judet','codla','cpers']].rename(columns=hbs_dict).set_index(['Region','County','hhcode'])
+        df1 = df1['hhsize'].max(level=['Region','County','hhcode'])
+
+        # Merge df0 and df1
+        df  = pd.merge(df0.reset_index(),df1.reset_index(),on=['Region','County','hhcode'])
+        df[['Region','County','hhcode']] = df[['Region','County','hhcode']].astype('int')
+
+        # Create unique hhid ('codla' seems not to be unique) 
+        df['hhid'] = df['hhcode'].astype('str').values+'_'+df['County'].astype('str').values+'_'+df['Region'].astype('str').values
+        df = df.set_index('hhcode')
+        
+        df['pcwgt'] = df[['hhsize','hhwgt']].prod(axis=1)
+        df.to_csv(inputs+'ROU_2016_HBS_v01_M/ro_weights.csv')
+
+        df = df.set_index('County')['pcwgt'].sum(level='County').to_frame()
+        df.columns = ['pop']
+
+        #df = df.reset_index()
+        #codes_reg = pd.read_excel(inputs+'reg_cty_codes.xlsx',sheet_name='regions').set_index('code').to_dict()['name']
+        #codes_cty = pd.read_excel(inputs+'reg_cty_codes.xlsx',sheet_name='counties').set_index('code').to_dict()['name']
+        #df['regiune'].replace(codes_reg,inplace=True)
+        #df['judet'].replace(codes_cty,inplace=True)
+        #df.to_csv('~/Desktop/tmp/RO_loc.csv')
+    
+        return df
+
     if myC == 'PH':
-        df = pd.read_excel(inputs+'population_2015.xlsx',sheet_name='population').set_index('province')
-        df['psa_pop']      = df['population']    # Provincial population        
-        df.drop(['population'],axis=1,inplace=True)
+        df = pd.read_excel(inputs+'population_2015.xlsx',sheet_name='population').set_index('province').rename(columns={'population':'psa_pop'})
         return df
 
     if myC == 'FJ':
@@ -165,7 +197,53 @@ def load_survey_data(myC):
     # -> pcsoc
     # -> ispoor
     # -> has_ew
-    
+
+    if myC == 'RO':
+
+        # Dictionary for standard column names
+        hbs_dict = {'regiune':'Region','judet':'County','codla':'hhcode','coefj':'hhwgt','cpers':'hhsize','R44':'hhinc',
+                    'REGIUNE':'Region','JUDET':'County','CODLA':'hhcode','COEFJ':'hhwgt','CPERS':'hhsize','R44':'hhinc'}
+
+        # LOAD: hhid, hhwgt, pcwgt, hhsize, hhsize_ae
+        df_wgts = pd.read_csv(inputs+'ROU_2016_HBS_v01_M/ro_weights.csv').set_index('hhid')
+        df_wgts['hhsize_ae'] = df_wgts['hhsize'].copy()
+
+        # LOAD: hhinc, pcinc, hsoc, pcsoc
+        _df = pd.read_stata(inputs+'ROU_2016_HBS_v01_M/Data/Stata/s7.dta')[['REGIUNE','JUDET','CODLA','R44',
+                                                                            'R14','R15','R16','R17','R18','R19','R20','R21',
+                                                                            'R22','R23','R24','R25','R26','R27','R28','R29',
+                                                                            'R54','R55','R56','R57','R58','R59','R60']].rename(columns=hbs_dict)
+        _df['hhsoc'] = _df[['R14','R15','R16','R17','R18','R19','R20','R21','R22','R23','R24','R25','R26','R27','R28','R29','R54','R55','R56','R57','R58','R59','R60']].sum(axis=1)
+        # -->  R47 = Loans and credits taken
+        # -->  R52 = SAVINGS!!!
+
+        _df[['Region','County','hhcode']] = _df[['Region','County','hhcode']].astype('int')
+        _df = _df.set_index(['Region','County','hhcode'])[['hhinc','hhsoc']]
+        df = pd.merge(df_wgts.reset_index(),_df.reset_index(),on=['Region','County','hhcode']).set_index(['Region','County','hhcode'])
+
+        df['hhinc'] *= 52.
+        df['pcinc'] = df.eval('hhinc/hhsize')
+        #
+        df['hhsoc'] *= 52.
+        df['pcsoc'] = df.eval('hhsoc/hhsize')
+        #
+        #print(df[['pcinc','pcwgt']].prod(axis=1).sum()/df['pcwgt'].sum())        
+        #print(df[['pcsoc','pcwgt']].prod(axis=1).sum()/df['pcwgt'].sum())
+        #
+        
+        # LOAD: has_ew
+        _df = pd.read_stata(inputs+'ROU_2016_HBS_v01_M/Data/Stata/s10b.dta')[['REGIUNE','JUDET','CODLA','INZES_12','INZES_17','INZES_18','INZES_25']].rename(columns=hbs_dict)
+        _df['has_ew'] = _df[['INZES_12','INZES_17','INZES_18','INZES_25']].sum(axis=1).clip(upper=1)
+        
+        _df[['Region','County','hhcode']] = _df[['Region','County','hhcode']].astype('int')
+        _df = _df.set_index(['Region','County','hhcode'])[['has_ew']]
+        
+        df = pd.merge(df.reset_index(),_df.reset_index(),on=['Region','County','hhcode']).set_index(['Region','County','hhcode'])
+        df['c'] = df['pcinc'].copy()
+        #df['social'] = df.eval('pcsoc/pcinc')
+
+        
+
     if myC == 'MW':
 
         df_agg = pd.read_stata(inputs+'consumption_aggregates_poverty_ihs4.dta').set_index(['case_id']).dropna(how='all')
@@ -1352,10 +1430,11 @@ def get_pop_scale_fac(myC):
 
 def get_avg_prod(myC):
     
-    if myC == 'PH': return 0.273657188280276#0.3379608025890020
-    elif myC == 'FJ': return 0.336139019412
-    elif myC == 'SL': return 0.337960802589002
-    elif myC == 'MW': return 0.253076569219416
+    if myC == 'PH': return 0.273657188280276
+    if myC == 'FJ': return 0.336139019412
+    if myC == 'SL': return 0.337960802589002
+    if myC == 'MW': return 0.253076569219416
+    if myC == 'RO': return (277174.8438/1035207.75)
     assert(False)
 
 def get_demonym(myC):

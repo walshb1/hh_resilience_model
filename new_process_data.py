@@ -320,6 +320,131 @@ no_pds['SE capacity']  = 100.*no_pds['Asset risk']/no_pds['Well-being risk']
 no_pds[['Asset risk','SE capacity','Well-being risk']].sort_values(['Well-being risk'],ascending=False).round(1).to_latex('latex/'+myCountry+'/risk_by_economy_usd.tex')
 print('Wrote latex! Sums:\n',no_pds.loc['Total',['Asset risk','Well-being risk']])
 
+
+
+#######################
+if True:
+    
+    svg_file = '../map_files/'+myCountry+'/BlankSimpleMap.svg'
+    if myCountry == 'PH' and economy == 'region':
+        svg_file = '../map_files/'+myCountry+'/BlankSimpleMapRegional.svg'
+    elif myCountry == 'SL': svg_file = '../map_files/'+myCountry+'/lk.svg'
+    elif myCountry == 'MW': svg_file = '../map_files/'+myCountry+'/mw.svg'
+    
+    # GDP prov
+    grdp = 1E-9*df[['pop','gdp_pc_prov']].prod(axis=1).mean(level=economy).squeeze()
+    print(df.columns)
+
+    lcurr = get_currency(myCountry)[0]
+    for _curr in ['USD']: # PHP or local currency not yet implemented
+
+        print('--> Map asset losses in '+_curr)
+        make_map_from_svg(
+            no_pds['Asset risk'].drop('Total'),
+            svg_file,
+            outname=myCountry+'_asset_risk_usd',
+            color_maper=plt.cm.get_cmap('GnBu'),
+            #svg_handle = 'reg',
+            label='Asset losses [mUS\$ per year]',
+            new_title='Asset losses [mUS\$ per year]',
+            do_qualitative=False,
+            res=2000)
+
+        make_map_from_svg(
+            no_pds['Asset risk'].drop('Total'),
+            svg_file,
+            outname=myCountry+'_asset_risk_usd',
+            color_maper=plt.cm.get_cmap('GnBu'),
+            #svg_handle = 'reg',
+            label='Asset losses [mUS\$ per year]',
+            new_title='Asset losses [mUS\$ per year]',
+            do_qualitative=False,
+            res=2000)
+
+        make_map_from_svg(
+            (no_pds['Asset risk']/grdp).drop('Total'),
+            svg_file,
+            outname=myCountry+'_asset_risk_over_reg_gdp',
+            color_maper=plt.cm.get_cmap('GnBu'),
+            #svg_handle = 'reg',
+            label='Asset losses [% of AHI per year]',
+            new_title='Asset losses [% of AHI per year]',
+            do_qualitative=False,
+            res=2000)
+
+
+        print('--> Map welfare losses in USD')
+        make_map_from_svg(
+            no_pds['Well-being risk'].drop('Total'),
+            svg_file,
+            outname=myCountry+'_welf_risk_usd',
+            color_maper=plt.cm.get_cmap('OrRd'),
+            #svg_handle = 'reg',
+            label='Wellbeing losses [bil. US\$ per year]',
+            new_title='Wellbeing losses [bil. US\$ per year]',
+            do_qualitative=False,
+            res=2000)
+
+        make_map_from_svg(
+            (no_pds['Well-being risk']/grdp).drop('Total'),
+            svg_file,
+            outname=myCountry+'_welf_risk_over_reg_gdp',
+            color_maper=plt.cm.get_cmap('OrRd'),
+            #svg_handle = 'reg',
+            label='Wellbeing losses [% of AHI per year]',
+            new_title='Wellbeing losses [% of AHI per year]',
+            do_qualitative=False,
+            res=2000)
+
+
+        #######################
+        print('Map Resilience')
+        make_map_from_svg(
+            100.*(no_pds['Asset risk']/no_pds['Well-being risk']).drop('Total'), 
+            svg_file,
+            outname=myCountry+'_resilience',
+            color_maper=plt.cm.get_cmap('RdYlGn'),
+            #svg_handle = 'reg',
+            label='Socioeconomic resilience [%]',
+            new_title='Socioeconomic resilience [%]',
+            do_qualitative=False,
+            res=2000)
+        
+    
+        ########################
+        #print('--> Map asset losses as fraction of regional GDP')
+        #make_map_from_svg(
+        #    100.*no_pds['Asset risk']/df_prov.gdp, 
+        #    svg_file,
+        #    outname=myCountry+'_asset_risk_over_reg_gdp',
+        #    color_maper=plt.cm.get_cmap('GnBu'),
+        #    #svg_handle = 'reg',
+        #    label='Annual asset risk [% of regional GDP]',
+        #    new_title='Annual asset risk [% of regional GDP]',
+        #    do_qualitative=False,
+        #    res=2000)
+
+        #######################
+        #print('Map welfare losses as fraction of regional GDP')
+        #make_map_from_svg(
+        #    100.*df_prov.dWtot_currency/df_prov.gdp, 
+        #    svg_file,
+        #    outname=myCountry+'_welf_risk_over_reg_gdp',
+        #    color_maper=plt.cm.get_cmap('OrRd'),
+        #    #svg_handle = 'reg',
+        #    label='Annual well-being risk [% of regional GDP]',
+        #    new_title='Annual well-being risk [% of regional GDP]',
+        #    do_qualitative=False,
+        #    res=2000)
+    
+    purge('img/','map_of_*.png')
+    purge('img/','legend_of_*.png')
+    purge('img/','map_of_*.svg')
+    purge('img/','legend_of_*.svg')
+
+assert(False)
+    
+
 ####################################
 # Save out iah by economic unit, *only for poorest quintile*
 no_pds_q1 = pd.DataFrame(index=iah.sum(level=[economy,'hazard','rp']).index)

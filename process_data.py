@@ -365,6 +365,15 @@ pds_str = 'unif_poor'
 if myCountry == 'FJ': pds_str = 'fiji_SPP'
 
 df = pd.read_csv(output+'results_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
+#Above doesn't pull in wellbeing losses from inter-regional transfers! But the table does
+# This is an issue as long as they're not presenting the same information!!!
+
+# HERE: DW costs of risk sharing in each SP scenario
+public_costs_pds = pd.read_csv(output+'public_costs_tax_'+base_str+'_'+pol_str+'.csv').set_index([economy,'hazard','rp'])
+public_costs_pds['dw_tot_curr'] = public_costs_pds[['dw_pub','dw_soc']].sum(axis=1)/df.wprime.mean()
+public_costs_pds_sum = public_costs_pds.loc[public_costs_pds['contributer']!=public_costs_pds.index.get_level_values(event_level[0]),['dw_tot_curr']].sum(level=[economy,'hazard','rp'])
+#
+
 iah = pd.read_csv(output+'iah_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 macro = pd.read_csv(output+'macro_tax_'+base_str+'_'+pol_str+'.csv', index_col=[economy,'hazard','rp'])
 try:
@@ -375,22 +384,37 @@ except: pass
 #######################
 # df_prov = [dK,dW] already multiplied by prob_RP (but not summed over RP)
 df_prov = df[['dKtot','dWtot_currency']].copy()
+_,probs = average_over_rp(df_prov)
+probs = probs.reset_index().set_index([economy,'hazard','rp'])
+
+print(df_prov['dWtot_currency'].head(5))
+print(probs['prob'].head(5))
+print(public_costs_pds_sum['dw_tot_curr'].head(5))
+
+df_prov['dWtot_currency_with_transfers'] = df_prov['dWtot_currency']+probs['prob']*public_costs_pds_sum['dw_tot_curr']
+
+#print(df_prov.head(20))
+#print((df_interregional/df.wprime.mean()).head(20))
+
+df_prov.sum(level=economy).to_csv('~/Desktop/tmp/checking_dw.csv')
+assert(False)
+
 df_prov['gdp'] = df[['pop','gdp_pc_prov']].prod(axis=1)
 df_prov['gdp_hh'] = float(macro['avg_prod_k'].mean())*iah[['k','pcwgt']].prod(axis=1).sum(level=event_level)
 
 df_prov['R_asst'] = round(100.*df_prov['dKtot']/df_prov['gdp'],2)
 df_prov['R_welf'] = round(100.*df_prov['dWtot_currency']/df_prov['gdp'],2)
 
-#######################
-# Before summing df_prov over rps & hazards, grab the 100-year losses
-# results_df = [dK,dW] for RP=100 & AAL (df_prov) 
-results_df = macro.reset_index().set_index([economy,'hazard'])
-results_df = results_df.loc[results_df.rp==100,'dk_event'].sum(level='hazard')
-results_df = results_df.rename(columns={'dk_event':'dk_event_100'})
-results_df = pd.concat([results_df,df_prov.reset_index().set_index([economy,'hazard']).sum(level='hazard')['dKtot']],axis=1,join='inner')
-results_df.columns = ['dk_event_100','AAL']
-results_df.to_csv(output+'results_table_100_plus_AAL.csv')
-#######################
+########################
+## Before summing df_prov over rps & hazards, grab the 100-year losses
+## results_df = [dK,dW] for RP=100 & AAL (df_prov) 
+#results_df = macro.reset_index().set_index([economy,'hazard'])
+#results_df = results_df.loc[results_df.rp==100,'dk_event'].sum(level='hazard')
+#results_df = results_df.rename(columns={'dk_event':'dk_event_100'})
+#results_df = pd.concat([results_df,df_prov.reset_index().set_index([economy,'hazard']).sum(level='hazard')['dKtot']],axis=1,join='inner')
+#results_df.columns = ['dk_event_100','AAL']
+#results_df.to_csv(output+'results_table_100_plus_AAL.csv')
+########################
 
 _gdp_hh = df_prov['gdp_hh'].copy().mean(level=economy)
 
@@ -424,135 +448,6 @@ if myCountry == 'MW':
         df_prov = df_prov.drop(['Blantyre City','Lilongwe City', 'Mzuzu City', 'Zomba City'],axis=0)
     except: pass
 
-#######################
-print('--> Map subnational GDP')
-make_map_from_svg(
-    df_prov.gdp_hh*1.E-6,
-    svg_file,
-    outname=myCountry+'_gdp_php',
-    color_maper=plt.cm.get_cmap('GnBu'),
-    #svg_handle = 'reg',
-    label=economy[0].upper()+economy[1:]+' GDP [mil. PhP per year]',
-    new_title=economy[0].upper()+economy[1:]+' GDP [mil. PhP per year]',
-    do_qualitative=False,
-    res=2000)
-
-#######################
-print('--> Map subnational GDP')
-make_map_from_svg(
-    df_prov.gdp_hh*get_currency(myCountry)[2]*1.E-6,
-    svg_file,
-    outname=myCountry+'_gdp_usd',
-    color_maper=plt.cm.get_cmap('GnBu'),
-    #svg_handle = 'reg',
-    label=economy[0].upper()+economy[1:]+' GDP [mil. USD per year]',
-    new_title=economy[0].upper()+economy[1:]+' GDP [mil. USD per year]',
-    do_qualitative=False,
-    res=2000)
-
-#######################
-print('--> Map subnational GDP as fraction of national GDP')
-make_map_from_svg(
-    100.*df_prov.gdp_hh/df_prov.gdp_hh.sum(),
-    svg_file,
-    outname=myCountry+'_gdp_over_natl_gdp',
-    color_maper=plt.cm.get_cmap('GnBu'),
-    #svg_handle = 'reg',
-    label=economy[0].upper()+economy[1:]+' GDP [% of national GDP]',
-    new_title=economy[0].upper()+economy[1:]+' GDP [% of national GDP]',
-    do_qualitative=False,
-    res=2000)
-
-#######################
-print('--> Map asset losses in PHP')
-make_map_from_svg(
-    df_prov.dKtot*1.E-9,
-    svg_file,
-    outname=myCountry+'_asset_risk_php',
-    color_maper=plt.cm.get_cmap('GnBu'),
-    #svg_handle = 'reg',
-    label='Annual asset risk [bil. PhP]',
-    new_title='Annual asset risk [bil. PhP]',
-    do_qualitative=False,
-    res=2000)
-
-#######################
-print('--> Map asset losses in USD')
-make_map_from_svg(
-    df_prov.dKtot*get_currency(myCountry)[2]*1.E-6,
-    svg_file,
-    outname=myCountry+'_asset_risk_usd',
-    color_maper=plt.cm.get_cmap('GnBu'),
-    #svg_handle = 'reg',
-    label='Annual asset risk [mUSD]',
-    new_title='Annual asset risk [mUSD]',
-    do_qualitative=False,
-    res=2000)
-
-#######################
-print('--> Map asset losses as fraction of regional GDP')
-make_map_from_svg(
-    100.*df_prov.dKtot/df_prov.gdp, 
-    svg_file,
-    outname=myCountry+'_asset_risk_over_reg_gdp',
-    color_maper=plt.cm.get_cmap('GnBu'),
-    #svg_handle = 'reg',
-    label='Annual asset risk [% of regional GDP]',
-    new_title='Annual asset risk [% of regional GDP]',
-    do_qualitative=False,
-    res=2000)
-
-#######################
-print('--> Map welfare losses in PHP')
-make_map_from_svg(
-    df_prov.dWtot_currency*1.E-9,
-    svg_file,
-    outname=myCountry+'_welf_risk_php',
-    color_maper=plt.cm.get_cmap('OrRd'),
-    #svg_handle = 'reg',
-    label='Annual well-being risk [bil. PhP]',
-    new_title='Annual well-being risk [bil. PhP]',
-    do_qualitative=False,
-    res=2000)
-
-#######################
-print('--> Map welfare losses in USD')
-make_map_from_svg(
-    df_prov.dWtot_currency*get_currency(myCountry)[2]*1.E-6,
-    svg_file,
-    outname=myCountry+'_welf_risk_usd',
-    color_maper=plt.cm.get_cmap('OrRd'),
-    #svg_handle = 'reg',
-    label='Annual well-being risk [mUSD]',
-    new_title='Annual well-being risk [mUSD]',
-    do_qualitative=False,
-    res=2000)
-
-#######################
-print('Map welfare losses as fraction of regional GDP')
-make_map_from_svg(
-    100.*df_prov.dWtot_currency/df_prov.gdp, 
-    svg_file,
-    outname=myCountry+'_welf_risk_over_reg_gdp',
-    color_maper=plt.cm.get_cmap('OrRd'),
-    #svg_handle = 'reg',
-    label='Annual well-being risk [% of regional GDP]',
-    new_title='Annual well-being risk [% of regional GDP]',
-    do_qualitative=False,
-    res=2000)
-
-#######################
-print('Map Resilience')
-make_map_from_svg(
-    100.*df_prov.dKtot/df_prov.dWtot_currency, 
-    svg_file,
-    outname=myCountry+'_resilience',
-    color_maper=plt.cm.get_cmap('RdYlGn'),
-    #svg_handle = 'reg',
-    label='Resilience [%]',
-    new_title='Resilience',
-    do_qualitative=False,
-    res=2000)
 
 #######################
 # Apply the full index to iah for merging with iah_pds
