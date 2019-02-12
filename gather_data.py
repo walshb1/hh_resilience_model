@@ -289,6 +289,7 @@ cat_info_index = cat_info.drop([i for i in cat_info.columns if i not in [economy
 #########################
 # HAZARD INFO
 
+# FLAG: get_hazard_df for Sri Lanka returns two of the same flooding data, and doesn't use the landslide data that is analyzed within the function.
 df_haz,df_tikina = get_hazard_df(myCountry,economy,agg_or_occ='Agg',rm_overlap=True)
 if myCountry == 'FJ': _ = get_SLR_hazard(myCountry,df_tikina)
 
@@ -350,14 +351,17 @@ elif myCountry == 'FJ':
 
 # Turn losses into fraction
 cat_info = cat_info.reset_index().set_index([economy])
-# Available capital by economy
+# Available capital by economy:
+# HIES stands for Household Income and Expenditure Survey
 hazard_ratios = cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy).to_frame(name='HIES_capital')
 # Join on economy with hazards
 hazard_ratios = hazard_ratios.join(df_haz,how='outer')
 
-# Implemented only for Philippines
+# Implemented only for Philippines, others return none.
 hazard_ratios['grdp_to_assets'] = get_subnational_gdp_macro(myCountry,hazard_ratios,float(df['avg_prod_k'].mean()))
 
+
+# fa is the exposure, or probability of a household being affected.
 if myCountry == 'PH':
     hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['grdp_to_assets']
     hazard_ratios = hazard_ratios.drop(['HIES_capital', 'value_destroyed','value_destroyed_prv','value_destroyed_pub'],axis=1)
@@ -381,12 +385,16 @@ hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on=e
 
 # Reduce vulnerability by reduction_vul if hh has access to early warning:
 hazard_ratios.loc[hazard_ratios.hazard!='EQ','v'] *= (1-reduction_vul*hazard_ratios.loc[hazard_ratios.hazard!='EQ','has_ew'])
+# Add some randomness, but at different levels for different assumptions
+# FLAG: This does not change the vulnerability by the same random factor across different intensities/rps of events[]
 hazard_ratios.loc[hazard_ratios['v']<=0.1,'v'] *= np.random.uniform(.8,2,hazard_ratios.loc[hazard_ratios['v']<=0.1].shape[0])
 hazard_ratios.loc[hazard_ratios['v'] >0.1,'v'] *= np.random.uniform(.8,1.2,hazard_ratios.loc[hazard_ratios['v'] >0.1].shape[0])
 
 # Calculate frac_destroyed for SL, since we don't have that in this case
+# frac_destroyed=exposure*vulnerability
 if myCountry == 'SL': hazard_ratios['frac_destroyed'] = hazard_ratios[['v','fa']].prod(axis=1)
 
+# cleanup
 if 'hh_share' not in hazard_ratios.columns: hazard_ratios['hh_share'] = None
 hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])[[i for i in ['frac_destroyed','v','k','pcwgt','hh_share','grdp_to_assets','fa'] if i in hazard_ratios.columns]]
 hazard_ratios = hazard_ratios.drop([i for i in ['index'] if i in hazard_ratios.columns])
@@ -399,6 +407,10 @@ fa_threshold = 0.95
 
 # Calculate avg vulnerability at event level, and use that to find fa
 # --> v_mean is weighted by capital & pc_weight
+
+# # look up hazard ratios for one particular houshold.
+# idx = pd.IndexSlice
+# hazard_ratios.loc[idx['Ampara', 'PF', :, '521471']]
 v_mean = (hazard_ratios[['pcwgt','k','v']].prod(axis=1).sum(level=event_level)/hazard_ratios[['pcwgt','k']].prod(axis=1).sum(level=event_level)).to_frame(name='v_mean')
 #v_mean.name = 'v_mean'
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),v_mean.reset_index(),on=event_level).reset_index().set_index(event_level+['hhid']).sort_index().drop('index',axis=1)
