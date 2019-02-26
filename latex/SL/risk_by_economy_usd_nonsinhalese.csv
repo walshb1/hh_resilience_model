@@ -1,0 +1,30 @@
+\begin{tabular}{lrrr}
+\toprule
+{} &  Asset risk &  SE capacity &  Well-being risk \\
+district     &             &              &                  \\
+\midrule
+Total        &        15.1 &         49.9 &             30.2 \\
+Colombo      &         9.8 &         90.7 &             10.8 \\
+Rathnapura   &         0.8 &         20.1 &              3.8 \\
+Trincomalee  &         0.8 &         24.6 &              3.4 \\
+Kalutara     &         0.5 &         18.5 &              2.7 \\
+Batticaloa   &         0.6 &         25.5 &              2.3 \\
+Puttalam     &         0.7 &         38.0 &              2.0 \\
+Mannar       &         0.5 &         37.1 &              1.4 \\
+Gampaha      &         0.4 &         49.6 &              0.9 \\
+Kegalle      &         0.1 &         24.0 &              0.5 \\
+Ampara       &         0.2 &         41.6 &              0.4 \\
+Kurunegala   &         0.1 &         35.8 &              0.4 \\
+Badulla      &         0.1 &         20.8 &              0.3 \\
+Kandy        &         0.1 &         25.5 &              0.3 \\
+Polonnaruwa  &         0.1 &         24.9 &              0.2 \\
+Hambantota   &         0.1 &         35.8 &              0.2 \\
+Galle        &         0.0 &         22.2 &              0.1 \\
+Matale       &         0.0 &         27.0 &              0.1 \\
+Mullaitivu   &         0.0 &         26.3 &              0.1 \\
+Anuradhapura &         0.0 &         32.1 &              0.1 \\
+Vavuniya     &         0.0 &         50.3 &              0.1 \\
+Moneragala   &         0.0 &         15.5 &              0.0 \\
+Nuwara Eliya &         0.0 &         29.9 &              0.0 \\
+\bottomrule
+\end{tabular}

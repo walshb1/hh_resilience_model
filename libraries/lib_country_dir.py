@@ -11,7 +11,7 @@ import seaborn as sns
 sns.set_style('whitegrid')
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
 
-global model
+global model_
 model = os.getcwd()
 
 # People/hh will be affected or not_affected, and helped or not_helped
@@ -24,6 +24,11 @@ reduction_vul       = 0.20 # how much early warning reduces vulnerability
 inc_elast           = 1.50 # income elasticity
 max_support         = 0.05 # max expenditure on PDS as fraction of GDP (set to 5% based on PHL)
 nominal_asset_loss_covered_by_PDS = 0.80 # also, elsewhere, called 'shareable' 
+
+# Dictionary for standardizing HIES column names that is SPECIFIC TO ROMANIA
+hbs_dict = {'regiune':'Region','judet':'County','codla':'hhcode','coefj':'hhwgt','cpers':'hhsize','R44':'hhinc',
+            'REGIUNE':'Region','JUDET':'County','CODLA':'hhcode','COEFJ':'hhwgt','CPERS':'hhsize',
+            'NRGL':'nrgl','MEDIU':'mediu','CENTRA':'centra'}
 
 # Define directories
 def set_directories(myCountry):  # get current directory
@@ -46,50 +51,64 @@ def get_economic_unit(myC):
     if myC == 'FJ': return 'Division'#'tikina'
     if myC == 'SL': return 'district'
     if myC == 'MW': return 'district'
-    if myC == 'RO': return 'County'
+    if myC == 'RO': return 'Region'
     assert(False)
 
 def get_currency(myC):
     
     if myC == 'PH': return ['b. PhP',1.E9,1./50.]
-    elif myC == 'FJ': return ['k. F\$',1.E3,1./2.]
-    elif myC == 'SL': return ['LKR',1.E9,1./150.]
-    elif myC == 'MW': return ['MWK',1.E9,1./724.64]
-    else: return ['XXX',1.E0]
+    if myC == 'FJ': return ['k. F\$',1.E3,1./2.]
+    if myC == 'SL': return ['LKR',1.E9,1./150.]
+    if myC == 'MW': return ['MWK',1.E9,1./724.64]
+    return ['XXX',1.E0]
+
+def get_hhid_elements(myC):
+    if myC == 'RO': return ['Region','County','centra','hhcode','nrgl','mediu']
+    return None
 
 def get_places(myC,economy):
     # This df should have just province code/name and population
 
     if myC == 'RO':
 
-        # Dictionary for standard column names
-        hbs_dict = {'regiune':'Region','judet':'County','codla':'hhcode','coefj':'hhwgt','cpers':'hhsize'}
+        # Dictionary for standardized column names
+        RO_hhid = get_hhid_elements(myC)
+        # nrgl	= Order number of the household within the place of residence
 
-        # Load df0 and df1
-        df0 = pd.read_stata(inputs+'ROU_2016_HBS_v01_M/Data/Stata/s0.dta')[['regiune','judet','codla','coefj']].rename(columns=hbs_dict).set_index(['Region','County','hhcode'])
-        df1 = pd.read_stata(inputs+'ROU_2016_HBS_v01_M/Data/Stata/s1.dta')[['regiune','judet','codla','cpers']].rename(columns=hbs_dict).set_index(['Region','County','hhcode'])
-        df1 = df1['hhsize'].max(level=['Region','County','hhcode'])
+        # Load df0 <- this is going to me the master index of households in RO 
+        hbs_str = inputs+'ROU_2016_HBS_v01_M/Data/Stata/s0.dta'
+        df0 = pd.read_stata(hbs_str).rename(columns=hbs_dict)[RO_hhid+['ri','hhwgt']].set_index(RO_hhid)
+
+        # BELOW: i think these are duplicative, ie hhwgt=0 when hh refused interview
+        df0 = df0.loc[(df0['hhwgt']!=0)&(df0['ri']=='The household accepts the interview')]
+        df0 = df0.drop('ri',axis=1)
+
+        #df0 = df0.reset_index().set_index('hhid')
+        #df0.loc[df0.index.duplicated(keep=False)].to_csv('~/Desktop/tmp/df0_dupes.csv')
+        #assert(False)
+
+        # Load df1
+        df1 = pd.read_stata(inputs+'ROU_2016_HBS_v01_M/Data/Stata/s1.dta').rename(columns=hbs_dict)[RO_hhid+['hhsize']].set_index(RO_hhid)
+        df1 = df1['hhsize'].max(level=RO_hhid)
 
         # Merge df0 and df1
-        df  = pd.merge(df0.reset_index(),df1.reset_index(),on=['Region','County','hhcode'])
-        df[['Region','County','hhcode']] = df[['Region','County','hhcode']].astype('int')
+        df  = pd.merge(df0.reset_index(),df1.reset_index(),on=RO_hhid)
+        df[RO_hhid] = df[RO_hhid].astype('int')
 
         # Create unique hhid ('codla' seems not to be unique) 
-        df['hhid'] = df['hhcode'].astype('str').values+'_'+df['County'].astype('str').values+'_'+df['Region'].astype('str').values
-        df = df.set_index('hhcode')
+        df['hhid'] = ''
+        for id_col in RO_hhid: df['hhid'] = df['hhid'].astype('str') + df[id_col].astype('str')+('_' if id_col != RO_hhid[-1] else '')
+        df = df.reset_index().set_index('hhid')
         
         df['pcwgt'] = df[['hhsize','hhwgt']].prod(axis=1)
         df.to_csv(inputs+'ROU_2016_HBS_v01_M/ro_weights.csv')
 
-        df = df.set_index('County')['pcwgt'].sum(level='County').to_frame()
-        df.columns = ['pop']
+        assert(df.loc[df.index.duplicated(keep=False)].shape[0]==0)
 
-        #df = df.reset_index()
-        #codes_reg = pd.read_excel(inputs+'reg_cty_codes.xlsx',sheet_name='regions').set_index('code').to_dict()['name']
-        #codes_cty = pd.read_excel(inputs+'reg_cty_codes.xlsx',sheet_name='counties').set_index('code').to_dict()['name']
-        #df['regiune'].replace(codes_reg,inplace=True)
-        #df['judet'].replace(codes_cty,inplace=True)
-        #df.to_csv('~/Desktop/tmp/RO_loc.csv')
+        
+        # "County" field is populated with garbage
+        df = df.set_index(economy)['pcwgt'].sum(level=economy).to_frame()
+        df.columns = ['pop']
     
         return df
 
@@ -106,7 +125,7 @@ def get_places(myC,economy):
 
         df_hhwgt = pd.read_csv(inputs+'HIES2016/weight2016.csv')
         df_hhwgt = df_hhwgt.rename(columns={'Finalweight':'hhwgt'})
-
+        
         df_hhsize = pd.read_csv(inputs+'HIES2016/sec_1_demographic_information.csv')
 
         df_hhsize['hhsize'] = df_hhsize.groupby(['District','Sector','Psu','Snumber','Hhno'])['Person_Serial_No'].transform('count')
@@ -169,16 +188,25 @@ def get_places_dict(myC):
     if myC == 'FJ':
         p_code = pd.read_excel(inputs+'Fiji_provinces.xlsx')[['code','name']].set_index('code').squeeze()
 
-    elif myC == 'SL':
+    if myC == 'SL':
         p_code = pd.read_excel(inputs+'Admin_level_3__Districts.xls')[['DISTRICT_C','DISTRICT_N']].set_index('DISTRICT_C').squeeze()
         p_code.index.name = 'district'
 
-    elif myC == 'MW':
+    if myC == 'MW':
         p_code = pd.read_csv(inputs+'MW_code_region_district.csv')[['code','district']].set_index('code').dropna(how='all')
         p_code.index = p_code.index.astype(int)
 
         r_code = pd.read_csv(inputs+'MW_code_region_district.csv')[['code','region']].set_index('code').dropna(how='all')
         r_code.index = r_code.index.astype(int)   
+
+    if myC == 'RO':
+        r_code = pd.read_csv(inputs+'region_info.csv')[['HBS_code','Region']].set_index('HBS_code').dropna(how='all').squeeze()
+        r_code.index = r_code.index.astype(int)  
+
+    try: p_code = p_code.to_dict()
+    except: pass
+    try: r_code = r_code.to_dict()
+    except: pass
 
     return p_code,r_code
 
@@ -200,50 +228,68 @@ def load_survey_data(myC):
 
     if myC == 'RO':
 
-        # Dictionary for standard column names
-        hbs_dict = {'regiune':'Region','judet':'County','codla':'hhcode','coefj':'hhwgt','cpers':'hhsize','R44':'hhinc',
-                    'REGIUNE':'Region','JUDET':'County','CODLA':'hhcode','COEFJ':'hhwgt','CPERS':'hhsize','R44':'hhinc'}
+        # hbs_dict defined above as Dictionary for standard column names 
+        # Array to recreate hhid:
+        RO_hhid = get_hhid_elements(myC)
 
         # LOAD: hhid, hhwgt, pcwgt, hhsize, hhsize_ae
         df_wgts = pd.read_csv(inputs+'ROU_2016_HBS_v01_M/ro_weights.csv').set_index('hhid')
         df_wgts['hhsize_ae'] = df_wgts['hhsize'].copy()
+        df_wgts['aewgt'] = df_wgts['pcwgt'].copy()
 
         # LOAD: hhinc, pcinc, hsoc, pcsoc
-        _df = pd.read_stata(inputs+'ROU_2016_HBS_v01_M/Data/Stata/s7.dta')[['REGIUNE','JUDET','CODLA','R44',
-                                                                            'R14','R15','R16','R17','R18','R19','R20','R21',
-                                                                            'R22','R23','R24','R25','R26','R27','R28','R29',
-                                                                            'R54','R55','R56','R57','R58','R59','R60']].rename(columns=hbs_dict)
+        _df = pd.read_stata(inputs+'ROU_2016_HBS_v01_M/Data/Stata/s7.dta').rename(columns=hbs_dict)[RO_hhid+['hhinc','R14','R15','R16','R17','R18','R19','R20','R21','R22','R23','R24',
+                                                                                                             'R25','R26','R27','R28','R29','R54','R55','R56','R57','R58','R59','R60',
+                                                                                                             'R47','R52']]
         _df['hhsoc'] = _df[['R14','R15','R16','R17','R18','R19','R20','R21','R22','R23','R24','R25','R26','R27','R28','R29','R54','R55','R56','R57','R58','R59','R60']].sum(axis=1)
+        _df = _df.rename(columns={'R52':'precautionary_savings','R47':'loans_and_credit'})
         # -->  R47 = Loans and credits taken
         # -->  R52 = SAVINGS!!!
 
-        _df[['Region','County','hhcode']] = _df[['Region','County','hhcode']].astype('int')
-        _df = _df.set_index(['Region','County','hhcode'])[['hhinc','hhsoc']]
-        df = pd.merge(df_wgts.reset_index(),_df.reset_index(),on=['Region','County','hhcode']).set_index(['Region','County','hhcode'])
+        _df[RO_hhid] = _df[RO_hhid].astype('int')
+        df = pd.merge(df_wgts.reset_index(),_df.reset_index()[RO_hhid+['hhinc','hhsoc','precautionary_savings','loans_and_credit']],on=RO_hhid).set_index(RO_hhid)
 
         df['hhinc'] *= 52.
         df['pcinc'] = df.eval('hhinc/hhsize')
+        df = df.loc[df.pcinc!=0]
         #
         df['hhsoc'] *= 52.
         df['pcsoc'] = df.eval('hhsoc/hhsize')
         #
+        df['ispoor'] = 0
+        #
         #print(df[['pcinc','pcwgt']].prod(axis=1).sum()/df['pcwgt'].sum())        
         #print(df[['pcsoc','pcwgt']].prod(axis=1).sum()/df['pcwgt'].sum())
         #
-        
+
+        # Load: construction materials
+        _df = pd.read_stata(inputs+'ROU_2016_HBS_v01_M/Data/Stata/s10a.dta').rename(columns=hbs_dict).rename(columns={'MATCONS':'walls'})[RO_hhid+['walls']]
+        _df[RO_hhid] = _df[RO_hhid].astype('int')
+        _df = _df.set_index(RO_hhid)[['walls']]
+        df = pd.merge(df.reset_index(),_df.reset_index(),on=RO_hhid).set_index(RO_hhid)
+
         # LOAD: has_ew
-        _df = pd.read_stata(inputs+'ROU_2016_HBS_v01_M/Data/Stata/s10b.dta')[['REGIUNE','JUDET','CODLA','INZES_12','INZES_17','INZES_18','INZES_25']].rename(columns=hbs_dict)
+        _df = pd.read_stata(inputs+'ROU_2016_HBS_v01_M/Data/Stata/s10b.dta').rename(columns=hbs_dict)[RO_hhid+['INZES_12','INZES_17','INZES_18','INZES_25']]
         _df['has_ew'] = _df[['INZES_12','INZES_17','INZES_18','INZES_25']].sum(axis=1).clip(upper=1)
         
-        _df[['Region','County','hhcode']] = _df[['Region','County','hhcode']].astype('int')
-        _df = _df.set_index(['Region','County','hhcode'])[['has_ew']]
+        _df[RO_hhid] = _df[RO_hhid].astype('int')
+        _df = _df.set_index(RO_hhid)[['has_ew']]
         
-        df = pd.merge(df.reset_index(),_df.reset_index(),on=['Region','County','hhcode']).set_index(['Region','County','hhcode'])
+        df = pd.merge(df.reset_index(),_df.reset_index(),on=RO_hhid).set_index(RO_hhid)
+
+        # Load file with region names
+        region_dict = pd.read_csv(inputs+'region_info.csv').set_index('HBS_code')['Region'].to_dict()
+        
+        df = df.reset_index(['Region'])
+        df['Region'] = df['Region'].replace(region_dict)
+        df = df.reset_index().set_index(RO_hhid)
+
         df['c'] = df['pcinc'].copy()
         #df['social'] = df.eval('pcsoc/pcinc')
 
-        
-
+        # pop & write out hh savings & loans/credit
+        pd.concat([df['hhid']]+[df.pop(x) for x in ['precautionary_savings','loans_and_credit']], 1).to_csv('../intermediate/RO/hh_savings.csv')
+                
     if myC == 'MW':
 
         df_agg = pd.read_stata(inputs+'consumption_aggregates_poverty_ihs4.dta').set_index(['case_id']).dropna(how='all')
@@ -268,7 +314,7 @@ def load_survey_data(myC):
 
         df['aeinc'] = df['hhinc']/df['hhsize_ae']
         df['aewgt'] = df[['hhwgt','hhsize_ae']].prod(axis=1)        
-
+    
         # Still need hhsoc & pcsoc
         dfR = pd.read_stata(inputs+'MWI_2016_IHS-IV_v02_M_Stata/HH_MOD_R.dta').rename(columns={'case_id':'hhid'}).set_index('hhid')
         df['hhsoc'] = dfR[['hh_r02a','hh_r02b']].sum(axis=1).sum(level='hhid')
@@ -770,7 +816,24 @@ def load_survey_data(myC):
         df['dist_name'] = [dist_names[_dn] for _dn in df['District'].values]
  
         df = df.reset_index().set_index(['District','hhid']).drop(['index','Psu','Snumber','Hhno'],axis=1)
+
+        ##########################
+        ## Add ethnicity info:
+        #df_demog = pd.read_csv(inputs+'HIES2016/sec_1_demographic_information.csv')
+        #df_demog['hhid'] = df_demog['District'].astype('str')+df_demog['Sector'].astype('str')+df_demog['Psu'].astype('str')+df_demog['Snumber'].astype('str')+df_demog['Hhno'].astype('str')
+        #df_demog = df_demog.set_index(['District','hhid'])[['Ethnicity']]
+        #df_demog['eth_2'] = df_demog.groupby('hhid')['Ethnicity'].transform('mean')
+        #df_demog.loc[df_demog.Ethnicity!=df_demog.eth_2,'Ethnicity'] = -1
+        #df_demog = df_demog.mean(level=['District','hhid'])[['Ethnicity']]
+
+        #print(df.head())
+        #print(df_demog.head())
         
+
+        #df['ethn'] = df_demog['Ethnicity'].copy()
+        #print(df['ethn'].shape[0],df['ethn'].dropna().shape[0])
+        #assert(df['ethn'].shape[0]==df['ethn'].dropna().shape[0])
+        #df['ethn'] = df['ethn'].fillna(0)
 
         #########################
         # Add expenditures info:
@@ -927,20 +990,11 @@ def get_df2(myC):
 
 def get_vul_curve(myC,struct):
     df = None
-
-    if myC == 'PH':
-        df = pd.read_excel(inputs+'vulnerability_curves_FIES.xlsx',sheet_name=struct)[['desc','v']]
-
-    elif myC == 'FJ':
-        df = pd.read_excel(inputs+'vulnerability_curves_Fiji.xlsx',sheet_name=struct)[['desc','v']]
-
-    elif myC == 'SL':
-        df = pd.read_excel(inputs+'vulnerability_curves.xlsx',sheet_name=struct)[['key','v']]
-        df = df.rename(columns={'key':'desc'})
-
-    elif myC == 'MW':
-        df = pd.read_excel(inputs+'vulnerability_curves_MW.xlsx',sheet_name=struct)[['desc','v']]
-
+    if myC == 'PH': df = pd.read_excel(inputs+'vulnerability_curves_FIES.xlsx',sheet_name=struct)[['desc','v']]
+    if myC == 'FJ': df = pd.read_excel(inputs+'vulnerability_curves_Fiji.xlsx',sheet_name=struct)[['desc','v']]
+    if myC == 'SL': df = pd.read_excel(inputs+'vulnerability_curves.xlsx',sheet_name=struct)[['key','v']].rename(columns={'key':'desc'})
+    if myC == 'MW': df = pd.read_excel(inputs+'vulnerability_curves_MW.xlsx',sheet_name=struct)[['desc','v']]
+    if myC == 'RO': df = pd.read_excel(inputs+'vulnerability_curves_RO.xlsx',sheet_name=struct)[['desc','v']]
     return df
     
 def get_infra_stocks_data(myC):
@@ -1358,10 +1412,41 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
 
         # Need to compare to household survey
         # ^ but what to do if I have a vulnerability
-        #print(df.head())
-        #assert(False)
-
+        
         return df,df
+    
+    elif myC == 'RO':
+        
+        # this file has total GDP (by county), which we'll use as denominator
+        df_gdp = pd.read_csv(inputs+'county_gdp.csv').set_index('County')[['GDP']]
+
+        # this file links counties to regions, because HBS has only regional info
+        df_geo_info = pd.read_csv(inputs+'county_to_region.csv').set_index('County')[['Region']]# also has NUTS codes
+
+        # merge above
+        df_counties = pd.merge(df_gdp.reset_index(),df_geo_info.reset_index(),on='County').set_index('County')
+
+        # This file has capital loss to EQ (by county), which we'll use as numerator
+        df_EQ_caploss = pd.read_csv(inputs+'hazard/_EQ_caploss_by_county.csv').set_index('County')
+        df_EQ_caploss['hazard'] = 'EQ'
+
+        # Merge above
+        df_haz = pd.merge(df_counties.reset_index(),df_EQ_caploss.reset_index(),on='County').set_index(['Region','hazard','rp']).drop(['County'],axis=1)
+    
+        # Sum county-level results to regions
+        df_haz = df_haz.sum(level=['Region','hazard','rp'])
+
+        # Choose which exceedance curve to use:
+        # - Options:
+        # - 1) PML: probably maximum loss
+        # - 2) AAL: average annual loss
+        # - 3) AEP: annual exceedance probability
+        loss_measure_to_use = 'AAL'
+
+        df_haz = df_haz.drop([_l for _l in ['AAL','AEP','PML'] if _l != loss_measure_to_use],axis=1)
+        df_haz['frac_destroyed'] = df_haz.eval(loss_measure_to_use+'/GDP').clip(upper=0.99)
+
+        return df_haz[['frac_destroyed']], df_haz[['frac_destroyed']]
 
     else: return None,None
 
@@ -1369,8 +1454,8 @@ def get_poverty_line(myC,by_district=True,sec=None):
     pov_line = 0.0
     
     if myC == 'PH': pov_line = 22302.6775#21240.2924
-
-    elif myC == 'FJ':
+    if myC == 'MW': pov_line = 137427.98
+    if myC == 'FJ':
         # 55.12 per week for an urban adult
         # 49.50 per week for a rural adult
         # children under age 14 are counted as half an adult
@@ -1382,7 +1467,7 @@ def get_poverty_line(myC,by_district=True,sec=None):
             print('Pov line is variable for urb/rur Fijians! Need to specify which you\'re looking for!')
             pov_line = 0.0    
 
-    elif myC == 'SL':
+    if myC == 'SL':
         pov_line = (pd.read_excel('../inputs/SL/poverty_def_by_district.xlsx').T['2017 Aug Rs.']*12).to_frame()
         if not by_district:
             pov_line = float(pd.read_excel('../inputs/SL/poverty_def_by_district.xlsx').T.loc['National','2017 Aug Rs.']*12.)
@@ -1390,15 +1475,16 @@ def get_poverty_line(myC,by_district=True,sec=None):
         # apply PPP to estimate 2016 value...
         pov_line *= 11445.5/11669.1
 
-    elif myC == 'MW': 
-        pov_line = 137427.98
+    if myC == 'RO': pov_line = (1.90*4.0)/1.60
 
     return pov_line
 
 def get_subsistence_line(myC):
     
     if myC == 'PH': sub_line = 14832.0962*(22302.6775/21240.2924)
-    elif myC == 'SL':
+    if myC == 'MW': sub_line = 85260.164
+    if myC == 'RO': sub_line = (1.25*4.0)/1.6
+    if myC == 'SL':
 
         pov_line = float(pd.read_excel('../inputs/SL/poverty_def_by_district.xlsx').T.loc['National','2017 Aug Rs.']*12.)
         # apply PPP to estimate 2016 value...
@@ -1407,7 +1493,6 @@ def get_subsistence_line(myC):
         sub_line = (1.09/1.25)*pov_line
 
 
-    elif myC == 'MW': sub_line = 85260.164
     else: sub_line = 0; print('No subsistence info. Returning 0')
 
     return sub_line
@@ -1415,18 +1500,19 @@ def get_subsistence_line(myC):
 def get_to_USD(myC):
 
     if myC == 'PH': return 50.70
-    elif myC == 'FJ': return 2.01
-    elif myC == 'SL': return 153.76
-    elif myC == 'MW': return 720.0
-    else: return 0.
+    if myC == 'FJ': return 2.01
+    if myC == 'SL': return 153.76
+    if myC == 'MW': return 720.0
+    if myC == 'RO': return 4.0
+    assert(False)
 
 def get_pop_scale_fac(myC):
     
     if myC == 'PH': return [1.E3,' (,000)']
-    elif myC == 'FJ': return [1.E3,' (,000)']
-    elif myC == 'MW': return [1.E3,' (,000)']
-    elif myC == 'SL': return [1.E3,' (,000)']
-    else: return [1,'']
+    if myC == 'FJ': return [1.E3,' (,000)']
+    if myC == 'MW': return [1.E3,' (,000)']
+    if myC == 'SL': return [1.E3,' (,000)']
+    return [1,'']
 
 def get_avg_prod(myC):
     

@@ -6,7 +6,7 @@ import glob
 ############################################################################# 
 #######################         FROM SVG              ####################### 
 #############################################################################     
-    
+
 from bs4 import BeautifulSoup    
 from IPython.display import Image, display, HTML, SVG
 #img_width = 400
@@ -31,13 +31,17 @@ def get_svg_file(myC):
     return svg_file
 
 def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_cmap("Blues"), label = "", outfolder ="img/" ,
-                      svg_handle='class',new_title=None, do_qualitative=False, res=1000, verbose=True,drop_spots=None):
+                      svg_handle='class',new_title=None, do_qualitative=False, res=1000, verbose=True,
+                      drop_spots=None,force_min=None,force_max=None):
     """Makes a cloropleth map and a legend from a panda series and a blank svg map. 
     Assumes the index of the series matches the SVG classes
     Saves the map in SVG, and in PNG if Inkscape is installed.
     if provided, new_title sets the title for the new SVG map
     """
-    
+
+    if force_min is not None: series_in.loc['xx_forcedmin'] = force_min
+    if force_max is not None: series_in.loc['xx_forcedmax'] = force_max
+
     #simplifies the index to lower case without space
     series_in.index = series_in.index.str.lower().str.replace(" ","_").str.replace("-","_").str.replace(".","_").str.replace("(","_").str.replace(")","_")
     if drop_spots is not None: 
@@ -49,7 +53,7 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
     #compute the colors 
     color = data_to_rgb(series_in,color_maper=color_maper,do_qual=do_qualitative)
 
-    #Builds the CCS style for the new map  (todo: this step could get its own function)
+    #Builds the CSS style for the new map  (todo: this step could get its own function)
     style_base =\
     """.{depname}
     {{  
@@ -147,7 +151,7 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
             could_do_png_map = True
 
     #makes the legend with matplotlib
-    l = make_legend(series_in,color_maper,label,outfolder+"legend_of_"+outname,do_qualitative,res)
+    l = make_legend(series_in,color_maper,label,outfolder+"legend_of_"+outname,do_qualitative,res,force_min,force_max)
     
     if shutil.which("convert") is None:
         print("Cannot merge map and legend. Install ImageMagick® to do so.")
@@ -184,14 +188,14 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
     
 import matplotlib as mpl
 
-def make_legend(serie,cmap,label="",path=None,do_qualitative=False,res=1000):
+def make_legend(serie,cmap,label="",path=None,do_qualitative=False,res=1000,force_min=None,force_max=None):
     #todo: log flag
 
     fig = plt.figure(figsize=(8,3))
     ax1 = fig.add_axes([0.05, 0.80, 0.9, 0.15])
 
-    vmin=serie.min()
-    vmax=serie.max()
+    vmin = force_min if force_min is not None else serie.min() 
+    vmax = force_max if force_max is not None else serie.max() 
 
     # define discrete bins and normalize
     # bounds =np.linspace(vmin,vmax,5)
@@ -216,7 +220,14 @@ def make_legend(serie,cmap,label="",path=None,do_qualitative=False,res=1000):
 
         label = label[:label.find(" (")]
 
-    cb.set_label(label=label,size=24,weight='bold',labelpad=8)
+    elif '[%]' in label or '(%)' in label: 
+        label = label.replace('[%]','').replace('(%)','') 
+        cb.ax.set_xticklabels([_t.get_text()+'%' for _t in cb.ax.get_xticklabels()])
+
+    elif '$' in label:
+        cb.ax.set_xticklabels(['$'+_t.get_text() for _t in cb.ax.get_xticklabels()])
+
+    cb.set_label(label=label,size=21,weight='bold',labelpad=14,linespacing=1.7)
     if path is not None:
         plt.savefig(path+".png",bbox_inches="tight",transparent=True,dpi=res)  
     plt.close(fig)    

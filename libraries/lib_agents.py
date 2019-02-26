@@ -33,7 +33,7 @@ def smart_savers(c,dc0,hhrr,pi,Vsav,_cttot=1):
         if gamma <= 0: return 0,10
 
 def optimize_reco(pi, rho, v, verbose=False):
-
+    
     if v == 0: return 0
 
     eta = 1.5

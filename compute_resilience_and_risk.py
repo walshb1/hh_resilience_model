@@ -169,7 +169,8 @@ if __name__ == '__main__':
 
     if len(sys.argv) > 1: myCountry = sys.argv[1]    
     if len(sys.argv) > 2 and (sys.argv[2] == 'true' or sys.argv[2] == 'True'): debug = True
-    
+    pol_str = ['']    
+
     if myCountry == 'PH':    
         pds_str = ['no','unif_poor']#,'prop','unif_poor_only','prop_q1']
         pol_str = ['']       
@@ -204,7 +205,9 @@ if __name__ == '__main__':
         pds_str = ['unif_poor','no']
         pol_str = ['']
              
-
+    elif myCountry == 'RO':
+        pds_str = ['no']
+        pol_str = ['']
         
     # These lines launch
     if debug:
