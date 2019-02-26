@@ -120,8 +120,10 @@ df['gdp_pc_prov'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum(level=economy)/
 # ^ per capita income (in local currency), regional average
 df['gdp_pc_nat'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info['pcwgt'].sum()
 # ^ this is per capita income (local currency), national average
-df['pop'] = cat_info.pcwgt.sum(level=economy)
+
+#df['pop'] = cat_info.pcwgt.sum(level=economy)
 # ^ regional population
+
 try: df['pct_diff'] = 100.*(df['psa_pop']-df['pop'])/df['pop']
 except: pass
 # ^ (Philippines specific) compare PSA population to FIES population
@@ -134,9 +136,8 @@ except: pass
 print('Getting vulnerabilities')
 
 vul_curve = get_vul_curve(myCountry,'wall')
-for thecat in vul_curve.desc.unique():
-    hh_private_asset_vulnerability = float(vul_curve.loc[vul_curve.desc.values == thecat,'v'])    
-    cat_info.loc[cat_info['walls'] == thecat,'v'] = hh_private_asset_vulnerability
+for thecat in vul_curve.desc.unique():  
+    cat_info.loc[cat_info['walls'] == thecat,'v'] = float(vul_curve.loc[vul_curve.desc.values == thecat,'v'])
     # Fiji doesn't have info on roofing, but it does have info on the *condition* of outer walls. Include that as a multiplier?
     
 # Get roofing data (but Fiji doesn't have this info)
@@ -158,7 +159,8 @@ except: pass
 # --> can be converted to pcinc_ppp11 by dividing by (365*21.1782)
 
 #cat_info = cat_info.reset_index().set_index(['hhid',economy])
-run_sp_analysis(myCountry,cat_info.copy())
+try: run_sp_analysis(myCountry,cat_info.copy())
+except: pass
 #cat_info = cat_info.reset_index('hhid')
 
 # Cash receipts, abroad & domestic, other gifts
@@ -217,60 +219,80 @@ try:
     print('\n--> Urban poverty (flagged poor):',float(round(cat_info.loc[(cat_info.ispoor==1)&(cat_info.urban=='URBAN'),'pcwgt'].sum()/1E6,3)),'million')
 except: pass
 
-# Change the name: district to code, and create an multi-level index 
-cat_info = cat_info.rename(columns={'district':'code','HHID':'hhid'})
 
+# Standardize--hhid should be lowercase
+cat_info = cat_info.rename(columns={'HHID':'hhid'})
+
+
+#########################
+# Calculate K from C
 # tau_tax = total value of social as fraction of total C
 # gamma_SP = Fraction of social that goes to each hh
 print('Get the tax used for domestic social transfer and the share of Social Protection')
 df['tau_tax'], cat_info['gamma_SP'] = social_to_tx_and_gsp(economy,cat_info)
 
-# Calculate K from C
 print('Calculating capital from income')
 cat_info['k'] = ((cat_info['c']/df['avg_prod_k'].mean())*((1-cat_info['social'])/(1-df['tau_tax'].mean()))).clip(lower=0.)
 print('Derived capital from income')
 
-if myCountry == 'FJ':
-    #replace division codes with names
+
+#########################
+# Replace any codes with names
+if myCountry == 'FJ' or myCountry == 'RO' or myCountry == 'SL':
+    #flag
     df = df.reset_index()
-    df['Division'].replace(prov_code,inplace=True)
-    df = df.reset_index().set_index(['Division']).drop(['index'],axis=1)
+    if myCountry == 'FJ' or myCountry == 'SL': 
+        df[economy] = df[economy].replace(prov_code)
+    if myCountry == 'RO':
+        df[economy] = df[economy].astype('int').replace(region_code)
+
+    df = df.reset_index().set_index([economy])
+    try: df = df.drop(['index'],axis=1)
+    except: pass
 
     cat_info = cat_info.reset_index()
-    cat_info['Division'].replace(prov_code,inplace=True) # replace division code with its name
-    cat_info = cat_info.reset_index().set_index(['Division','hhid']).drop(['index'],axis=1)
+    if myCountry == 'FJ' or myCountry == 'SL': 
+        cat_info[economy].replace(prov_code,inplace=True) # replace division code with its name
+    
+    if myCountry == 'RO':
+        cat_info[economy].replace(region_code,inplace=True) # replace division code with its name
 
-elif myCountry == 'SL':
-    #replace division codes with names
-    df = df.reset_index()
-    df[economy].replace(prov_code,inplace=True)
+    cat_info = cat_info.reset_index().set_index([economy,'hhid'])
+    try: cat_info = cat_info.drop(['index'],axis=1)
+    except: pass
 
-    cat_info = cat_info.reset_index()
-    cat_info[economy].replace(prov_code,inplace=True) # replace division code with its name
-    cat_info = cat_info.reset_index().set_index([economy,'hhid']).drop(['index'],axis=1)
 
+########################################
+# Calculate regional averages from household info
+df['gdp_pc_prov'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
+# ^ per capita income (in local currency), regional average
+
+df['gdp_pc_nat'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info['pcwgt'].sum()
+# ^ this is per capita income (local currency), national average
+
+#########################
 print('Save out regional poverty rates')
-print(cat_info.head())
 (100*cat_info.loc[cat_info.eval('c<pov_line'),'pcwgt'].sum(level=economy)
  /cat_info['pcwgt'].sum(level=economy)).to_frame(name='poverty_rate').to_csv('../inputs/'+myCountry+'/regional_poverty_rate.csv')
 
-# Shouldn't be losing anything here 
+# Shouldn't be losing anything here
+cat_info = cat_info.loc[cat_info['pcwgt'] != 0]
 print('Check total population:',cat_info.pcwgt.sum())
-cat_info.dropna(inplace=True,how='all')
+cat_info.to_csv('~/Desktop/tmp/RO_drops.csv')
+cat_info.dropna(inplace=True,how='any')
 print('Check total population (after dropna):',cat_info.pcwgt.sum())
-
-# Exposure
 print('check:',cat_info.shape[0],'=?',cat_info.dropna().shape[0])
-#cat_info.to_csv('~/Desktop/tmp/check.csv')
-cat_info =cat_info.dropna()
+
 
 # Cleanup dfs for writing out
-cat_info_col = [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','code','np','score','v','c','pcsoc','social','c_5','hhsize',
+cat_info_col = [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','np','score','v','c','pcsoc','social','c_5','hhsize','ethnicity',
                 'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
                 'has_ew','SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin','pcsamurdhi','gsp_samurdhi','frac_remittance','N_children']
 cat_info = cat_info.drop([i for i in cat_info.columns if (i in cat_info.columns and i not in cat_info_col)],axis=1)
 cat_info_index = cat_info.drop([i for i in cat_info.columns if i not in [economy,'hhid']],axis=1)
 
+
+# Exposure
 #########################
 # HAZARD INFO
 
@@ -325,13 +347,14 @@ if myCountry == 'PH':
     df_haz['hh_share'] = (df_haz['value_destroyed_prv']/df_haz['value_destroyed']).fillna(1.)
     # Weird things can happen for rp=2000 (negative losses), but they're < 10E-5, so we don't worry much about them
     #df_haz.loc[df_haz.hh_share>1.].to_csv('~/Desktop/hh_share.csv')
-
-elif myCountry == 'SL': df_haz['hh_share'] = 1.
     
 elif myCountry == 'FJ':
     df_haz = df_haz.reset_index().set_index([economy,'hazard','rp']).sum(level=[economy,'hazard','rp'])
     # All the magic happens inside get_hazard_df()
 
+else: 
+    print('\n\nSetting hh_share to 1!\n\n')
+    df_haz['hh_share'] = 1.
 
 # Turn losses into fraction
 cat_info = cat_info.reset_index().set_index([economy])
@@ -344,15 +367,13 @@ if myCountry == 'PH':
     hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['grdp_to_assets']
     hazard_ratios = hazard_ratios.drop(['HIES_capital', 'value_destroyed','value_destroyed_prv','value_destroyed_pub'],axis=1)
 
-elif myCountry == 'FJ':
-    pass
-    # --> fa is losses/(exposed_value*v)
-    #hazard_ratios['frac_destroyed'] = hazard_ratios['fa'] 
+elif myCountry == 'FJ': pass
+# --> fa is losses/(exposed_value*v)
+#hazard_ratios['frac_destroyed'] = hazard_ratios['fa'] 
 
-elif myCountry == 'SL':
-    pass
-    # For SL, 'fa' is fa, not frac_destroyed
-    #hazard_ratios['frac_destroyed'] = hazard_ratios.pop('fa')
+elif myCountry == 'SL': pass
+# For SL, 'fa' is fa, not frac_destroyed
+# hazard_ratios['frac_destroyed'] = hazard_ratios.pop('fa')
 
 
 # Have frac destroyed, need fa...
@@ -373,6 +394,8 @@ if 'hh_share' not in hazard_ratios.columns: hazard_ratios['hh_share'] = None
 hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])[[i for i in ['frac_destroyed','v','k','pcwgt','hh_share','grdp_to_assets','fa'] if i in hazard_ratios.columns]]
 hazard_ratios = hazard_ratios.drop([i for i in ['index'] if i in hazard_ratios.columns])
 
+
+
 ###########################################
 # 2 things going on here:
 # 1) Pull v out of frac_destroyed
@@ -384,6 +407,7 @@ fa_threshold = 0.95
 v_mean = (hazard_ratios[['pcwgt','k','v']].prod(axis=1).sum(level=event_level)/hazard_ratios[['pcwgt','k']].prod(axis=1).sum(level=event_level)).to_frame(name='v_mean')
 #v_mean.name = 'v_mean'
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),v_mean.reset_index(),on=event_level).reset_index().set_index(event_level+['hhid']).sort_index().drop('index',axis=1)
+
 
 
 if myCountry != 'SL':
@@ -425,13 +449,18 @@ try:
     pickle.dump(v_to_reco_rate, open('../optimization_libs/'+myCountry+'_v_to_reco_rate_proto2.p', 'wb'),protocol=2)
 except: print('Was not able to load v to hh_reco_rate library from ../optimization_libs/'+myCountry+'_v_to_reco_rate.p')
 
+#hazard_ratios.loc[hazard_ratios.index.duplicated(keep=False)].to_csv('~/Desktop/tmp/dupes.csv')
+assert(hazard_ratios.loc[hazard_ratios.index.duplicated(keep=False)].shape[0]==0)
+
 try: hazard_ratios['hh_reco_rate'] = hazard_ratios.apply(lambda x:v_to_reco_rate[round(x.v,2)],axis=1)
 except:
     for _n, _i in enumerate(hazard_ratios.index):
+        
         if round(_n/len(hazard_ratios.index)*100,3)%10 == 0:
             print(round(_n/len(hazard_ratios.index)*100,2),'% of way through')
 
-        _v = round(hazard_ratios.loc[_i,'v'],2)
+        _v = round(hazard_ratios.loc[_i,'v'].squeeze(),2)
+
         try: hazard_ratios.loc[_i,'hh_reco_rate'] = v_to_reco_rate[_v]
         except:
             _opt = optimize_reco(_pi,_rho,_v)

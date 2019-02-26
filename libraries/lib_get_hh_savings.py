@@ -10,8 +10,9 @@ def get_hh_savings(myC, econ_unit, pol, fstr=None):
 
     # Now run country-dependent options: 
     if myC == 'SL' or myC == 'MW': return hh_df.eval('c/12.').to_frame(name='precautionary_savings')
-    
-    elif myC == 'PH':
+    if myC == 'RO': return pd.read_csv('../intermediate/RO/hh_savings.csv')[['hhid','precautionary_savings']].set_index('hhid')
+
+    if myC == 'PH':
 
         # LOAD DECILE INFO
         df_decile = pd.read_csv('../intermediate/'+myC+'/hh_rankings.csv')[['hhid','decile']].astype('int')
@@ -38,3 +39,4 @@ def get_hh_savings(myC, econ_unit, pol, fstr=None):
         return hh_df[['precautionary_savings']]
     
     assert(False)
+

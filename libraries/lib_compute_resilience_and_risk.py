@@ -162,9 +162,9 @@ def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,ev
     #cat_info = cat_info[cat_info.c>0]
     hazard_ratios = pd.read_csv(fname, index_col=event_level+[income_cats])
     hazard_ratios = hazard_ratios.drop([_c for _c in ['index','v_mean'] if _c in hazard_ratios.columns],axis=1)
-    
-    print('\nHazRatios:\n',hazard_ratios.head())
 
+    print('\nHazRatios:\n',hazard_ratios.head(2))
+    
     cat_info['ew_expansion'] = 0
     macro,cat_info,hazard_ratios = apply_policies(pol_str,macro,cat_info,hazard_ratios)
 
@@ -178,6 +178,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     if type(hazard_ratios)==pd.DataFrame:
         
         hazard_ratios = hazard_ratios.reset_index().set_index(economy).dropna()
+        hazard_ratios['rp'] = hazard_ratios['rp'].astype('int')
         
         try: hazard_ratios = hazard_ratios.drop('Unnamed: 0',axis=1)
         except: pass
@@ -188,7 +189,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
             
         common_places = [c for c in macro.index if c in cat_info.index and c in hazard_ratios.index]
         print('common places:',common_places)
-        
+
         hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])
 
         # This drops 1 province from macro
@@ -198,10 +199,9 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
         cat_info = cat_info.ix[common_places].copy()
 
         # Nothing drops from hazard_ratios
-        hazard_ratios = hazard_ratios.ix[common_places]
+        hazard_ratios = hazard_ratios.ix[common_places].copy()
 
-        if hazard_ratios.empty:
-            hazard_ratios=None
+        if hazard_ratios.empty: hazard_ratios=None
 			
     if hazard_ratios is None:
         hazard_ratios = pd.Series(1,index=pd.MultiIndex.from_product([macro.index,'default_hazard'],names=[economy, 'hazard']))
@@ -294,8 +294,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     cats_event = cats_event.reset_index()
 
     for __ix in _ix:
-        if __ix == 'hhid' or __ix == 'rp': 
-            cats_event[__ix] = cats_event[__ix].astype('int')
+        if (__ix == 'hhid' and myCountry != 'RO') or __ix == 'rp': cats_event[__ix] = cats_event[__ix].astype('int')
         else: cats_event[__ix] = cats_event[__ix].astype('category')
     cats_event = cats_event.reset_index().set_index(_ix)
     #######################
@@ -303,7 +302,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     # Broadcast 'hh_share' to cats_event
     hazard_ratios_event = hazard_ratios_event.reset_index().set_index(event_level+['hhid'])    
     cats_event = cats_event.reset_index().set_index(event_level+['hhid'])
-    cats_event['hh_share'] = hazard_ratios_event['hh_share']
+    cats_event['hh_share'] = hazard_ratios_event['hh_share'].copy()
     cats_event['hh_share'] = cats_event['hh_share'].fillna(1.).clip(upper=1.)
 
     # Transfer vulnerability from haz_ratios to cats_event:
@@ -354,7 +353,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
 
     # set vulnerability to zero for non-affected households
     # --> v for [private, public] assets
-    cats_event_ia.loc[cats_event_ia.affected_cat=='na',['v']] = 0
+    cats_event_ia.loc[cats_event_ia.affected_cat=='na','v'] = 0
 
     # 'Actual' vulnerability includes migitating effect of early warning systems
     # --> still 0 for non-affected hh
