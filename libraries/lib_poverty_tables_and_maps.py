@@ -44,24 +44,30 @@ def map_recovery_time(myC,HAZ,RP=[100],RECO=['25','75','90'],drop_spots=None,_ma
     elif myC == 'SL': svg_file = '../map_files/'+myC+'/lk.svg'
     elif myC == 'MW': svg_file = '../map_files/'+myC+'/mw.svg'
 
-    
-
+    _pop = pd.read_csv('../intermediate/'+myC+'/hazard_ratios.csv')
+    _pop = _pop.set_index([get_economic_unit(myC),'hazard','rp'])
+    _pop_event = _pop['pcwgt'].sum(level=_pop.index.names).to_frame(name='pop')
+    _pop_event['fa'] = _pop['fa'].mean(level=_pop.index.names)
+    _pop_event['Naff'] = _pop_event[['pop','fa']].prod(axis=1)
+    _pop_event = _pop_event.reset_index().set_index(get_economic_unit(myC))
+             
     for _haz in [HAZ]:
         for _rp in RP:
             for _reco in RECO:
 
                 _ = df.loc[(df.hazard == _haz)&(df.rp == _rp)].set_index(get_economic_unit(myC))
-                print(_.head())
-                
-
                 _.loc[_['time_recovery_'+_reco]==-1,'time_recovery_'+_reco] = 10
+
+                __pop_event = _pop_event.loc[(_pop_event.hazard == _haz)&(_pop_event.rp == _rp)]
+                _mean = str(round((_['time_recovery_'+_reco]*__pop_event['Naff']).sum()/__pop_event['Naff'].sum(),1))
+                print(_mean)
 
                 make_map_from_svg(
                     _['time_recovery_'+_reco], 
                     svg_file,
                     outname=myC+'_time_to_recover_'+_reco+'pct_'+_haz+str(_rp),
                     color_maper=plt.cm.get_cmap('Purples'), 
-                    label='Time to reconstruct '+_reco+'% of assets destroyed \nby '+str(_rp)+'-year '+haz_dict[_haz].lower()+' [years]',
+                    label='Time to reconstruct '+_reco+'% of assets destroyed \nby '+str(_rp)+'-year '+haz_dict[_haz].lower()+' [years]\nNational avg. = '+_mean+' years',
                     new_title='',
                     do_qualitative=False,
                     res=_mapres)

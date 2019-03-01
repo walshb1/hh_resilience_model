@@ -52,13 +52,13 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
     # Dictionary for labeling
     haz_dict = {'SS':'Storm surge',
                 'PF':'Precipitation flood',
-                'HU':'Hurricane',
+                'HU':'Typhoon',
                 'EQ':'Earthquake',
                 'DR':'Drought',
                 'FF':'Fluvial flood'}
 
     simple_plot = True
-    stack_wealthy = False 
+    stack_wealthy = True
 
     upper_clip = 1E6
     if myC == 'PH': 
@@ -69,7 +69,7 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
     if myC == 'FJ': upper_clip = 2E4
     if myC == 'SL': 
         upper_clip = 3.25E5
-        if aReg == 'Rathnapura': upper_clip = 2.5E5
+        if aReg == 'Rathnapura': upper_clip = 3.0E5
     if myC == 'MW': 
         if aReg == 'Lilongwe': upper_clip = 4.0E5
         else: upper_clip = 2.5E5
@@ -94,7 +94,7 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
 
         if aReg == 'II - Cagayan Valley' and aDis == 'HU': plt.ylim(0,400)
         elif aReg == 'VIII - Eastern Visayas' and aDis == 'HU': plt.ylim(0,500)
-        elif aReg == 'Rathnapura': plt.ylim(0,105)
+        elif aReg == 'Rathnapura': plt.ylim(0,130)
 
         plt.xlabel(_fom_lab+r' ('+currency+' per person, per year)',labelpad=8,fontsize=8)
         plt.ylabel('Population'+get_pop_scale_fac(myC)[1],labelpad=8,fontsize=8)
@@ -122,7 +122,7 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
         plt.ylim(0)
         
         if stack_wealthy: pre_ann = plt.annotate('Pre-disaster '+_fom_lab.lower()+'\n(FIES data)',xy=(c_bins[1][-2],ci_heights[-1]),xytext=(c_bins[1][-4],ci_heights[-1]*1.075),
-                                                 arrowprops=dict(arrowstyle="-",facecolor=greys_pal[8],connectionstyle="angle,angleA=0,angleB=90,rad=5"),
+                                                 arrowprops=dict(arrowstyle="-",color=greys_pal[8],connectionstyle="angle,angleA=0,angleB=90,rad=5"),
                                                  annotation_clip=False,size=8,weight='light',ha='right',va='center',color=greys_pal[8])
         else: pre_ann = plt.annotate('Pre-disaster '+_fom_lab.lower()+'\n(FIES data)',xy=((c_bins[1][5]+c_bins[1][6])/2,ci_heights[5]),xytext=(c_bins[1][8],ci_heights[5]*1.02),
                                      arrowprops=dict(arrowstyle="-",color=greys_pal[8],connectionstyle="angle,angleA=0,angleB=90,rad=5"),
@@ -150,7 +150,7 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
 
         if stack_wealthy: post_ann = plt.annotate('Post-disaster '+_fom_lab.lower()+'\n(modeled)',xy=((c_bins[1][-2]+c_bins[1][-1])/1.99,cf_heights[-1]*0.90),
                                                   xytext=(c_bins[1][-4],cf_heights[-1]*0.90),arrowprops=dict(arrowstyle="-",facecolor=greys_pal[8]),
-                                                  annotation_clip=False,size=8,weight='light',ha='right',va='center',facecolor=paired_pal[5])
+                                                  annotation_clip=False,size=8,weight='light',ha='right',va='center',color=paired_pal[5])
         else: 
             ax.lines.remove(ax.lines[0])
             pre_step = ax.step(c_bins[1][1:], ci_heights, label=aReg+' - FIES income', linewidth=1.0,color=greys_pal[7],alpha=0.65)

@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from matplotlib import ticker
 import pandas as pd
 import numpy as np
 import glob
@@ -226,6 +227,14 @@ def make_legend(serie,cmap,label="",path=None,do_qualitative=False,res=1000,forc
 
     elif '$' in label:
         cb.ax.set_xticklabels(['$'+_t.get_text() for _t in cb.ax.get_xticklabels()])
+
+    # drop final zero
+    cb.ax.set_xticklabels([_t.get_text().replace('.0','') if _t.get_text()[-2:]=='.0' else _t.get_text() for _t in cb.ax.get_xticklabels()])
+    # disgraceful 1-liner to keep colorbar axis uncluttered
+
+    if len(cb.ax.xaxis.get_ticklabels()) >= 7:
+        cb.locator = ticker.MaxNLocator(nbins=6)
+        cb.update_ticks()
 
     cb.set_label(label=label,size=21,weight='bold',labelpad=14,linespacing=1.7)
     if path is not None:
