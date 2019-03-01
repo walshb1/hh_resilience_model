@@ -15,7 +15,7 @@
     }
     .ampara
     {  
-       fill: #F9F8FB;
+       fill: #FCFBFD;
        stroke:#000000;
        stroke-width:2;
     }
@@ -27,31 +27,31 @@
     }
 .badulla
     {  
-       fill: #8B88BF;
+       fill: #3F007D;
        stroke:#000000;
        stroke-width:2;
     }
 .batticaloa
     {  
-       fill: #ACABD1;
+       fill: #D1D1E6;
        stroke:#000000;
        stroke-width:2;
     }
 .colombo
     {  
-       fill: #F6F5F9;
+       fill: #FCFBFD;
        stroke:#000000;
        stroke-width:2;
     }
 .galle
     {  
-       fill: #F1EFF6;
+       fill: #ECEAF3;
        stroke:#000000;
        stroke-width:2;
     }
 .gampaha
     {  
-       fill: #F5F4F9;
+       fill: #FCFBFD;
        stroke:#000000;
        stroke-width:2;
     }
@@ -63,49 +63,49 @@
     }
 .kalutara
     {  
-       fill: #D0D0E6;
+       fill: #705DA9;
        stroke:#000000;
        stroke-width:2;
     }
 .kandy
     {  
-       fill: #F4F2F8;
+       fill: #FCFBFD;
        stroke:#000000;
        stroke-width:2;
     }
 .kegalle
     {  
-       fill: #EEECF4;
+       fill: #ECEAF3;
        stroke:#000000;
        stroke-width:2;
     }
 .kurunegala
     {  
-       fill: #F6F4F9;
+       fill: #FCFBFD;
        stroke:#000000;
        stroke-width:2;
     }
 .mannar
     {  
-       fill: #9894C5;
+       fill: #D1D1E6;
        stroke:#000000;
        stroke-width:2;
     }
 .matale
     {  
-       fill: #EFEDF5;
+       fill: #ECEAF3;
        stroke:#000000;
        stroke-width:2;
     }
 .moneragala
     {  
-       fill: #E1E1EE;
+       fill: #D1D1E6;
        stroke:#000000;
        stroke-width:2;
     }
 .mullaitivu
     {  
-       fill: #3F007D;
+       fill: #8C89BF;
        stroke:#000000;
        stroke-width:2;
     }
@@ -117,31 +117,31 @@
     }
 .polonnaruwa
     {  
-       fill: #FBFAFC;
+       fill: #FCFBFD;
        stroke:#000000;
        stroke-width:2;
     }
 .puttalam
     {  
-       fill: #928EC2;
+       fill: #AFAED3;
        stroke:#000000;
        stroke-width:2;
     }
 .rathnapura
     {  
-       fill: #D3D3E7;
+       fill: #D1D1E6;
        stroke:#000000;
        stroke-width:2;
     }
 .trincomalee
     {  
-       fill: #AFAED3;
+       fill: #D1D1E6;
        stroke:#000000;
        stroke-width:2;
     }
 .vavuniya
     {  
-       fill: #F8F7FA;
+       fill: #FCFBFD;
        stroke:#000000;
        stroke-width:2;
     }

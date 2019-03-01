@@ -269,15 +269,32 @@ for _pds in pds_to_plot:
     plt.annotate('Annual cost = '+_cost_str+'\nProgram ROI = '+str(round(float(pds_effects_avg.eval('dw_DELTA_'+_pds+'/cost_'+_pds)),1)),
                  xy=(1.1*pds_effects.iloc[-1]['rp'],0.98*pds_effects.iloc[-1]['dw_DELTA_'+_pds]),va='top',fontsize=8,color=greys_pal[7])
 
+    _event_cost = float(pds_effects.loc[pds_effects.rp==50,'cost_'+_pds])
+
+    _event_label = 'M'
+    if _event_cost < 1: 
+        _event_cost = str(int(round(_event_cost*1E3,0)))
+        _event_label='K'
+    else: _event_cost = str(round(_event_cost,1))
+
+    _event_ben = float(pds_effects.loc[pds_effects.rp==50,'dw_DELTA_'+_pds])
+
+    plt.annotate('$'+_event_cost+_event_label,xy=(50,_event_ben),xytext=(55,_event_ben*0.94),
+                 arrowprops=dict(shrink=0.01,headwidth=0.5,headlength=0,width=0.5,color=greys_pal[6],connectionstyle='arc3'),
+                 ha='left',va='top',fontsize=8,color=greys_pal[6],weight='light')
+    
+plt.plot([50,50],[0,1E4],color=greys_pal[5],ls=':')
+plt.annotate('Cost of ASP\nafter 50-year flood',xy=(55,39),ha='left',va='top',fontsize=8,color=greys_pal[6],weight='bold')
+
 plt.title('Expected benefit of ASP (payout = 1 month of Samurdhi)\nin Sri Lanka, by RP and beneficiary group',loc='left',fontsize=15,color=greys_pal[7],linespacing=1.5,pad=15)
 #plt.annotate('One month Samurdhi topup to',xy=(0.96,1.04),xycoords='axes fraction',color=greys_pal[7],fontsize=8,weight='bold',annotation_clip=False,ha='left',va='bottom')
 plt.xlabel('Return period [years]',labelpad=10,fontsize=10)
-plt.xlim(5)
+plt.xlim(9,1100)
 plt.xticks([10,25,50,100,500,1000])
 plt.gca().set_xticklabels([10,25,50,100,500,1000],size=8)
 
 plt.ylabel('Avoided well-being losses [mil. USD]',labelpad=10,fontsize=10)
-#;plt.ylim(1E3,1E5)
+plt.ylim(9E-1,4E1)
 plt.yticks([1E0,5E0,1E1,2.5E1])
 plt.gca().set_yticklabels(['1','5','10','25'],size=8)
 
