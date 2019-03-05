@@ -295,7 +295,8 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 
     for __ix in _ix:
         if __ix == 'hhid' or __ix == 'rp':
-            cats_event[__ix] = cats_event[__ix].astype('int')
+            try: cats_event[__ix] = cats_event[__ix].astype('int')
+            except: pass
         else: cats_event[__ix] = cats_event[__ix].astype('category')
     cats_event = cats_event.reset_index().set_index(_ix)
     #######################
@@ -1027,7 +1028,8 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
 
     for __ix in _ix:
         if __ix == 'hhid' or __ix == 'rp':
-            cats_event_iah[__ix] = cats_event_iah[__ix].astype('int')
+            try: cats_event_iah[__ix] = cats_event_iah[__ix].astype('int')
+            except: pass
         else: cats_event_iah[__ix] = cats_event_iah[__ix].astype('category')
     cats_event_iah = cats_event_iah.reset_index().set_index(_ix)
 
@@ -1279,7 +1281,8 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     # --> sav_f = intial savings at initialization. will decrement as hh spend savings.
     temp = temp.set_index('hhid')
     hh_sav = get_hh_savings(myC,mac_ix[0],pol_str)
-    hh_sav.index = hh_sav.index.astype('int')
+    try: hh_sav.index = hh_sav.index.astype('int')
+    except: pass
 
     temp = pd.merge(temp.reset_index(),hh_sav.reset_index(),on='hhid').rename(columns={'precautionary_savings':'sav_f'})
 

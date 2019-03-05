@@ -105,7 +105,7 @@ def get_places(myC):
     if myC == 'BO':
         economy = get_economic_unit(myC)
         df = pd.read_stata(inputs +'BOL_EH_2015.dta')
-        df[economy] = [f[0] for f in df['folio']]
+        df[economy] = [int(f[0]) for f in df['folio']]
         df.set_index(economy, inplace = True)
         df['personas'] = df.factor_expansion*df.miembros_hogar
         return df['personas'].sum(level = 0).to_frame(name='pop')
@@ -973,8 +973,9 @@ def load_survey_data(myC):
 
         # Get hhinc
         df['hhinc'] = 0
+
         # Annualize monthly incomes from labor
-        df.hhinc = df_persona.groupby(level = 0).sum()['ylab']*12
+        df.hhinc = df_persona.groupby(level = 0).sum()['yper']*12
         # Get per capita incomes
         df['pcinc'] = df.hhinc/ df.hhsize
 
@@ -1077,12 +1078,10 @@ def load_survey_data(myC):
     return df
 
 def get_df2(myC):
-
     if myC == 'PH':
         df2 = pd.read_excel(inputs+'PSA_compiled.xlsx',skiprows=1)[['province','gdp_pc_pp','pop','shewp','shewr']].set_index('province')
         df2['gdp_pp'] = df2['gdp_pc_pp']*df2['pop']
         return df2
-
     else: return None
 
 def get_vul_curve(myC,struct):
@@ -1609,6 +1608,8 @@ def get_poverty_line(myC,by_district=True,sec=None):
 
     elif myC == 'MW':
         pov_line = 137427.98
+    elif myC == 'BO':
+        pov_line = 706.53 # from cat_info.eval('pov_line*pcwgt').sum()/cat_info.pcwgt.sum()
 
     return pov_line
 
@@ -1625,6 +1626,9 @@ def get_subsistence_line(myC):
 
 
     elif myC == 'MW': sub_line = 85260.164
+    elif myC == 'BO':
+        sub_line = 379.08 # from cat_info.eval('sub_line*pcwgt').sum()/cat_info.pcwgt.sum()
+
     else: sub_line = 0; print('No subsistence info. Returning 0')
 
     return sub_line
@@ -1635,6 +1639,7 @@ def get_to_USD(myC):
     elif myC == 'FJ': return 2.01
     elif myC == 'SL': return 153.76
     elif myC == 'MW': return 720.0
+    elif myC == 'BO': return 6.93
     else: return 0.
 
 def get_pop_scale_fac(myC):
@@ -1643,6 +1648,7 @@ def get_pop_scale_fac(myC):
     elif myC == 'FJ': return [1.E3,' [Thousands]']
     elif myC == 'MW': return [1.E3,' [Thousands]']
     elif myC == 'SL': return [1.E3,' [Thousands]']
+    elif myC == 'BO': return [1.E3,' [Thousands]']
     else: return [1,'']
 
 def get_avg_prod(myC):

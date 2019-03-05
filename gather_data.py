@@ -108,10 +108,12 @@ if myCountry == 'PH':
     df = df.mean(level=economy)
 
 cat_info = cat_info.reset_index().set_index([economy,'hhid'])
+
 try: cat_info = cat_info.drop('index',axis=1)
 except: pass
 # Now we have a dataframe called <cat_info> with the household info.
 # Index = [economy (='region';'district'; country-dependent), hhid]
+
 
 
 ########################################
@@ -252,7 +254,7 @@ if myCountry == 'FJ':
     cat_info['Division'].replace(prov_code,inplace=True) # replace division code with its name
     cat_info = cat_info.reset_index().set_index(['Division','hhid']).drop(['index'],axis=1)
 
-elif (myCountry == 'SL') or (myCountry == 'BO'):
+elif myCountry == 'SL':
     #replace division codes with names in both df and cat_info
     df = df.reset_index()
     df[economy].replace(prov_code,inplace=True)
@@ -263,9 +265,10 @@ elif (myCountry == 'SL') or (myCountry == 'BO'):
 
 elif myCountry == 'BO':
     df = df.reset_index()
-    df[economy].replace(prov_code,inplace=True)
+    df[economy] = df[economy].astype(int).replace(prov_code)
     cat_info = cat_info.reset_index()
     cat_info[economy].replace(prov_code,inplace=True) # replace division code with its name
+    cat_info = cat_info.reset_index().set_index([economy,'hhid']).drop(['index'],axis=1)
 
 print('Save out regional poverty rates to regional_poverty_rate.csv')
 print(cat_info.head())
@@ -275,6 +278,9 @@ print(cat_info.head())
 # Shouldn't be losing anything here
 print('Check total population:',cat_info.pcwgt.sum())
 cat_info.dropna(inplace=True,how='all')
+# Get rid of househouseholds with 0 consumption
+if myCountry == 'BO':
+    cat_info.drop(cat_info[cat_info['c'] ==0].index, inplace = True)
 print('Check total population (after dropna):',cat_info.pcwgt.sum())
 
 # Drop partially empty columns
