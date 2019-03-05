@@ -107,7 +107,6 @@ if myCountry == 'PH':
     df['psa_pop'] = df.sum(level=economy)
     df = df.mean(level=economy)
 
-
 cat_info = cat_info.reset_index().set_index([economy,'hhid'])
 try: cat_info = cat_info.drop('index',axis=1)
 except: pass
@@ -127,15 +126,13 @@ df['pop'] = cat_info.pcwgt.sum(level=economy)
 try: df['pct_diff'] = 100.*(df['psa_pop']-df['pop'])/df['pop']
 except: pass
 
-
-
-
 ########################################
 ########################################
 # Asset vulnerability
 print('Getting vulnerabilities')
 
 vul_curve = get_vul_curve(myCountry,'wall').set_index('desc').to_dict()
+
 cat_info['v'] = cat_info.walls.map(vul_curve['v'])
 
 # vul_curve = get_vul_curve(myCountry,'wall')
@@ -144,7 +141,6 @@ cat_info['v'] = cat_info.walls.map(vul_curve['v'])
 #     cat_info.loc[cat_info['walls'] == thecat,'v'] = hh_private_asset_vulnerability
 #     # Fiji doesn't have info on roofing, but it does have info on the *condition* of outer walls. Include that as a multiplier?
 #
-
 # Get roofing data (but Fiji doesn't have this info)
 # Set home vulnerability to mean of the two vulnerabilities.
 try:
@@ -185,9 +181,9 @@ if 'pov_line' not in cat_info.columns:
     except:
         try: cat_info['pov_line'] = get_poverty_line(myCountry,by_district=False)
         except: cat_info['pov_line'] = 0
-
-try: cat_info['sub_line'] = get_subsistence_line(myCountry)
-except: cat_info['sub_line'] = 0
+if 'sub_line' not in cat_info.columns:
+    try: cat_info['sub_line'] = get_subsistence_line(myCountry)
+    except: cat_info['sub_line'] = 0
 cat_info[['sub_line','pov_line']]
 
 cat_info = cat_info.reset_index().set_index(event_level[0])
@@ -241,6 +237,7 @@ df['tau_tax'], cat_info['gamma_SP'] = social_to_tx_and_gsp(economy,cat_info)
 # Calculate K from C - pretax income (without sp) over avg social income
 # Only count pre-tax income that goes towards sp
 print('Calculating capital from income')
+# Capital is consumption over average productivity of capital over a multiplier which is net social payments/taxes for each household
 cat_info['k'] = ((cat_info['c']/df['avg_prod_k'].mean())*((1-cat_info['social'])/(1-df['tau_tax'].mean()))).clip(lower=0.)
 print('Derived capital from income')
 
@@ -255,7 +252,7 @@ if myCountry == 'FJ':
     cat_info['Division'].replace(prov_code,inplace=True) # replace division code with its name
     cat_info = cat_info.reset_index().set_index(['Division','hhid']).drop(['index'],axis=1)
 
-elif myCountry == 'SL':
+elif (myCountry == 'SL') or (myCountry == 'BO'):
     #replace division codes with names in both df and cat_info
     df = df.reset_index()
     df[economy].replace(prov_code,inplace=True)
@@ -263,6 +260,12 @@ elif myCountry == 'SL':
     cat_info = cat_info.reset_index()
     cat_info[economy].replace(prov_code,inplace=True) # replace division code with its name
     cat_info = cat_info.reset_index().set_index([economy,'hhid']).drop(['index'],axis=1)
+
+elif myCountry == 'BO':
+    df = df.reset_index()
+    df[economy].replace(prov_code,inplace=True)
+    cat_info = cat_info.reset_index()
+    cat_info[economy].replace(prov_code,inplace=True) # replace division code with its name
 
 print('Save out regional poverty rates to regional_poverty_rate.csv')
 print(cat_info.head())
@@ -274,11 +277,17 @@ print('Check total population:',cat_info.pcwgt.sum())
 cat_info.dropna(inplace=True,how='all')
 print('Check total population (after dropna):',cat_info.pcwgt.sum())
 
+# Drop partially empty columns
+if myCountry == 'BO':
+    cat_info = cat_info.dropna(axis = 1)
+    # Save total populations to file to compute fa from population affected
+    cat_info.pcwgt.sum(level = 0).to_frame().rename({'pcwgt':'population'}, axis = 1).to_csv(os.path.join('../inputs/',myCountry,'population_by_state.csv'))
+
 # Exposure
 print('check:',cat_info.shape[0],'=?',cat_info.dropna().shape[0])
 #cat_info.to_csv('~/Desktop/tmp/check.csv')
 cat_info =cat_info.dropna()
-
+prov_code
 # Cleanup dfs for writing out
 cat_info_col = [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','code','np','score','v','c','pcsoc','social','c_5','hhsize',
                 'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
@@ -286,10 +295,11 @@ cat_info_col = [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','code
 cat_info = cat_info.drop([i for i in cat_info.columns if (i in cat_info.columns and i not in cat_info_col)],axis=1)
 cat_info_index = cat_info.drop([i for i in cat_info.columns if i not in [economy,'hhid']],axis=1)
 
+
 #########################
 # HAZARD INFO
 
-# FLAG: get_hazard_df for Sri Lanka returns two of the same flooding data, and doesn't use the landslide data that is analyzed within the function.
+# SL FLAG: get_hazard_df returns two of the same flooding data, and doesn't use the landslide data that is analyzed within the function.
 df_haz,df_tikina = get_hazard_df(myCountry,economy,agg_or_occ='Agg',rm_overlap=True)
 if myCountry == 'FJ': _ = get_SLR_hazard(myCountry,df_tikina)
 
@@ -344,6 +354,8 @@ if myCountry == 'PH':
 
 elif myCountry == 'SL': df_haz['hh_share'] = 1.
 
+elif myCountry == 'BO': df_haz['hh_share'] = 1.
+
 elif myCountry == 'FJ':
     df_haz = df_haz.reset_index().set_index([economy,'hazard','rp']).sum(level=[economy,'hazard','rp'])
     # All the magic happens inside get_hazard_df()
@@ -376,11 +388,15 @@ elif myCountry == 'SL':
     # For SL, 'fa' is fa, not frac_destroyed
     #hazard_ratios['frac_destroyed'] = hazard_ratios.pop('fa')
 
+elif myCountry == 'BO':
+    pass
+
 
 # Have frac destroyed, need fa...
 # Frac value destroyed = SUM_i(k*v*fa)
 
 # Merge hazard_ratios with cat_info
+
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on=economy,how='outer')
 
 # Reduce vulnerability by reduction_vul if hh has access to early warning:
@@ -393,6 +409,8 @@ hazard_ratios.loc[hazard_ratios['v'] >0.1,'v'] *= np.random.uniform(.8,1.2,hazar
 # Calculate frac_destroyed for SL, since we don't have that in this case
 # frac_destroyed=exposure*vulnerability
 if myCountry == 'SL': hazard_ratios['frac_destroyed'] = hazard_ratios[['v','fa']].prod(axis=1)
+# We could calculate frac_destroyed for BO, but following SL for now.
+if myCountry == 'BO': hazard_ratios['frac_destroyed'] = hazard_ratios[['v','fa']].prod(axis=1)
 
 # cleanup
 if 'hh_share' not in hazard_ratios.columns: hazard_ratios['hh_share'] = None
@@ -405,18 +423,18 @@ hazard_ratios = hazard_ratios.drop([i for i in ['index'] if i in hazard_ratios.c
 # 2) Transfer fa in excess of 95% to vulnerability
 fa_threshold = 0.95
 
-# Calculate avg vulnerability at event level, and use that to find fa
-# --> v_mean is weighted by capital & pc_weight
-
 # # look up hazard ratios for one particular houshold.
 # idx = pd.IndexSlice
 # hazard_ratios.loc[idx['Ampara', 'PF', :, '521471']]
+
+# Calculate avg vulnerability at event level
+# --> v_mean is weighted by capital & pc_weight
 v_mean = (hazard_ratios[['pcwgt','k','v']].prod(axis=1).sum(level=event_level)/hazard_ratios[['pcwgt','k']].prod(axis=1).sum(level=event_level)).to_frame(name='v_mean')
 #v_mean.name = 'v_mean'
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),v_mean.reset_index(),on=event_level).reset_index().set_index(event_level+['hhid']).sort_index().drop('index',axis=1)
 
 
-if myCountry != 'SL':
+if myCountry != 'SL' and myCountry != 'BO':
     # Normally, we pull fa out of frac_destroyed.
     # --> for SL, I think we have fa (not frac_destroyed) from HIES
     hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v_mean']).fillna(1E-8)
@@ -457,13 +475,18 @@ except: print('Was not able to load v to hh_reco_rate library from ../optimizati
 
 try: hazard_ratios['hh_reco_rate'] = hazard_ratios.apply(lambda x:v_to_reco_rate[round(x.v,2)],axis=1)
 except:
+    # loop through an enmeration
     for _n, _i in enumerate(hazard_ratios.index):
+        # Counter to show progress meter
         if round(_n/len(hazard_ratios.index)*100,3)%10 == 0:
             print(round(_n/len(hazard_ratios.index)*100,2),'% of way through')
-
+        # get a rounded vulnerability
         _v = round(hazard_ratios.loc[_i,'v'],2)
+        # Try getting the recovery rate from the dictionary
         try: hazard_ratios.loc[_i,'hh_reco_rate'] = v_to_reco_rate[_v]
+        # If no recovery rate, then calculate it
         except:
+            # o
             _opt = optimize_reco(_pi,_rho,_v)
             hazard_ratios.loc[_i,'hh_reco_rate'] = _opt
             v_to_reco_rate[_v] = _opt
