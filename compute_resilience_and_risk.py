@@ -14,7 +14,7 @@ from libraries.lib_compute_resilience_and_risk import *
 
 from multiprocessing import Pool
 from itertools import repeat,product
-
+launch_compute_resilience_and_risk_thread('BO','')
 def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no'):
 
     #dw = calc_delta_welfare(None,None,study=True)
@@ -202,6 +202,10 @@ if __name__ == '__main__':
 
     elif myCountry == 'MW':
         pds_str = ['unif_poor','no']
+        pol_str = ['']
+
+    elif myCountry == 'BO':
+        pds_str = ['unif_poor', 'no']
         pol_str = ['']
 
 
