@@ -202,6 +202,7 @@ def get_places_dict(myC):
         economy = get_economic_unit(myC)
         with open(inputs + 'departamentos.json', 'r') as f:
             p_code = pd.Series(json.load(f), name='nombre_'+ economy)
+        p_code.index = p_code.index.astype(int)
         p_code.index.name = economy
 
     if myC == 'PH':
@@ -936,6 +937,7 @@ def load_survey_data(myC):
         # Uncomment to get stata variable labels if necessary
         # itr = pd.read_stata(orig+'eh2015_vivienda.dta', iterator = True)
         # var_labels = itr.variable_labels()
+        # var_labels
 
         # Get hhid and hhwgt
         df.rename(inplace = True, columns={'folio':'hhid',
@@ -959,6 +961,11 @@ def load_survey_data(myC):
         # Check that there is at least 1 member per household
         assert len(df[df['hhsize']==0]) == 0
         # Assume ae is 1 for children for now
+
+        df['N_children']= 0
+        df['N_children'].update((df_persona.s2a_03<18).groupby(level=0).sum())
+
+
         df['hhsize_ae'] = df['hhsize']
 
         # Calculate the number of people that each household in survey would represent
@@ -976,9 +983,14 @@ def load_survey_data(myC):
         # the household is in the La Paz for departamento == 2 or not.
         # NOTE: There are two poverty lines: z and zext.  zext is 'extreme poverty'
         # using the former.
-        df['z'] = 0
-        df.z.update(df_persona['z'].groupby(level = 0).mean())
-        df['ispoor'] = df['z']>df['pcinc']
+        df['pov_line'] = 0
+        df['sub_line'] = 0
+        # print('Poverty lines differ by rural/urban and then departamento for urban only')
+        # print(df_persona.groupby(['area','departamento']).mean()[['z','zext']])
+        df.pov_line.update(df_persona['z'].groupby(level = 0).mean())
+        df.sub_line.update(df_persona['zext'].groupby(level = 0).mean())
+
+        df['ispoor'] = df['pcinc'] < df['pov_line']
 
         # get household and per capita social payments
         df['hhsoc'] = df_persona.groupby(level = 0).sum()['ynolab']*12
@@ -1009,18 +1021,33 @@ def load_survey_data(myC):
         df['has_ew'] = (df_equip.sum(axis=1)>0) | (df_bills>0)
 
         df['c'] = df['pcinc'].copy()
+
+
         df = df.reset_index().set_index(['departamento','hhid'])
 
-        # See if you can get the following columns
         # wall, roof - materials used for construction of each part of structure
-        # Separate payments for a particular poverty assistance scheme, like
-        # pov_line
+        # For walls and roof you might want to find a dictionary of the 'other' columns
+        # and set them to a specific value
+        housing_cols = ['s1a_07', 's1a_07b', 's1a_08', 's1a_09', 's1a_09b', 's1a_10', 's1a_10b']
+        housing_names = ['walls','walls_other','plaster','roof','roofs_other','floors','floors_other']
+        housing_dict = {housing_cols[i]:housing_names[i] for i in range(len(housing_cols))}
+        df.rename(housing_dict, axis = 1,inplace = True)
+        # Replace wall types with categories from get_vul_curves
+        # Assume that stone is held together by concrete, so is just as resilient as cement.
+        df.walls.replace({df.walls.cat.categories[i]:[3,4,1,3,6,7,9][i] for i in range(len(df.walls.cat.categories))}, inplace = True)
+        df.roof.replace({df.roof.cat.categories[i]:[4,1,3,6,9][i] for i in range(len(df.roof.cat.categories))},inplace = True)
+
         # aeinc, aewgt adult equivalent weights
-        # N_children
+        df['aewgt'] = df['pcwgt'].copy() # Population
+        df['hhsize_ae'] = df['hhsize'].copy() # Copy household size?
+        df['aeinc'] = df['hhinc']/df['hhsize_ae']
+
         # urban : {'RURAL', "URBAN"}
+        df['urban'] = df['area'].replace({'urbano':'URBAN','rural':"RURAL"})
+
         # hhremittance
         # frac_remittance = df_social.eval('hhremittance/hhsoc')
-        # Full list:
+        # Full list from Sri Lanka:
         # [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','code','np','score','v','c','pcsoc','social','c_5','hhsize',
                         # 'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
                         # 'has_ew','SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin','pcsamurdhi','gsp_samurdhi','frac_remittance','N_children']
@@ -1090,6 +1117,10 @@ def get_vul_curve(myC,struct):
 
     elif myC == 'MW':
         df = pd.read_excel(inputs+'vulnerability_curves_MW.xlsx',sheet_name=struct)[['desc','v']]
+
+    elif myC =='BO':
+        df = pd.read_excel(inputs+'vulnerability_curves.xlsx',sheet_name=struct)[['key','v']]
+        df = df.rename(columns={'key':'desc'})
 
     return df
 
@@ -1514,6 +1545,21 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         # Why two copies of the same df?
         return df,df
 
+    elif myC == 'BO':
+        df = pd.read_csv(os.path.join(inputs,'flood_risk_by_state.csv'))
+        collist = list(df.columns)
+        collist[0] = 'departamento'
+        df.columns = collist
+        df_pop = pd.read_csv(os.path.join(inputs,'population_by_state.csv'))
+        match_states = {'Potosi': 'Potosí',
+                        'El Beni': 'Beni'}
+        df.departamento = df.departamento.replace(match_states)
+        pd.Series(list(df_pop.departamento.unique()) + list(df.departamento.unique())).unique()
+        df['hazard'] = 'PF'
+        df = pd.merge(df, df_pop)
+        df['fa'] = df.pop_affected/df.population
+        df = df.set_index(['departamento','hazard','rp'])
+        return df,df
     else: return None,None
 
 def get_poverty_line(myC,by_district=True,sec=None):
