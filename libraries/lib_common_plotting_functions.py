@@ -9,7 +9,7 @@ sns.set_style('whitegrid')
 brew_pal = brew.get_map('Set1', 'qualitative', 8).mpl_colors
 greys_pal = sns.color_palette('Greys', n_colors=9)
 q_labels = ['Poorest quintile','Second','Third',
-            'Fourth','Wealthiest']
+            'Fourth','Wealthiest quintile']
 
 paired_pal = sns.color_palette('Paired', n_colors=12)
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.4)

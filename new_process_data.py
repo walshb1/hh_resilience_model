@@ -57,10 +57,11 @@ haz_dict = {'SS':'Storm surge',
 
 to_usd = get_currency(myCountry)[2]
 
-places_to_drop = None
+places_to_drop = ['Jaffna','Matara','Kilinochchi'] if myCountry == 'SL' else None
+#if myCountry == 'MW': places_to_drop = ['Blantyre City','Lilongwe City','Mzuzu City','Zomba City']
 
 _mapres = 1000
-#if myCountry == 'MW': places_to_drop = ['Blantyre City','Lilongwe City','Mzuzu City','Zomba City']
+
 
 ##################################
 # Set directories (where to look for files)
@@ -71,7 +72,7 @@ out_files = os.getcwd()+'/../output_country/'+myCountry+'/'
 # Set policy params
 drm_pov_sign = -1 # toggle subtraction or addition of dK to affected people's incomes
 
-my_PDS = 'scaleout_samurdhi_universal'#'samurdhi_scaleup'#'samurdhi_scaleup00'#
+my_PDS = 'unif_poor'#'scaleout_samurdhi_universal'#'samurdhi_scaleup'#'samurdhi_scaleup00'#
 base_str = 'no'
 
 path = os.getcwd()+'/../output_country/'+myCountry+'/'
@@ -134,7 +135,6 @@ except:
     print('\n Setting i_pre_reco where c_pre_reco should be. Check why it is not in the output\n')
 iah['c_post_reco']  = iah.eval('c_initial+@drm_pov_sign*dc_post_reco')
 # ^ income & consumption before & after reconstruction
-
 
 
 ##################################
@@ -229,8 +229,8 @@ _df = pd.read_csv('../intermediate/'+myCountry+'/cat_info.csv').set_index(econom
 pop_df = _df['pcwgt'].sum(level=economy).to_frame(name='pop')
 
 if myCountry == 'SL' and select_ethnicity:
-    sub_eth = 'Sinhalese'
-    #sub_eth = 'non-Sinhalese'
+    #sub_eth = 'Sinhalese'
+    sub_eth = 'non-Sinhalese'
  
     iah = iah.loc[iah.eval('ethnicity==1' if sub_eth == 'Sinhalese' else 'ethnicity!=1')]
 
@@ -241,9 +241,30 @@ if myCountry == 'SL' and select_ethnicity:
 ##################################
 # Create additional dfs
 #
-#
+
 # 1) Get dataframe with expectation values: one entry per household, averaged over (a/na & helped/not_helped)
 iah_avg = get_expectation_values_df(myCountry,economy,iah,pds_options,base_str=base_str,use_aewgt=use_aewgt)
+
+# 1.5) get a dataframe with average pre-disaster consumption, by district & ethnicity (sin & non-sin)
+if select_ethnicity: hh_consumption = pd.read_csv('../intermediate/SL/hh_consumption_pc.csv').set_index('district')
+else:
+    try:
+        _ = iah.loc[iah.pcwgt_no!=0].reset_index().set_index('hhid')
+        hh_consumption = pd.merge(_[['c_initial']].mean(level='hhid').reset_index(),
+                                  _.loc[~(_.index.duplicated()),['district','quintile','ethnicity','pcwgt_no']].reset_index(),on='hhid').set_index(['district','hhid'])
+        
+        hh_consumption['ethnicity'] = hh_consumption.apply(lambda x:('Sinhalese' if x.ethnicity==1 else 'non-Sinhalese'),axis=1)
+        hh_consumption = hh_consumption.reset_index().set_index(['district','ethnicity'])
+        hh_consumption['dist_c'] = (hh_consumption[['pcwgt_no','c_initial']].prod(axis=1).groupby(['district','ethnicity']).transform('sum')
+                                    /hh_consumption['pcwgt_no'].groupby(['district','ethnicity']).transform('sum'))
+        hh_consumption = hh_consumption.loc[~hh_consumption.index.duplicated(),['dist_c']].unstack('ethnicity').fillna(0)
+        
+        hh_consumption.columns = hh_consumption.columns.get_level_values(1)
+        hh_consumption.index.name = 'district'
+        
+        hh_consumption.to_csv('../intermediate/SL/hh_consumption_pc.csv')
+
+    except: pass
 
 # 2) Save out iah by economic unit
 iah_out = pd.DataFrame(index=iah_avg.sum(level=[economy,'hazard','rp']).index)
@@ -275,7 +296,8 @@ if myCountry == 'MW':
                   ['Zomba City','Zomba']]:
         iah_out.loc[iah_out[event_level[0]]==_hack[0],event_level[0]]=_hack[1]
     iah_out = iah_out.reset_index().set_index(event_level[:-1])
-if True:
+
+if False:
     svg_file = get_svg_file(myCountry)
     for _h in get_all_hazards(myCountry,iah_out):
 
@@ -284,7 +306,7 @@ if True:
             svg_file,
             outname=myCountry+'_expected_losses_'+_h,
             color_maper=plt.cm.get_cmap('Reds'), 
-            label='Annual asset losses to '+haz_dict[_h].lower()+'s [mil. USD]',
+            label='Annual asset losses to '+haz_dict[_h].lower()+'s [mil. US$]',
             new_title='',
             do_qualitative=False,
             res=_mapres,
@@ -316,7 +338,8 @@ if len(_.columns)>1:
     _.sort_values('Total',ascending=False).round(1).to_latex('latex/'+myCountry+'/risk_by_economy_hazard_usd.tex')
 
 else: 
-    _['USD'] = _*to_usd*1E3 if myCountry == 'SL' else 1
+    _['USD'] = _*to_usd*1E3 if myCountry == 'SL' else _*to_usd
+    # For SL, losses are coming out in thousands of USD, everywhere else in millions
     _.loc['Total'] = _.sum()
     _.sort_values('USD',ascending=False).round(0).astype('int').to_latex('latex/'+myCountry+'/risk_by_economy_hazard.tex')    
 
@@ -352,21 +375,16 @@ no_pds.loc['Total'] = [float(no_pds['Asset risk'].sum()),
 
 no_pds['SE capacity']  = (100.*no_pds['Asset risk']/no_pds['Well-being risk'])/1E3# offset below
 
-no_pds.round(1).to_latex(out_files+'risk_by_economy_usd'+('_'+sub_eth.lower().replace('-','').replace(' ','') if select_ethnicity else '')+'.csv')
+(1.E3*no_pds).round(1).to_csv(out_files+'risk_by_economy_usd'+('_'+sub_eth.lower().replace('-','').replace(' ','') if select_ethnicity else '')+'.csv')
 (1.E3*no_pds[['Asset risk','SE capacity','Well-being risk']]).sort_values(['Well-being risk'],ascending=False).round(0).astype('int').to_latex('latex/'+myCountry+'/risk_by_economy_usd.tex')
 print('Wrote latex! Sums:\n',no_pds.loc['Total',['Asset risk','Well-being risk']])
 
 
 # LOAD SVG FILES
-svg_file = '../map_files/'+myCountry+'/BlankSimpleMap.svg'
-if myCountry == 'PH' and economy == 'region':
-    svg_file = '../map_files/'+myCountry+'/BlankSimpleMapRegional.svg'
-elif myCountry == 'SL': svg_file = '../map_files/'+myCountry+'/lk.svg'
-elif myCountry == 'MW': svg_file = '../map_files/'+myCountry+'/mw.svg'
+svg_file = get_svg_file(myCountry)
 
 #######################
 if False:
-
     curr_dict = {'PH':'PHP',
                  'SL':'SLR',
                  'FJ':'FJD',
@@ -402,6 +420,7 @@ if False:
                    +'\nNational total = '+_curr.replace('USD','US\$')+str(natl_sum)+natl_mil_vs_bil),
             new_title='Asset losses ['+_curr.replace('USD','mil. US\$')+'per year]',
             do_qualitative=False,
+            drop_spots=places_to_drop,
             res=_mapres)
         
         natl_avg = str(round((100.*no_pds['Asset risk'].drop('Total').sum()/grdp.sum()),2))
@@ -414,6 +433,7 @@ if False:
             label='Asset losses [% of AHI per year]\nNational avg. = '+natl_avg+'%',
             new_title='Asset losses [% of AHI per year]',
             do_qualitative=False,
+            drop_spots=places_to_drop,
             res=_mapres)   
 
         print('--> Map welfare losses in '+_curr)
@@ -438,6 +458,7 @@ if False:
                    +'\nNational total = '+_curr.replace('USD','US\$')+str(natl_sum)+natl_mil_vs_bil),
             new_title='Wellbeing losses ['+_curr.replace('USD','mUS\$').replace('PHP','bil. PHP')+' per year]',
             do_qualitative=False,
+            drop_spots=places_to_drop,
             res=_mapres)
         
         natl_avg = str(round(100*(no_pds['Well-being risk'].drop('Total').sum()/grdp.sum()),2))
@@ -450,6 +471,7 @@ if False:
             label='Wellbeing losses [% of AHI per year]\nNational avg. = '+natl_avg+'%',
             new_title='Wellbeing losses [% of AHI per year]',
             do_qualitative=False,
+            drop_spots=places_to_drop,
             res=_mapres)
         
 
@@ -466,8 +488,9 @@ if False:
         new_title='Socioeconomic resilience [%]',
         do_qualitative=False,
         res=_mapres,
-        force_min = 0,
-        force_max = 100 if select_ethnicity else None)
+        #force_min = 0,
+        drop_spots='Jaffna' if sub_eth == 'non-Sinhalese' else None,
+        force_max = 110 if myCountry=='SL' else None)
     
     #######################
     print('Map per capita risk')
@@ -484,6 +507,7 @@ if False:
                else 'Asset losses [per person, per year]\nNational avg. = $'+natl_average+' per cap.'),
         new_title='Asset losses [US\$ per person, per year]',
         do_qualitative=False,
+        drop_spots=places_to_drop,
         #force_max=60,
         res=_mapres)
     
@@ -498,6 +522,7 @@ if False:
                else 'Wellbeing losses [US\$ per person, per year]\nNational avg. = $'+natl_average+' per cap.'),
         new_title='Wellbeing losses [US\$ per person, per year]',
         do_qualitative=False,
+        drop_spots=places_to_drop,
         #force_max=60,
         res=_mapres)
         
@@ -510,25 +535,44 @@ if False:
 
 ####################################
 # Make plot comparing resileince of sinhalese * non-sinhalese
-if select_ethnicity:
-    _sin = pd.read_csv(out_files+'risk_by_economy_sinhalese.csv').set_index(economy).rename(columns={'SE capacity':'Resilience of Sinhalese',
-                                                                                                     'pop':'Sinhalese population'})
-    _nos = pd.read_csv(out_files+'risk_by_economy_nonsinhalese.csv').set_index(economy).rename(columns={'SE capacity':'Resilience of non-Sinhalese',
-                                                                                                     'pop':'non-Sinhalese population'})
-    _comp = pd.concat([_sin[['Resilience of Sinhalese','Sinhalese population']],_nos[['Resilience of non-Sinhalese','non-Sinhalese population']]],axis=1)
+def is_majority(df): return df['Sinhalese population'] >= df['non-Sinhalese population'] 
+def calc_minority_frac(df): 
+    try: return 100.*df['non-Sinhalese population']/df[['non-Sinhalese population','Sinhalese population']].sum()
+    except ZeroDivisionError: return 100.
 
+color_sin = paired_pal[9]
+color_ns = paired_pal[3]
+
+if myCountry == 'SL':
+
+    _sin = pd.read_csv(out_files+'risk_by_economy_usd_sinhalese.csv').set_index(economy).rename(columns={'SE capacity':'Resilience of Sinhalese',
+                                                                                                         'pop':'Sinhalese population'})
+    _nos = pd.read_csv(out_files+'risk_by_economy_usd_nonsinhalese.csv').set_index(economy).rename(columns={'SE capacity':'Resilience of non-Sinhalese',
+                                                                                                            'pop':'non-Sinhalese population'})
+    _comp = pd.concat([_sin[['Resilience of Sinhalese','Sinhalese population']],
+                       _nos[['Resilience of non-Sinhalese','non-Sinhalese population']],
+                       hh_consumption],axis=1).fillna(0)
+    _comp.index.name = 'district'
+
+
+    _comp['is_majority'] = _comp.apply(lambda x:is_majority(x),axis=1)
+    _comp['minority_frac'] = _comp.apply(lambda x:calc_minority_frac(x),axis=1)    
 
     # plot sinhalese resilience vs non-sinhalese resilience
     plt.figure(figsize=(6,6))
     ax = plt.gca()
 
     plt.plot([0,110],[0,110],color=greys_pal[6],alpha=0.30,lw=1.0,ls=':')
-    plt.scatter(_comp.loc[_comp['non-Sinhalese population']<=_comp['Sinhalese population'],'Resilience of Sinhalese'],
-                _comp.loc[_comp['non-Sinhalese population']<=_comp['Sinhalese population'],'Resilience of non-Sinhalese'],
-                label='Majority Sinhalese districts',alpha=0.5,s=15,color=greys_pal[6])
-    plt.scatter(_comp.loc[_comp['non-Sinhalese population']>_comp['Sinhalese population'],'Resilience of Sinhalese'],
-                _comp.loc[_comp['non-Sinhalese population']>_comp['Sinhalese population'],'Resilience of non-Sinhalese'],
-                label='Majority-minority districts',alpha=0.75,s=25,color=paired_pal[3])
+    plt.scatter(_comp.loc[_comp['is_majority'],'Resilience of Sinhalese'],
+                _comp.loc[_comp['is_majority'],'Resilience of non-Sinhalese'],
+                label='Majority Sinhalese districts',alpha=0.7,s=25,color=color_sin)
+    plt.scatter(_comp.loc[_comp['is_majority'] == False,'Resilience of Sinhalese'],
+                _comp.loc[_comp['is_majority'] == False,'Resilience of non-Sinhalese'],
+                label='Majority-minority districts',alpha=0.9,s=25,color=color_ns)
+
+    #    plt.scatter(_comp.loc[_comp.district!='Total','diff'],_comp.loc[_comp.district!='Total'].index,alpha=0.5,s=20,zorder=91,edgecolor=color_ns,color=color_ns)
+    #    plt.scatter(_comp.loc[_comp.district=='Total','diff'],_comp.loc[_comp.district=='Total'].index,alpha=0.95,s=24,zorder=91,edgecolor=color_ns,facecolors='none')
+
 
     title_legend_labels(plt.gca(),pais='',
                         lab_x=r'Sinhalese $\endash$ socioeconomic resilience (%)',
@@ -540,22 +584,21 @@ if select_ethnicity:
     plt.close('all')
 
     # plot ratio (non-Sinhalese/Sinhalese) resilience vs ratio (non-Sinhalese/Sinhalese) population
-    plt.scatter(100.*_comp['non-Sinhalese population']/(_comp['Sinhalese population']+_comp['non-Sinhalese population']),
-                _comp['Resilience of non-Sinhalese']/_comp['Resilience of Sinhalese'],alpha=0.5,s=20,color=greys_pal[6])
+    plt.scatter(_comp['minority_frac'],_comp['Resilience of non-Sinhalese']/_comp['Resilience of Sinhalese'],alpha=0.5,s=20,color=greys_pal[6])
 
     plt.plot([-5,105],[1,1],color=greys_pal[6],alpha=0.30,lw=1.0,ls=':')
     
-    linear_fit = np.polyfit((100.*_comp['non-Sinhalese population']/(_comp['Sinhalese population']+_comp['non-Sinhalese population'])).drop(['Batticaloa','Mannar']),
+    linear_fit = np.polyfit(_comp['minority_frac'].drop(['Batticaloa','Mannar']),
                             (_comp['Resilience of non-Sinhalese']/_comp['Resilience of Sinhalese']).drop(['Batticaloa','Mannar']),1)
     r_x, r_y = zip(*((i, i*linear_fit[0] + linear_fit[1]) for i in 100.*_comp['non-Sinhalese population']/(_comp['Sinhalese population']+_comp['non-Sinhalese population'])))
     plt.plot(r_x, r_y,color=greys_pal[6],alpha=0.9,lw=1.25,ls='-')
 
-    batticaloa_x = str(round((100.*_comp['non-Sinhalese population']/(_comp['Sinhalese population']+_comp['non-Sinhalese population']))['Batticaloa'],1))
+    batticaloa_x = str(round(_comp.loc['Batticaloa','minority_frac'],1))
     batticaloa_y = str(round((_comp['Resilience of non-Sinhalese']/_comp['Resilience of Sinhalese'])['Batticaloa'],1))
 
-    mannar_x = str(round((100.*_comp['non-Sinhalese population']/(_comp['Sinhalese population']+_comp['non-Sinhalese population']))['Mannar'],1))
+    mannar_x = str(round(_comp.loc['Mannar','minority_frac'],1))
     mannar_y = str(round((_comp['Resilience of non-Sinhalese']/_comp['Resilience of Sinhalese'])['Mannar'],1))
-
+    
     plt.annotate('Outliers:\nMannar: ('+mannar_x+','+mannar_y+')\nBatticaloa: ('+batticaloa_x+','+batticaloa_y+')',
                  xy=(0.95,1.20),xycoords='axes fraction',xytext=(0.95,1.10),
                  arrowprops=dict(arrowstyle="-",facecolor=greys_pal[8],connectionstyle="angle,angleA=0,angleB=90,rad=5"),
@@ -569,6 +612,114 @@ if select_ethnicity:
 
     plt.gcf().savefig('../output_plots/SL/conflict/pop_vs_res_sin_vs_ns.pdf',format='pdf',bbox_inches='tight')
     plt.close('all')   
+    
+    ###########################
+    _comp = _comp.sort_values('Resilience of Sinhalese',ascending=True).reset_index()
+
+    if True:
+        for _ix in _comp.index:
+            plt.plot([_comp.loc[_ix,'Resilience of non-Sinhalese'],_comp.loc[_ix,'Resilience of Sinhalese']],[_ix,_ix],
+                     ls=':',lw=0.5,color=greys_pal[1],zorder=90)
+            plt.annotate(_comp.loc[_ix,'district'].replace('Total','National avg.'),xy=(_comp.loc[_ix,['Resilience of non-Sinhalese','Resilience of Sinhalese']].max()+2.5,_ix),
+                         ha='left',va='center',clip_on=False,annotation_clip=False,
+                         fontsize=(6.5 if _comp.loc[_ix,'is_majority']==False else 6),
+                         weight=('bold' if _comp.loc[_ix,'is_majority']==False else 'light'))
+        plt.scatter(_comp['Resilience of non-Sinhalese'],_comp.index,alpha=0.5,s=20,color=color_ns,zorder=91)
+        plt.scatter(_comp['Resilience of Sinhalese'],_comp.index,alpha=0.5,s=20,color=color_sin,zorder=91)
+        title_legend_labels(plt.gca(),pais='',lab_x=r'Socioeconomic resilience',lab_y='',lim_x=[0,104],leg_fs=9,do_leg=False)
+        sns.despine(left=True)
+        plt.gca().yaxis.set_ticks([])
+
+    if False:
+        for _ix in _comp.index:               
+            plt.plot([_comp.loc[_ix,'minority_frac'],_comp.loc[_ix,'minority_frac']],
+                     [_comp.loc[_ix,'Resilience of non-Sinhalese'],_comp.loc[_ix,'Resilience of Sinhalese']],
+                     ls=':',lw=0.5,color=greys_pal[1])
+
+        plt.scatter(_comp['minority_frac'],_comp['Resilience of non-Sinhalese'],alpha=0.5,s=20,color=color_ns,label='non-Sinhalese')    
+        plt.scatter(_comp['minority_frac'],_comp['Resilience of Sinhalese'],alpha=0.5,s=20,color=color_sin,label='Sinhalese')
+        title_legend_labels(plt.gca(),pais='',lab_x=r'Minority fraction of total population',lab_y='Socioeconomic resilience',lim_x=[0,101],leg_fs=9,do_leg=True)
+        sns.despine()
+
+    plt.grid(False)
+
+    plt.gcf().savefig('../output_plots/SL/conflict/pop_vs_res_sin_vs_ns_2.pdf',format='pdf',bbox_inches='tight')
+    plt.close('all')   
+
+
+    ###########################
+    _comp['diff'] = _comp['Resilience of non-Sinhalese']-_comp['Resilience of Sinhalese']
+    _comp = _comp.sort_values('diff',ascending=False).reset_index().drop('index',axis=1)
+
+    for _ix in _comp.index:
+        plt.plot([0,_comp.loc[_ix,'diff']],[_ix,_ix],
+                 ls=':',lw=0.5,color=greys_pal[1],zorder=90)
+        plt.annotate(_comp.loc[_ix,'district'].replace('Total','National average'),xy=(max(float(_comp.loc[_ix,['diff']]),0)+2.5,_ix),
+                     ha='left',va='center',clip_on=False,annotation_clip=False,
+                     fontsize=(6.5 if _comp.loc[_ix,'is_majority']==False else 6),
+                     weight=('bold' if _comp.loc[_ix,'is_majority']==False else 'light'))
+        
+    plt.scatter(_comp.loc[_comp.district!='Total','diff'],_comp.loc[_comp.district!='Total'].index,alpha=0.5,s=20,zorder=91,edgecolor=color_ns,color=color_ns)
+    plt.scatter(_comp.loc[_comp.district=='Total','diff'],_comp.loc[_comp.district=='Total'].index,alpha=0.95,s=24,zorder=91,edgecolor=color_ns,facecolors='none')
+    
+    plt.scatter([0 for _ in _comp.index][:-1],_comp.loc[_comp.district!='Total'].index,alpha=0.5,s=20,zorder=91,edgecolor=color_sin,color=color_sin)
+    plt.scatter([0],_comp.loc[_comp.district=='Total'].index,alpha=0.95,s=24,zorder=91,edgecolor=color_sin,facecolors='none')
+
+    _ylim = plt.gca().get_ylim()
+
+    _shift_x = 3.5
+    _shift_y = 0.9
+    plt.annotate('non-Sinhalese',xy=(_comp.iloc[-1]['diff'],max(_comp.index)+0.35),xytext=(_comp.iloc[-1]['diff']+_shift_x,max(_comp.index)+_shift_y),fontsize=7,fontstyle='italic',
+                 arrowprops=dict(arrowstyle="-",color=greys_pal[8],connectionstyle="angle,angleA=0,angleB=90,rad=5",alpha=0.65))
+    plt.annotate('Sinhalese',xy=(0,max(_comp.index)+0.35),xytext=(0+_shift_x,max(_comp.index)+_shift_y),fontsize=7,fontstyle='italic',
+                 arrowprops=dict(arrowstyle="-",color=greys_pal[8],connectionstyle="angle,angleA=0,angleB=90,rad=5",alpha=0.65))
+
+    #plt.annotate(r'$\it{Majority-minority}$'+'\n'+r'$\it{districts\ in\ }$'+r'$\bf{bold}$',xy=(33,20),ha='left',fontsize=7)
+    plt.annotate('Majority-minority\ndistricts in '+r'$\bf{bold}$',xy=(33,20),ha='left',fontsize=7,fontstyle='italic')
+
+    plt.plot([0,0],_ylim,zorder=1,color=greys_pal[2],alpha=0.75,lw=0.5)
+    plt.ylim(_ylim)
+
+    title_legend_labels(plt.gca(),pais='',lab_x=r'$\Delta$ (Socioeconomic resilience)',lab_y='',lim_x=[-55,55],leg_fs=9,do_leg=False)
+    sns.despine(left=True)
+    plt.gca().yaxis.set_ticks([])
+
+    plt.grid(False)
+
+    plt.gcf().savefig('../output_plots/SL/conflict/pop_vs_res_sin_vs_ns_3.pdf',format='pdf',bbox_inches='tight')
+    plt.close('all')   
+    
+
+    #######################################
+    print(_comp)
+    _comp = _comp.dropna(how='any').loc[_comp.district!='Total']
+    _comp.to_csv('~/Desktop/tmp/comp.csv')
+
+    outlier_query = "(district!='Mannar')&(district!='Batticaloa')&(district!='Jaffna')"
+    for _e in ['Sinhalese','non-Sinhalese']:
+        plt.scatter(_comp.loc[_comp.eval(outlier_query),_e]/1E3,
+                    _comp.loc[_comp.eval(outlier_query),'Resilience of '+_e],color=(color_ns if 'non-' in _e else color_sin),alpha=0.4)
+        #
+        linear_fit = np.polyfit(_comp.loc[_comp.eval(outlier_query),_e]*1E-3,
+                                _comp.loc[_comp.eval(outlier_query),'Resilience of '+_e],1)
+        r_x, r_y = zip(*((i, i*linear_fit[0] + linear_fit[1]) for i in _comp.loc[_comp.eval(outlier_query),_e]*1E-3))
+        plt.plot(r_x, r_y,color=(color_ns if 'non-' in _e else color_sin),alpha=0.6,lw=1.25,ls='-')
+
+        __y = _comp.sort_values('Resilience of '+_e,ascending=True).iloc[-2:]['Resilience of '+_e].mean()
+        plt.annotate(_e,xy =(235,__y),
+                     fontsize=7,fontstyle='italic',color=greys_pal[8],
+                     ha=('left' if 'non-' in _e else 'right'))
+                     
+
+    title_legend_labels(plt.gca(),pais='',lab_x='Average income by district\n[,000 LKR per capita & year]',
+                        lab_y='Socioeconomic resilience [%]',lim_x=[40,275],lim_y=[0,110],leg_fs=9,do_leg=False)
+    sns.despine()
+
+    plt.grid(False)
+
+    plt.gcf().savefig('../output_plots/SL/conflict/income_vs_resil.pdf',format='pdf',bbox_inches='tight')
+    plt.close('all')  
+
 
 
 ####################################
@@ -722,6 +873,8 @@ if myCountry == 'PH': myHaz = [['VIII - Eastern Visayas'],['HU'],[100]]
 if myCountry == 'SL': myHaz = [['Rathnapura','Colombo'],get_all_hazards(myCountry,myiah),[25,50,100]]
 #if myCountry == 'SL': myHaz = [['Rathnapura','Colombo'],get_all_hazards(myCountry,myiah),get_all_rps(myCountry,myiah)]
 if myCountry == 'MW': myHaz = [['Lilongwe','Chitipa'],get_all_hazards(myCountry,myiah),get_all_rps(myCountry,myiah)]
+if myCountry == 'RO': myHaz = [['Bucharest-Ilfov'],get_all_hazards(myCountry,myiah),get_all_rps(myCountry,myiah)]
+if myCountry == 'BO': myHaz = [['La Paz','Beni'],get_all_hazards(myCountry,myiah),[50]]
 
 
 ##################################################################
@@ -852,10 +1005,13 @@ if myCountry == 'SL':
 
                 plt.annotate('Total asset losses = $'+str(round(_['dk0_cum'].max()*to_usd*1E-6,1))+' million',xy=(0.02,_y1),
                              xycoords='axes fraction',color=q_colors[1],ha='left',va='top',fontsize=10,annotation_clip=False)
-                plt.annotate('Total welfare losses = \$'+str(round(_['dw_cum_'+base_str].max()*to_usd*1E-6,1))+' million (+\$'+str(round(ext_costs_base_sum*to_usd*1E-6,1))+')',
-                             xy=(0.02,_y2),xycoords='axes fraction',color=q_colors[3],ha='left',va='top',fontsize=10,annotation_clip=False)
-                #plt.annotate('National welfare losses\n  $'+str(round(ext_costs_base_sum*to_usd*1E-6,1))+' million',xy=(0.02,0.77),
-                #             xycoords='axes fraction',color=q_colors[3],ha='left',va='top',fontsize=10)            
+
+                wb_str = 'Total wellbeing losses = \$'+str(round(_['dw_cum_'+base_str].max()*to_usd*1E-6,1))+' million' 
+                #wb_natl_str = '(+\$'+str(round(ext_costs_base_sum*to_usd*1E-6,1))+')'
+                wb_natl_str = 'National welfare losses\n  $'+str(round(ext_costs_base_sum*to_usd*1E-6,1))+' million'
+
+                plt.annotate(wb_str,xy=(0.02,_y2),xycoords='axes fraction',color=q_colors[3],ha='left',va='top',fontsize=10,annotation_clip=False)
+                #plt.annotate(wb_natl_str,xy=(0.02,0.77),xycoords='axes fraction',color=q_colors[3],ha='left',va='top',fontsize=10)            
 
                 for _q in [1,2,3,4,5]:
                     _q_x = _.loc[_['quintile']==_q,'PMT'].max()
@@ -864,7 +1020,7 @@ if myCountry == 'SL':
                     if _q == 1: _q_yprime = _q_y/25
 
                     plt.plot([_q_x,_q_x],[0,_q_y],color=greys_pal[4],ls=':',linewidth=1.5,zorder=91)
-                    plt.annotate(quint_labels[_q-1].replace('\n',' '),xy=(_q_x,_q_y+7*_q_yprime),color=greys_pal[6],ha='right',va='bottom',style='italic',fontsize=8,zorder=91,annotation_clip=False)
+                    plt.annotate(quint_labels[_q-1],xy=(_q_x,_q_y+7*_q_yprime),color=greys_pal[6],ha='right',va='bottom',style='italic',fontsize=8,zorder=91,annotation_clip=False)
 
 
                     # This figures out label ordering (are cumulative asset or cum welfare lossers higher?)
@@ -885,7 +1041,7 @@ if myCountry == 'SL':
                     plt.annotate('$'+str(_qw)+' mil.',xy=(_q_x,_q_y+_yprime_w),color=q_colors[3],ha='right',va='bottom',style='italic',fontsize=8,zorder=91,annotation_clip=False)
 
                 plt.xlabel('Household income [PMT]',labelpad=8,fontsize=10)
-                plt.ylabel('Cumulative losses [mil. USD]',labelpad=8,fontsize=10)
+                plt.ylabel('Cumulative losses [mil. US$]',labelpad=8,fontsize=10)
                 plt.xlim(825);plt.ylim(-0.1)
 
                 plt.title(' '+str(_rp)+'-year '+haz_dict[_haz].lower()+' in '+_loc,loc='left',color=greys_pal[7],pad=30,fontsize=15)
@@ -925,7 +1081,7 @@ if myCountry == 'SL':
                 #    plt.annotate(quint_labels[_q-1],xy=(_q_x,_q_y+_q_yprime),color=greys_pal[6],ha='right',va='bottom',style='italic',fontsize=8,zorder=91)
 
                 plt.xlabel('Upper PMT threshold for post-disaster support',labelpad=8,fontsize=12)
-                plt.ylabel('Cost & benefit [mil. USD]',labelpad=8,fontsize=12)
+                plt.ylabel('Cost & benefit [mil. US$]',labelpad=8,fontsize=12)
                 plt.xlim(825)#;plt.ylim(0)
 
                 plt.title(' '+str(_rp)+'-year '+haz_dict[_haz].lower()+'\n  in '+_loc,loc='left',color=greys_pal[7],pad=25,fontsize=15)
@@ -989,8 +1145,8 @@ if myCountry == 'SL':
                 #plt.annotate('Avoided\nwelfare losses',xy=(_['PMT'].max()-_q_xprime,pd.rolling_mean((_['delta_dw_cum']*to_usd/_['pcwgt_'+my_PDS]).diff(),_window).min()+_q_yprime),
                 #             color=_c2b,weight='bold',ha='right',va='bottom',fontsize=8)
 
-                plt.xlabel('Upper PMT threshold for post-disaster support',labelpad=8,fontsize=12)
-                plt.ylabel('Marginal impact at threshold [USD per next enrollee]',labelpad=8,fontsize=12)
+                plt.xlabel('Upper PMT threshold for post-disaster support',labelpad=10,fontsize=10)
+                plt.ylabel('Marginal impact at threshold [US$ per next enrollee]',labelpad=10,fontsize=10)
 
                 plt.title(str(_rp)+'-year '+haz_dict[_haz].lower()+' in '+_loc,loc='right',color=greys_pal[7],pad=20,fontsize=15)
                 plt.annotate(pds_dict[my_PDS],xy=(0.99,1.02),xycoords='axes fraction',color=greys_pal[6],ha='right',va='bottom',weight='bold',style='italic',fontsize=8,zorder=91,clip_on=False)
@@ -1007,9 +1163,15 @@ if myCountry == 'SL':
 ##################################################################
 # This code generates output on poverty dimensions
 # ^ this is by household (iah != iah_avg here)
+
+if myCountry=='BO': 
+    myiah['pov_line'] = 714.9/to_usd
+    myiah['sub_line'] = 350.0/to_usd
+    print('\nPoverty line in Bolivia:\n',to_usd,714.9*to_usd,350.*to_usd,'\n\n')
+
 if True:
 
-    _myiah = myiah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])[['pcwgt_no',
+    _myiah = myiah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])[['pcwgt_no','ispoor',
                                                                                               'c_initial','c_post_reco',
                                                                                               'i_pre_reco','c_pre_reco','dc_pre_reco',
                                                                                               'pov_line','sub_line']].copy()

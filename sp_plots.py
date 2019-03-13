@@ -62,7 +62,8 @@ for _sp in sort_order:
     cost = ' (annual cost = '+str(round(sp_files[_sp]['avg_natl_cost'].mean()*to_usd/1.E6,2))+'M)'
     if _sp == 'no': cost = ''
     
-    plt.plot(sp_files[_sp].sum(level='rp').index,sp_files[_sp]['event_cost'].sum(level='rp')*to_usd/1.E6,label=_sp+cost,color=pairs_pal[_ix])
+    print(_sp)
+    plt.plot(sp_files[_sp].sum(level='rp').index,sp_files[_sp]['event_cost'].sum(level='rp')*to_usd/1.E6,label=_sp+cost,color=pairs_pal[_ix]) 
     plt.plot(sp_files[_sp].sum(level='rp').index,pds_effects['dw_DELTA_'+_sp].sum(level='rp')*to_usd,label=_sp+' benefit',ls=':',color=pairs_pal[_ix+1])
 
     _ix+=2
@@ -75,7 +76,7 @@ plt.gca().get_figure().savefig(out+'sp_costs.pdf',format='pdf')
 ########################################################################
 # Samurdhi is a constant payout, but there is still RP-dependence
 # - cost of disbursement (annual & when event occurs)
-# - well-being benefit (annual & when event occurs)
+# - wellbeing benefit (annual & when event occurs)
 # - cost-benefit ratio
 
 # x-axis is targeting error
@@ -140,8 +141,8 @@ for _place in affected_place:
                                    'Scaleup to\nall affected &\n66% of unaffected',
                                    'Scaleup to\nall affected &\n33% of unaffected',
                                    'Perfect\ntargeting within\nSamurdhi'],size=8)
-        plt.xlabel('Inclusion error',labelpad=8,weight='bold')
-        plt.ylabel('Cost of Samurdhi scaleup [mil. USD]',labelpad=8,weight='bold')
+        plt.xlabel('Inclusion error',labelpad=10,fontsize=10)
+        plt.ylabel('Cost of Samurdhi scaleup [mil. USD]',labelpad=10,fontsize=10)
         plt.grid(False)
         sns.despine(bottom=True)
 
@@ -154,7 +155,7 @@ for _place in affected_place:
 # This one compares scaling up vs out. 
 # - Samurdhi is a constant payout, but there is still RP-dependence
 # - cost of disbursement (annual & when event occurs)
-# - well-being benefit (annual & when event occurs)
+# - wellbeing benefit (annual & when event occurs)
 # - cost-benefit ratio
 
 # number of beneficiaries
@@ -224,7 +225,7 @@ for _place in affected_place:
 
         plt.gca().set_xticklabels(['Scaleup to affected\nSamurdhi enrollees\n('+n_info[0]+'% of district\nare beneficiaries)',
                                    'Scaleout to affected\nusing PMT\n('+n_info[1]+'% of district\nare beneficiaries)'],size=9)
-        plt.ylabel('Cost, benefit of post-disaster support [mil. USD]',labelpad=10,weight='bold',linespacing=1.5)
+        plt.ylabel('Cost, benefit of post-disaster support [mil. USD]',labelpad=10,fontsize=10,linespacing=1.5)
         plt.grid(False)
         sns.despine(left=True)
 
@@ -266,7 +267,7 @@ for _pds in pds_to_plot:
     plt.loglog(pds_effects.rp,pds_effects['dw_DELTA_'+_pds],color=pds_colors[_pds],linewidth=2)
     plt.annotate(pds_crit_dict[_pds].replace(' (','\n('),xy=(1.1*pds_effects.iloc[-1]['rp'],1.01*pds_effects.iloc[-1]['dw_DELTA_'+_pds]),
                  ha='left',va='bottom',fontsize=8,color=greys_pal[7],weight='bold')
-    plt.annotate('Annual cost = '+_cost_str+'\nProgram ROI = '+str(round(float(pds_effects_avg.eval('dw_DELTA_'+_pds+'/cost_'+_pds)),1)),
+    plt.annotate('Annual cost = '+_cost_str+'\nProgram BCR = '+str(round(float(pds_effects_avg.eval('dw_DELTA_'+_pds+'/cost_'+_pds)),1)),
                  xy=(1.1*pds_effects.iloc[-1]['rp'],0.98*pds_effects.iloc[-1]['dw_DELTA_'+_pds]),va='top',fontsize=8,color=greys_pal[7])
 
     _event_cost = float(pds_effects.loc[pds_effects.rp==50,'cost_'+_pds])
@@ -287,13 +288,13 @@ plt.plot([50,50],[0,1E4],color=greys_pal[5],ls=':')
 plt.annotate('Cost of ASP\nafter 50-year flood',xy=(55,39),ha='left',va='top',fontsize=8,color=greys_pal[6],weight='bold')
 
 plt.title('Expected benefit of ASP (payout = 1 month of Samurdhi)\nin Sri Lanka, by RP and beneficiary group',loc='left',fontsize=15,color=greys_pal[7],linespacing=1.5,pad=15)
-#plt.annotate('One month Samurdhi topup to',xy=(0.96,1.04),xycoords='axes fraction',color=greys_pal[7],fontsize=8,weight='bold',annotation_clip=False,ha='left',va='bottom')
+#plt.annotate('One month Samurdhi topup to',xy=(0.96,1.04),xycoords='axes fraction',color=greys_pal[7],annotation_clip=False,ha='left',va='bottom')
 plt.xlabel('Return period [years]',labelpad=10,fontsize=10)
 plt.xlim(9,1100)
 plt.xticks([10,25,50,100,500,1000])
 plt.gca().set_xticklabels([10,25,50,100,500,1000],size=8)
 
-plt.ylabel('Avoided well-being losses [mil. USD]',labelpad=10,fontsize=10)
+plt.ylabel('Avoided wellbeing losses [mil. US$]',labelpad=10,fontsize=10)
 plt.ylim(9E-1,4E1)
 plt.yticks([1E0,5E0,1E1,2.5E1])
 plt.gca().set_yticklabels(['1','5','10','25'],size=8)

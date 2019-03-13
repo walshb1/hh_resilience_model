@@ -32,9 +32,12 @@ def smart_savers(c,dc0,hhrr,pi,Vsav,_cttot=1):
         gamma -= 0.01*dc0
         if gamma <= 0: return 0,10
 
-def optimize_reco(pi, rho, v, verbose=False):
-    
+def optimize_reco(v_to_reco_rate, pi, rho, v, verbose=False):
     if v == 0: return 0
+    v = round(float(v),2)
+
+    if v in v_to_reco_rate: return v_to_reco_rate[v]
+    ###############
 
     eta = 1.5
 
@@ -54,9 +57,13 @@ def optimize_reco(pi, rho, v, verbose=False):
             integ += np.e**(-_t*(rho+_l)) * ((pi+_l)*_t-1) * (pi-(pi+_l)*v*np.e**(-_l*_t))**(-eta)
 
         if last_integ and ((last_integ < 0 and integ > 0) or (last_integ > 0 and integ < 0)):
-            #print('\n Found the Minimum!\n lambda = ',last_lambda,'--> integ = ',last_integ)
-            #print('lambda = ',_l,'--> integ = ',integ)
-            return (_l+last_lambda)/2
+            print('\n Found the Minimum!\n lambda = ',last_lambda,'--> integ = ',last_integ)
+            print('lambda = ',_l,'--> integ = ',integ,'\n')
+
+            _out = (_l+last_lambda)/2
+
+            v_to_reco_rate[v] = _out
+            return _out
             
         last_integ = integ
         if last_integ is None: assert(False)

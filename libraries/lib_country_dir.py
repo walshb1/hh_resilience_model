@@ -52,6 +52,7 @@ def get_economic_unit(myC):
     if myC == 'SL': return 'district'
     if myC == 'MW': return 'district'
     if myC == 'RO': return 'Region'
+    if myC == 'BO': return 'departamento'
     assert(False)
 
 def get_currency(myC):
@@ -60,7 +61,9 @@ def get_currency(myC):
     if myC == 'FJ': return ['k. F\$',1.E3,1./2.]
     if myC == 'SL': return ['LKR',1.E9,1./150.]
     if myC == 'MW': return ['MWK',1.E9,1./724.64]
-    return ['XXX',1.E0]
+    if myC == 'RO': return ['RON',1.E9,1/4.166667]
+    if myC == 'BO': return ['BOB',1.E9,1/7.143]
+    return ['XXX',1.E0,1E0]
 
 def get_hhid_elements(myC):
     if myC == 'RO': return ['Region','County','centra','hhcode','nrgl','mediu']
@@ -1475,27 +1478,28 @@ def get_poverty_line(myC,by_district=True,sec=None):
         # apply PPP to estimate 2016 value...
         pov_line *= 11445.5/11669.1
 
-    if myC == 'RO': pov_line = (1.90*4.0)/1.60
+    if myC == 'RO': pov_line = 40*1.645*365
+    if myC == 'BO': pov_line = 365*1.90*3.43
 
     return pov_line
 
 def get_subsistence_line(myC):
-    
-    if myC == 'PH': sub_line = 14832.0962*(22302.6775/21240.2924)
-    if myC == 'MW': sub_line = 85260.164
-    if myC == 'RO': sub_line = (1.25*4.0)/1.6
+
+    if myC == 'PH': return 14832.0962*(22302.6775/21240.2924)
+    if myC == 'MW': return 85260.164
+    if myC == 'RO': return 40*(1.25/1.90)*1.645*365
     if myC == 'SL':
 
         pov_line = float(pd.read_excel('../inputs/SL/poverty_def_by_district.xlsx').T.loc['National','2017 Aug Rs.']*12.)
         # apply PPP to estimate 2016 value...
         pov_line *= 11445.5/11669.1
         # scale from $1.90/day to $1.25/day
-        sub_line = (1.09/1.25)*pov_line
+        return (1.09/1.25)*pov_line
+    if myC == 'BO': return 365*1.25*3.43
 
-
-    else: sub_line = 0; print('No subsistence info. Returning 0')
-
-    return sub_line
+    else:
+        print('No subsistence info. Returning False') 
+        return False
 
 def get_to_USD(myC):
 
@@ -1507,12 +1511,8 @@ def get_to_USD(myC):
     assert(False)
 
 def get_pop_scale_fac(myC):
-    
-    if myC == 'PH': return [1.E3,' (,000)']
-    if myC == 'FJ': return [1.E3,' (,000)']
-    if myC == 'MW': return [1.E3,' (,000)']
-    if myC == 'SL': return [1.E3,' (,000)']
-    return [1,'']
+    #if myC == 'PH' or myC == 'FJ' or myC == 'MW' or myC == 'SL':  
+    return [1.E3,' (,000)']
 
 def get_avg_prod(myC):
     
@@ -1526,9 +1526,12 @@ def get_avg_prod(myC):
 def get_demonym(myC):
     
     if myC == 'PH': return 'Filipinos'
-    elif myC == 'FJ': return 'Fijians'
-    elif myC == 'SL': return 'Sri Lankans'
-    elif myC == 'MW': return 'Malawians'
+    if myC == 'FJ': return 'Fijians'
+    if myC == 'SL': return 'Sri Lankans'
+    if myC == 'MW': return 'Malawians'
+    if myC == 'RO': return 'Romanians'
+    if myC == 'BO': return 'Bolivians'
+    return 'individuals'
 
 def scale_hh_income_to_match_GDP(df_o,new_total,flat=False):
 
@@ -1605,7 +1608,7 @@ def scale_hh_income_to_match_GDP(df_o,new_total,flat=False):
 def get_all_hazards(myC,df):
     temp = (df.reset_index().set_index(['hazard'])).copy()
     temp = temp[~temp.index.duplicated(keep='first')]
-    return [i for i in temp.index.values]
+    return [i for i in temp.index.values if i != 'x']
         
 def get_all_rps(myC,df):
     temp = (df.reset_index().set_index(['rp'])).copy()
