@@ -437,8 +437,8 @@ hazard_ratios[['fa','v']].mean(level=event_level).to_csv('tmp/fa_v.csv')
 
 
 # Get optimal reconstruction rate
-_pi = df['avg_prod_k'].mean()
-_rho = df['rho'].mean()
+_pi = float(df['avg_prod_k'].mean())
+_rho = float(df['rho'].mean())
 
 print('Running hh_reco_rate optimization')
 hazard_ratios['hh_reco_rate'] = 0
@@ -446,28 +446,35 @@ hazard_ratios['hh_reco_rate'] = 0
 v_to_reco_rate = {}
 try: 
     v_to_reco_rate = pickle.load(open('../optimization_libs/'+myCountry+'_v_to_reco_rate.p','rb'))
-    pickle.dump(v_to_reco_rate, open('../optimization_libs/'+myCountry+'_v_to_reco_rate_proto2.p', 'wb'),protocol=2)
+    #pickle.dump(v_to_reco_rate, open('../optimization_libs/'+myCountry+'_v_to_reco_rate_proto2.p', 'wb'),protocol=2)
 except: print('Was not able to load v to hh_reco_rate library from ../optimization_libs/'+myCountry+'_v_to_reco_rate.p')
 
 #hazard_ratios.loc[hazard_ratios.index.duplicated(keep=False)].to_csv('~/Desktop/tmp/dupes.csv')
 assert(hazard_ratios.loc[hazard_ratios.index.duplicated(keep=False)].shape[0]==0)
 
-try: hazard_ratios['hh_reco_rate'] = hazard_ratios.apply(lambda x:v_to_reco_rate[round(x.v,2)],axis=1)
-except:
-    for _n, _i in enumerate(hazard_ratios.index):
-        
-        if round(_n/len(hazard_ratios.index)*100,3)%10 == 0:
-            print(round(_n/len(hazard_ratios.index)*100,2),'% of way through')
+hazard_ratios['hh_reco_rate'] = hazard_ratios.apply(lambda x:optimize_reco(v_to_reco_rate,_pi,_rho,x['v']),axis=1)
+try: 
+    pickle.dump(v_to_reco_rate,open('../optimization_libs/'+myCountry+'_v_to_reco_rate.p','wb'))
+    print('gotcha')
+except: print('didnt getcha')
 
-        _v = round(hazard_ratios.loc[_i,'v'].squeeze(),2)
 
-        try: hazard_ratios.loc[_i,'hh_reco_rate'] = v_to_reco_rate[_v]
-        except:
-            _opt = optimize_reco(_pi,_rho,_v)
-            hazard_ratios.loc[_i,'hh_reco_rate'] = _opt
-            v_to_reco_rate[_v] = _opt
-
-    pickle.dump(v_to_reco_rate, open('../optimization_libs/'+myCountry+'_v_to_reco_rate.p', 'wb' ) )
+#except:
+#    for _n, _i in enumerate(hazard_ratios.index):
+#        
+#        if round(_n/len(hazard_ratios.index)*100,3)%10 == 0:
+#            print(round(_n/len(hazard_ratios.index)*100,2),'% through optimization')
+#
+#        _v = round(hazard_ratios.loc[_i,'v'].squeeze(),2)
+#
+#        #if _v not in v_to_reco_rate: 
+#        #    v_to_reco_rate[_v] = optimize_reco(_pi,_rho,_v)       
+#        #hazard_ratios.loc[_i,'hh_reco_rate'] = v_to_reco_rate[_v]
+#        
+#        hazard_ratios.loc[_i,'hh_reco_rate'] = optimize_reco(_pi,_rho,_v)
+#
+#    try: pickle.dump(hazard_ratios[['_v','hh_reco_rate']].to_dict(),open('../optimization_libs/'+myCountry+'_v_to_reco_rate.p','wb'))
+#    except: pass
 
 # Set hh_reco_rate = 0 for drought
 hazard_ratios.loc[hazard_ratios.index.get_level_values('hazard') == 'DR','hh_reco_rate'] = 0

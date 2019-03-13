@@ -73,12 +73,15 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
     if myC == 'MW': 
         if aReg == 'Lilongwe': upper_clip = 4.0E5
         else: upper_clip = 2.5E5
-    
+    if myC == 'RO': upper_clip = 2E5
+    if myC == 'BO': upper_clip = 5E4
+
     sf_x = 1
     if currency.lower() == 'usd': sf_x = get_currency(myC)[2]
     elif myC == 'PH': currency = 'kPhP'; sf_x = 1E-3
     elif myC == 'MW': currency = ',000 MWK'; sf_x = 1E-3
     elif myC == 'SL': currency = ',000 LKR'; sf_x = 1E-3
+    elif myC == 'RO': currency = ',000 RON'; sf_x = 1E-3
     else: currency = get_currency(myC)[0]
 
     for _fom,_fom_lab in [('i','Income'),
@@ -95,6 +98,8 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
         if aReg == 'II - Cagayan Valley' and aDis == 'HU': plt.ylim(0,400)
         elif aReg == 'VIII - Eastern Visayas' and aDis == 'HU': plt.ylim(0,500)
         elif aReg == 'Rathnapura': plt.ylim(0,130)
+        elif aReg == 'Bucharest-Ilfov': plt.ylim(0,220)
+        elif aReg == 'Beni': plt.ylim(0,50)
 
         plt.xlabel(_fom_lab+r' ('+currency+' per person, per year)',labelpad=8,fontsize=8)
         plt.ylabel('Population'+get_pop_scale_fac(myC)[1],labelpad=8,fontsize=8)

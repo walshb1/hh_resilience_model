@@ -363,6 +363,7 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
     # Calculate capital losses (public, private, & other) 
     # --> Each household's capital losses is the sum of their private losses and public infrastructure losses
     # --> 'hh_share' recovers fraction that is private property
+
     cats_event_ia['dk_private'] = cats_event_ia[['k','v_with_ew','hh_share']].prod(axis=1, skipna=False).fillna(0).astype('int')
     cats_event_ia['dk_public']  = (cats_event_ia[['k','v_with_ew']].prod(axis=1, skipna=False)*(1-cats_event_ia['hh_share'])).fillna(0).clip(lower=0.).astype('int')
     cats_event_ia['dk_other']   = 0. 

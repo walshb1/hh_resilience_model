@@ -49,7 +49,7 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
         __ds = []
         for _ds in drop_spots:
             __ds.append(_ds.lower().replace(" ","_").replace("-","_").replace(".","_").replace("(","_").replace(")","_"))
-        series_in = series_in.drop(__ds)
+        series_in = series_in.drop([_ for _ in __ds if _ in series_in])
 
     #compute the colors 
     color = data_to_rgb(series_in,color_maper=color_maper,do_qual=do_qualitative)
@@ -116,7 +116,6 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
         
     #Link to SVG
     display(HTML("<a target='_blank' href='"+target_name+".svg"+"'>SVG "+new_title+"</a>"))  #Linking to SVG instead of showing SVG directly works around a bug in the notebook where style-based colouring colors all the maps in the NB with a single color scale (due to CSS)
-    
     
     #reports missing data
     if verbose:

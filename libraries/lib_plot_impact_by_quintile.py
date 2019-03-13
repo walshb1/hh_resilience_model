@@ -94,8 +94,8 @@ def plot_impact_by_quintile(myCountry,aProv,aDis,anRP,iah,my_PDS='no',currency='
         except: pass
 
     out_str = None
-    if myCountry == 'FJ': out_str = ['Asset loss','Consumption\nloss (NPV)','Well-being loss','Net cost of\nWinston-like\nsupport','Well-being loss\npost support']
-    else: out_str = ['Asset loss','Well-being loss','Net cash benefit of\n'+pds_dict[my_PDS],'Well-being loss\nwith '+pds_dict[my_PDS]]
+    if myCountry == 'FJ': out_str = ['Asset loss','Consumption\nloss (NPV)','Wellbeing loss','Net cost of\nWinston-like\nsupport','Wellbeing loss\npost support']
+    else: out_str = ['Asset loss','Wellbeing loss','Net cash benefit of\n'+pds_dict[my_PDS],'Wellbeing loss\nwith '+pds_dict[my_PDS]]
 
     trans = ax.get_xaxis_transform() # x in data untis, y in axes fraction
     for ni, ii in enumerate(range(1,5)):
@@ -118,7 +118,7 @@ def plot_impact_by_quintile(myCountry,aProv,aDis,anRP,iah,my_PDS='no',currency='
     
     #plt.plot(ax.get_xlim(),[0,0],color=greys_pal[2],linewidth=0.5,zorder=10)
     if currency != 'USD': currency = get_currency(myCountry)[0][-3:]
-    plt.ylabel('Disaster losses ['+_curr_sf_str+currency+' per affected person]',labelpad=8,fontsize=8)
+    plt.ylabel('Disaster losses ('+_curr_sf_str+currency.replace('USD','US$')+' per affected person)',labelpad=10,fontsize=10)
     sns.despine(bottom=True)
     plt.grid(False)
 
@@ -154,7 +154,7 @@ def plot_impact_by_quintile(myCountry,aProv,aDis,anRP,iah,my_PDS='no',currency='
     plt.plot([i for i in ax2.get_xlim()],[0,0],'k-',lw=1.5,color=greys_pal[7],zorder=100,alpha=0.85)
 
     if currency != 'USD': currency = get_currency(myCountry)[0][-3:]
-    plt.ylabel('Well-being losses ['+currency+' per capita]',labelpad=8,weight='bold')
+    plt.ylabel('Wellbeing losses ('+currency.replace('USD','US$')+' per capita)',labelpad=10,fontsize=10)
 
     _success = False
     try:

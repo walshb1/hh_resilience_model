@@ -206,7 +206,7 @@ if __name__ == '__main__':
         pol_str = ['']
              
     elif myCountry == 'RO':
-        pds_str = ['no']
+        pds_str = ['no','unif_poor']
         pol_str = ['']
         
     # These lines launch

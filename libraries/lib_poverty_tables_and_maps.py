@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from libraries.maps_lib import make_map_from_svg, purge
+from libraries.maps_lib import make_map_from_svg, purge, get_svg_file
 from libraries.lib_average_over_rp import average_over_rp
 from libraries.lib_country_dir import get_demonym,get_poverty_line,get_currency, get_economic_unit
 from libraries.lib_gather_data import match_percentiles,perc_with_spline,reshape_data
@@ -39,10 +39,7 @@ def map_recovery_time(myC,HAZ,RP=[100],RECO=['25','75','90'],drop_spots=None,_ma
     #    df = df_prov.drop(['Blantyre City','Lilongwe City', 'Mzuzu City', 'Zomba City'],axis=0)
 
     # Look for the map (svg) file here
-    svg_file = ''
-    if myC == 'PH': svg_file = '../map_files/'+myC+'/BlankSimpleMapRegional.svg'
-    elif myC == 'SL': svg_file = '../map_files/'+myC+'/lk.svg'
-    elif myC == 'MW': svg_file = '../map_files/'+myC+'/mw.svg'
+    svg_file = get_svg_file(myC)
 
     _pop = pd.read_csv('../intermediate/'+myC+'/hazard_ratios.csv')
     _pop = _pop.set_index([get_economic_unit(myC),'hazard','rp'])
@@ -70,6 +67,7 @@ def map_recovery_time(myC,HAZ,RP=[100],RECO=['25','75','90'],drop_spots=None,_ma
                     label='Time to reconstruct '+_reco+'% of assets destroyed \nby '+str(_rp)+'-year '+haz_dict[_haz].lower()+' [years]\nNational avg. = '+_mean+' years',
                     new_title='',
                     do_qualitative=False,
+                    drop_spots=['Jaffna','Matara','Kilinochchi'],
                     res=_mapres)
 
 def run_poverty_duration_plot(myC,myHaz='HU',drop_spots=None):
@@ -218,6 +216,9 @@ def run_poverty_duration_plot(myC,myHaz='HU',drop_spots=None):
         if myC == 'SL': focus = ['Colombo','Rathnapura','Kalutara','Mannar']
         elif myC == 'PH': focus = ['NCR']
         elif myC == 'MW': focus = ['Lilongwe','Chitipa']
+        elif myC == 'RO': focus = ['Center']
+        elif myC == 'BO': focus = ['La Paz','Beni']
+        else: assert(False)
 
         for iloc in focus:
             df_dec.loc[df_dec.eval('(hazard==@myHaz)&(rp==10)')].plot.scatter('decile',ipov+'_'+iloc,color=sns_pal[icol],lw=0,label=iloc+' (RP = 5 years)',zorder=95,ax=ax)
@@ -276,13 +277,16 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],
     dem = get_demonym(myC)
 
     # Look for the map (svg) file here
-    svg_file = '../map_files/'+myC+'/BlankSimpleMap.svg'
-    if myC == 'PH' and event_level[0] == 'region':
-        svg_file = '../map_files/'+myC+'/BlankSimpleMapRegional.svg'
-    elif myC == 'SL': svg_file = '../map_files/'+myC+'/lk.svg'
-    elif myC == 'MW': svg_file = '../map_files/'+myC+'/mw.svg'
+    svg_file = get_svg_file(myC)
 
-    regional_poverty = pd.read_csv('../inputs/'+myC+'/regional_poverty_rate.csv').set_index(event_level[0])
+    # Get & map the chronic poverty rate
+    try: regional_poverty = pd.read_csv('../inputs/'+myC+'/regional_poverty_rate.csv').set_index(event_level[0])
+    except:
+        _ = pov_df.copy().reset_index().set_index('hhid')
+        _ = _.loc[~_.index.duplicated()].reset_index().set_index(event_level[0])
+        regional_poverty = 100.*(_.loc[_.ispoor,'pcwgt_no'].sum(level=event_level[0])/_['pcwgt_no'].sum(level=event_level[0])).to_frame(name='poverty_rate')
+        _ = None
+
     make_map_from_svg(
         regional_poverty['poverty_rate'], 
         svg_file,
@@ -292,8 +296,9 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],
         new_title= dem+'Regional poverty rate [%]',
         do_qualitative=False,
         res=_mapres,
-        drop_spots=drop_spots)  
-
+        drop_spots=drop_spots) 
+    
+        
     # Get the poverty headcount info
     #try:
     # Count up the hh that fell into poverty & subsistence:
@@ -454,7 +459,7 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],
              [1000,1E3,' (thousands)']]
     
     for myDis in [myHaz]:
-        for myRP in [[10,1E0,'']]:
+        for myRP in [[10,50,'']]:
 
             make_map_from_svg(
                 pov_df_event.loc[(pov_df_event.hazard==myDis)&(pov_df_event.rp==myRP[0]),'net_chg_pov_c']/(myRP[1]*100.), 
