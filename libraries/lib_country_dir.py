@@ -1609,7 +1609,7 @@ def get_poverty_line(myC,by_district=True,sec=None):
     elif myC == 'MW':
         pov_line = 137427.98
     elif myC == 'BO':
-        pov_line = 706.53 # from cat_info.eval('pov_line*pcwgt').sum()/cat_info.pcwgt.sum()
+        pov_line = 706.53 # from weighted average: cat_info.eval('pov_line*pcwgt').sum()/cat_info.pcwgt.sum()
 
     return pov_line
 
@@ -1627,7 +1627,7 @@ def get_subsistence_line(myC):
 
     elif myC == 'MW': sub_line = 85260.164
     elif myC == 'BO':
-        sub_line = 379.08 # from cat_info.eval('sub_line*pcwgt').sum()/cat_info.pcwgt.sum()
+        sub_line = 379.08 # from weighted average - cat_info.eval('sub_line*pcwgt').sum()/cat_info.pcwgt.sum()
 
     else: sub_line = 0; print('No subsistence info. Returning 0')
 
