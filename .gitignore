@@ -1,12 +1,13 @@
-# Some python specific git-ignores
+# Intermediate files for hh_resilience project
+tmp/
+
+# Python specific git-ignores
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 
-
-
-# Some boilerplate gitignores
+# Boilerplate gitignores
 # from https://gist.github.com/octocat/9257657
 
 # Compiled source #
