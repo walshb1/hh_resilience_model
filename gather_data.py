@@ -311,7 +311,8 @@ print(cat_info.head())
 
 cat_info = cat_info.loc[cat_info['pcwgt'] != 0]
 print('Check total population:',cat_info.pcwgt.sum())
-cat_info.to_csv('~/Desktop/tmp/RO_drops.csv')
+if myCountry == 'RO':
+    cat_info.to_csv('~/Desktop/tmp/RO_drops.csv')
 cat_info.dropna(inplace=True,how='any')
 # Get rid of househouseholds with 0 consumption
 if myCountry == 'BO':
