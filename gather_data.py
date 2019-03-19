@@ -137,7 +137,8 @@ print('Getting vulnerabilities')
 
 vul_curve = get_vul_curve(myCountry,'wall')
 for thecat in vul_curve.desc.unique():  
-    cat_info.loc[cat_info['walls'] == thecat,'v'] = float(vul_curve.loc[vul_curve.desc.values == thecat,'v'])
+    hh_private_asset_vulnerability = float(vul_curve.loc[vul_curve.desc.values == thecat,'v'])    
+    cat_info.loc[cat_info['walls'] == thecat,'v'] = hh_private_asset_vulnerability
     # Fiji doesn't have info on roofing, but it does have info on the *condition* of outer walls. Include that as a multiplier?
     
 # Get roofing data (but Fiji doesn't have this info)
@@ -226,11 +227,16 @@ cat_info = cat_info.rename(columns={'HHID':'hhid'})
 
 #########################
 # Calculate K from C
+# Change the name: district to code, and create an multi-level index 
+if (myCountry == 'SL') or (myCountry =='BO'):
+    cat_info = cat_info.rename(columns={'district':'code','HHID':'hhid'})
+
 # tau_tax = total value of social as fraction of total C
 # gamma_SP = Fraction of social that goes to each hh
 print('Get the tax used for domestic social transfer and the share of Social Protection')
 df['tau_tax'], cat_info['gamma_SP'] = social_to_tx_and_gsp(economy,cat_info)
 
+# Calculate K from C
 print('Calculating capital from income')
 cat_info['k'] = ((cat_info['c']/df['avg_prod_k'].mean())*((1-cat_info['social'])/(1-df['tau_tax'].mean()))).clip(lower=0.)
 print('Derived capital from income')
