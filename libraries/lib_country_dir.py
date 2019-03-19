@@ -1827,20 +1827,12 @@ def get_avg_prod(myC):
 def get_demonym(myC):
 
     if myC == 'PH': return 'Filipinos'
-<<<<<<< HEAD
     if myC == 'FJ': return 'Fijians'
     if myC == 'SL': return 'Sri Lankans'
     if myC == 'MW': return 'Malawians'
     if myC == 'RO': return 'Romanians'
     if myC == 'BO': return 'Bolivians'
     return 'individuals'
-=======
-    elif myC == 'FJ': return 'Fijians'
-    elif myC == 'SL': return 'Sri Lankans'
-    elif myC == 'MW': return 'Malawians'
-    elif myC == 'BO': return 'Bolivians'
-    assert(False)
->>>>>>> b1618
 
 def scale_hh_income_to_match_GDP(df_o,new_total,flat=False):
 
@@ -1917,13 +1909,8 @@ def scale_hh_income_to_match_GDP(df_o,new_total,flat=False):
 def get_all_hazards(myC,df):
     temp = (df.reset_index().set_index(['hazard'])).copy()
     temp = temp[~temp.index.duplicated(keep='first')]
-<<<<<<< HEAD
     return [i for i in temp.index.values if i != 'x']
 
-=======
-    return [i for i in temp.index.values]
-
->>>>>>> b1618
 def get_all_rps(myC,df):
     temp = (df.reset_index().set_index(['rp'])).copy()
     temp = temp[~temp.index.duplicated(keep='first')]
