@@ -1808,6 +1808,7 @@ def get_to_USD(myC):
     if myC == 'SL': return 153.76
     if myC == 'MW': return 720.0
     if myC == 'RO': return 4.0
+    if myC == 'BO': return 6.93
     assert(False)
 
 def get_pop_scale_fac(myC):
