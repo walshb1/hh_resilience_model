@@ -1048,6 +1048,7 @@ def load_survey_data(myC):
         df['c'] = df['pcinc'].copy()
         df = df.reset_index().rename(columns={'District':'district'}).set_index(['district','hhid']).drop(['c_food','c_nonfood','c_boarders'],axis=1)
     elif myC == 'BO':
+
         set_directories('BO')
         # Read in data
 
@@ -1167,20 +1168,20 @@ def load_survey_data(myC):
         df[get_economic_unit('BO')] = df[get_economic_unit('BO')].astype(str)
         df['hhid'] = df['hhid'].astype(str)
         df = df.set_index([get_economic_unit('BO'),'hhid'])
+
         # wall, roof - materials used for construction of each part of structure
         # For walls and roof you might want to find a dictionary of the 'other' columns
         # and set them to a specific value
         # housing_cols = ['s1a_07', 's1a_07b', 's1a_08', 's1a_09', 's1a_09b', 's1a_10', 's1a_10b'] # for year 2015
-        housing_cols = ['s01a_06', 's01a_06e', 's01a_07', 's01a_08', 's01a_08e', 's01a_09', 's01a_09e']
+        housing_cols = ['s01a_06', 's01a_06e', 's01a_07', 's01a_08', 's01a_08e', 's01a_09', 's01a_09e'] # for year 2016
         housing_names = ['walls','walls_other','plaster','roof','roofs_other','floors','floors_other']
         housing_dict = {housing_cols[i]:housing_names[i] for i in range(len(housing_cols))}
         df.rename(housing_dict, axis = 1,inplace = True)
         # Replace wall types with categories from get_vul_curves
         # Assume that stone is held together by concrete, so is just as resilient as cement.
-        # 2015
+        # works on both 2015/2016
         df.walls.replace({df.walls.cat.categories[i]:[3,4,1,3,6,7,9][i] for i in range(len(df.walls.cat.categories))}, inplace = True)
         df.roof.replace({df.roof.cat.categories[i]:[4,1,3,6,9][i] for i in range(len(df.roof.cat.categories))},inplace = True)
-        # 2016
 
         # aeinc, aewgt adult equivalent weights
         df['aewgt'] = df['pcwgt'].copy() # Population
@@ -1188,7 +1189,7 @@ def load_survey_data(myC):
         df['aeinc'] = df['hhinc']/df['hhsize_ae']
 
         # urban : {'RURAL', "URBAN"}
-        df['urban'] = df['area'].replace({'urbano':'URBAN','rural':"RURAL", "Urbana": "URBAN", "Rural":"RURAL"}).astype('category')
+        df['isrural'] = df['area'].replace({'urbano':False,'rural':True, "Urbana": False, "Rural":True}).astype(bool)
 
         # hhremittance
         # frac_remittance = df_social.eval('hhremittance/hhsoc')
