@@ -367,13 +367,17 @@ if myCountry == 'PH':
     hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['grdp_to_assets']
     hazard_ratios = hazard_ratios.drop(['HIES_capital', 'value_destroyed','value_destroyed_prv','value_destroyed_pub'],axis=1)
 
-elif myCountry == 'FJ': pass
+elif (myCountry == 'FJ' 
+      or myCountry == 'SL' 
+      or myCountry == 'RO'): pass
+# For FJ:
 # --> fa is losses/(exposed_value*v)
 #hazard_ratios['frac_destroyed'] = hazard_ratios['fa'] 
 
-elif myCountry == 'SL': pass
-# For SL, 'fa' is fa, not frac_destroyed
+# For SL and RO, 'fa' is fa, not frac_destroyed
 # hazard_ratios['frac_destroyed'] = hazard_ratios.pop('fa')
+
+
 
 
 # Have frac destroyed, need fa...
@@ -389,6 +393,17 @@ hazard_ratios.loc[hazard_ratios['v'] >0.1,'v'] *= np.random.uniform(.8,1.2,hazar
 
 # Calculate frac_destroyed for SL, since we don't have that in this case
 if myCountry == 'SL': hazard_ratios['frac_destroyed'] = hazard_ratios[['v','fa']].prod(axis=1)
+
+# Calculate frac_destroyed for RO
+if myCountry == 'RO': 
+    # This is slightly tricky...
+    # For RO, we're using different hazard inputs for EQ and PF, and that's why they're treated differently below
+    # NB: these inputs come from the library lib_collect_hazard_data_RO 
+    hazard_ratios.loc[hazard_ratios.hazard=='EQ','frac_destroyed'] = hazard_ratios.loc[hazard_ratios.hazard=='EQ','fa'].copy()
+    # ^ EQ hazard is based on "caploss", which is total losses expressed as fraction of total capital stock (currently using gross, but could be net?) 
+    hazard_ratios.loc[hazard_ratios.hazard=='PF','frac_destroyed'] = hazard_ratios.loc[hazard_ratios.hazard=='PF',['v','fa']].prod(axis=1)
+    # ^ PF hazard is based on "popaff", which is the affected population, and "affected" could be anything. So we're applying the vulnerability curve to this hazard.
+    
 
 if 'hh_share' not in hazard_ratios.columns: hazard_ratios['hh_share'] = None
 hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])[[i for i in ['frac_destroyed','v','k','pcwgt','hh_share','grdp_to_assets','fa'] if i in hazard_ratios.columns]]
