@@ -333,7 +333,7 @@ cat_info =cat_info.dropna()
 
 # Cleanup dfs for writing out
 cat_info_col = [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','np','score','v','c','pcsoc','social','c_5','hhsize','ethnicity',
-                'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
+                'hhsize_ae','gamma_SP','k','quintile','ispoor','isrural','pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
                 'has_ew','SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin','pcsamurdhi','gsp_samurdhi','frac_remittance','N_children']
 cat_info = cat_info.drop([i for i in cat_info.columns if (i in cat_info.columns and i not in cat_info_col)],axis=1)
 cat_info_index = cat_info.drop([i for i in cat_info.columns if i not in [economy,'hhid']],axis=1)
