@@ -119,7 +119,6 @@ except: pass
 
 ########################################
 # Calculate regional averages from household info
-<<<<<<< HEAD
 df['gdp_pc_prov'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum(level=economy)/cat_info['pcwgt'].sum(level=economy)
 # ^ per capita income (in local currency), regional average
 df['gdp_pc_nat'] = cat_info[['pcinc','pcwgt']].prod(axis=1).sum()/cat_info['pcwgt'].sum()
@@ -418,7 +417,6 @@ if myCountry == 'PH':
     hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['grdp_to_assets']
     hazard_ratios = hazard_ratios.drop(['HIES_capital', 'value_destroyed','value_destroyed_prv','value_destroyed_pub'],axis=1)
 
-<<<<<<< HEAD
 elif (myCountry == 'FJ' 
       or myCountry == 'SL' 
       or myCountry == 'RO'
