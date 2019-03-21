@@ -109,12 +109,17 @@ def get_places(myC):
 
     """
     if myC == 'BO':
+        set_directories("BO")
         economy = get_economic_unit(myC)
-        df = pd.read_stata(inputs +'BOL_EH_2015.dta')
-        df[economy] = [int(f[0]) for f in df['folio']]
+        # df = pd.read_stata(inputs +'BOL_EH_2015.dta')
+        df = pd.read_csv(inputs + 'bd39/EH2016_Vivienda.csv')
+        df[economy] = df['depto']
+        # df[economy] = [int(f[0]) for f in df['folio']]
         df.set_index(economy, inplace = True)
-        df['personas'] = df.factor_expansion*df.miembros_hogar
+        df['personas'] = df.factor*df.totper
+        # df['personas'] = df.factor_expansion*df.miembros_hogar
         return df['personas'].sum(level = 0).to_frame(name='pop')
+
 
     if myC == 'RO':
 

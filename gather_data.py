@@ -285,10 +285,12 @@ if myCountry == 'FJ' or myCountry == 'RO' or myCountry == 'SL':
     except: pass
 elif myCountry == 'BO':
     df = df.reset_index()
-    df[economy] = df[economy].astype(int).replace(prov_code)
+    # 2015 data
+    # df[economy] = df[economy].astype(int).replace(prov_code)
     cat_info = cat_info.reset_index()
-    cat_info[economy].replace(prov_code,inplace=True) # replace division code with its name
+    # cat_info[economy].replace(prov_code,inplace=True) # replace division code with its name
     cat_info = cat_info.reset_index().set_index([economy,'hhid']).drop(['index'],axis=1)
+    
 
 
 ########################################
