@@ -459,15 +459,15 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],
              [1000,1E3,' (thousands)']]
     
     for myDis in [myHaz]:
-        for myRP in [[10,50,'']]:
+        for myRP in [[200]]:
 
             make_map_from_svg(
-                pov_df_event.loc[(pov_df_event.hazard==myDis)&(pov_df_event.rp==myRP[0]),'net_chg_pov_c']/(myRP[1]*100.), 
+                pov_df_event.loc[(pov_df_event.hazard==myDis)&(pov_df_event.rp==myRP[0]),'net_chg_pov_c'], 
                 svg_file,
                 outname='new_poverty_incidence_'+myDis+'_'+str(myRP[0]),
                 color_maper=plt.cm.get_cmap('Reds'), 
-                label=dem+' pushed into consumption poverty by '+str(myRP[0])+'-yr '+myDis+myRP[2],
-                new_title=dem+' pushed into consumption poverty by '+str(myRP[0])+'-yr '+myDis+myRP[2],
+                label=dem+' pushed into consumption poverty by '+str(myRP[0])+'-yr '+myDis,
+                new_title=dem+' pushed into consumption poverty by '+str(myRP[0])+'-yr '+myDis,
                 do_qualitative=False,
                 res=_mapres,
                 drop_spots=drop_spots)
