@@ -229,10 +229,9 @@ pd.DataFrame({'population':cat_info['pcwgt'].sum(level=economy),
               'pctPoor':100.*cat_info.loc[cat_info.ispoor==1,'pcwgt'].sum(level=economy)/cat_info['pcwgt'].sum(level=economy)}).to_csv('../output_country/'+myCountry+'/poverty_rate.csv')
 # Could also look at urban/rural if we have that divide
 try:
-    print('\n--> Rural poverty (flagged poor):',float(round(cat_info.loc[(cat_info.ispoor==1)&(cat_info.urban=='RURAL'),'pcwgt'].sum()/1E6,3)),'million')
-    print('\n--> Urban poverty (flagged poor):',float(round(cat_info.loc[(cat_info.ispoor==1)&(cat_info.urban=='URBAN'),'pcwgt'].sum()/1E6,3)),'million')
-except: pass
-
+    print('\n--> Rural poverty (flagged poor):',float(round(cat_info.loc[(cat_info.ispoor==1)&(cat_info.isrural),'pcwgt'].sum()/1E6,3)),'million')
+    print('\n--> Urban poverty (flagged poor):',float(round(cat_info.loc[(cat_info.ispoor==1)&~(cat_info.isrural),'pcwgt'].sum()/1E6,3)),'million')
+except: print('Sad fish')
 
 # Standardize--hhid should be lowercase
 cat_info = cat_info.rename(columns={'HHID':'hhid'})
