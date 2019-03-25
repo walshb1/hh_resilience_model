@@ -305,8 +305,9 @@ if False:
             iah_out.loc[(slice(None),(_h)),'Asset risk'].sum(level=economy)*1E-6*to_usd,
             svg_file,
             outname=myCountry+'_expected_losses_'+_h,
-            color_maper=plt.cm.get_cmap('Reds'), 
-            label='Annual asset losses to '+haz_dict[_h].lower()+'s [mil. US$]',
+            color_maper=(plt.cm.get_cmap('GnBu')), 
+            label=(haz_dict[_h]+' risk [mil. US$ per year]\nNational total = US$ '
+                   +str(int(round(float((iah_out.loc[(slice(None),(_h)),'Asset risk'].sum(level=economy)*1E-6*to_usd).sum()),0)))+'M'),
             new_title='',
             do_qualitative=False,
             res=_mapres,
@@ -317,7 +318,6 @@ if False:
     purge('img/','map_of_*.svg')
     purge('img/','legend_of_*.svg')
 # ^ Save out risk to assets & welfare & resilience by economy/hazard/PDS
-
 
 # 4) Write tables with just NO PDS
 no_pds = iah_out[['Asset risk','Well-being risk']].copy()
@@ -416,7 +416,7 @@ if False:
             outname=myCountry+'_asset_risk_'+_curr.lower(),
             color_maper=plt.cm.get_cmap('GnBu'),
             #svg_handle = 'reg',
-            label=('Asset losses by '+economy.lower()+' ['+_curr.replace('USD','mil. US\$').replace('PHP','bil. PHP')+' per year]'
+            label=('Multihazard asset risk by '+economy.lower()+' ['+_curr.replace('USD','mil. US\$').replace('PHP','bil. PHP')+' per year]'
                    +'\nNational total = '+_curr.replace('USD','US\$')+str(natl_sum)+natl_mil_vs_bil),
             new_title='Asset losses ['+_curr.replace('USD','mil. US\$')+'per year]',
             do_qualitative=False,
@@ -430,8 +430,8 @@ if False:
             outname=myCountry+'_asset_risk_over_reg_gdp',
             color_maper=plt.cm.get_cmap('GnBu'),
             #svg_handle = 'reg',
-            label='Asset losses [% of AHI per year]\nNational avg. = '+natl_avg+'%',
-            new_title='Asset losses [% of AHI per year]',
+            label='Multihazard asset risk [% of AHE per year]\nNational avg. = '+natl_avg+'%',
+            new_title='Asset losses [% of AHE per year]',
             do_qualitative=False,
             drop_spots=places_to_drop,
             res=_mapres)   
@@ -468,8 +468,8 @@ if False:
             outname=myCountry+'_welf_risk_over_reg_gdp',
             color_maper=plt.cm.get_cmap('OrRd'),
             #svg_handle = 'reg',
-            label='Wellbeing losses [% of AHI per year]\nNational avg. = '+natl_avg+'%',
-            new_title='Wellbeing losses [% of AHI per year]',
+            label='Wellbeing losses [% of AHE per year]\nNational avg. = '+natl_avg+'%',
+            new_title='Wellbeing losses [% of AHE per year]',
             do_qualitative=False,
             drop_spots=places_to_drop,
             res=_mapres)
@@ -760,12 +760,11 @@ no_pds_q1 = no_pds_q1.fillna(0)
 no_pds_q1[['Asset risk','% total RA','SE capacity',
            'Well-being risk','% total RW']].sort_values(['Well-being risk'],ascending=False).round(1).to_latex('latex/'+myCountry+'/risk_q1_by_economy.tex')
 
-no_pds_q1['Asset risk']*=to_usd*1000 if myCountry == 'SL' else 1
-no_pds_q1['Well-being risk']*=to_usd*1000 if myCountry == 'SL' else 1
+no_pds_q1['Asset risk']*=to_usd*(1000 if myCountry == 'SL' else 1)
+no_pds_q1['Well-being risk']*=to_usd*(1000 if myCountry == 'SL' else 1)
 no_pds_q1[['Asset risk','% total RA','SE capacity',
            'Well-being risk','% total RW']].sort_values(['Well-being risk'],ascending=False).round(0).astype('int').to_latex('latex/'+myCountry+'/risk_q1_by_economy_usd.tex')
 print('Wrote latex! Q1 sums: ',no_pds_q1.sum())
-
 
 no_pds_q1['pop_q1']  = iah.loc[iah.quintile==1,'pcwgt_no'].sum(level=event_level).mean(level=event_level[0])/1.E3
 #iah_out_q1['grdp_q1'] = iah.loc[iah.quintile==1,['pcwgt_no','c_initial']].prod(axis=1).sum(level=event_level).mean(level=event_level[0])
@@ -1180,7 +1179,7 @@ if True:
     run_poverty_duration_plot(myCountry,myHaz[1][0])
     #                                   ^ first hazard in the country we're running
     run_poverty_tables_and_maps(myCountry,_myiah,event_level,myHaz[1][0],drop_spots=places_to_drop,_mapres=_mapres)
-    map_recovery_time(myCountry,myHaz[1][0],RP=[50],drop_spots=places_to_drop,_mapres=_mapres)
+    map_recovery_time(myCountry,myHaz[1][0],RP=[200],drop_spots=places_to_drop,_mapres=_mapres)
 
 ##################################################################
 # This code generates the histograms showing income before & after disaster (in USD)

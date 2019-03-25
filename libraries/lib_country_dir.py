@@ -108,13 +108,21 @@ def get_places(myC):
         population is the first and only column.
 
     """
+    economy = get_economic_unit(myC)
+
     if myC == 'BO':
+        # Below 2 lines are from ET's header
         set_directories("BO")
         economy = get_economic_unit(myC)
         # df = pd.read_stata(inputs +'BOL_EH_2015.dta')
         df = pd.read_csv(inputs + 'bd39/EH2016_Vivienda.csv')
         df[economy] = df['depto']
-        # df[economy] = [int(f[0]) for f in df['folio']]
+        # df[economy] = [int(f[0]) for f in df['folio']
+        ####
+        # Below 2 lines are from master
+        #df = pd.read_stata(inputs +'BOL_EH_2015.dta')
+        #df[economy] = [int(f[0]) for f in df['folio']]
+        
         df.set_index(economy, inplace = True)
         df['personas'] = df.factor*df.totper
         # df['personas'] = df.factor_expansion*df.miembros_hogar
@@ -1719,36 +1727,39 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
 
     elif myC == 'RO':
 
-        # this file has total GDP (by county), which we'll use as denominator
-        df_gdp = pd.read_csv(inputs+'county_gdp.csv').set_index('County')[['GDP']]
-
-        # this file links counties to regions, because HBS has only regional info
-        df_geo_info = pd.read_csv(inputs+'county_to_region.csv').set_index('County')[['Region']]# also has NUTS codes
-
-        # merge above
-        df_counties = pd.merge(df_gdp.reset_index(),df_geo_info.reset_index(),on='County').set_index('County')
-
-        # This file has capital loss to EQ (by county), which we'll use as numerator
-        df_EQ_caploss = pd.read_csv(inputs+'hazard/_EQ_caploss_by_county.csv').set_index('County')
-        df_EQ_caploss['hazard'] = 'EQ'
-
-        # Merge above
-        df_haz = pd.merge(df_counties.reset_index(),df_EQ_caploss.reset_index(),on='County').set_index(['Region','hazard','rp']).drop(['County'],axis=1)
-
-        # Sum county-level results to regions
-        df_haz = df_haz.sum(level=['Region','hazard','rp'])
-
-        # Choose which exceedance curve to use:
-        # - Options:
-        # - 1) PML: probably maximum loss
-        # - 2) AAL: average annual loss
-        # - 3) AEP: annual exceedance probability
-        loss_measure_to_use = 'AAL'
-
-        df_haz = df_haz.drop([_l for _l in ['AAL','AEP','PML'] if _l != loss_measure_to_use],axis=1)
-        df_haz['frac_destroyed'] = df_haz.eval(loss_measure_to_use+'/GDP').clip(upper=0.99)
-
-        return df_haz[['frac_destroyed']], df_haz[['frac_destroyed']]
+        # this file is created in libraries/lib_collect_hazard_data_RO
+        df_haz = pd.read_csv('../inputs/RO/hazard/romania_multihazard_fa.csv').set_index(['Region','hazard','rp'])
+        
+        ## this file has total GDP (by county), which we'll use as denominator
+        #df_gdp = pd.read_csv(inputs+'county_gdp.csv').set_index('County')[['GDP']]
+        #
+        ## this file links counties to regions, because HBS has only regional info
+        #df_geo_info = pd.read_csv(inputs+'county_to_region.csv').set_index('County')[['Region']]# also has NUTS codes
+        #
+        ## merge above
+        #df_counties = pd.merge(df_gdp.reset_index(),df_geo_info.reset_index(),on='County').set_index('County')
+        #
+        ## This file has capital loss to EQ (by county), which we'll use as numerator
+        #df_EQ_caploss = pd.read_csv(inputs+'hazard/_EQ_caploss_by_county.csv').set_index('County')
+        #df_EQ_caploss['hazard'] = 'EQ'
+        #
+        ## Merge above
+        #df_haz = pd.merge(df_counties.reset_index(),df_EQ_caploss.reset_index(),on='County').set_index(['Region','hazard','rp']).drop(['County'],axis=1)
+        #
+        ## Sum county-level results to regions
+        #df_haz = df_haz.sum(level=['Region','hazard','rp'])
+        #
+        ## Choose which exceedance curve to use:
+        ## - Options:
+        ## - 1) PML: probably maximum loss
+        ## - 2) AAL: average annual loss
+        ## - 3) AEP: annual exceedance probability
+        #loss_measure_to_use = 'AAL'
+        #
+        #df_haz = df_haz.drop([_l for _l in ['AAL','AEP','PML'] if _l != loss_measure_to_use],axis=1)
+        #df_haz['frac_destroyed'] = df_haz.eval(loss_measure_to_use+'/GDP').clip(upper=0.99)
+        #
+        return df_haz[['fa']], df_haz[['fa']]
 
     elif myC == 'BO':
         df = pd.read_csv(os.path.join(inputs,'flood_risk_by_state.csv'))
