@@ -110,8 +110,9 @@ def get_places(myC):
         population is the first and only column.
 
     """
+    economy = get_economic_unit(myC)
+
     if myC == 'BO':
-        economy = get_economic_unit(myC)
         df = pd.read_stata(inputs +'BOL_EH_2015.dta')
         df[economy] = [int(f[0]) for f in df['folio']]
         df.set_index(economy, inplace = True)
