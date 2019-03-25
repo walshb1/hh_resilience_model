@@ -14,7 +14,7 @@ def get_list_of_index_names(df):
 
 
 
-def broadcast_simple( df_in, index):    
+def broadcast_simple( df_in, index):
     """simply replicates df n times and adds index (where index has n distinct elements) as the last level of a multi index.
     if index is a multiindex with (m,p) this will work too (and replicte df n=m *p times). But if some of the levels of index are already included in df_in (BASED ON NAME ONLY), these are ignored (see example).
 
@@ -115,3 +115,11 @@ def concat_categories(p,np, index):
 
     #makes sure a series is returned when possible
     return y.squeeze()
+
+
+def categorize_strings(df):
+    for c in range(len(df.columns)):
+        if df.dtypes[c] == 'O':
+            col = df.columns[c]
+            df[col] = df[col].astype('category')
+    return df

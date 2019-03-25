@@ -227,10 +227,9 @@ pd.DataFrame({'population':cat_info['pcwgt'].sum(level=economy),
               'pctPoor':100.*cat_info.loc[cat_info.ispoor==1,'pcwgt'].sum(level=economy)/cat_info['pcwgt'].sum(level=economy)}).to_csv('../output_country/'+myCountry+'/poverty_rate.csv')
 # Could also look at urban/rural if we have that divide
 try:
-    print('\n--> Rural poverty (flagged poor):',float(round(cat_info.loc[(cat_info.ispoor==1)&(cat_info.urban=='RURAL'),'pcwgt'].sum()/1E6,3)),'million')
-    print('\n--> Urban poverty (flagged poor):',float(round(cat_info.loc[(cat_info.ispoor==1)&(cat_info.urban=='URBAN'),'pcwgt'].sum()/1E6,3)),'million')
-except: pass
-
+    print('\n--> Rural poverty (flagged poor):',float(round(cat_info.loc[(cat_info.ispoor==1)&(cat_info.isrural),'pcwgt'].sum()/1E6,3)),'million')
+    print('\n--> Urban poverty (flagged poor):',float(round(cat_info.loc[(cat_info.ispoor==1)&~(cat_info.isrural),'pcwgt'].sum()/1E6,3)),'million')
+except: print('Sad fish')
 
 # Standardize--hhid should be lowercase
 cat_info = cat_info.rename(columns={'HHID':'hhid'})
@@ -284,10 +283,12 @@ if myCountry == 'FJ' or myCountry == 'RO' or myCountry == 'SL':
 
 elif myCountry == 'BO':
     df = df.reset_index()
-    df[economy] = df[economy].astype(int).replace(prov_code)
+    # 2015 data
+    # df[economy] = df[economy].astype(int).replace(prov_code)
     cat_info = cat_info.reset_index()
-    cat_info[economy].replace(prov_code,inplace=True) # replace division code with its name
+    # cat_info[economy].replace(prov_code,inplace=True) # replace division code with its name
     cat_info = cat_info.reset_index().set_index([economy,'hhid']).drop(['index'],axis=1)
+    
 
 ########################################
 # Calculate regional averages from household info
@@ -329,7 +330,7 @@ cat_info =cat_info.dropna()
 
 # Cleanup dfs for writing out
 cat_info_col = [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','np','score','v','c','pcsoc','social','c_5','hhsize','ethnicity',
-                'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
+                'hhsize_ae','gamma_SP','k','quintile','ispoor','isrural','pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
                 'has_ew','SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin','pcsamurdhi','gsp_samurdhi','frac_remittance','N_children']
 cat_info = cat_info.drop([i for i in cat_info.columns if (i in cat_info.columns and i not in cat_info_col)],axis=1)
 cat_info_index = cat_info.drop([i for i in cat_info.columns if i not in [economy,'hhid']],axis=1)

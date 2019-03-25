@@ -1,14 +1,14 @@
 import json
+import matplotlib.pyplot as plt
 import os, glob
 import pandas as pd
-pd.set_option('display.width', 220)
-
-import matplotlib.pyplot as plt
+import seaborn as sns
+from libraries.pandas_helper import categorize_strings
 from libraries.plot_hist import plot_simple_hist
 from libraries.lib_drought import *
 from libraries.lib_gather_data import *
 
-import seaborn as sns
+pd.set_option('display.width', 220)
 sns.set_style('whitegrid')
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
 
@@ -86,8 +86,6 @@ def get_hhid_elements(myC):
     if myC == 'RO': return ['Region','County','centra','hhcode','nrgl','mediu']
     return None
 
-
-
 def get_places(myC):
     """Returns a df with economic unit as key and the population per economic unit.
 
@@ -113,11 +111,23 @@ def get_places(myC):
     economy = get_economic_unit(myC)
 
     if myC == 'BO':
-        df = pd.read_stata(inputs +'BOL_EH_2015.dta')
-        df[economy] = [int(f[0]) for f in df['folio']]
+        # Below 2 lines are from ET's header
+        set_directories("BO")
+        economy = get_economic_unit(myC)
+        # df = pd.read_stata(inputs +'BOL_EH_2015.dta')
+        df = pd.read_csv(inputs + 'bd39/EH2016_Vivienda.csv')
+        df[economy] = df['depto']
+        # df[economy] = [int(f[0]) for f in df['folio']
+        ####
+        # Below 2 lines are from master
+        #df = pd.read_stata(inputs +'BOL_EH_2015.dta')
+        #df[economy] = [int(f[0]) for f in df['folio']]
+        
         df.set_index(economy, inplace = True)
-        df['personas'] = df.factor_expansion*df.miembros_hogar
+        df['personas'] = df.factor*df.totper
+        # df['personas'] = df.factor_expansion*df.miembros_hogar
         return df['personas'].sum(level = 0).to_frame(name='pop')
+
 
     if myC == 'RO':
 
@@ -287,7 +297,6 @@ def get_places_dict(myC):
     return p_code,r_code
 
 def load_survey_data(myC):
-
     df = None
     #Each survey/country should have the following:
     # -> hhid household id
@@ -301,7 +310,6 @@ def load_survey_data(myC):
     # -> pcsoc per person social payments
     # -> ispoor
     # -> has_ew
-
     if myC == 'RO':
 
         # hbs_dict defined above as Dictionary for standard column names
@@ -365,8 +373,7 @@ def load_survey_data(myC):
 
         # pop & write out hh savings & loans/credit
         pd.concat([df['hhid']]+[df.pop(x) for x in ['precautionary_savings','loans_and_credit']], 1).to_csv('../intermediate/RO/hh_savings.csv')
-
-    if myC == 'MW':
+    elif myC == 'MW':
 
         df_agg = pd.read_stata(inputs+'consumption_aggregates_poverty_ihs4.dta').set_index(['case_id']).dropna(how='all')
         df = df_agg[['district','hh_wgt','rexpagg','pline_2016','upline_2016','poor','upoor','hhsize','adulteq','urban']].copy()
@@ -614,7 +621,6 @@ def load_survey_data(myC):
         df['c'] = df['pcinc'].copy()
 
         df = df.reset_index().set_index('district').drop([_i for _i in ['index'] if _i in df.columns])
-
     elif myC == 'PH':
         df = pd.read_csv(inputs+'fies2015.csv')[['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn',
                                                  'walls','roof',
@@ -747,7 +753,6 @@ def load_survey_data(myC):
         df = df.reset_index().set_index(['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn'])
         df = df.drop([_c for _c in ['country','decile_nat','decile_reg','est_sav','tot_savings','savings','invest',
                                     'precautionary_savings','index','level_0','cash_domestic'] if _c in df.columns],axis=1)
-
     elif myC == 'FJ':
 
         # This is an egregious hack, but deadlines are real
@@ -772,7 +777,7 @@ def load_survey_data(myC):
                                 'FijiNationalProvidentFundPension':'SP_FNPF',
                                 'FNPFWithdrawalsEducationHousingInvestmentsetc':'SP_FNPF2',
                                 'SocialPensionScheme':'SP_SPS'}).set_index('HHID')
-
+        
         df['pov_line'] = 0.
         df.loc[df.Sector=='Urban','pov_line'] = get_poverty_line(myC,sec='Urban')
         df.loc[df.Sector=='Rural','pov_line'] = get_poverty_line(myC,sec='Rural')
@@ -879,7 +884,6 @@ def load_survey_data(myC):
         df = df.rename(columns={'HHID':'hhid'})
         print('Setting c to pcinc')
         df['c'] = df['pcinc'].copy()
-
     elif myC == 'SL':
 
         # Gets household weights from file (created in get_places)
@@ -1056,30 +1060,25 @@ def load_survey_data(myC):
         df[['walls','floor','roof']] = df_housing[['walls','floor','roof']].copy()
         df['c'] = df['pcinc'].copy()
         df = df.reset_index().rename(columns={'District':'district'}).set_index(['district','hhid']).drop(['c_food','c_nonfood','c_boarders'],axis=1)
-
     elif myC == 'BO':
-        #Each survey/country should have the following:
-        # -> hhid household id
-        # -> hhinc household income? but seems to be expenditure (SL)
-        # -> pcinc household income per person
-        # -> hhwgt number of households this line is 'representative' of
-        # -> pcwgt total population this line is representative of
-        # -> hhsize household size
-        # -> hhsize_ae household size2
-        # -> hhsoc social payments (government and remittances)
-        # -> pcsoc per person social payments
-        # -> ispoor
-        # -> has_ew
+
         set_directories('BO')
-        orig = inputs + "ORIGINAL/m11/data_orig/"
         # Read in data
-        df = pd.read_stata(orig+'eh2015_vivienda.dta')
+
+    # 2015 data
+        # orig = inputs + "ORIGINAL/m11/data_orig/"
+        # df = pd.read_stata(orig+'eh2015_vivienda.dta')
         # Uncomment to get stata variable labels if necessary
         # itr = pd.read_stata(orig+'eh2015_vivienda.dta', iterator = True)
         # var_labels = itr.variable_labels()
         # var_labels
 
+    # 2016 data
+        df = pd.read_csv(inputs + 'bd39/EH2016_Vivienda.csv')
+        # Look up tables for municipalities and merge it immediately
+        df = pd.merge(df, pd.read_stata(inputs+ "bolivia_mm_2016.dta"),left_on = 'upm', right_on = 'UPM_A')
         # Get hhid and hhwgt
+        df = categorize_strings(df)
         df.rename(inplace = True, columns={'folio':'hhid',
                                            'factor':'hhwgt'})
         df.set_index('hhid', inplace = True)
@@ -1091,10 +1090,15 @@ def load_survey_data(myC):
         # df_persona.set_index('folio').loc[a[a != b].index]
 
         # Read in perperson data
-        df_persona = pd.read_stata(orig+'eh2015_persona.dta')
+        df_persona = pd.read_csv(inputs + 'bd39/EH2016_Persona.csv')
+
+
+        # 2015 data
+        # df_persona = pd.read_stata(orig+'eh2015_persona.dta')
+
         df_persona.rename(inplace = True, columns={'folio':'hhid',})
         df_persona.set_index('hhid', inplace = True)
-
+        categorize_strings(df_persona)
         # Get the hhsize number of members per household
         df['hhsize'] = 0
         df['hhsize'].update(df_persona.groupby(level = 0 ).count()['nro'])
@@ -1103,7 +1107,7 @@ def load_survey_data(myC):
         # Assume ae is 1 for children for now
 
         df['N_children']= 0
-        df['N_children'].update((df_persona.s2a_03<18).groupby(level=0).sum())
+        df['N_children'].update((df_persona.s02a_03<18).groupby(level=0).sum())
 
 
         df['hhsize_ae'] = df['hhsize']
@@ -1119,19 +1123,45 @@ def load_survey_data(myC):
         # Get per capita incomes
         df['pcinc'] = df.hhinc/ df.hhsize
 
+
+
+        df['pov_line'] = 0
+        df['sub_line'] = 0
+        ###########################
         # 11 different Poverty lines are included in the eh2015_persona,
         # These differ by rural/urban, departamento, and then whether
         # the household is in the La Paz for departamento == 2 or not.
         # NOTE: There are two poverty lines: z and zext.  zext is 'extreme poverty'
         # using the former.
-        df['pov_line'] = 0
-        df['sub_line'] = 0
+
         # print('Poverty lines differ by rural/urban and then departamento for urban only')
         # print(df_persona.groupby(['area','departamento']).mean()[['z','zext']])
-        df.pov_line.update(df_persona['z'].groupby(level = 0).mean())
-        df.sub_line.update(df_persona['zext'].groupby(level = 0).mean())
+        
+        df.pov_line.update(12*df_persona['z'].groupby(level = 0).mean())
+        df.sub_line.update(12*df_persona['zext'].groupby(level = 0).mean())
+        #df['ispoor'] = df['pcinc'] < df['pov_line']
+        
+        ###########################
 
-        df['ispoor'] = df['pcinc'] < df['pov_line']
+        ####
+        # Work backwards -- use flag, then figure out the implied value of the poverty & subsistence lines, by department & rural/urban 
+        # NB: I don't know how many dimensions of the poverty & subsistence lines there are
+        #      ...will repeat this process until I derive lines that recreate the existing flags
+        
+        # urban : {'RURAL', "URBAN"}
+        df['isrural'] = df['area'].str.lower().replace({'urbano':False,'rural':True,'urbana': False}).astype(bool)
+
+        # Check poverty line here
+        df['ispoor'] = df_persona.loc[~(df_persona.index.duplicated(keep='first')),'p0'] == 'Pobre'
+        df['issub'] = df_persona.loc[~(df_persona.index.duplicated(keep='first')),'pext0'] == 'Pobre extremo'        
+
+        # Below can be used to reverse-engineer the poverty lines
+        #df['pov_line'] = df.loc[df.ispoor==True].groupby(['NOMBRE_PROVINCIA','isrural'])['pcinc'].transform('max')
+        #df['pov_line'] = df.groupby(['NOMBRE_PROVINCIA','isrural'])['pov_line'].transform('mean')
+        #df['sub_line'] = df.loc[df.issub==True].groupby(['NOMBRE_PROVINCIA','isrural'])['pcinc'].transform('max')
+        #df['sub_line'] = df.groupby(['NOMBRE_PROVINCIA','isrural'])['sub_line'].transform('mean')
+        #########################
+
 
         # get household and per capita social payments
         df['hhsoc'] = df_persona.groupby(level = 0).sum()['ynolab']*12
@@ -1147,34 +1177,48 @@ def load_survey_data(myC):
         # Define early warning as having some expenditure on mobile services or owning computers, radios or televisions.
 
         # Get Series of cellphone bills
-        df_bills = pd.read_stata(orig + 'eh2015_gastos_noalimentarios.dta', index_col = 'folio')
-        df_bills = df_bills['s8b_10_27']
+        # nans are for kids, who don't answer the question.
+        df_bills = df_persona['s05c_13'].map({df_persona['s05c_13'].cat.categories[0]:1, df_persona['s05c_13'].cat.categories[1]:0, 1:1, 2:0}).fillna(0).groupby(level = 0).sum()
 
+        df_equip = categorize_strings(pd.read_csv(inputs + 'bd39/EH2016_Equipamiento.csv').set_index(['folio','item']).sort_index(level = 0))
+        df_equip['s10a_01'] = df_equip['s10a_01'].map({df_equip['s10a_01'].cat.categories[0]:1,df_equip['s10a_01'].cat.categories[1]:0})
+        df_equip = df_equip['s10a_01'].unstack()
+        df_equip.columns = [s.lower() for s in  df_equip.columns]
+
+        # 2015 data
+        # df_bills = pd.read_stata(orig + 'eh2015_gastos_noalimentarios.dta', index_col = 'folio')
+        # df_bills = df_bills['s8b_10_27']
         # Create multiindex then unstack for ownership of comms equipment
-        df_equip = pd.read_stata(orig+ 'eh2015_gastos_equipamiento.dta').set_index(['folio','item']).sort_index(level = 0)
-        df_equip = df_equip['s8_13'].unstack()
+        # df_equip = pd.read_stata(orig+ 'eh2015_gastos_equipamiento.dta').set_index(['folio','item']).sort_index(level = 0)
+
         comm_devices = ['computadora (laptop o tablet pc, etc.)','radio o radiograbador','televisor']
         df_equip = df_equip[comm_devices]
         # rename si to 1 and no to 0
-        for col in comm_devices:
-            df_equip[col].replace(to_replace={'si':1,'no':0}, inplace = True)
+        # 2015 data
+        # for col in comm_devices:
+        #     df_equip[col].replace(to_replace={'si':1,'no':0}, inplace = True)
         # Define early warning system as above.
         df['has_ew'] = (df_equip.sum(axis=1)>0) | (df_bills>0)
 
         df['c'] = df['pcinc'].copy()
 
-
-        df = df.reset_index().set_index(['departamento','hhid'])
+        df.reset_index(inplace = True)
+        df.rename({'depto': get_economic_unit('BO')}, axis = 1, inplace = True)
+        df[get_economic_unit('BO')] = df[get_economic_unit('BO')].astype(str)
+        df['hhid'] = df['hhid'].astype(str)
+        df = df.set_index([get_economic_unit('BO'),'hhid'])
 
         # wall, roof - materials used for construction of each part of structure
         # For walls and roof you might want to find a dictionary of the 'other' columns
         # and set them to a specific value
-        housing_cols = ['s1a_07', 's1a_07b', 's1a_08', 's1a_09', 's1a_09b', 's1a_10', 's1a_10b']
+        # housing_cols = ['s1a_07', 's1a_07b', 's1a_08', 's1a_09', 's1a_09b', 's1a_10', 's1a_10b'] # for year 2015
+        housing_cols = ['s01a_06', 's01a_06e', 's01a_07', 's01a_08', 's01a_08e', 's01a_09', 's01a_09e'] # for year 2016
         housing_names = ['walls','walls_other','plaster','roof','roofs_other','floors','floors_other']
         housing_dict = {housing_cols[i]:housing_names[i] for i in range(len(housing_cols))}
         df.rename(housing_dict, axis = 1,inplace = True)
         # Replace wall types with categories from get_vul_curves
         # Assume that stone is held together by concrete, so is just as resilient as cement.
+        # works on both 2015/2016
         df.walls.replace({df.walls.cat.categories[i]:[3,4,1,3,6,7,9][i] for i in range(len(df.walls.cat.categories))}, inplace = True)
         df.roof.replace({df.roof.cat.categories[i]:[4,1,3,6,9][i] for i in range(len(df.roof.cat.categories))},inplace = True)
 
@@ -1183,16 +1227,12 @@ def load_survey_data(myC):
         df['hhsize_ae'] = df['hhsize'].copy() # Copy household size?
         df['aeinc'] = df['hhinc']/df['hhsize_ae']
 
-        # urban : {'RURAL', "URBAN"}
-        df['urban'] = df['area'].replace({'urbano':'URBAN','rural':"RURAL"})
-
         # hhremittance
         # frac_remittance = df_social.eval('hhremittance/hhsoc')
         # Full list from Sri Lanka:
         # [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','code','np','score','v','c','pcsoc','social','c_5','hhsize',
                         # 'hhsize_ae','gamma_SP','k','quintile','ispoor','pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
                         # 'has_ew','SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin','pcsamurdhi','gsp_samurdhi','frac_remittance','N_children']
-
 
 
 
