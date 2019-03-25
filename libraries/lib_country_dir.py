@@ -769,7 +769,7 @@ def load_survey_data(myC):
                                 'FijiNationalProvidentFundPension':'SP_FNPF',
                                 'FNPFWithdrawalsEducationHousingInvestmentsetc':'SP_FNPF2',
                                 'SocialPensionScheme':'SP_SPS'}).set_index('HHID')
-
+        
         df['pov_line'] = 0.
         df.loc[df.Sector=='Urban','pov_line'] = get_poverty_line(myC,sec='Urban')
         df.loc[df.Sector=='Rural','pov_line'] = get_poverty_line(myC,sec='Rural')
@@ -1115,19 +1115,45 @@ def load_survey_data(myC):
         # Get per capita incomes
         df['pcinc'] = df.hhinc/ df.hhsize
 
+
+
+        df['pov_line'] = 0
+        df['sub_line'] = 0
+        ###########################
         # 11 different Poverty lines are included in the eh2015_persona,
         # These differ by rural/urban, departamento, and then whether
         # the household is in the La Paz for departamento == 2 or not.
         # NOTE: There are two poverty lines: z and zext.  zext is 'extreme poverty'
         # using the former.
-        df['pov_line'] = 0
-        df['sub_line'] = 0
+
         # print('Poverty lines differ by rural/urban and then departamento for urban only')
         # print(df_persona.groupby(['area','departamento']).mean()[['z','zext']])
-        df.pov_line.update(df_persona['z'].groupby(level = 0).mean())
-        df.sub_line.update(df_persona['zext'].groupby(level = 0).mean())
+        
+        df.pov_line.update(12*df_persona['z'].groupby(level = 0).mean())
+        df.sub_line.update(12*df_persona['zext'].groupby(level = 0).mean())
+        #df['ispoor'] = df['pcinc'] < df['pov_line']
+        
+        ###########################
 
-        df['ispoor'] = df['pcinc'] < df['pov_line']
+        ####
+        # Work backwards -- use flag, then figure out the implied value of the poverty & subsistence lines, by department & rural/urban 
+        # NB: I don't know how many dimensions of the poverty & subsistence lines there are
+        #      ...will repeat this process until I derive lines that recreate the existing flags
+        
+        # urban : {'RURAL', "URBAN"}
+        df['isrural'] = df['area'].str.lower().replace({'urbano':False,'rural':True,'urbana': False}).astype(bool)
+
+        # Check poverty line here
+        df['ispoor'] = df_persona.loc[~(df_persona.index.duplicated(keep='first')),'p0'] == 'Pobre'
+        df['issub'] = df_persona.loc[~(df_persona.index.duplicated(keep='first')),'pext0'] == 'Pobre extremo'        
+
+        # Below can be used to reverse-engineer the poverty lines
+        #df['pov_line'] = df.loc[df.ispoor==True].groupby(['NOMBRE_PROVINCIA','isrural'])['pcinc'].transform('max')
+        #df['pov_line'] = df.groupby(['NOMBRE_PROVINCIA','isrural'])['pov_line'].transform('mean')
+        #df['sub_line'] = df.loc[df.issub==True].groupby(['NOMBRE_PROVINCIA','isrural'])['pcinc'].transform('max')
+        #df['sub_line'] = df.groupby(['NOMBRE_PROVINCIA','isrural'])['sub_line'].transform('mean')
+        #########################
+
 
         # get household and per capita social payments
         df['hhsoc'] = df_persona.groupby(level = 0).sum()['ynolab']*12
@@ -1192,9 +1218,6 @@ def load_survey_data(myC):
         df['aewgt'] = df['pcwgt'].copy() # Population
         df['hhsize_ae'] = df['hhsize'].copy() # Copy household size?
         df['aeinc'] = df['hhinc']/df['hhsize_ae']
-
-        # urban : {'RURAL', "URBAN"}
-        df['isrural'] = df['area'].replace({'urbano':False,'rural':True, "Urbana": False, "Rural":True}).astype(bool)
 
         # hhremittance
         # frac_remittance = df_social.eval('hhremittance/hhsoc')
