@@ -1,9 +1,11 @@
 import ogr,csv,sys
 import pandas as pd
 
-def qgis_to_csv():
-    shpfile=r'../inputs/__haz_data_GLOFRIS/flood_risk_maps_and_data/flood_risk_data_by_state/aqueduct_global_flood_risk_data_by_state_20150304.shp' #sys.argv[1]
-    csvfile=r'../inputs/__haz_data_GLOFRIS/flood_risk_maps_and_data/flood_risk_data_by_state/aqueduct_global_flood_risk_data_by_state_20150304.csv' #sys.argv[2]
+def qgis_to_csv(shpfile=None,csvfile=None):
+    if shpfile is None: 
+        shpfile=r'../inputs/__haz_data_GLOFRIS/flood_risk_maps_and_data/flood_risk_data_by_state/aqueduct_global_flood_risk_data_by_state_20150304.shp' #sys.argv[1]
+    if csvfile is None:
+        csvfile=r'../inputs/__haz_data_GLOFRIS/flood_risk_maps_and_data/flood_risk_data_by_state/aqueduct_global_flood_risk_data_by_state_20150304.csv' #sys.argv[2]
     
     #Open files
     csvfile=open(csvfile,'w')
@@ -63,4 +65,4 @@ def choose_country(pais=['XX','XX']):
     df_out.to_csv('../inputs/'+pais[1]+'/flood_risk_by_state.csv')
     return True
 
-choose_country(['Bolivia','BO'])
+#choose_country(['Bolivia','BO'])
