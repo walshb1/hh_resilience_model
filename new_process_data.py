@@ -1176,11 +1176,6 @@ if myCountry == 'SL':
 # This code generates output on poverty dimensions
 # ^ this is by household (iah != iah_avg here)
 
-if myCountry=='BO':
-    myiah['pov_line'] = 714.9/to_usd
-    myiah['sub_line'] = 350.0/to_usd
-    print('\nPoverty line in Bolivia:\n',to_usd,714.9*to_usd,350.*to_usd,'\n\n')
-
 if True:
 
     _myiah = myiah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])[['pcwgt_no','ispoor',

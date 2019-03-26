@@ -122,7 +122,7 @@ def get_places(myC):
         # Below 2 lines are from master
         #df = pd.read_stata(inputs +'BOL_EH_2015.dta')
         #df[economy] = [int(f[0]) for f in df['folio']]
-        
+
         df.set_index(economy, inplace = True)
         df['personas'] = df.factor*df.totper
         # df['personas'] = df.factor_expansion*df.miembros_hogar
@@ -777,7 +777,7 @@ def load_survey_data(myC):
                                 'FijiNationalProvidentFundPension':'SP_FNPF',
                                 'FNPFWithdrawalsEducationHousingInvestmentsetc':'SP_FNPF2',
                                 'SocialPensionScheme':'SP_SPS'}).set_index('HHID')
-        
+
         df['pov_line'] = 0.
         df.loc[df.Sector=='Urban','pov_line'] = get_poverty_line(myC,sec='Urban')
         df.loc[df.Sector=='Rural','pov_line'] = get_poverty_line(myC,sec='Rural')
@@ -1136,24 +1136,27 @@ def load_survey_data(myC):
 
         # print('Poverty lines differ by rural/urban and then departamento for urban only')
         # print(df_persona.groupby(['area','departamento']).mean()[['z','zext']])
-        
+
         df.pov_line.update(12*df_persona['z'].groupby(level = 0).mean())
         df.sub_line.update(12*df_persona['zext'].groupby(level = 0).mean())
         #df['ispoor'] = df['pcinc'] < df['pov_line']
-        
+
+        # to get the poverty lines
+        # d = df[['hhsize','pov_line','sub_line']]
+        # (d.sub_line*d.hhsize).sum()/d.hhsize.sum()
         ###########################
 
         ####
-        # Work backwards -- use flag, then figure out the implied value of the poverty & subsistence lines, by department & rural/urban 
+        # Work backwards -- use flag, then figure out the implied value of the poverty & subsistence lines, by department & rural/urban
         # NB: I don't know how many dimensions of the poverty & subsistence lines there are
         #      ...will repeat this process until I derive lines that recreate the existing flags
-        
+
         # urban : {'RURAL', "URBAN"}
         df['isrural'] = df['area'].str.lower().replace({'urbano':False,'rural':True,'urbana': False}).astype(bool)
 
         # Check poverty line here
         df['ispoor'] = df_persona.loc[~(df_persona.index.duplicated(keep='first')),'p0'] == 'Pobre'
-        df['issub'] = df_persona.loc[~(df_persona.index.duplicated(keep='first')),'pext0'] == 'Pobre extremo'        
+        df['issub'] = df_persona.loc[~(df_persona.index.duplicated(keep='first')),'pext0'] == 'Pobre extremo'
 
         # Below can be used to reverse-engineer the poverty lines
         #df['pov_line'] = df.loc[df.ispoor==True].groupby(['NOMBRE_PROVINCIA','isrural'])['pcinc'].transform('max')
@@ -1729,7 +1732,7 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
 
         # this file is created in libraries/lib_collect_hazard_data_RO
         df_haz = pd.read_csv('../inputs/RO/hazard/romania_multihazard_fa.csv').set_index(['Region','hazard','rp'])
-        
+
         ## this file has total GDP (by county), which we'll use as denominator
         #df_gdp = pd.read_csv(inputs+'county_gdp.csv').set_index('County')[['GDP']]
         #
@@ -1824,7 +1827,7 @@ def get_poverty_line(myC,by_district=True,sec=None):
         pov_line *= 11445.5/11669.1
 
     if myC == 'RO': pov_line = 40*1.645*365
-    if myC == 'BO': pov_line = 365*1.90*3.43
+    if myC == 'BO': pov_line = 8929.13
 
     return pov_line
 
@@ -1839,8 +1842,7 @@ def get_subsistence_line(myC):
         pov_line *= 11445.5/11669.1
         # scale from $1.90/day to $1.25/day
         return (1.09/1.25)*pov_line
-    elif myC == 'BO': return 365*1.25*3.43
-
+    elif myC == 'BO': return 4775.504
     else:
         print('No subsistence info. Returning False')
         return False
