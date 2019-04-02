@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-def average_over_rp(df,default_rp='default_rp',protection=None):        
+def average_over_rp(df,default_rp='default_rp',protection=None,return_probs=True):        
     """Aggregation of the outputs over return periods"""    
     if protection is None:
         protection=pd.Series(0,index=df.index)        
@@ -21,6 +21,7 @@ def average_over_rp(df,default_rp='default_rp',protection=None):
     #matches return periods and their frequency
     proba_serie=df['rp'].replace(proba).rename('prob')
     proba_serie1 = pd.concat([df.rp,proba_serie],axis=1)
+
     #    print(proba_serie.shape)
     #    print(df.rp.shape)
     #    print(protection)
@@ -29,6 +30,7 @@ def average_over_rp(df,default_rp='default_rp',protection=None):
 
     #handles cases with multi index and single index (works around pandas limitation)
     idxlevels = list(range(df.index.nlevels))
+
     if idxlevels==[0]:
         idxlevels =0
 #    print(idxlevels)
@@ -36,7 +38,10 @@ def average_over_rp(df,default_rp='default_rp',protection=None):
 #    print(df.head(10))
     #average weighted by proba
     averaged = df.mul(proba_serie,axis=0).sum(level=idxlevels).drop('rp',axis=1) # frequency times each variables in the columns including rp.
-    return averaged,proba_serie1 #here drop rp.
+
+
+    if return_probs: return averaged,proba_serie1 #here drop rp.
+    else: return averaged
 	
 	
 def average_over_rp1(df,default_rp,protection=None):        
