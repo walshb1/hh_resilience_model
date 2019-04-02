@@ -1,4 +1,4 @@
-# This script provides data input for the resilience indicator multihazard model for the Philippines, Fiji, Sri Lanka, and (eventually) Malawi. 
+# This script provides data input for the resilience indicator multihazard model for the Philippines, Fiji, Sri Lanka, and (eventually) Malawi.
 
 # Restructured from the global model and developed by Jinqiang Chen and Brian Walsh
 
@@ -35,7 +35,7 @@ warnings.filterwarnings('always',category=UserWarning)
 # --> If you're not using command line and/or don't know how to pass an argument, set <myCountry> in the "else:" loop equal to your country:
 #
 # -- 1) BO = Bolivia
-# or 2) FJ = Fiji 
+# or 2) FJ = Fiji
 # or 3) MW = Malawi
 # or 4) PH = Philippines
 # or 5) SL = Sri Lanka
@@ -88,11 +88,11 @@ print('Survey population:',cat_info.pcwgt.sum())
 
 #  below is messy--should be in <load_survey_data>
 if myCountry == 'PH':
-    
+
     # Standardize province info
     get_hhid_FIES(cat_info)
     cat_info = cat_info.rename(columns={'w_prov':'province','w_regn':'region'}).reset_index()
-    cat_info['province'].replace(prov_code,inplace=True)     
+    cat_info['province'].replace(prov_code,inplace=True)
     cat_info['region'].replace(region_code,inplace=True)
     cat_info = cat_info.reset_index().set_index(economy).drop(['index','level_0'],axis=1)
 
@@ -131,7 +131,6 @@ try: df['pct_diff'] = 100.*(df['psa_pop']-df['pop'])/df['pop']
 except: pass
 # ^ (Philippines specific) compare PSA population to FIES population
 
-
 ########################################
 ########################################
 # Asset vulnerability
@@ -140,10 +139,10 @@ print('Getting vulnerabilities')
 vul_curve = get_vul_curve(myCountry,'wall')
 # From diff: vul_curve = get_vul_curve(myCountry,'wall').set_index('desc').to_dict()
 # below commented out
-for thecat in vul_curve.desc.unique():  
+for thecat in vul_curve.desc.unique():
     cat_info.loc[cat_info['walls'] == thecat,'v'] = float(vul_curve.loc[vul_curve.desc.values == thecat,'v'])
     # Fiji doesn't have info on roofing, but it does have info on the *condition* of outer walls. Include that as a multiplier?
-    
+
 # Get roofing data (but Fiji doesn't have this info)
 
 try:
@@ -158,7 +157,7 @@ except: pass
 ########################################
 # Random stuff--needs to be sorted
 # --> What's the difference between income & consumption/disbursements?
-# --> totdis = 'total family disbursements'    
+# --> totdis = 'total family disbursements'
 # --> totex = 'total family expenditures'
 # --> pcinc_s seems to be what they use to calculate poverty...
 # --> can be converted to pcinc_ppp11 by dividing by (365*21.1782)
@@ -288,7 +287,7 @@ elif myCountry == 'BO':
     cat_info = cat_info.reset_index()
     # cat_info[economy].replace(prov_code,inplace=True) # replace division code with its name
     cat_info = cat_info.reset_index().set_index([economy,'hhid']).drop(['index'],axis=1)
-    
+
 
 ########################################
 # Calculate regional averages from household info
@@ -331,7 +330,7 @@ cat_info =cat_info.dropna()
 # Cleanup dfs for writing out
 cat_info_col = [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','np','score','v','c','pcsoc','social','c_5','hhsize','ethnicity',
                 'hhsize_ae','gamma_SP','k','quintile','ispoor','isrural','pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
-                'has_ew','SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin','pcsamurdhi','gsp_samurdhi','frac_remittance','N_children']
+                'has_ew','SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin','pcsamurdhi','gsp_samurdhi','frac_remittance','N_children','map_province']
 cat_info = cat_info.drop([i for i in cat_info.columns if (i in cat_info.columns and i not in cat_info_col)],axis=1)
 cat_info_index = cat_info.drop([i for i in cat_info.columns if i not in [economy,'hhid']],axis=1)
 
@@ -366,7 +365,7 @@ if myCountry == 'PH':
     # In AIR, we only have 'Metropolitan Manila'
     # Distribute losses among Manila & NCR 2-4 according to assets
     cat_info = cat_info.reset_index()
-    k_NCR = cat_info.loc[((cat_info.province == 'Manila') | (cat_info.province == 'NCR-2nd Dist.') 
+    k_NCR = cat_info.loc[((cat_info.province == 'Manila') | (cat_info.province == 'NCR-2nd Dist.')
                           | (cat_info.province == 'NCR-3rd Dist.') | (cat_info.province == 'NCR-4th Dist.')), ['k','pcwgt']].prod(axis=1).sum()
 
     for k_type in ['value_destroyed_prv','value_destroyed_pub']:
@@ -396,7 +395,7 @@ elif myCountry == 'FJ':
     df_haz = df_haz.reset_index().set_index([economy,'hazard','rp']).sum(level=[economy,'hazard','rp'])
     # All the magic happens inside get_hazard_df()
 
-else: 
+else:
     print('\n\nSetting hh_share to 1!\n\n')
     df_haz['hh_share'] = 1.
 
@@ -418,13 +417,13 @@ if myCountry == 'PH':
     hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['grdp_to_assets']
     hazard_ratios = hazard_ratios.drop(['HIES_capital', 'value_destroyed','value_destroyed_prv','value_destroyed_pub'],axis=1)
 
-elif (myCountry == 'FJ' 
-      or myCountry == 'SL' 
+elif (myCountry == 'FJ'
+      or myCountry == 'SL'
       or myCountry == 'RO'
       or myCountry == 'BO'): pass
 # For FJ:
 # --> fa is losses/(exposed_value*v)
-#hazard_ratios['frac_destroyed'] = hazard_ratios['fa'] 
+#hazard_ratios['frac_destroyed'] = hazard_ratios['fa']
 
 # For SL and RO, 'fa' is fa, not frac_destroyed
 # hazard_ratios['frac_destroyed'] = hazard_ratios.pop('fa')
@@ -448,15 +447,15 @@ hazard_ratios.loc[hazard_ratios['v'] >0.1,'v'] *= np.random.uniform(.8,1.2,hazar
 if myCountry == 'SL': hazard_ratios['frac_destroyed'] = hazard_ratios[['v','fa']].prod(axis=1)
 
 # Calculate frac_destroyed for RO
-if myCountry == 'RO': 
+if myCountry == 'RO':
     # This is slightly tricky...
     # For RO, we're using different hazard inputs for EQ and PF, and that's why they're treated differently below
-    # NB: these inputs come from the library lib_collect_hazard_data_RO 
+    # NB: these inputs come from the library lib_collect_hazard_data_RO
     hazard_ratios.loc[hazard_ratios.hazard=='EQ','frac_destroyed'] = hazard_ratios.loc[hazard_ratios.hazard=='EQ','fa'].copy()
-    # ^ EQ hazard is based on "caploss", which is total losses expressed as fraction of total capital stock (currently using gross, but could be net?) 
+    # ^ EQ hazard is based on "caploss", which is total losses expressed as fraction of total capital stock (currently using gross, but could be net?)
     hazard_ratios.loc[hazard_ratios.hazard=='PF','frac_destroyed'] = hazard_ratios.loc[hazard_ratios.hazard=='PF',['v','fa']].prod(axis=1)
     # ^ PF hazard is based on "popaff", which is the affected population, and "affected" could be anything. So we're applying the vulnerability curve to this hazard.
-    
+
 if myCountry == 'BO': hazard_ratios['frac_destroyed'] = hazard_ratios[['v','fa']].prod(axis=1)
 
 
@@ -527,7 +526,7 @@ except: print('Was not able to load v to hh_reco_rate library from ../optimizati
 assert(hazard_ratios.loc[hazard_ratios.index.duplicated(keep=False)].shape[0]==0)
 
 hazard_ratios['hh_reco_rate'] = hazard_ratios.apply(lambda x:optimize_reco(v_to_reco_rate,_pi,_rho,x['v']),axis=1)
-try: 
+try:
     pickle.dump(v_to_reco_rate,open('../optimization_libs/'+myCountry+'_v_to_reco_rate.p','wb'))
     print('gotcha')
 except: print('didnt getcha')
@@ -535,7 +534,7 @@ except: print('didnt getcha')
 
 #except:
 #    for _n, _i in enumerate(hazard_ratios.index):
-#        
+#
 #        if round(_n/len(hazard_ratios.index)*100,3)%10 == 0:
 #            print(round(_n/len(hazard_ratios.index)*100,2),'% through optimization')
 #
@@ -582,7 +581,7 @@ try: summary_df['GRDP'] = df['avg_prod_k'].mean()*hazard_ratios['grdp_to_assets'
 except: pass
 summary_df.loc['Total'] = summary_df.sum()
 
-try: 
+try:
     summary_df['Ratio'] = 100.*summary_df.eval('FIES/GRDP')
 
     totals = summary_df[['FIES','GRDP']].sum().squeeze()

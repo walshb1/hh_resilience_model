@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import os, glob
 import pandas as pd
 import seaborn as sns
+from unidecode import unidecode
 from libraries.pandas_helper import categorize_strings
 from libraries.plot_hist import plot_simple_hist
 from libraries.lib_drought import *
@@ -1074,9 +1075,19 @@ def load_survey_data(myC):
         # var_labels
 
     # 2016 data
+
+
+        mun = pd.read_stata(inputs+ "bolivia_mm_2016.dta")
+        munnames = pd.read_excel(inputs + 'municipio_codigo_INE.xlsx')
+        mun = pd.merge(mun,munnames, left_on = 'NOMBRE_MUNICIPIO', right_on = munnames.columns[-2])
         df = pd.read_csv(inputs + 'bd39/EH2016_Vivienda.csv')
         # Look up tables for municipalities and merge it immediately
-        df = pd.merge(df, pd.read_stata(inputs+ "bolivia_mm_2016.dta"),left_on = 'upm', right_on = 'UPM_A')
+        df = pd.merge(df, mun,left_on = 'upm', right_on = 'UPM_A')
+        df['province'] = df['Nombre de la provincia'].apply(lambda x: unidecode(x))
+        with open(inputs + "province_dta2map.json", 'r') as f:
+            s = json.loads(f.read())
+        df['map_province'] = df.province.map(s)
+
         # Get hhid and hhwgt
         df = categorize_strings(df)
         df.rename(inplace = True, columns={'folio':'hhid',
@@ -1091,7 +1102,7 @@ def load_survey_data(myC):
 
         # Read in perperson data
         df_persona = pd.read_csv(inputs + 'bd39/EH2016_Persona.csv')
-
+        df_persona = pd.merge(df_persona, mun,left_on = 'upm', right_on = 'UPM_A')
 
         # 2015 data
         # df_persona = pd.read_stata(orig+'eh2015_persona.dta')
