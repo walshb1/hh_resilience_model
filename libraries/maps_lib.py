@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from matplotlib import ticker
+import unidecode
 import pandas as pd
 import numpy as np
 import glob
@@ -42,7 +43,7 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
 
     if force_min is not None: series_in.loc['xx_forcedmin'] = force_min
     if force_max is not None: series_in.loc['xx_forcedmax'] = force_max
-
+    
     #simplifies the index to lower case without space
     series_in.index = series_in.index.str.lower().str.replace(" ","_").str.replace("-","_").str.replace(".","_").str.replace("(","_").str.replace(")","_")
     if drop_spots is not None: 

@@ -625,4 +625,4 @@ if myCountry == 'FJ':
     plt.annotate(str(round(100.*my_linspace_x[1]/my_linspace_y[1],1))+'%',[1.,4.])
 
     fig = plt.gcf()
-    fig.savefig('HIES_vs_PCRAFI_assets.pdf',format='pdf')
+    fig.savefig('../output_plots/FJ/HIES_vs_PCRAFI_assets.pdf',format='pdf')

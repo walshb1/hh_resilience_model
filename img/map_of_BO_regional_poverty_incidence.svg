@@ -13,37 +13,7 @@
     stroke:#ffffff;
     stroke-width:2;
     }
-    .chuquisaca
-    {  
-       fill: #67000C;
-       stroke:#000000;
-       stroke-width:2;
-    }
-.la_paz
-    {  
-       fill: #FEE4D8;
-       stroke:#000000;
-       stroke-width:2;
-    }
-.cochabamba
-    {  
-       fill: #FFF5F0;
-       stroke:#000000;
-       stroke-width:2;
-    }
-.oruro
-    {  
-       fill: #FDDCCD;
-       stroke:#000000;
-       stroke-width:2;
-    }
-.potosí
-    {  
-       fill: #CA171C;
-       stroke:#000000;
-       stroke-width:2;
-    }
-.tarija
+    .tarija
     {  
        fill: #FEF2EC;
        stroke:#000000;
@@ -51,19 +21,49 @@
     }
 .santa_cruz
     {  
-       fill: #FEEFE7;
+       fill: #FFF5F0;
        stroke:#000000;
        stroke-width:2;
     }
-.beni
+.oruro
     {  
-       fill: #FDD5C3;
+       fill: #FEEBE2;
+       stroke:#000000;
+       stroke-width:2;
+    }
+.cochabamba
+    {  
+       fill: #FB7F5F;
+       stroke:#000000;
+       stroke-width:2;
+    }
+.la_paz
+    {  
+       fill: #FEEDE4;
        stroke:#000000;
        stroke-width:2;
     }
 .pando
     {  
-       fill: #FEE1D4;
+       fill: #FB7A5A;
+       stroke:#000000;
+       stroke-width:2;
+    }
+.beni
+    {  
+       fill: #FCC1A9;
+       stroke:#000000;
+       stroke-width:2;
+    }
+.chuquisaca
+    {  
+       fill: #B31218;
+       stroke:#000000;
+       stroke-width:2;
+    }
+.potosí
+    {  
+       fill: #67000C;
        stroke:#000000;
        stroke-width:2;
     }

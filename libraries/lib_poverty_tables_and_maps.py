@@ -271,7 +271,7 @@ def run_poverty_duration_plot(myC,myHaz='HU',drop_spots=None):
 
     return True
 
-def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],myHaz='HU',drop_spots=None,_mapres=3000):
+def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],myHaz='PF',drop_spots=None,_mapres=3000):
 
     # Load demonym for this country
     dem = get_demonym(myC)
