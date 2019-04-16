@@ -2,6 +2,11 @@ import pandas as pd
 from dev.qgis_to_csv import qgis_to_csv
 from libraries.lib_country_dir import get_all_rps #get_economic_unit
 import numpy as np
+from unidecode import unidecode
+
+def decode(s):
+    try: return unidecode(s)
+    except: return None
 
 def collect_EQ_hazard_data_RO():
 
@@ -91,30 +96,103 @@ def collect_FL_hazard_data_RO():
     ro_risk['fa'] = ro_risk['pop_affected']/ro_pop
 
     ro_risk = ro_risk.reset_index().set_index(['County','rp'])
-    
+
     ro_risk[['pop_affected']].to_csv('../inputs/RO/hazard/_PF_pop_aff_by_county.csv')
     ro_risk[['fa']].to_csv('../inputs/RO/hazard/_PF_fa_by_county.csv')
     return True
 
 
+def collect_FL_hazard_data(myC):
+    """Collects from glofris/wri/aqueduct dataset"""
+    risk = pd.read_csv('../inputs/__haz_data_GLOFRIS/flood_risk_maps_and_data/flood_risk_data_by_state/aqueduct_global_flood_risk_data_by_state_20150304.csv').set_index('unit_id')
+    risk = pd.merge(risk, pd.read_csv('../inputs/names_to_iso.csv'), left_on='admin', right_on='country', how='left')
+
+    # Make states index
+    risk = risk[risk.iso2 == myC]
+    risk['woe_name'] = risk['woe_name'].apply(decode)
+    if myC == 'PE':
+        risk.loc[3102,'woe_name'] = "Callao2"
+    risk.set_index('woe_name', inplace = True)
+
+    # Select 2010 baseline scenarios only for GDP affected
+    pop = risk[risk.columns[['P10_bh' in s for s in risk.columns]]]
+    gdp = risk[risk.columns[['G10_bh' in s for s in risk.columns]]]
+    risk.columns[['0' not in s for s in risk.columns]]
+    # Get the Return period
+    rps = [s[7:] for s in gdp.columns]
+    rps[rps.index('1T')] = '1000'
+    rps = np.array(rps).astype(int)
+    gdp.columns = rps
+    pop.columns = rps
+
+    # Save out gdp and populations affected.  no fraction affected
+    print('creating',  '../inputs/'+myC+'__PF_gdp_aff_by_province.csv')
+    print('creating',  '../inputs/'+myC+'__PF_pop_aff_by_province.csv')
+    gdp.stack().to_frame().reset_index().rename(columns={'woe_name':'province','level_1':'rp',0:'gdp_affected'}).to_csv('../inputs/'+myC+'__PF_gdp_aff_by_province.csv', index = False)
+    pop.stack().to_frame().reset_index().rename(columns={'woe_name':'province','level_1':'rp',0:'pop_affected'}).to_csv('../inputs/'+myC+'__PF_pop_aff_by_province.csv', index = False)
+    return True
 
 ############################
 # The 2 functions above report losses, by *county*
 # I think we can't just sum these to the Regional level
 # --> easiest thing to do is:
-# 1) simulate losses in each county over 50K years, 
+# 1) simulate losses in each county over 50K years,
 # 2) sum to regional level for each simulated year
 # 3) recreate the exceedance curve at the regional level
 
 def random_to_loss(County,pval):
 
     for _nrp, _rp in enumerate(inv_rps):
-        if pval > _rp: 
+        if pval > _rp:
             try: return int(_df.loc[(County,rps[_nrp-1])])
             except: return 0
             # ^ this is because the RP=0 isn't in the df
-        
+    # print(_df.loc[(County,rps[-1])].values)
     return int(_df.loc[(County,rps[-1])])
+
+def glofris_adm1_adm0(myC = 'AR', _haz='PF'):
+    global _df
+    if _haz == 'PF':
+        _df = pd.read_csv('../inputs/'+myC+'__PF_gdp_aff_by_province.csv',index_col=None).set_index(['province','rp'])
+    # array with return periods
+    global rps,inv_rps
+    rps = get_all_rps(myC,_df)
+    if rps[0] != 1.: rps = np.append([1.],[rps])
+    inv_rps = [1/i for i in rps]
+
+    #print(rps)
+    final_rps = [1, 20, 50, 100,250, 500, 1000,1500,2000]
+
+    final_exceedance = pd.DataFrame(index= pd.MultiIndex.from_product([[myC],final_rps]))
+    final_exceedance['loss'] = None
+
+    # create dataframe to store random numbers
+    loss = pd.DataFrame(index=_df.sum(level='province').index).reset_index()
+    loss['myC'] = myC
+    loss.set_index(['myC','province'], inplace = True)
+    lossc = loss.sum(level = 'myC')
+    loss = loss.reset_index().set_index('myC')
+
+    # generate random numbers
+    NYEARS = int(1E4) # <-- any multiple of 10K
+    for _yn in range(NYEARS):
+        loss['_'] = [np.random.uniform(0,1) for i in range(loss.shape[0])]
+        loss['y'+str(_yn)] = loss.apply(lambda x:random_to_loss(x.province,x['_']),axis=1)
+
+        if _yn != 0 and (_yn+1)%500 == 0:
+
+            lossc = pd.concat([lossc,loss.drop('_',axis=1).sum(level='myC')],axis=1)
+            loss = loss[['province']]
+            print(_yn+1)
+
+    for _reg in loss.index.values:
+        aReg = lossc.loc[_reg].sort_values(ascending=False).reset_index()
+
+        for _frp in final_rps:
+            final_exceedance.loc[(_reg,_frp),'loss'] = float(aReg.iloc[int((NYEARS-1)/_frp)][_reg])
+
+    final_exceedance.to_csv('../inputs/'+myC+'regional_exceedance_'+_haz+'.csv')
+    return True
 
 def RO_county_to_region(_haz='EQ'):
     global _df
@@ -152,17 +230,17 @@ def RO_county_to_region(_haz='EQ'):
     loss_cty = loss_cty.reset_index().set_index('Region').drop('index',axis=1)
 
     # generate random numbers
-    NYEARS = int(100E4) # <-- any multiple of 10K
+    NYEARS = int(1E5) # <-- any multiple of 10K
     for _yn in range(NYEARS):
         loss_cty['_'] = [np.random.uniform(0,1) for i in range(loss_cty.shape[0])]
         loss_cty['y'+str(_yn)] = loss_cty.apply(lambda x:random_to_loss(x.County,x['_']),axis=1)
 
-        if _yn != 0 and (_yn+1)%500 == 0: 
-            
+        if _yn != 0 and (_yn+1)%500 == 0:
+
             loss_reg = pd.concat([loss_reg,loss_cty.drop('_',axis=1).sum(level='Region')],axis=1)
             loss_cty = loss_cty[['County']]
             print(_yn+1)
-    
+
     for _reg in loss_cty.index.values:
         aReg = loss_reg.loc[_reg].sort_values(ascending=False).reset_index()
 
@@ -221,16 +299,20 @@ def exceedance_to_fa():
     fa = fa[['EQ','PF']].stack().to_frame()
     fa.index.names = ['Region','rp','hazard']
     fa.columns = ['fa']
-    
+
     fa = fa.reset_index().set_index(['Region','hazard','rp']).sort_index()
 
     fa.to_csv('../inputs/RO/hazard/romania_multihazard_fa.csv')
-
-
 
 ############################
 #collect_FL_hazard_data_RO()
 #collect_EQ_hazard_data_RO()
 #RO_county_to_region('EQ')
-#RO_county_to_region('PF')
-exceedance_to_fa()
+# RO_county_to_region('PF')
+# collect_FL_hazard_data('PE')
+# collect_FL_hazard_data('AR')
+# collect_FL_hazard_data('CO')
+glofris_adm1_adm0('PE', _haz='PF')
+glofris_adm1_adm0('AR', _haz='PF')
+glofris_adm1_adm0('CO', _haz='PF')
+# exceedance_to_fa()
