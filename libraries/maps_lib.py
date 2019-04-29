@@ -41,6 +41,8 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
     if provided, new_title sets the title for the new SVG map
     """
 
+    print('\nGenerating map of ',label)
+
     if force_min is not None: series_in.loc['xx_forcedmin'] = force_min
     if force_max is not None: series_in.loc['xx_forcedmax'] = force_max
     
@@ -221,20 +223,20 @@ def make_legend(serie,cmap,label="",path=None,do_qualitative=False,res=1000,forc
 
         label = label[:label.find(" (")]
 
-    elif '[%]' in label or '(%)' in label: 
-        label = label.replace('[%]','').replace('(%)','') 
-        cb.ax.set_xticklabels([_t.get_text()+'%' for _t in cb.ax.get_xticklabels()])
+    if len(cb.ax.xaxis.get_ticklabels()) >= 7:
+        cb.locator = ticker.MaxNLocator(nbins=6)
+        cb.update_ticks()
 
-    elif '$' in label:
+    if not do_qualitative and '[%]' in label or '(%)' in label: 
+        label = label.replace(' [%]','').replace(' (%)','')
+        cb.ax.set_xticklabels([_t.get_text()+r'%' for _t in cb.ax.get_xticklabels()])
+
+    if not do_qualitative and '$' in label and '$\,$' not in label:
         cb.ax.set_xticklabels(['$'+_t.get_text() for _t in cb.ax.get_xticklabels()])
 
     # drop final zero
     cb.ax.set_xticklabels([_t.get_text().replace('.0','') if _t.get_text()[-2:]=='.0' else _t.get_text() for _t in cb.ax.get_xticklabels()])
     # disgraceful 1-liner to keep colorbar axis uncluttered
-
-    if len(cb.ax.xaxis.get_ticklabels()) >= 7:
-        cb.locator = ticker.MaxNLocator(nbins=6)
-        cb.update_ticks()
 
     cb.set_label(label=label,size=21,weight='bold',labelpad=14,linespacing=1.7)
     if path is not None:

@@ -3,10 +3,11 @@ import matplotlib.pyplot as plt
 import os, glob
 import pandas as pd
 import seaborn as sns
-from libraries.pandas_helper import categorize_strings
-from libraries.plot_hist import plot_simple_hist
+
 from libraries.lib_drought import *
 from libraries.lib_gather_data import *
+from libraries.plot_hist import plot_simple_hist
+from libraries.pandas_helper import categorize_strings
 
 pd.set_option('display.width', 220)
 sns.set_style('whitegrid')
@@ -391,7 +392,7 @@ def load_survey_data(myC):
         df.loc[df['poor']=='Poor','ispoor'] = 1
         df.loc[df['upoor']=='Ultra-poor','issub'] = 1
         df = df.drop(['poor','upoor'],axis=1)
-
+        
         df['pcwgt'] = df[['hhwgt','hhsize']].prod(axis=1)
         df['pcinc'] = df['hhinc']/df['hhsize']
 
@@ -596,7 +597,9 @@ def load_survey_data(myC):
         plt.gca().get_figure().savefig('../output_plots/MW/ag_income_vs_total.pdf',format='pdf')
         plt.cla()
 
-        df['income_ag_net'] = df['income_ag_net'].clip(upper=df['hhinc'])
+        df['income_ag_net'] = df['income_ag_net'].clip(upper=df['hhinc']) # household, not per cap
+        df['income_ag_gross'] = df['income_ag_gross'].clip(upper=df['hhinc']) # household, not per cap
+        
         df.loc[(df.hhinc<7.5E5)&(df.income_ag_net>0)&(df.income_ag_net<7.5E5)].plot.scatter('hhinc','income_ag_net')
         plt.gca().get_figure().savefig('../output_plots/MW/ag_income_clipped_vs_total.pdf',format='pdf')
         plt.cla()
@@ -608,14 +611,17 @@ def load_survey_data(myC):
         print('Frac w/ ganyu income reporting drought:',df.loc[(df.income_ganyu>0)&(df.impact_drought==1),'pcwgt'].sum()/df.loc[(df.income_ganyu>0),'pcwgt'].sum())
         print('Frac w/o ganyu income reporting drought:',df.loc[(df.income_ganyu==0)&(df.impact_drought==1),'pcwgt'].sum()/df.loc[(df.income_ganyu==0),'pcwgt'].sum())
 
+        df['pcinc_ag_net'] = df.eval('income_ag_net/hhsize')
+        df['pcinc_ag_gross'] = df.eval('income_ag_gross/hhsize')
+
         #drought_study(df)
         df = df[[i for i in df.columns if i not in ['enterprise_ag', 'income_ag_assets','labor_ag_unpaid','labor_ganyu', 'main_wage_job_ag',
-                                                    'has_irrigation',
-                                                    'income_ganyu','income_crop_wet', 'income_crop_dry', 'income_permcrop','income_livestock', 'income_animprod','income_ag_gross',
+                                                    'has_irrigation','income_ag_net','income_ag_gross',
+                                                    'income_ganyu','income_crop_wet', 'income_crop_dry', 'income_permcrop','income_livestock', 'income_animprod',
                                                     'ag_input_cost']]]
 
-        #print(df.loc[(df.impact_drought==1)&(df.income_ag_net>0),'pcwgt'].sum()/df.loc[(df.income_ag_net>0),'pcwgt'].sum())
-        #print(df.loc[(df.impact_drought==1)&(df.income_ag_net==0),'pcwgt'].sum()/df.loc[(df.income_ag_net==0),'pcwgt'].sum())
+        #print(df.loc[(df.impact_drought==1)&(df.pcinc_ag_net>0),'pcwgt'].sum()/df.loc[(df.pcinc_ag_net>0),'pcwgt'].sum())
+        #print(df.loc[(df.impact_drought==1)&(df.pcinc_ag_net==0),'pcwgt'].sum()/df.loc[(df.pcinc_ag_net==0),'pcwgt'].sum())
 
         print('Setting c to pcinc')
         df['c'] = df['pcinc'].copy()
@@ -1154,7 +1160,7 @@ def load_survey_data(myC):
         # Check poverty line here
         df['ispoor'] = df_persona.loc[~(df_persona.index.duplicated(keep='first')),'p0'] == 'Pobre'
         df['issub'] = df_persona.loc[~(df_persona.index.duplicated(keep='first')),'pext0'] == 'Pobre extremo'        
-
+    
         # Below can be used to reverse-engineer the poverty lines
         #df['pov_line'] = df.loc[df.ispoor==True].groupby(['NOMBRE_PROVINCIA','isrural'])['pcinc'].transform('max')
         #df['pov_line'] = df.groupby(['NOMBRE_PROVINCIA','isrural'])['pov_line'].transform('mean')
@@ -1227,6 +1233,7 @@ def load_survey_data(myC):
         df['hhsize_ae'] = df['hhsize'].copy() # Copy household size?
         df['aeinc'] = df['hhinc']/df['hhsize_ae']
 
+
         # hhremittance
         # frac_remittance = df_social.eval('hhremittance/hhsoc')
         # Full list from Sri Lanka:
@@ -1254,7 +1261,7 @@ def load_survey_data(myC):
 
     # Last thing: however 'c' was set (income or consumption), pcsoc can't be higher than 0.99*that!
     df['pcsoc'] = df['pcsoc'].clip(upper=0.99*df['c'])
-
+    
     return df
 
 def get_df2(myC):
@@ -1370,7 +1377,7 @@ def get_service_loss(myC):
         return service_loss
     else:return None
 
-def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
+def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False,special_event=None):
 
     if myC == 'PH':
         df_prv = get_AIR_data(inputs+'/Risk_Profile_Master_With_Population_with_EP1.xlsx','Loss_Results','Private',agg_or_occ).reset_index()
@@ -1491,8 +1498,20 @@ def get_hazard_df(myC,economy,agg_or_occ='Occ',rm_overlap=False):
         # Combine columns
         df_haz['frac_destroyed'] = df_haz[['frac_destroyed','ff_frac_aff']].prod(axis=1)
 
-        df_haz.to_csv('~/Desktop/tmp/df_haz.csv')
-        df_haz = df_haz.drop(['country','population','PML','ff_frac_aff'],axis=1)
+        df_haz = df_haz.drop(['country','population','PML','ff_frac_aff'],axis=1).set_index(['district','hazard','rp']).sort_index()
+        df_haz.to_csv('../inputs/MW/df_haz.csv')
+
+        # Load loss data for Idai, if special_event == 'Idai'
+        if special_event and special_event.lower() == 'idai':
+            
+            _district_index = df_haz.sum(level='district').index
+            _df_idai = pd.read_csv('/Users/brian/Desktop/BANK/hh_resilience_model/inputs/MW/CY_Idai/fa.csv').set_index(['district'])
+            df_haz = pd.DataFrame({'fa':_df_idai['fa'],
+                                   'hazard':'CY',
+                                   'rp':_df_idai['rp'].mean(skipna=True),
+                                   'hh_share':1.0
+                                   },index=_district_index)
+            df_haz = df_haz.fillna(0).reset_index().set_index(['district','hazard','rp'])
 
         return df_haz, df_haz
 

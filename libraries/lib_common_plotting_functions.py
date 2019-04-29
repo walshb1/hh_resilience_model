@@ -36,14 +36,15 @@ def title_legend_labels(ax,pais,lab_x=None,lab_y=None,lim_x=None,lim_y=None,leg_
             try: plt.ylim(lim_y[0])
             except: pass
             
-    plt.xlabel(lab_x,labelpad=10,fontsize=10)
-    plt.ylabel(lab_y,labelpad=10,fontsize=10)
+    plt.xlabel(lab_x,labelpad=10,fontsize=10,linespacing=1.75)
+    plt.ylabel(lab_y,labelpad=10,fontsize=10,linespacing=1.75)
 
     plt.xticks(size=8)
     plt.yticks(size=8)
 
     if do_leg:
-        ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=leg_fs,borderpad=0.75,fancybox=True,frameon=True,framealpha=0.9)
+        ax.legend(loc='best',labelspacing=0.75,ncol=1,fontsize=leg_fs,borderpad=0.75,
+                  fancybox=True,frameon=True,framealpha=0.9)
 
     return ax
 

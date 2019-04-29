@@ -11,11 +11,12 @@ import pandas as pd
 from libraries.lib_country_dir import *
 from libraries.replace_with_warning import *
 from libraries.lib_compute_resilience_and_risk import *
+from libraries.lib_drought import calc_dw_drought, load_drought_hazard
 
 from multiprocessing import Pool
 from itertools import repeat,product
 
-def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no'):
+def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no',special_event=None):
 
     #dw = calc_delta_welfare(None,None,study=True)
     # Use this to study change in definition of dw
@@ -28,7 +29,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     intermediate = model+'/../intermediate/'+myCountry+'/'
     if not os.path.exists(output):
         os.makedirs(output)
-
+        
     ########################################################
     ########################################################
 
@@ -80,8 +81,8 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     if pol_str == 'noPT': share_public_assets = False
 
     #read data
-    macro = pd.read_csv(intermediate+'macro.csv', index_col=economy)
-    cat_info = pd.read_csv(intermediate+'cat_info.csv',  index_col=[economy, income_cats])
+    macro = pd.read_csv(intermediate+'macro'+('_'+special_event if special_event is not None else '')+'.csv', index_col=economy)
+    cat_info = pd.read_csv(intermediate+'cat_info'+('_'+special_event if special_event is not None else '')+'.csv',  index_col=[economy, income_cats])
 
     #calc_delta_welfare(None,None,'','no',study=True)
     #assert(False)
@@ -92,7 +93,11 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     #  - macro has province-level info
     #  - cat_info has household-level info
     #  - hazard_ratios has fa for each household (which varies not by hh, but by province, hazard, & RP)
-    macro_event, cats_event, hazard_ratios_event = compute_with_hazard_ratios(myCountry,pol_str,intermediate+'hazard_ratios.csv',macro,cat_info,economy,event_level,income_cats,default_rp,rm_overlap=False,verbose_replace=True)
+    macro_event, cats_event, hazard_ratios_event = compute_with_hazard_ratios(myCountry,pol_str,
+                                                                              intermediate+'hazard_ratios'+('_'+special_event if special_event is not None else '')+'.csv',
+                                                                              macro,cat_info,economy,event_level,income_cats,
+                                                                              default_rp,rm_overlap=False,verbose_replace=True)
+    hazard_ratios_drought = load_drought_hazard(myCountry,intermediate+'hazard_ratios'+('_'+special_event if special_event is not None else '')+'.csv',event_level,income_cats) 
 
     gc.collect()
     print('A')
@@ -133,7 +138,9 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     print('Step E:  NOT writing out '+output+'cats_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv')
 
     #out = compute_dW(myCountry,pol_str,macro_event,cats_event_iah,event_level,option_CB,return_stats=True,return_iah=True)
+    if hazard_ratios_drought is not None: out_ag = calc_dw_drought(hazard_ratios_drought,_rho=macro_event['rho'].mean())
     out = calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cats_event_iah,event_level,option_CB,return_stats=False,return_iah=True)
+    
     print('F')
 
     # Flag: running local welfare
@@ -141,6 +148,14 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     results,iah = process_output(pol_str,out,macro_event,economy,default_rp,True,is_local_welfare)
     print('G')
 
+    # Merge out_ag with iah
+    if hazard_ratios_drought is not None:
+        out_ag['dw_ag_currency'] = out_ag['dw']/float(results['wprime'].mean())
+        out_ag['resilience'] = out_ag.eval('di_ag/dw_ag_currency')
+        #
+        out_ag.to_csv(output+'out_ag.csv',encoding='utf-8', header=True)
+    #
+    #
     results.to_csv(output+'results_'+optionFee+'_'+optionPDS+'_'+option_CB_name+pol_str+'.csv',encoding='utf-8', header=True)
     print('H')
 
@@ -166,6 +181,7 @@ if __name__ == '__main__':
 
     myCountry = 'SL'
     global debug; debug = False
+    special_event = None
 
     if len(sys.argv) > 1: myCountry = sys.argv[1]
     if len(sys.argv) > 2 and (sys.argv[2] == 'true' or sys.argv[2] == 'True'): debug = True
@@ -204,6 +220,7 @@ if __name__ == '__main__':
     elif myCountry == 'MW':
         pds_str = ['unif_poor','no']
         pol_str = ['']
+        #special_event = 'Idai'
 
     elif myCountry == 'RO':
         pds_str = ['no','unif_poor']
@@ -215,10 +232,10 @@ if __name__ == '__main__':
     # These lines launch
     if debug:
         print('Running in debug (+PH) mode!')
-        launch_compute_resilience_and_risk_thread(myCountry,'','no')
+        launch_compute_resilience_and_risk_thread(myCountry,'','no',special_event)
     elif myCountry == 'PH':
         for _pds in pds_str: launch_compute_resilience_and_risk_thread(myCountry,'',_pds)
     else:
         with Pool(processes=3,maxtasksperchild=1) as pool:
-            print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))
-            pool.starmap(launch_compute_resilience_and_risk_thread, list(product([myCountry],pol_str,pds_str)))
+            print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str,special_event)))
+            pool.starmap(launch_compute_resilience_and_risk_thread, list(product([myCountry],pol_str,pds_str,special_event)))

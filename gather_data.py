@@ -1,4 +1,4 @@
-# This script provides data input for the resilience indicator multihazard model for the Philippines, Fiji, Sri Lanka, and (eventually) Malawi. 
+# This script provides data input for the resilience indicator multihazard model for the Philippines, Fiji, Sri Lanka, and Malawi. 
 
 # Restructured from the global model and developed by Jinqiang Chen and Brian Walsh
 
@@ -27,19 +27,21 @@ from libraries.replace_with_warning import *
 from libraries.lib_agents import optimize_reco
 from libraries.lib_urban_plots import run_urban_plots
 from libraries.lib_sp_analysis import run_sp_analysis
+from special_events.cyclone_idai_mw import get_idai_loss
+from libraries.lib_drought import get_agricultural_vulnerability_to_drought, get_ag_value
 warnings.filterwarnings('always',category=UserWarning)
 
 #####################################
 # Which country are we running over?
 
 # --> This variable <sys.argv> is the first optional argument on the command line
-# --> If you're not using command line and/or don't know how to pass an argument, set <myCountry> in the "else:" loop equal to your country:
+# --> If you can't pass an argument, set <myCountry> in the "else:" loop equal to your country:
 #
-# -- 1) BO = Bolivia
-# or 2) FJ = Fiji 
-# or 3) MW = Malawi
-# or 4) PH = Philippines
-# or 5) SL = Sri Lanka
+# --> BO = Bolivia
+# or  FJ = Fiji 
+# or  MW = Malawi
+# or  PH = Philippines
+# or  SL = Sri Lanka
 #
 if len(sys.argv) >= 2: myCountry = sys.argv[1]
 else:
@@ -156,6 +158,11 @@ try:
     cat_info.v = cat_info.v/2
 except: pass
 
+# Get vulnerability of agricultural income to drought.
+# --> includes fraction of income from ag, so v=0 for hh with no ag income
+try: cat_info['v_ag'] = get_agricultural_vulnerability_to_drought(myCountry,cat_info)
+except: cat_info['v_ag'] = -1.
+
 ########################################
 ########################################
 # Random stuff--needs to be sorted
@@ -257,6 +264,7 @@ print('Calculating capital from income')
 cat_info['k'] = ((cat_info['c']/df['avg_prod_k'].mean())*((1-cat_info['social'])/(1-df['tau_tax'].mean()))).clip(lower=0.)
 print('Derived capital from income')
 
+cat_info.eval('k*pcwgt').sum(level=economy).to_csv('../inputs/'+myCountry+'/total_capital.csv')
 
 
 #########################
@@ -331,18 +339,21 @@ print('check:',cat_info.shape[0],'=?',cat_info.dropna().shape[0])
 cat_info =cat_info.dropna()
 
 # Cleanup dfs for writing out
-cat_info_col = [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','np','score','v','c','pcsoc','social','c_5','hhsize','ethnicity',
-                'hhsize_ae','gamma_SP','k','quintile','ispoor','isrural','issub','pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds',
-                'has_ew','SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin','pcsamurdhi','gsp_samurdhi','frac_remittance','N_children']
+cat_info_col = [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','np','score','v','v_ag','c','pcinc_ag_gross',
+                'pcsoc','social','c_5','hhsize','ethnicity','hhsize_ae','gamma_SP','k','quintile','ispoor','isrural','issub',
+                'pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds','has_ew',
+                'SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin','pcsamurdhi','gsp_samurdhi','frac_remittance','N_children']
 cat_info = cat_info.drop([i for i in cat_info.columns if (i in cat_info.columns and i not in cat_info_col)],axis=1)
 cat_info_index = cat_info.drop([i for i in cat_info.columns if i not in [economy,'hhid']],axis=1)
 
 
 #########################
 # HAZARD INFO
+special_event=None
+#special_event = 'Idai'
 
 # SL FLAG: get_hazard_df returns two of the same flooding data, and doesn't use the landslide data that is analyzed within the function.
-df_haz,df_tikina = get_hazard_df(myCountry,economy,agg_or_occ='Agg',rm_overlap=True)
+df_haz,df_tikina = get_hazard_df(myCountry,economy,agg_or_occ='Agg',rm_overlap=True,special_event=special_event)
 if myCountry == 'FJ': _ = get_SLR_hazard(myCountry,df_tikina)
 
 # Edit & Shuffle provinces
@@ -411,6 +422,7 @@ hazard_ratios = cat_info[['k','pcwgt']].prod(axis=1).sum(level=economy).to_frame
 # Join on economy with hazards
 hazard_ratios = hazard_ratios.join(df_haz,how='outer')
 
+
 # Implemented only for Philippines, others return none.
 hazard_ratios['grdp_to_assets'] = get_subnational_gdp_macro(myCountry,hazard_ratios,float(df['avg_prod_k'].mean()))
 
@@ -419,7 +431,7 @@ hazard_ratios['grdp_to_assets'] = get_subnational_gdp_macro(myCountry,hazard_rat
 if myCountry == 'PH':
     hazard_ratios['frac_destroyed'] = hazard_ratios['value_destroyed']/hazard_ratios['grdp_to_assets']
     hazard_ratios = hazard_ratios.drop(['HIES_capital', 'value_destroyed','value_destroyed_prv','value_destroyed_pub'],axis=1)
-
+    
 elif (myCountry == 'FJ' 
       or myCountry == 'SL' 
       or myCountry == 'RO'
@@ -438,7 +450,9 @@ elif (myCountry == 'FJ'
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),cat_info.reset_index(),on=economy,how='outer')
 
 # Reduce vulnerability by reduction_vul if hh has access to early warning:
-hazard_ratios.loc[hazard_ratios.hazard!='EQ','v'] *= (1-reduction_vul*hazard_ratios.loc[hazard_ratios.hazard!='EQ','has_ew'])
+hazard_ratios.loc[(hazard_ratios.hazard!='EQ')
+                  &(hazard_ratios.hazard!='DR'),'v'] *= (1-reduction_vul*hazard_ratios.loc[(hazard_ratios.hazard!='EQ')
+                                                                                           &(hazard_ratios.hazard!='DR'),'has_ew'])
 
 # Add some randomness, but at different levels for different assumptions
 # FLAG: This does not change the vulnerability by the same random factor across different intensities/rps of events[]
@@ -463,9 +477,11 @@ if myCountry == 'BO': hazard_ratios['frac_destroyed'] = hazard_ratios[['v','fa']
 
 
 if 'hh_share' not in hazard_ratios.columns: hazard_ratios['hh_share'] = None
-hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])[[i for i in ['frac_destroyed','v','k','pcwgt','hh_share','grdp_to_assets','fa'] if i in hazard_ratios.columns]]
-hazard_ratios = hazard_ratios.drop([i for i in ['index'] if i in hazard_ratios.columns])
+hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])[[i for i in ['frac_destroyed','v','v_ag','k','pcinc_ag_gross',
+                                                                                         'pcwgt','hh_share','grdp_to_assets','fa'] if i in hazard_ratios.columns]]
 
+try: hazard_ratios = hazard_ratios.drop('index',axis=1)
+except: pass
 
 
 ###########################################
@@ -473,7 +489,7 @@ hazard_ratios = hazard_ratios.drop([i for i in ['index'] if i in hazard_ratios.c
 # 1) Pull v out of frac_destroyed
 # 2) Transfer fa in excess of 95% to vulnerability
 fa_threshold = 0.95
-
+v_threshold = 0.95
 
 # # look up hazard ratios for one particular houshold.
 # idx = pd.IndexSlice
@@ -482,36 +498,121 @@ fa_threshold = 0.95
 # Calculate avg vulnerability at event level
 # --> v_mean is weighted by capital & pc_weight
 v_mean = (hazard_ratios[['pcwgt','k','v']].prod(axis=1).sum(level=event_level)/hazard_ratios[['pcwgt','k']].prod(axis=1).sum(level=event_level)).to_frame(name='v_mean')
-#v_mean.name = 'v_mean'
+try: v_mean['v_ag_mean'] = (hazard_ratios[['pcwgt','pcinc_ag_gross','v_ag']].prod(axis=1).sum(level=event_level)
+                            /hazard_ratios[['pcwgt','pcinc_ag_gross']].prod(axis=1).sum(level=event_level))
+except: pass
+
+#
 hazard_ratios = pd.merge(hazard_ratios.reset_index(),v_mean.reset_index(),on=event_level).reset_index().set_index(event_level+['hhid']).sort_index().drop('index',axis=1)
+hazard_ratios_drought = None
+#
+if 'DR' in get_all_hazards(myCountry,hazard_ratios):
+    #
+    # separate drought from other hazards
+    hazard_ratios_drought = hazard_ratios.loc[(slice(None),['DR'],slice(None),slice(None)),:].copy()
+    hazard_ratios = hazard_ratios.loc[hazard_ratios.index.get_level_values('hazard')!='DR',:].drop('pcinc_ag_gross',axis=1)
 
-
-if myCountry != 'SL' and myCountry != 'BO':
-
-    # Normally, we pull fa out of frac_destroyed.
-    # --> for SL, I think we have fa (not frac_destroyed) from HIES
-    hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v_mean']).fillna(1E-8)
-
-    hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = (hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold).clip(upper=0.95)
-    hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=1E-8,upper=fa_threshold)
 
 if myCountry == 'MW':
 
+    print(hazard_ratios.head())
+
+    try: hazard_ratios['fa'] = hazard_ratios.eval('frac_destroyed/v_mean').fillna(0)
+    except: pass
+
+    if hazard_ratios_drought is not None:
+        hazard_ratios_drought['fa_ag'] = hazard_ratios_drought.eval('frac_destroyed/v_ag_mean').fillna(0)
+    #
+    hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = (hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold).clip(upper=0.95)
+    hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=0,upper=fa_threshold)
+    hazard_ratios = hazard_ratios.fillna(0)
+    
     hazard_renorm = pd.DataFrame({'total_k':hazard_ratios[['k','pcwgt']].prod(axis=1),
                                   'exp_loss':hazard_ratios[['k','pcwgt','fa','v']].prod(axis=1)},index=hazard_ratios.index.copy()).sum(level=event_level)
     #
-    hazard_renorm_aal,_ = average_over_rp(hazard_renorm)
-    hazard_renorm_aal = hazard_renorm_aal.sum(level='hazard')
-    #
-    GAR_eq_aal = 8.2*(1/get_currency(myCountry)[2])*1.E6
-    #
-    eq_scale_factor = GAR_eq_aal/float(hazard_renorm_aal.loc['EQ']['exp_loss'])
-    #
-    hazard_ratios['fa'] *= eq_scale_factor
+    if hazard_ratios_drought is not None:
+        mz_frac_of_ag = get_ag_value(myCountry,fom='mz_frac_ag',yr=2016)
+        #
+        # Sanity check: what is total value of agricultural production in FAOSTAT vs. HIES?
+        total_ag_fao = get_ag_value(myCountry,fom='ag_value',yr=2016)
+        total_ag_ihs = 1E-6*float(cat_info[['pcinc_ag_gross','pcwgt']].prod(axis=1).sum())
+        print(total_ag_fao,'mil. MWK = total value of ag in FAO')
+        print(total_ag_ihs,'mil. MWK = total value of ag in IHS')
+        print('IHS = '+str(round(1E2*(total_ag_ihs/total_ag_fao),1))+'% of FAO')
+        #
+        # Get expected losses from GAR (maize)
+        ag_exposure_gross = float(pd.read_excel('../inputs/MW/GAR/GAR_PML_curve_MW.xlsx',sheet_name='total_exposed_val').loc['Malawi','Gross value, maize'].squeeze())
+        print(ag_exposure_gross*730.,' value of maize in GAR')
+        print(mz_frac_of_ag*total_ag_fao,' value of maize in FAO')
+        #
+        # total losses:
+        print(hazard_ratios_drought.head())
+        hazard_renorm_ag = pd.DataFrame({'total_ag_income':hazard_ratios_drought[['pcinc_ag_gross','pcwgt']].prod(axis=1),
+                                         'exp_loss':hazard_ratios_drought[['pcinc_ag_gross','pcwgt','fa_ag','v_ag']].prod(axis=1)},
+                                        index=hazard_ratios_drought.index.copy()).sum(level=event_level)
+        #
+        hazard_renorm_ag_aal,_ = average_over_rp(hazard_renorm_ag)
+        hazard_renorm_ag_aal = hazard_renorm_ag_aal.sum(level='hazard')
+        #
+    if not special_event: 
 
-hazard_ratios[['fa','v']].mean(level=event_level).to_csv('tmp/fa_v.csv')
+        #########################
+        # Calibrate AAL in MW  
+        # - EQ (and FF? what's going on here?) 
+        hazard_renorm_aal,_ = average_over_rp(hazard_renorm)
+        hazard_renorm_aal = hazard_renorm_aal.sum(level='hazard')
+        #
+        GAR_eq_aal = 8.2*(1/get_currency(myCountry)[2])*1.E6
+        #
+        eq_scale_factor = GAR_eq_aal/float(hazard_renorm_aal.loc['EQ']['exp_loss'])
+        #
+        hazard_ratios['fa'] *= eq_scale_factor
+        #
+        # - DR/Drought 
+        #drought_renorm_aal,_ = average_over_rp(hazard_renorm_drought)
+
+    if special_event and special_event.lower() == 'idai':
+
+        # check total losses:
+        hazard_renorm_total_loss = (get_idai_loss().sum(axis=1).squeeze()*730.).to_frame(name='actual_losses')
+
+        # numerator: hazard_renorm_total_loss
+        # denominator: hazard_renorm
+        hazard_renorm = pd.merge(hazard_renorm.reset_index(),hazard_renorm_total_loss.reset_index(),on='district',how='outer').fillna(0).set_index('district')
+        hazard_renorm['scale_factor'] = hazard_renorm.eval('actual_losses/exp_loss')
+
+        hazard_ratios = pd.merge(hazard_ratios.reset_index(),hazard_renorm.reset_index(),on=event_level).set_index(event_level+['hhid'])
+        hazard_ratios['v'] *= hazard_ratios['scale_factor']
+
+        # v can be greater than 1 here...if v > 0.99, transfer to fa        
+        hazard_ratios.loc[hazard_ratios.v>v_threshold,'fa'] = (hazard_ratios.loc[hazard_ratios.v>v_threshold,['v','fa']].prod(axis=1)/v_threshold)#.clip(upper=fa_threshold)
+        hazard_ratios['v'] = hazard_ratios['v'].clip(upper=v_threshold)
+
+        v_mean = (hazard_ratios[['pcwgt','k','v']].prod(axis=1).sum(level=event_level)/hazard_ratios[['pcwgt','k']].prod(axis=1).sum(level=event_level)).to_frame(name='v_mean')
+        hazard_ratios['frac_destroyed'] = hazard_ratios.eval('fa*v_mean')
+
+        
+
+if myCountry != 'SL' and myCountry != 'BO' and not special_event:
+    # Normally, we pull fa out of frac_destroyed.
+    # --> for SL, I think we have fa (not frac_destroyed) from HIES
+    hazard_ratios['fa'] = (hazard_ratios['frac_destroyed']/hazard_ratios['v_mean']).fillna(0)
+
+    hazard_ratios.loc[hazard_ratios.fa>fa_threshold,'v'] = (hazard_ratios.loc[hazard_ratios.fa>fa_threshold,['v','fa']].prod(axis=1)/fa_threshold).clip(upper=0.95)
+    hazard_ratios['fa'] = hazard_ratios['fa'].clip(lower=0,upper=fa_threshold)
+    hazard_ratios = hazard_ratios.fillna(0)
+
+hazard_ratios = hazard_ratios.append(hazard_ratios_drought).fillna(0)
+hazard_ratios[[_ for _ in ['fa','v_mean','fa_ag','v_ag_mean'] if _ in hazard_ratios.columns]].mean(level=event_level).to_csv('tmp/fa_v.csv')
+
+# check
+#hazard_renorm = pd.DataFrame({'total_k':hazard_ratios[['k','pcwgt']].prod(axis=1),
+#                              'exp_loss':hazard_ratios[['k','pcwgt','fa','v']].prod(axis=1)},index=hazard_ratios.index.copy()).sum(level=event_level)
+#hazard_renorm.to_csv('~/Desktop/tmp/out.csv')
+#assert(False)
 
 
+#####################################
 # Get optimal reconstruction rate
 _pi = float(df['avg_prod_k'].mean())
 _rho = float(df['rho'].mean())
@@ -521,16 +622,16 @@ hazard_ratios['hh_reco_rate'] = 0
 
 v_to_reco_rate = {}
 try:
-    v_to_reco_rate = pickle.load(open('../optimization_libs/'+myCountry+'_v_to_reco_rate.p','rb'))
+    v_to_reco_rate = pickle.load(open('../optimization_libs/'+myCountry+('_'+special_event if special_event != None else '')+'_v_to_reco_rate.p','rb'))
     #pickle.dump(v_to_reco_rate, open('../optimization_libs/'+myCountry+'_v_to_reco_rate_proto2.p', 'wb'),protocol=2)
 except: print('Was not able to load v to hh_reco_rate library from ../optimization_libs/'+myCountry+'_v_to_reco_rate.p')
 
-#hazard_ratios.loc[hazard_ratios.index.duplicated(keep=False)].to_csv('~/Desktop/tmp/dupes.csv')
+hazard_ratios.loc[hazard_ratios.index.duplicated(keep=False)].to_csv('~/Desktop/tmp/dupes.csv')
 assert(hazard_ratios.loc[hazard_ratios.index.duplicated(keep=False)].shape[0]==0)
 
 hazard_ratios['hh_reco_rate'] = hazard_ratios.apply(lambda x:optimize_reco(v_to_reco_rate,_pi,_rho,x['v']),axis=1)
 try: 
-    pickle.dump(v_to_reco_rate,open('../optimization_libs/'+myCountry+'_v_to_reco_rate.p','wb'))
+    pickle.dump(v_to_reco_rate,open('../optimization_libs/'+myCountry+('_'+special_event if special_event != None else '')+'_v_to_reco_rate.p','wb'))
     print('gotcha')
 except: print('didnt getcha')
 
@@ -556,12 +657,6 @@ except: print('didnt getcha')
 hazard_ratios.loc[hazard_ratios.index.get_level_values('hazard') == 'DR','hh_reco_rate'] = 0
 # no drought recovery. lasts forever. eep.
 
-if myCountry == 'PH':
-    _path = '/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/'
-    _ = hazard_ratios.reset_index().copy()
-    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==10)],['v'],[''],_path+'vulnerabilities_log.pdf',uclip=1,nBins=25,xlab='Asset vulnerability ($v_h$)',logy=True)
-    plot_simple_hist(_.loc[(_.hazard=='PF')&(_.rp==10)],['v'],[''],_path+'vulnerabilities.pdf',uclip=1,nBins=25,xlab='Asset vulnerability ($v_h$)',logy=False)
-
 cat_info = cat_info.reset_index().set_index([economy,'hhid'])
 
 #cat_info['v'] = hazard_ratios.reset_index().set_index([economy,'hhid'])['v'].mean(level=[economy,'hhid']).clip(upper=0.99)
@@ -571,11 +666,11 @@ cat_info = cat_info.reset_index().set_index([economy,'hhid'])
 # This function collects info on the value and vulnerability of public assets
 cat_info, hazard_ratios = get_asset_infos(myCountry,cat_info,hazard_ratios,df_haz)
 
-df.to_csv(intermediate+'/macro.csv',encoding='utf-8', header=True,index=True)
+df.to_csv(intermediate+'/macro'+('_'+special_event if special_event is not None else '')+'.csv',encoding='utf-8', header=True,index=True)
 
 cat_info = cat_info.drop([icol for icol in ['level_0','index'] if icol in cat_info.columns],axis=1)
 #cat_info = cat_info.drop([i for i in ['province'] if i != economy],axis=1)
-cat_info.to_csv(intermediate+'/cat_info.csv',encoding='utf-8', header=True,index=True)
+cat_info.to_csv(intermediate+'/cat_info'+('_'+special_event if special_event is not None else '')+'.csv',encoding='utf-8', header=True,index=True)
 
 
 # If we have 2 sets of data on k, gdp, look at them now:
@@ -590,39 +685,12 @@ try:
     totals = summary_df[['FIES','GRDP']].sum().squeeze()
     ratio = totals[0]/totals[1]
     print(totals, ratio)
-
 except: print('Dont have 2 datasets for GDP. Just using hh survey data.')
-
-print(summary_df.round(1))
 summary_df.round(1).to_latex('latex/'+myCountry+'/grdp_table.tex')
 summary_df.to_csv(intermediate+'/gdp.csv')
 
+
+##############
+# Write out hazard ratios
 hazard_ratios= hazard_ratios.drop(['frac_destroyed','grdp_to_assets'],axis=1).drop(["flood_fluv_def"],level="hazard")
-hazard_ratios.to_csv(intermediate+'/hazard_ratios.csv',encoding='utf-8', header=True)
-
-
-# Compare assets from survey to assets from AIR-PCRAFI
-if myCountry == 'FJ':
-
-    df_haz = df_haz.reset_index()
-    my_df = ((df[['gdp_pc_prov','pop']].prod(axis=1))/df['avg_prod_k']).to_frame(name='HIES')
-    my_df['PCRAFI'] = df_haz.ix[(df_haz.rp==1)&(df_haz.hazard=='TC'),['Division','Exp_Value']].set_index('Division')
-
-    my_df['HIES']/=1.E9
-    my_df['PCRAFI']/=1.E9
-
-    ax = my_df.plot.scatter('PCRAFI','HIES')
-    fit_line = np.polyfit(my_df['PCRAFI'],my_df['HIES'],1)
-    ax.plot()
-
-    plt.xlim(0.,8.)
-    plt.ylim(0.,5.)
-
-    my_linspace_x = np.array(np.linspace(plt.gca().get_xlim()[0],plt.gca().get_xlim()[1],10))
-    my_linspace_y = fit_line[0]*my_linspace_x+fit_line[1]
-
-    plt.plot(my_linspace_x,my_linspace_y)
-    plt.annotate(str(round(100.*my_linspace_x[1]/my_linspace_y[1],1))+'%',[1.,4.])
-
-    fig = plt.gcf()
-    fig.savefig('../output_plots/FJ/HIES_vs_PCRAFI_assets.pdf',format='pdf')
+hazard_ratios.to_csv(intermediate+'/hazard_ratios'+('_'+special_event if special_event is not None else '')+'.csv',encoding='utf-8', header=True)

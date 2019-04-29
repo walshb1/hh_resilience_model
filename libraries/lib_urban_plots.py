@@ -46,27 +46,27 @@ def run_urban_plots(myC,df):
             populations(myC,df,'rel',plot_rural)
             populations(myC,df,'abs',plot_rural)
         #
-            
+  
     # this code shouldn't be here!
     # we're analyzing model results in a function that gets called in gather_data
     # but it's easiest...
-    try: 
-        model_results_plots(myC,'assets','abs',('PF','aal'),redo_intermediate=True)
-        model_results_plots(myC,'assets','rel',('PF','aal'))
-        model_results_plots(myC,'assets','tot',('PF','aal'))
-        model_results_plots(myC,'wellbeing','abs',('PF','aal'))
-        model_results_plots(myC,'wellbeing','rel',('PF','aal'))
-        model_results_plots(myC,'wellbeing','tot',('PF','aal'))
-        model_results_plots(myC,'resilience','',('PF','aal'))
-
-        model_results_plots(myC,'assets','abs',('PF',50),redo_intermediate=True)
-        model_results_plots(myC,'assets','rel',('PF',50))
-        model_results_plots(myC,'assets','tot',('PF',50))
-        model_results_plots(myC,'wellbeing','abs',('PF',50))
-        model_results_plots(myC,'wellbeing','rel',('PF',50))
-        model_results_plots(myC,'wellbeing','tot',('PF',50))
-        model_results_plots(myC,'resilience','',('PF',50))
-    except: pass
+    #try: 
+    model_results_plots(myC,'assets','abs',('PF','aal'),redo_intermediate=True)
+    model_results_plots(myC,'assets','rel',('PF','aal'))
+    model_results_plots(myC,'assets','tot',('PF','aal'))
+    model_results_plots(myC,'wellbeing','abs',('PF','aal'))
+    model_results_plots(myC,'wellbeing','rel',('PF','aal'))
+    model_results_plots(myC,'wellbeing','tot',('PF','aal'))
+    model_results_plots(myC,'resilience','',('PF','aal'))
+    
+    model_results_plots(myC,'assets','abs',('PF',50),redo_intermediate=True)
+    model_results_plots(myC,'assets','rel',('PF',50))
+    model_results_plots(myC,'assets','tot',('PF',50))
+    model_results_plots(myC,'wellbeing','abs',('PF',50))
+    model_results_plots(myC,'wellbeing','rel',('PF',50))
+    model_results_plots(myC,'wellbeing','tot',('PF',50))
+    model_results_plots(myC,'resilience','',('PF',50))
+    #except: pass
 
 def model_results_plots(myC,fom,ra_switch='abs',event_switch=('PF','aal'),redo_intermediate=False):
     if fom == 'resilience' and ra_switch != '': return True
@@ -109,17 +109,18 @@ def model_results_plots(myC,fom,ra_switch='abs',event_switch=('PF','aal'),redo_i
         # rename to link this with existing code
         df = _df.dropna().reset_index().set_index(_e)
     #
+    #
     plt.figure(figsize=(12,6))
     #
     if fom == 'resilience':
         df['_'] = df.eval('100*pcwgt*dk')
         df['__'] = df.eval('pcwgt*dw')
     elif fom == 'assets':
-        if ra_switch == 'abs': df['_'] = df.eval('1E-3*pcwgt*dk')
+        if ra_switch == 'abs': df['_'] = df.eval('pcwgt*dk')
         if ra_switch == 'rel': df['_'] = df.eval('1E2*pcwgt*dk/c')
         df['__'] = df.eval('pcwgt')
     elif fom == 'wellbeing':
-        if ra_switch == 'abs': df['_'] = df.eval('1E-3*pcwgt*dw')
+        if ra_switch == 'abs': df['_'] = df.eval('pcwgt*dw')
         if ra_switch == 'rel': df['_'] = df.eval('1E2*pcwgt')*df.eval('dw/c').clip(upper=1000)
         df['__'] = df.eval('pcwgt')
     if ra_switch == 'tot': 
@@ -176,20 +177,20 @@ def model_results_plots(myC,fom,ra_switch='abs',event_switch=('PF','aal'),redo_i
         plt.ylim(0)#,60)
     if fom == 'assets': 
         if _rp == 'aal':
-            if ra_switch == 'abs': plt.ylabel('Asset risk\n(expected losses to floods in ,000 Bs. per capita)',fontsize=8,labelpad=10,linespacing=1.5)
-            if ra_switch == 'rel': plt.ylabel('Asset risk\n(expected losses to floods as % of total consumption)',fontsize=8,labelpad=10,linespacing=1.5)
+            if ra_switch == 'abs': plt.ylabel('Asset risk\n(expected annual losses to floods in Bs. per capita)',fontsize=8,labelpad=10,linespacing=1.5)
+            if ra_switch == 'rel': plt.ylabel('Asset risk\n(expected annual losses to floods as % of total consumption)',fontsize=8,labelpad=10,linespacing=1.5)
             if ra_switch == 'tot': plt.ylabel('Average annual asset losses (mil. Bs.)',fontsize=8,labelpad=10,linespacing=1.5)
         else:
-            if ra_switch == 'abs': plt.ylabel('Asset losses in '+str(_rp)+'-year flood (,000 Bs. per capita)',fontsize=8,labelpad=10,linespacing=1.5)
+            if ra_switch == 'abs': plt.ylabel('Asset losses in '+str(_rp)+'-year flood (Bs. per capita)',fontsize=8,labelpad=10,linespacing=1.5)
             if ra_switch == 'rel': plt.ylabel('Asset losses in '+str(_rp)+'-year flood (as % of total consumption)',fontsize=8,labelpad=10,linespacing=1.5)
             if ra_switch == 'tot': plt.ylabel('Total asset losses in '+str(_rp)+'-year flood (mil. Bs.)',fontsize=8,labelpad=10,linespacing=1.5)
     if fom == 'wellbeing': 
         if _rp == 'aal':
-            if ra_switch == 'abs': plt.ylabel('Wellbeing risk\n(expected losses to floods in ,000 Bs. per capita)',fontsize=8,labelpad=10,linespacing=1.5)
-            if ra_switch == 'rel': plt.ylabel('Wellbeing risk\n(expected losses to floods as % of total consumption)',fontsize=8,labelpad=10,linespacing=1.5)
+            if ra_switch == 'abs': plt.ylabel('Wellbeing risk\n(expected annual losses to floods in Bs. per capita)',fontsize=8,labelpad=10,linespacing=1.5)
+            if ra_switch == 'rel': plt.ylabel('Wellbeing risk\n(expected annual losses to floods as % of total consumption)',fontsize=8,labelpad=10,linespacing=1.5)
             if ra_switch == 'tot': plt.ylabel('Average annual wellbeing losses (mil. Bs.)',fontsize=8,labelpad=10,linespacing=1.5)
         else: 
-            if ra_switch == 'abs': plt.ylabel('Wellbeing losses in '+str(_rp)+'-year flood (,000 Bs. per capita)',fontsize=8,labelpad=10,linespacing=1.5)
+            if ra_switch == 'abs': plt.ylabel('Wellbeing losses in '+str(_rp)+'-year flood (Bs. per capita)',fontsize=8,labelpad=10,linespacing=1.5)
             if ra_switch == 'rel': plt.ylabel('Wellbeing losses in '+str(_rp)+'-year flood (as % of total consumption)',fontsize=8,labelpad=10,linespacing=1.5)
             if ra_switch == 'tot': plt.ylabel('Total wellbeing losses in '+str(_rp)+'-year flood (mil. Bs.)',fontsize=8,labelpad=10,linespacing=1.5)
         plt.ylim(0)

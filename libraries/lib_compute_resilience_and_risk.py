@@ -18,7 +18,7 @@ from libraries.lib_scaleout import get_scaleout_recipients
 from libraries.lib_gather_data import social_to_tx_and_gsp
 from libraries.lib_fiji_sps import run_fijian_SPP, run_fijian_SPS
 from libraries.pandas_helper import get_list_of_index_names, broadcast_simple, concat_categories
-from libraries.lib_country_dir import get_to_USD, get_subsistence_line, average_over_rp, average_over_rp1
+from libraries.lib_country_dir import get_to_USD, get_subsistence_line, average_over_rp, average_over_rp1, get_all_hazards
 
 pd.set_option('display.width', 220)
 
@@ -159,17 +159,22 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
 
 def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,event_level,income_cats,default_rp,rm_overlap,verbose_replace=True):
 
-    #cat_info = cat_info[cat_info.c>0]
     hazard_ratios = pd.read_csv(fname, index_col=event_level+[income_cats])
-    hazard_ratios = hazard_ratios.drop([_c for _c in ['index','v_mean'] if _c in hazard_ratios.columns],axis=1)
+    # separate drought from other hazards
+    if 'DR' in get_all_hazards(myCountry,hazard_ratios):
+        hazard_ratios_drought = hazard_ratios.loc[hazard_ratios.index.get_level_values('hazard')=='DR',:].copy()
+        hazard_ratios = hazard_ratios.loc[hazard_ratios.index.get_level_values('hazard')!='DR',:].drop('pcinc_ag_gross',axis=1)  
+        #print(hazard_ratios['fa'].sum(level='hazard').head())
 
-    print('\nHazRatios:\n',hazard_ratios.head(2))
+    hazard_ratios = hazard_ratios.drop([_c for _c in ['index','v_mean','v_ag_mean'] if _c in hazard_ratios.columns],axis=1)
+    #print('\nHazRatios:\n',hazard_ratios.head(2))
 
     cat_info['ew_expansion'] = 0
     macro,cat_info,hazard_ratios = apply_policies(pol_str,macro,cat_info,hazard_ratios)
 
     #compute
     return process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_level,default_rp,rm_overlap,verbose_replace=True)
+
 
 def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_level,default_rp,rm_overlap,verbose_replace=True):
     flag1=False
@@ -477,8 +482,6 @@ def compute_dK(pol_str,macro_event,cats_event,event_level,affected_cats,myC,opti
         cats_event_ia['scale_fac_soc'] = (rebuild_fees['dk_tot']/rebuild_fees['tot_k_BE']).mean(level=event_level)
 
         cats_event_ia = cats_event_ia.drop([_c for _c in ['index'] if _c in cats_event_ia.columns],axis=1)
-        print(cats_event_ia.head())
-        print(cats_event_ia.columns)
 
         ############################
         # We can already calculate di0, dc0 for hh in province

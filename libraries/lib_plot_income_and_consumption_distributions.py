@@ -50,12 +50,14 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
     c_bins = [None,50]
 
     # Dictionary for labeling
+    # GLOBAL VARIABLE in new_process_data.
     haz_dict = {'SS':'Storm surge',
                 'PF':'Precipitation flood',
                 'HU':'Typhoon',
                 'EQ':'Earthquake',
                 'DR':'Drought',
-                'FF':'Fluvial flood'}
+                'FF':'Fluvial flood',
+                'CY':'Cyclone Idai'}
 
     simple_plot = True
     stack_wealthy = True
