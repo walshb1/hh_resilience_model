@@ -3,10 +3,10 @@
 # Restructured from the global model and developed by Jinqiang Chen and Brian Walsh
 
 # Compiler/Python interface (Magic)
-from IPython import get_ipython
-get_ipython().magic('reset -f')
-get_ipython().magic('load_ext autoreload')
-get_ipython().magic('autoreload 2')
+#from IPython import get_ipython
+#get_ipython().magic('reset -f')
+#get_ipython().magic('load_ext autoreload')
+#get_ipython().magic('autoreload 2')
 
 # Import packages for data analysis
 import matplotlib.pyplot as plt
@@ -318,8 +318,8 @@ print(cat_info.head())
 # Shouldn't be losing anything here
 cat_info = cat_info.loc[cat_info['pcwgt'] != 0]
 print('Check total population:',cat_info.pcwgt.sum())
-if myCountry == 'RO':
-    cat_info.to_csv('~/Desktop/tmp/RO_drops.csv')
+# if myCountry == 'RO':
+#     cat_info.to_csv('~/Desktop/tmp/RO_drops.csv')
 # cat_info.dropna(inplace=True,how='any')
 # Get rid of househouseholds with 0 consumption
 if myCountry == 'BO':
@@ -603,7 +603,7 @@ if myCountry != 'SL' and myCountry != 'BO' and not special_event:
     hazard_ratios = hazard_ratios.fillna(0)
 
 hazard_ratios = hazard_ratios.append(hazard_ratios_drought).fillna(0)
-hazard_ratios[[_ for _ in ['fa','v_mean','fa_ag','v_ag_mean'] if _ in hazard_ratios.columns]].mean(level=event_level).to_csv('tmp/fa_v.csv')
+#hazard_ratios[[_ for _ in ['fa','v_mean','fa_ag','v_ag_mean'] if _ in hazard_ratios.columns]].mean(level=event_level).to_csv('tmp/fa_v.csv')
 
 # check
 #hazard_renorm = pd.DataFrame({'total_k':hazard_ratios[['k','pcwgt']].prod(axis=1),
@@ -626,7 +626,7 @@ try:
     #pickle.dump(v_to_reco_rate, open('../optimization_libs/'+myCountry+'_v_to_reco_rate_proto2.p', 'wb'),protocol=2)
 except: print('Was not able to load v to hh_reco_rate library from ../optimization_libs/'+myCountry+'_v_to_reco_rate.p')
 
-hazard_ratios.loc[hazard_ratios.index.duplicated(keep=False)].to_csv('~/Desktop/tmp/dupes.csv')
+#hazard_ratios.loc[hazard_ratios.index.duplicated(keep=False)].to_csv('~/Desktop/tmp/dupes.csv')
 assert(hazard_ratios.loc[hazard_ratios.index.duplicated(keep=False)].shape[0]==0)
 
 hazard_ratios['hh_reco_rate'] = hazard_ratios.apply(lambda x:optimize_reco(v_to_reco_rate,_pi,_rho,x['v']),axis=1)
