@@ -1,6 +1,6 @@
 import pandas as pd
 
-def get_hh_savings(myC, econ_unit, pol, fstr=None):
+def get_hh_savings(myC, econ_unit, pol, fstr=None,return_regional_avg=False):
     hh_df = pd.read_csv('../intermediate/'+myC+'/cat_info.csv').set_index('hhid')
 
     # First check the policy string, in case we're doing something experimental
@@ -35,8 +35,14 @@ def get_hh_savings(myC, econ_unit, pol, fstr=None):
         #hh_df = pd.merge(hh_df.reset_index(),df_sav.reset_index(),on=['region','decile_reg'])
         ##############################
 
-        hh_df = pd.merge(hh_df.reset_index(),df_sav.reset_index(),on=['region','decile']).set_index('hhid')
+        hh_df = pd.merge(hh_df.reset_index(),df_sav.reset_index(),on=['region','decile'])
 
-        return hh_df[['precautionary_savings']]
-
+        if not return_regional_avg: 
+            hh_df = hh_df.set_index('hhid')
+            return hh_df[['precautionary_savings']]
+            
+        else: 
+            hh_df = hh_df.set_index(['region','hhid'])
+            regional_avg = hh_df[['precautionary_savings','pcwgt']].prod(axis=1).sum(level='region')/hh_df['pcwgt'].sum(level='region')
+            return regional_avg
     assert(False)

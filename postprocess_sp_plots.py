@@ -287,7 +287,7 @@ for _pds in pds_to_plot:
 plt.plot([50,50],[0,1E4],color=greys_pal[5],ls=':')
 plt.annotate('Cost of ASP\nafter 50-year flood',xy=(55,39),ha='left',va='top',fontsize=8,color=greys_pal[6],weight='bold')
 
-plt.title('Expected benefit of ASP (payout = 1 month of Samurdhi)\nin Sri Lanka, by RP and beneficiary group',loc='left',fontsize=15,color=greys_pal[7],linespacing=1.5,pad=15)
+plt.title('Expected benefit of ASP (1 month Samurdhi top-up)\nby return period & beneficiary group',loc='left',fontsize=15,color=greys_pal[7],linespacing=1.65,pad=20)
 #plt.annotate('One month Samurdhi topup to',xy=(0.96,1.04),xycoords='axes fraction',color=greys_pal[7],annotation_clip=False,ha='left',va='bottom')
 plt.xlabel('Return period [years]',labelpad=10,fontsize=10)
 plt.xlim(9,1100)

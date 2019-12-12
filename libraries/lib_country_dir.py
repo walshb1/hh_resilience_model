@@ -8,12 +8,15 @@ from libraries.lib_drought import *
 from libraries.lib_gather_data import *
 from libraries.plot_hist import plot_simple_hist
 from libraries.pandas_helper import categorize_strings
+#
+# country-specific
+from libraries.lib_RO_housing_plots import housing_plots
 
 pd.set_option('display.width', 220)
 sns.set_style('whitegrid')
 sns_pal = sns.color_palette('Set1', n_colors=8, desat=.5)
 
-global model_
+global model
 model = os.getcwd()
 
 # People/hh will be affected or not_affected, and helped or not_helped
@@ -136,11 +139,11 @@ def get_places(myC):
         RO_hhid = get_hhid_elements(myC)
         # nrgl	= Order number of the household within the place of residence
 
-        # Load df0 <- this is going to me the master index of households in RO
+        # Load df0 <- this is going to be the master index of households in RO
         hbs_str = inputs+'ROU_2016_HBS_v01_M/Data/Stata/s0.dta'
         df0 = pd.read_stata(hbs_str).rename(columns=hbs_dict)[RO_hhid+['ri','hhwgt']].set_index(RO_hhid)
 
-        # BELOW: i think these are duplicative, ie hhwgt=0 when hh refused interview
+        # BELOW: i think cuts these are duplicative, ie hhwgt=0 when hh refused interview
         df0 = df0.loc[(df0['hhwgt']!=0)&(df0['ri']=='The household accepts the interview')]
         df0 = df0.drop('ri',axis=1)
 
@@ -167,11 +170,17 @@ def get_places(myC):
         assert(df.loc[df.index.duplicated(keep=False)].shape[0]==0)
 
 
-        # "County" field is populated with garbage
+        # "County" field is populated with garbage!
         df = df.set_index(economy)['pcwgt'].sum(level=economy).to_frame()
         df.columns = ['pop']
 
-        return df
+        # Replace region code with region name
+        df = df.reset_index()
+        _,region_dict = get_places_dict(myC)
+        df['Region'] = df['Region'].replace(region_dict)
+        return df.set_index('Region')
+
+        #return df
 
     if myC == 'PH':
         df = pd.read_excel(inputs+'population_2015.xlsx',sheet_name='population').set_index('province').rename(columns={'population':'psa_pop'})
@@ -341,16 +350,21 @@ def load_survey_data(myC):
         df['hhsoc'] *= 52.
         df['pcsoc'] = df.eval('hhsoc/hhsize')
         #
-        df['ispoor'] = 0
+        df['ispoor'] = df.pcinc<get_poverty_line('RO')
+        #
+        _mc_lo,_mc_hi = get_middleclass_range('RO')
+        df['ismiddleclass'] = (df.pcinc>=_mc_lo)&(df.pcinc<=_mc_hi)
         #
         #print(df[['pcinc','pcwgt']].prod(axis=1).sum()/df['pcwgt'].sum())
         #print(df[['pcsoc','pcwgt']].prod(axis=1).sum()/df['pcwgt'].sum())
         #
-
+        
         # Load: construction materials
-        _df = pd.read_stata(inputs+'ROU_2016_HBS_v01_M/Data/Stata/s10a.dta').rename(columns=hbs_dict).rename(columns={'MATCONS':'walls'})[RO_hhid+['walls']]
+        _df = pd.read_stata(inputs+'ROU_2016_HBS_v01_M/Data/Stata/s10a.dta').rename(columns=hbs_dict)
         _df[RO_hhid] = _df[RO_hhid].astype('int')
-        _df = _df.set_index(RO_hhid)[['walls']]
+        housing_plots(RO_hhid,df,_df)
+
+        _df = _df.set_index(RO_hhid).rename(columns={'MATCONS':'walls'})[['walls']]
         df = pd.merge(df.reset_index(),_df.reset_index(),on=RO_hhid).set_index(RO_hhid)
 
         # LOAD: has_ew
@@ -368,12 +382,14 @@ def load_survey_data(myC):
         df = df.reset_index(['Region'])
         df['Region'] = df['Region'].replace(region_dict)
         df = df.reset_index().set_index(RO_hhid)
-
+        
         df['c'] = df['pcinc'].copy()
         #df['social'] = df.eval('pcsoc/pcinc')
 
         # pop & write out hh savings & loans/credit
         pd.concat([df['hhid']]+[df.pop(x) for x in ['precautionary_savings','loans_and_credit']], 1).to_csv('../intermediate/RO/hh_savings.csv')
+
+
     elif myC == 'MW':
 
         df_agg = pd.read_stata(inputs+'consumption_aggregates_poverty_ihs4.dta').set_index(['case_id']).dropna(how='all')
@@ -620,13 +636,11 @@ def load_survey_data(myC):
                                                     'income_ganyu','income_crop_wet', 'income_crop_dry', 'income_permcrop','income_livestock', 'income_animprod',
                                                     'ag_input_cost']]]
 
-        #print(df.loc[(df.impact_drought==1)&(df.pcinc_ag_net>0),'pcwgt'].sum()/df.loc[(df.pcinc_ag_net>0),'pcwgt'].sum())
-        #print(df.loc[(df.impact_drought==1)&(df.pcinc_ag_net==0),'pcwgt'].sum()/df.loc[(df.pcinc_ag_net==0),'pcwgt'].sum())
-
         print('Setting c to pcinc')
         df['c'] = df['pcinc'].copy()
 
         df = df.reset_index().set_index('district').drop([_i for _i in ['index'] if _i in df.columns])
+
     elif myC == 'PH':
         df = pd.read_csv(inputs+'fies2015.csv')[['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn',
                                                  'walls','roof',
@@ -759,6 +773,39 @@ def load_survey_data(myC):
         df = df.reset_index().set_index(['w_regn','w_prov','w_mun','w_bgy','w_ea','w_shsn','w_hcn'])
         df = df.drop([_c for _c in ['country','decile_nat','decile_reg','est_sav','tot_savings','savings','invest',
                                     'precautionary_savings','index','level_0','cash_domestic'] if _c in df.columns],axis=1)
+
+        # Standardize province info
+        prov_code,region_code = get_places_dict(myC)
+
+        df = df.reset_index()
+        get_hhid_FIES(df)
+        df = df.rename(columns={'w_prov':'province','w_regn':'region'}).reset_index()
+        df['province'].replace(prov_code,inplace=True)     
+        df['region'].replace(region_code,inplace=True)
+        df = df.reset_index().set_index(get_economic_unit(myC)).drop(['index','level_0'],axis=1)
+        #
+        #print(df.head())
+        #assert(False)
+        #
+        #get_hhid_FIES(cat_info)
+        #cat_info = cat_info.rename(columns={'w_prov':'province','w_regn':'region'}).reset_index()
+        #cat_info['province'].replace(prov_code,inplace=True)     
+        #cat_info['region'].replace(region_code,inplace=True)
+        #cat_info = cat_info.reset_index().set_index(economy).drop(['index','level_0'],axis=1)
+        
+        # There's no region info in df--put that in...
+        #df = df.reset_index().set_index('province')
+        #cat_info = cat_info.reset_index().set_index('province')
+        #df['region'] = cat_info[~cat_info.index.duplicated(keep='first')].region
+        
+        #try: df.reset_index()[['province','region']].to_csv('../inputs/PH/prov_to_reg_dict.csv',header=True)
+        #except: print('Could not update regional-provincial dict')
+        
+        # Manipulate PSA (non-FIES) dataframe
+        #df = df.reset_index().set_index(economy)
+        #df['psa_pop'] = df.sum(level=economy)
+        #df = df.mean(level=economy)
+
     elif myC == 'FJ':
 
         # This is an egregious hack, but deadlines are real
@@ -1325,8 +1372,6 @@ def get_wb_or_penn_data(myC):
     wb['Ktot'] = wb.gdp_pc_pp*wb['pop']/K.avg_prod_k
     wb['GDP'] = wb.gdp_pc_pp*wb['pop']
     wb['avg_prod_k'] = K.avg_prod_k
-    print(wb['avg_prod_k'])
-    assert(False)
 
     wb['iso2'] = names_to_iso2
     return wb.set_index('iso2').loc[myC,['Ktot','GDP','avg_prod_k']]
@@ -1842,16 +1887,26 @@ def get_poverty_line(myC,by_district=True,sec=None):
         # apply PPP to estimate 2016 value...
         pov_line *= 11445.5/11669.1
 
-    if myC == 'RO': pov_line = 40*1.645*365
-    if myC == 'BO': pov_line = 365*1.90*3.43
+    if myC == 'RO': pov_line = 40*1.719*365 # 1.729 = ppp conversion factor (2018) data.worldbank.org
+    if myC == 'BO': pov_line = 1.9*3.430*365 # 3.430 = ppp conv factor
 
     return pov_line
+
+def get_middleclass_range(myC):
+    if myC == 'RO': 
+        _pl = get_poverty_line(myC)
+        _lower = _pl*(10/5.5)
+        _upper = _pl*(50./5.5)
+        #_upper = 
+    else: assert(False)
+    return(_lower,_upper)
+
 
 def get_subsistence_line(myC):
 
     if myC == 'PH': return 14832.0962*(22302.6775/21240.2924)
     elif myC == 'MW': return 85260.164
-    elif myC == 'RO': return 40*(1.25/1.90)*1.645*365
+    elif myC == 'RO': return 40.*(1.25/1.90)*1.719*365
     elif myC == 'SL':
         pov_line = float(pd.read_excel('../inputs/SL/poverty_def_by_district.xlsx').T.loc['National','2017 Aug Rs.']*12.)
         # apply PPP to estimate 2016 value...

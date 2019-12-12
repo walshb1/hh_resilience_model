@@ -7,7 +7,7 @@ import seaborn as sns
 import numpy as np
 import os
 
-from libraries.lib_country_dir import get_currency,get_pop_scale_fac,get_subsistence_line,get_poverty_line,get_economic_unit,int_w_commas,get_demonym
+from libraries.lib_country_dir import get_currency,get_pop_scale_fac,get_subsistence_line,get_poverty_line,get_economic_unit,int_w_commas,get_demonym,get_middleclass_range
 from libraries.lib_common_plotting_functions import greys_pal,q_colors,blues_pal,paired_pal
 
 def axis_data_coords_sys_transform(axis_obj_in,xin,yin,inverse=False):
@@ -29,7 +29,10 @@ def axis_data_coords_sys_transform(axis_obj_in,xin,yin,inverse=False):
         yout = ydelta2 / ydelta
     return xout,yout
 
-def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsistence=True,currency=''):
+def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,labels=(False,False,False),currency=''):
+    
+    label_subsistence, label_poverty, label_middleclass = labels
+                                              
     iah = iah.reset_index()
     economy = get_economic_unit(myC)
 
@@ -101,7 +104,7 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
         elif aReg == 'VIII - Eastern Visayas' and aDis == 'HU': plt.ylim(0,500)
         elif aReg == 'Rathnapura': plt.ylim(0,130)
         elif aReg == 'Bucharest-Ilfov': plt.ylim(0,220)
-        elif aReg == 'Beni': plt.ylim(0,50)
+        elif aReg == 'Beni': plt.ylim(0,40)
 
         plt.xlabel(_fom_lab+r' ('+currency+' per person, per year)',labelpad=8,fontsize=8)
         plt.ylabel('Population'+get_pop_scale_fac(myC)[1],labelpad=8,fontsize=8)
@@ -111,6 +114,11 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
         cf_heights, cf_bins = np.histogram(sf_x*iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),_fom+'_pre_reco'].clip(upper=upper_clip), bins=c_bins[1],
                                            weights=iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt_no']/get_pop_scale_fac(myC)[0]) 
 
+        print(aDis,anRP,_fom,(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),['c_initial','pcwgt_no']].prod(axis=1).sum()/
+                              iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt_no'].sum()))
+        print(_fom,' final -->',(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),[_fom+'_pre_reco','pcwgt_no']].prod(axis=1).sum()/
+                                 iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt_no'].sum()))
+                         
         if c_bins[0] is None: c_bins = [cf_bins,cf_bins]
 
         # Income dist before disaster
@@ -210,6 +218,8 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
             ax.annotate('Natl. well-being losses: '+str(round(sf_x*float(public_costs.loc[(public_costs.contributer!=aReg)&(public_costs[economy]==aReg)&(public_costs.hazard==aDis)&(public_costs.rp==anRP),'dw_tot_curr'].sum()),1))+',000 '+currency,
                         xy=(0.03,-1.24), xycoords=leg.get_frame(),size=8,va='top',ha='left',annotation_clip=False,zorder=100)
 
+
+
         try:
             net_chg_pov_c = int(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_pre_reco<=pov_line)'),'pcwgt_no'].sum()
                                 -iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_initial<=pov_line)'),'pcwgt_no'].sum())
@@ -221,12 +231,25 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
             net_chg_pov_i = int(iah.loc[iah.eval('district==@aReg & hazard==@aDis & i_pre_reco<=pov_line'),'pcwgt_no'].sum()
                                 -iah.loc[iah.eval('district==@aReg & hazard==@aDis & c_initial<=pov_line'),'pcwgt_no'].sum())
 
-        net_chg_pov = int(round(net_chg_pov_i/100.,0)*100)
-        if _fom == 'c': net_chg_pov = int(round(net_chg_pov_c/100.,0)*100)
-        #print('c:',net_chg_pov_c,' i:',net_chg_pov_i)
+        try:
+            iah['midclass_line_lo'] = get_middleclass_range(myC)[0]            
+            iah['midclass_line_hi'] = get_middleclass_range(myC)[1]
+            net_chg_midclass_c = int(iah.loc[iah.eval(reg_crit+('&(hazard==@aDis)&(rp==@anRP)&'
+                                                                +'(c_initial>=midclass_line_lo)&(c_initial<midclass_line_hi)&(c_pre_reco<midclass_line_lo)')),'pcwgt_no'].sum())
+            net_chg_midclass_i = int(iah.loc[iah.eval(reg_crit+('&(hazard==@aDis)&(rp==@anRP)&'
+                                                                +'(c_initial>=midclass_line_lo)&(c_initial<midclass_line_hi)&(i_pre_reco<midclass_line_lo)')),'pcwgt_no'].sum())
+        except: net_chg_midclass_c, net_chg_midclass_i = 0,0
+
+        net_chg_pov = int(round((net_chg_pov_i if _fom == 'i' else net_chg_pov_c)/100.,0)*100)
+        net_chg_midclass = int(round((net_chg_midclass_i if _fom == 'i' else net_chg_midclass_c)/100.,0)*100) 
 
         try: net_chg_pov_pct = abs(round(100.*float(net_chg_pov)/float(iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)'),'pcwgt_no'].sum()),1))
         except: net_chg_pov_pct = 0
+
+        try:
+            _slice = reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_initial>=midclass_line_lo)&(c_initial<midclass_line_hi)'
+            net_chg_midclass_pct = abs(round(100.*float(net_chg_midclass)/float(iah.loc[iah.eval(_slice),'pcwgt_no'].sum()),1))
+        except: net_chg_midclass_pct = 0
 
         trans = ax.get_xaxis_transform() # x in data units, y in axes fraction
 
@@ -237,17 +260,29 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,label_subsi
         _,pov_anno_y_data = axis_data_coords_sys_transform(ax,0,pov_anno_y,inverse=False)
         _,sub_anno_y_data = axis_data_coords_sys_transform(ax,0,sub_anno_y,inverse=False)
     
-        plt.plot([sf_x*iah.pov_line.mean(),sf_x*iah.pov_line.mean()],[0,pov_anno_y_data],'k-',lw=1.0,color=greys_pal[8],zorder=100,alpha=0.85,ls=':')
-        ax.annotate('Poverty line',xy=(sf_x*1.1*iah.pov_line.mean(),pov_anno_y),xycoords=trans,ha='left',va='top',fontsize=9,
-                    annotation_clip=False,weight='bold',color=greys_pal[7])
+        if label_middleclass:
+            middleclass = get_middleclass_range('RO')
+            #plt.plot([sf_x*middleclass[0],sf_x*middleclass[0]],[0,pov_anno_y_data],'k-',lw=1.0,color=greys_pal[8],zorder=100,alpha=0.85,ls=':')
+            #plt.fill_between([sf_x*middleclass[0],sf_x*middleclass[1]],[pov_anno_y_data,pov_anno_y_data],color=greys_pal[2],alpha=0.3)
+            plt.fill_between([0,sf_x*middleclass[0]],[pov_anno_y_data,pov_anno_y_data],color=greys_pal[2],alpha=0.3)
 
-        ax.annotate('Increase of '+int_w_commas(net_chg_pov)+' ('+str(net_chg_pov_pct)+'% of regional pop.)\n in '+_fom_lab.lower()+' poverty',
-                    weight='light',color=greys_pal[7],xy=(sf_x*1.1*iah.pov_line.mean(),pov_anno_y-anno_y_offset),
-                    xycoords=trans,ha='left',va='top',fontsize=9,annotation_clip=False)
+            #ax.annotate('Middle class',xy=(sf_x*1.1*middleclass[0],pov_anno_y),xycoords=trans,ha='left',va='top',fontsize=9,
+            #            annotation_clip=False,weight='bold',color=greys_pal[7])
+            ax.annotate(int_w_commas(net_chg_midclass)+' ('+str(net_chg_midclass_pct)+'%)\ndrop from middle class',
+                        weight='light',color=greys_pal[7],xy=(sf_x*1.1*middleclass[0],pov_anno_y-anno_y_offset),
+                        xycoords=trans,ha='left',va='top',fontsize=9,annotation_clip=False)
 
-        sub_line, net_chg_sub = get_subsistence_line(myC), None
-        if not label_subsistence: sub_line = None
+        if label_poverty:
+            plt.plot([sf_x*iah.pov_line.mean(),sf_x*iah.pov_line.mean()],[0,pov_anno_y_data],'k-',lw=1.0,color=greys_pal[8],zorder=100,alpha=0.85,ls=':')
+            ax.annotate('Poverty line',xy=(sf_x*1.1*iah.pov_line.mean(),pov_anno_y),xycoords=trans,ha='left',va='top',fontsize=9,
+                        annotation_clip=False,weight='bold',color=greys_pal[7])
 
+            ax.annotate('Increase of '+int_w_commas(net_chg_pov)+' ('+str(net_chg_pov_pct)+'% of regional pop.)\n in '+_fom_lab.lower()+' poverty',
+                        weight='light',color=greys_pal[7],xy=(sf_x*1.1*iah.pov_line.mean(),pov_anno_y-anno_y_offset),
+                        xycoords=trans,ha='left',va='top',fontsize=9,annotation_clip=False)
+
+        
+        sub_line, net_chg_sub = (None if not label_subsistence else get_subsistence_line(myC)), None
         if sub_line is not None:
             net_chg_sub = int(round((iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_pre_reco<=@sub_line)'),'pcwgt_no'].sum()
                                      -iah.loc[iah.eval(reg_crit+'&(hazard==@aDis)&(rp==@anRP)&(c_initial<=@sub_line)'),'pcwgt_no'].sum())/100.,0)*100)

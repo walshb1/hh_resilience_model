@@ -1,0 +1,222 @@
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import glob,os
+
+from libraries.lib_country_dir import get_poverty_line, get_middleclass_range
+
+import seaborn as sns
+sns_pal = sns.color_palette('tab20b', n_colors=20)
+greys_pal = sns.color_palette('Greys', n_colors=9)
+
+def load_recovery_times(myC,economy):
+
+    results_dir = '../output_country/{}/'.format(myC)
+    event_level = [economy,'hazard','rp']
+
+    out_df = pd.DataFrame()
+
+    for file in glob.glob(results_dir+"poverty_duration_*.csv"):
+        pol_str = file.replace(results_dir,'').replace('poverty_duration_','').replace('.csv','')
+
+        #if 'no' not in pol_str and 'social_scaleup' not in pol_str: continue
+        if 'no' not in pol_str: continue
+        
+        _df = pd.read_csv(file).set_index(event_level+['hhid'])
+
+        transient_poor_inc = (_df.c >= get_poverty_line(myC))&(_df.t_pov_inc != 0)
+        transient_poor_cons = (_df.c >= get_poverty_line(myC))&(_df.t_pov_cons != 0)
+        #
+        middleclass_dropout_inc = (_df.c >= get_middleclass_range(myC)[0])&(_df.t_mc_inc < 10)
+        middleclass_dropout_cons = (_df.c >= get_middleclass_range(myC)[0])&(_df.t_mc_cons < 10)        
+        #
+        #
+        # Average time in poverty or out of middle class, for hh that were not poor, or were middleclass, before the disaster
+        out_df[pol_str+'_transpoor_inc']  = (_df.loc[transient_poor_inc,['pcwgt','t_pov_inc']].prod(axis=1).sum(level=event_level)
+                                             /_df.loc[transient_poor_inc,'pcwgt'].sum(level=event_level)).round(2)
+        out_df[pol_str+'_transpoor_cons'] = (_df.loc[transient_poor_cons,['pcwgt','t_pov_cons']].prod(axis=1).sum(level=event_level)
+                                             /_df.loc[transient_poor_cons,'pcwgt'].sum(level=event_level)).round(2)
+        out_df[pol_str+'_midclassdrop_inc']  = 10.-(_df.loc[middleclass_dropout_inc,['pcwgt','t_mc_inc']].prod(axis=1).sum(level=event_level)
+                                                    /_df.loc[middleclass_dropout_inc,'pcwgt'].sum(level=event_level)).round(2)
+        out_df[pol_str+'_midclassdrop_cons'] = 10.-(_df.loc[middleclass_dropout_cons,['pcwgt','t_mc_cons']].prod(axis=1).sum(level=event_level)
+                                                    /_df.loc[middleclass_dropout_cons,'pcwgt'].sum(level=event_level)).round(2)
+        #
+        # Number of individuals pushed into poverty or dropped out of midddle class
+        out_df[pol_str+'_transpoor_inc_n']  = _df.loc[transient_poor_inc,'pcwgt'].sum(level=event_level).astype('int')
+        out_df[pol_str+'_transpoor_cons_n'] = _df.loc[transient_poor_cons,'pcwgt'].sum(level=event_level).astype('int')
+        out_df[pol_str+'_midclassdrop_inc_n']  = _df.loc[middleclass_dropout_inc,'pcwgt'].sum(level=event_level).astype('int')
+        out_df[pol_str+'_midclassdrop_cons_n'] = _df.loc[middleclass_dropout_cons,'pcwgt'].sum(level=event_level).astype('int')
+        #
+        # Fraction of above who recover within 1 year
+        out_df[pol_str+'_transpoor_inc_frac_1yr']  = (1E2*(_df.loc[transient_poor_inc&(_df.t_pov_inc<=1),'pcwgt'].sum(level=event_level)/out_df[pol_str+'_transpoor_inc_n'])).round(1)
+        out_df[pol_str+'_transpoor_cons_frac_1yr'] = (1E2*(_df.loc[transient_poor_cons&(_df.t_pov_cons<=1),'pcwgt'].sum(level=event_level)/out_df[pol_str+'_transpoor_cons_n'])).round(1)
+        out_df[pol_str+'_midclassdrop_inc_frac_1yr']  = (1E2*(_df.loc[middleclass_dropout_inc&(_df.t_mc_inc>9),'pcwgt'].sum(level=event_level)/out_df[pol_str+'_midclassdrop_inc_n'])).round(1)
+        out_df[pol_str+'_midclassdrop_cons_frac_1yr'] = (1E2*(_df.loc[middleclass_dropout_cons&(_df.t_mc_cons>9),'pcwgt'].sum(level=event_level)/out_df[pol_str+'_midclassdrop_cons_n'])).round(1)
+        # Fraction of above who recover within 2 years
+        out_df[pol_str+'_transpoor_inc_frac_2yr']  = (1E2*(_df.loc[transient_poor_inc&(_df.t_pov_inc<=2),'pcwgt'].sum(level=event_level)/out_df[pol_str+'_transpoor_inc_n'])).round(1)
+        out_df[pol_str+'_transpoor_cons_frac_2yr'] = (1E2*(_df.loc[transient_poor_cons&(_df.t_pov_cons<=2),'pcwgt'].sum(level=event_level)/out_df[pol_str+'_transpoor_cons_n'])).round(1)
+        out_df[pol_str+'_midclassdrop_inc_frac_2yr']  = (1E2*(_df.loc[middleclass_dropout_inc&(_df.t_mc_inc>8),'pcwgt'].sum(level=event_level)/out_df[pol_str+'_midclassdrop_inc_n'])).round(1)
+        out_df[pol_str+'_midclassdrop_cons_frac_2yr'] = (1E2*(_df.loc[middleclass_dropout_cons&(_df.t_mc_cons>8),'pcwgt'].sum(level=event_level)/out_df[pol_str+'_midclassdrop_cons_n'])).round(1)
+        # Fraction of above who recover within 5 years
+        out_df[pol_str+'_transpoor_inc_frac_5yr']  = (1E2*(_df.loc[transient_poor_inc&(_df.t_pov_inc<=5),'pcwgt'].sum(level=event_level)/out_df[pol_str+'_transpoor_inc_n'])).round(1)
+        out_df[pol_str+'_transpoor_cons_frac_5yr'] = (1E2*(_df.loc[transient_poor_cons&(_df.t_pov_cons<=5),'pcwgt'].sum(level=event_level)/out_df[pol_str+'_transpoor_cons_n'])).round(1)
+        out_df[pol_str+'_midclassdrop_inc_frac_5yr']  = (1E2*(_df.loc[middleclass_dropout_inc&(_df.t_mc_inc>5),'pcwgt'].sum(level=event_level)/out_df[pol_str+'_midclassdrop_inc_n'])).round(1)
+        out_df[pol_str+'_midclassdrop_cons_frac_5yr'] = (1E2*(_df.loc[middleclass_dropout_cons&(_df.t_mc_cons>5),'pcwgt'].sum(level=event_level)/out_df[pol_str+'_midclassdrop_cons_n'])).round(1)
+
+    out_df.sort_index(inplace=True)
+    out_df.to_csv('../output_country/{}/recovery_dynamics.csv'.format(myC))
+    return out_df
+
+
+
+
+
+
+
+
+
+
+
+def plot_recovery(myC,frac=True,_fontsize=7):
+    
+
+    hack_for_slides = True
+    if hack_for_slides: _fontsize = 10
+    
+
+    recovery_times = load_recovery_times(myC,'Region')
+    recovery_times = recovery_times.reset_index()
+
+    _spacing = 2.5
+    _wid = 0.99
+    csetA = 4
+    csetB = 0
+    
+    for _fom in ['inc','cons']:
+        for _haz in ['EQ','PF']:
+            for _rp in [50,200]:
+
+                _rt = recovery_times.loc[(recovery_times.hazard==_haz)&(recovery_times.rp==_rp)].copy()
+                
+                if hack_for_slides:
+                    _rt = _rt.loc[(_rt.Region=='Bucharest-Ilfov')|(_rt.Region=='South-East')].copy()
+                    plt.figure(figsize=(6,2))
+
+                if frac:
+                    # How to sort?
+                    _rt['sort_order'] = _rt[['no_transpoor_{}_frac_2yr'.format(_fom),'no_midclassdrop_{}_frac_2yr'.format(_fom)]].sum(axis=1)
+                    #_rt['sort_order'] = _rt[['no_midclassdrop_inc_frac_2yr']].sum(axis=1).copy()
+                    _rt = _rt.sort_values('sort_order',ascending=True)
+
+                    ax = plt.gca()
+
+                    for _pol in ['no']:
+                        ax.barh([_spacing*ii for ii in range(len(_rt.index))],_rt[_pol+'_transpoor_{}_frac_1yr'.format(_fom)],color=sns_pal[csetA],alpha=0.9,label='',height=_wid)
+                        ax.barh([_spacing*ii+1 for ii in range(len(_rt.index))],_rt[_pol+'_midclassdrop_{}_frac_1yr'.format(_fom)],color=sns_pal[csetB],alpha=0.9,label='',height=_wid)
+                        #
+                        ax.barh([_spacing*ii for ii in range(len(_rt.index))],(_rt[_pol+'_transpoor_{}_frac_2yr'.format(_fom)]-_rt[_pol+'_transpoor_{}_frac_1yr'.format(_fom)]),
+                                color=sns_pal[csetA+1],alpha=0.7,label='',left=_rt[_pol+'_transpoor_{}_frac_1yr'.format(_fom)],height=_wid)
+                        ax.barh([_spacing*ii+1 for ii in range(len(_rt.index))],(_rt[_pol+'_midclassdrop_{}_frac_2yr'.format(_fom)]-_rt[_pol+'_midclassdrop_{}_frac_1yr'.format(_fom)]),
+                                color=sns_pal[csetB+1],alpha=0.7,label='',left=_rt[_pol+'_midclassdrop_{}_frac_1yr'.format(_fom)],height=_wid)
+                        #
+                        ax.barh([_spacing*ii for ii in range(len(_rt.index))],(_rt[_pol+'_transpoor_{}_frac_5yr'.format(_fom)]-_rt[_pol+'_transpoor_{}_frac_2yr'.format(_fom)]),
+                                color=sns_pal[csetA+2],alpha=0.5,label='',left=_rt[_pol+'_transpoor_{}_frac_2yr'.format(_fom)],height=_wid)
+                        ax.barh([_spacing*ii+1 for ii in range(len(_rt.index))],(_rt[_pol+'_midclassdrop_{}_frac_5yr'.format(_fom)]-_rt[_pol+'_midclassdrop_{}_frac_2yr'.format(_fom)]),
+                                color=sns_pal[csetB+2],alpha=0.5,label='',left=_rt[_pol+'_midclassdrop_{}_frac_2yr'.format(_fom)],height=_wid)
+                        #
+                        ax.barh([_spacing*ii for ii in range(len(_rt.index))],(100-_rt[_pol+'_transpoor_{}_frac_5yr'.format(_fom)]),
+                                color=sns_pal[csetA+3],alpha=0.3,label='',left=_rt[_pol+'_transpoor_{}_frac_5yr'.format(_fom)],height=_wid)
+                        ax.barh([_spacing*ii+1 for ii in range(len(_rt.index))],(100-_rt[_pol+'_midclassdrop_{}_frac_5yr'.format(_fom)]),
+                                color=sns_pal[csetB+3],alpha=0.3,label='',left=_rt[_pol+'_midclassdrop_{}_frac_5yr'.format(_fom)],height=_wid)
+
+
+                else:
+                    # How to sort?
+                    _rt['sort_order'] = (_rt[['no_transpoor_{}_frac_2yr'.format(_fom),'no_transpoor_{}_n'.format(_fom)]].prod(axis=1)
+                                         +_rt[['no_midclassdrop_{}_frac_2yr'.format(_fom),'no_midclassdrop_{}_n'.format(_fom)]].prod(axis=1))
+
+                    _rt = _rt.sort_values('sort_order',ascending=True)
+
+                    ax = plt.gca()
+
+                    for _pol in ['no']:
+
+                        result_P5 = 1E-3*1E-2*_rt[[_pol+'_transpoor_{}_frac_5yr'.format(_fom),_pol+'_transpoor_{}_n'.format(_fom)]].prod(axis=1)
+                        result_M5 = 1E-3*1E-2*_rt[[_pol+'_midclassdrop_{}_frac_5yr'.format(_fom),_pol+'_midclassdrop_{}_n'.format(_fom)]].prod(axis=1)
+                        result_P2 = 1E-3*1E-2*_rt[[_pol+'_transpoor_{}_frac_2yr'.format(_fom),_pol+'_transpoor_{}_n'.format(_fom)]].prod(axis=1)
+                        result_M2 = 1E-3*1E-2*_rt[[_pol+'_midclassdrop_{}_frac_2yr'.format(_fom),_pol+'_midclassdrop_{}_n'.format(_fom)]].prod(axis=1)
+                        result_P1 = 1E-3*1E-2*_rt[[_pol+'_transpoor_{}_frac_1yr'.format(_fom),_pol+'_transpoor_{}_n'.format(_fom)]].prod(axis=1)
+                        result_M1 = 1E-3*1E-2*_rt[[_pol+'_midclassdrop_{}_frac_1yr'.format(_fom),_pol+'_midclassdrop_{}_n'.format(_fom)]].prod(axis=1)
+                        result_P10 = 1E-3*1E-2*_rt[_pol+'_transpoor_{}_n'.format(_fom)]
+                        result_M10 = 1E-3*1E-2*_rt[_pol+'_midclassdrop_{}_n'.format(_fom)]
+
+                        ax.barh([_spacing*ii for ii in range(len(_rt.index))],(result_P5-result_P2),color=sns_pal[csetA],alpha=0.9,label='',left=0,height=_wid)
+                        ax.barh([_spacing*ii+1 for ii in range(len(_rt.index))],(result_M5-result_M2),color=sns_pal[csetB],alpha=0.9,label='',left=0,height=_wid)
+                        #
+                        ax.barh([_spacing*ii for ii in range(len(_rt.index))],(result_P2-result_P1),color=sns_pal[csetA+1],alpha=0.7,label='',left=(result_P5-result_P2),height=_wid)
+                        ax.barh([_spacing*ii+1 for ii in range(len(_rt.index))],(result_M2-result_M1),color=sns_pal[csetB+1],alpha=0.7,label='',left=(result_M5-result_M2),height=_wid)
+                        #
+                        ax.barh([_spacing*ii for ii in range(len(_rt.index))],result_P1,color=sns_pal[csetA+2],alpha=0.3,label='',left=(result_P5-result_P1),height=_wid)
+                        ax.barh([_spacing*ii+1 for ii in range(len(_rt.index))],result_M1,color=sns_pal[csetB+2],alpha=0.3,label='',left=(result_M5-result_M1),height=_wid)
+                        #
+                        #ax.barh([_spacing*ii for ii in range(len(_rt.index))],(result_P10-result_P5),color=sns_pal[csetA+3],alpha=0.3,label='',left=result_P5,height=_wid)
+                        #ax.barh([_spacing*ii+1 for ii in range(len(_rt.index))],(result_M10-result_M5),color=sns_pal[csetB+3],alpha=0.3,label='',left=result_M5,height=_wid)
+
+                
+                peg_hbar = -1
+                peg_hbar_xvals = []
+                peg_hbar_xvals2 = []
+                
+                # find hbar on top
+                for rect in ax.patches:
+                    if rect.get_y() >= peg_hbar: peg_hbar = rect.get_y()
+
+                # find x vals for top hbar
+                for rect in ax.patches:
+                    if rect.get_y() == peg_hbar: peg_hbar_xvals.append(rect.get_width())
+                    if rect.get_y() == peg_hbar-1: peg_hbar_xvals2.append(rect.get_width())
+                
+                ann_x = 0
+                if frac: _labs = ['first year','2 years','5 years','> 5 years']
+                else: _labs = ['2-5 years','1-2 years','First year\nafter disaster']
+
+                _cols = [greys_pal[0],greys_pal[0],greys_pal[7],greys_pal[7]]
+                for _n,_ in enumerate(peg_hbar_xvals):
+                    ann_x += _
+                    if frac: plt.annotate(_labs[_n],xy=(ann_x-0.5,peg_hbar+_wid/2),size=_fontsize,color=_cols[_n],ha='right',va='center',weight='bold')
+                    else: plt.annotate(_labs[_n],xy=(ann_x-2.5,peg_hbar+_wid/2),size=_fontsize,color=_cols[_n],ha='right',va='center',weight='bold')
+
+
+                if frac:
+                    plt.annotate('transient poor',xy=(100-0.5,peg_hbar+_wid/2),ha='right',va='center',size=_fontsize,color=greys_pal[8])
+                    plt.annotate('middle class',xy=(100-0.5,peg_hbar+_wid/2+1),ha='right',va='center',size=_fontsize,color=greys_pal[8])
+                else: 
+                    plt.annotate('into poverty',xy=(sum(peg_hbar_xvals2),peg_hbar+_wid/2-1),xytext=(0.999*plt.xlim()[1],peg_hbar+_wid/2-1),
+                                 ha='left',va='center',size=_fontsize,color=greys_pal[8],clip_on=False,weight='bold',
+                                 arrowprops=dict(arrowstyle="-",connectionstyle="arc3,rad=0.",color=greys_pal[5]))
+                    plt.annotate('from\nmiddle class',xy=(ann_x,peg_hbar+_wid/2),xytext=(0.999*plt.xlim()[1],peg_hbar+_wid/2),
+                                 ha='left',va='center',size=_fontsize,color=greys_pal[8],clip_on=False,weight='bold',
+                                 arrowprops=dict(arrowstyle="-",connectionstyle="arc3,rad=0.",color=greys_pal[5]))
+
+                plt.yticks([_spacing*ii+0.5 for ii in range(len(_rt.index))],size=_fontsize)
+                
+                ax.tick_params(axis='y', which='major', pad=10,rotation=0)
+                ax.set_yticklabels(_rt['Region'].squeeze(),size=_fontsize,color=greys_pal[8],weight='bold')
+                ax.tick_params(axis=u'y', which=u'both',length=0)
+                
+                if frac: 
+                    plt.xlabel('Fraction of population recovered [%]',labelpad=10,size=_fontsize)
+                    plt.xticks([0,20,40,60,80,100],size=_fontsize)
+
+                else: plt.xlabel('Individuals displaced [thousands]',labelpad=10,size=_fontsize,weight='bold')
+
+                #ax.legend(loc='upper left',bbox_to_anchor=(0.05,0.95))
+
+                plt.grid(False)
+                sns.despine()
+                plt.gcf().savefig('../output_plots/{}/recovery_'.format(myC)+('fractions' if frac else 'count')+'_{}_{}_{}.pdf'.format(_haz,_rp,_fom),format='pdf',bbox_inches='tight')
+                plt.close('all')            
+
+
+plot_recovery('RO',frac=True)
+plot_recovery('RO',frac=False)

@@ -92,8 +92,9 @@ except:
 _hh['dc_post_reco'] = 0
 
 # k recovery
-const_dk_reco = float(_hh['hh_reco_rate'])
-const_dk_reco_time = np.log(1/0.05)/float(_hh['hh_reco_rate'])
+toy = 50.
+const_dk_reco = float(_hh['hh_reco_rate'])/toy
+const_dk_reco_time = (np.log(1/0.05)/float(_hh['hh_reco_rate']))*toy
 const_pds     = (np.log(1/0.05)/3.)*2. # PDS consumed in first half year of recovery 
 const_prod_k  = float(macro.avg_prod_k.mean())
 
@@ -139,7 +140,7 @@ for t in t_lins:
 plt.fill_between(t_lins,0,w_t,color=sns_pal[1])
 plt.draw()
 plt.xlim(0,4)
-plt.xlabel(r'Time $t$ after disaster ($\tau_h \equiv$ '+str(round(const_dk_reco_time,2))+') [years]')
+plt.xlabel(r'Time $t$ after disaster ($\tau_h \equiv$ '+str(int(round(const_dk_reco_time,0)))+') [years]')
 plt.ylabel('Welfare loss')
 #plt.ylim(0,-.1)
 fig=plt.gcf()
@@ -151,12 +152,12 @@ plt.cla()
 
 # Lost income from capital
 plt.fill_between(t_lins,c_t,[i-j for i,j in zip(c_t,dc_k_t)],facecolor=reds_pal[3],alpha=0.45)
-plt.scatter(0,c_t[0]-dc_k_t[0],color=reds_pal[3],zorder=100)
+#plt.scatter(0,c_t[0]-dc_k_t[0],color=reds_pal[3],zorder=100)
 plt.annotate('Income\nlosses',[-0.50,(c_t[0]+(c_t[0]-dc_k_t[0]))/2.],fontsize=8,ha='center',va='center')
 
 # Reconstruction costs
 plt.fill_between(t_lins,[i-j for i,j in zip(c_t,dc_k_t)],[i-j-k for i,j,k in zip(c_t,dc_k_t,dc_reco_t)],facecolor=reds_pal[4],alpha=0.45)
-plt.scatter(0,c_t[0]-dc_k_t[0]-dc_reco_t[0],color=reds_pal[4],zorder=100)
+#plt.scatter(0,c_t[0]-dc_k_t[0]-dc_reco_t[0],color=reds_pal[4],zorder=100)
 plt.annotate('Reconstruction\ncosts',[-0.50,((c_t[0]-dc_k_t[0])+(c_t[0]-dc_k_t[0]-dc_reco_t[0]))/2.],fontsize=8,ha='center',va='center')
 
 # PDS
@@ -167,12 +168,12 @@ net_c_t = [i-j-k+l for i,j,k,l in zip(c_t,dc_k_t,dc_reco_t,dc_pds_t)]
 plt.plot(t_lins,net_c_t,ls=':',color=reds_pal[8])
 
 # savings usage
-plt.plot([t_lins[0],t_lins[10]],[savings_usage,savings_usage],color=greys_pal[7])
-plt.fill_between(t_lins[:7],[savings_usage for i in t_lins[:7]],net_c_t[:7],facecolor=greys_pal[4])
+#plt.plot([t_lins[0],t_lins[10]],[savings_usage,savings_usage],color=greys_pal[7])
+#plt.fill_between(t_lins[:7],[savings_usage for i in t_lins[:7]],net_c_t[:7],facecolor=greys_pal[4])
 
 
 # poverty line
-plt.plot([-10,t_lins[-1]],[_hh.pov_line,_hh.pov_line])
+#plt.plot([-10,t_lins[-1]],[_hh.pov_line,_hh.pov_line])
 
 # Draw c
 plt.plot([-1,5],[c,c],color=greys_pal[8])
@@ -180,10 +181,10 @@ plt.plot([-1,5],[c,c],color=greys_pal[8])
 plt.xlim(-1,4)
 #plt.ylim((c-dc0)*0.98,c*1.02)
 
-plt.xlabel(r'Time $t$ after disaster ($\tau_h \equiv$ '+str(round(const_dk_reco_time,2))+') [years]')
+plt.xlabel(r'Time $t$ after disaster ($\tau_h \equiv$ '+str(int(round(const_dk_reco_time,0)))+') [years]')
 plt.ylabel(r'Household consumption ($c_h$)')
 plt.xticks([-1,0,1,2,3,4],['-1',r'$t_0$','1','2','3','4'])
-plt.yticks([float(_hh['pov_line']),c_t[0]],['Poverty\nline',r'$c_0$'])
+plt.yticks([c_t[0]],[r'$c_0$'])
 
 plt.draw()
 fig=plt.gcf()
@@ -264,6 +265,9 @@ plt.yticks([k_t[0]],[r'$k_h$'])
 plt.draw()
 fig=plt.gcf()
 fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/dk.pdf',format='pdf')
+assert(False)
+
+
 
 summary_df = pd.read_csv('debug/my_summary_no.csv').reset_index()
 summary_df = summary_df.loc[summary_df.rp!=2000].sort_values(by=['hazard','region','rp'])

@@ -33,7 +33,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     ########################################################
     ########################################################
 
-    # How is it paid for?
+    # How is post-disaster support (if disbursed) paid for?
     # --> 'tax' = based on income
     # --> 'insurance_premium' = based on vulnerability
     optionFee = 'tax'
@@ -70,10 +70,10 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     nat_economy   = 'national'
     global economy
     economy       = get_economic_unit(myCountry)
-    event_level   = [economy, 'hazard', 'rp']                            #levels of index at which one event happens
-    default_rp    = 'default_rp'                                         #return period to use when no rp is provided (mind that this works with protection)
-    income_cats   = 'hhid'                                               #categories of households
-    affected_cats = pd.Index(['a', 'na'], name='affected_cat')           #categories for social protection
+    event_level   = [economy, 'hazard', 'rp']                            # levels of index that define hazard scope ... eg: 50-year flood in Manila 
+    default_rp    = 'default_rp'                                         # return period to use when no rp is provided (mind that this works with protection)
+    income_cats   = 'hhid'                                               # each household is independent simulation, where before we had poor & non-poor
+    affected_cats = pd.Index(['a', 'na'], name='affected_cat')           # categories for social protection
     helped_cats   = pd.Index(['helped','not_helped'], name='helped_cat')
 
     is_local_welfare = False
@@ -223,19 +223,32 @@ if __name__ == '__main__':
         #special_event = 'Idai'
 
     elif myCountry == 'RO':
-        pds_str = ['no','unif_poor']
-        pol_str = ['']
+        pds_str = ['unif_poor','unif_poor_only','unif_poor_q12']#'social_scaleup','no']
+        pol_str = ['']#'_pcinc_p_110','_exp095','_increase_social','_protection_5yr','_protection_10yr','_protection_20yr','_social_scaleup','_vul070p','_exr095','_ew100']
 
     elif myCountry == 'BO':
         pds_str = ['no','unif_poor']
         pol_str = ['']
+
+    else: 
+        pds_str = ['no']
+        pol_str = ['']
+
+
+
     # These lines launch
     if debug:
         print('Running in debug (+PH) mode!')
         launch_compute_resilience_and_risk_thread(myCountry,'','no',special_event)
     elif myCountry == 'PH':
-        for _pds in pds_str: launch_compute_resilience_and_risk_thread(myCountry,'',_pds)
+        #for _pds in pds_str: launch_compute_resilience_and_risk_thread(myCountry,'',_pds)
+        launch_compute_resilience_and_risk_thread(myCountry,'','no')
+
+        for _pol in ['accelerate_reco_75']: 
+            launch_compute_resilience_and_risk_thread(myCountry,_pol,'no')
+
+
     else:
-        with Pool(processes=3,maxtasksperchild=1) as pool:
-            print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str,special_event)))
-            pool.starmap(launch_compute_resilience_and_risk_thread, list(product([myCountry],pol_str,pds_str,special_event)))
+        with Pool(processes=2,maxtasksperchild=1) as pool:
+            print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))
+            pool.starmap(launch_compute_resilience_and_risk_thread, list(product([myCountry],pol_str,pds_str)))

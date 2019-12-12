@@ -27,8 +27,12 @@ from libraries.replace_with_warning import *
 from libraries.lib_agents import optimize_reco
 from libraries.lib_urban_plots import run_urban_plots
 from libraries.lib_sp_analysis import run_sp_analysis
-from special_events.cyclone_idai_mw import get_idai_loss
+from libraries.lib_gather_data import *
+from libraries.lib_make_regional_inputs_summary_table import *
 from libraries.lib_drought import get_agricultural_vulnerability_to_drought, get_ag_value
+#
+from special_events.cyclone_idai_mw import get_idai_loss
+#
 warnings.filterwarnings('always',category=UserWarning)
 
 #####################################
@@ -65,6 +69,7 @@ event_level = [economy, 'hazard', 'rp']
 df = get_places(myCountry)
 prov_code,region_code = get_places_dict(myCountry)
 
+
 ###Define parameters, all coming from lib_country_dir
 df['avg_prod_k']             = get_avg_prod(myCountry) # average productivity of capital, value from the global resilience model
 df['shareable']              = nominal_asset_loss_covered_by_PDS # target of asset losses to be covered by scale up
@@ -90,28 +95,6 @@ cat_info = load_survey_data(myCountry)
 run_urban_plots(myCountry,cat_info.copy())
 print('Survey population:',cat_info.pcwgt.sum())
 
-#  below is messy--should be in <load_survey_data>
-if myCountry == 'PH':
-    
-    # Standardize province info
-    get_hhid_FIES(cat_info)
-    cat_info = cat_info.rename(columns={'w_prov':'province','w_regn':'region'}).reset_index()
-    cat_info['province'].replace(prov_code,inplace=True)     
-    cat_info['region'].replace(region_code,inplace=True)
-    cat_info = cat_info.reset_index().set_index(economy).drop(['index','level_0'],axis=1)
-
-    # There's no region info in df--put that in...
-    df = df.reset_index().set_index('province')
-    cat_info = cat_info.reset_index().set_index('province')
-    df['region'] = cat_info[~cat_info.index.duplicated(keep='first')].region
-
-    try: df.reset_index()[['province','region']].to_csv('../inputs/PH/prov_to_reg_dict.csv',header=True)
-    except: print('Could not update regional-provincial dict')
-
-    # Manipulate PSA (non-FIES) dataframe
-    df = df.reset_index().set_index(economy)
-    df['psa_pop'] = df.sum(level=economy)
-    df = df.mean(level=economy)
 
 cat_info = cat_info.reset_index().set_index([economy,'hhid'])
 try: cat_info = cat_info.drop('index',axis=1)
@@ -273,8 +256,6 @@ if myCountry == 'FJ' or myCountry == 'RO' or myCountry == 'SL':
     df = df.reset_index()
     if myCountry == 'FJ' or myCountry == 'SL':
         df[economy] = df[economy].replace(prov_code)
-    if myCountry == 'RO':
-        df[economy] = df[economy].astype('int').replace(region_code)
 
     df = df.reset_index().set_index([economy])
     try: df = df.drop(['index'],axis=1)
@@ -340,7 +321,7 @@ cat_info =cat_info.dropna()
 
 # Cleanup dfs for writing out
 cat_info_col = [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','np','score','v','v_ag','c','pcinc_ag_gross',
-                'pcsoc','social','c_5','hhsize','ethnicity','hhsize_ae','gamma_SP','k','quintile','ispoor','isrural','issub',
+                'pcsoc','social','c_5','hhsize','ethnicity','hhsize_ae','gamma_SP','k','quintile','ispoor','ismiddleclass','isrural','issub',
                 'pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds','has_ew',
                 'SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin','pcsamurdhi','gsp_samurdhi','frac_remittance','N_children']
 cat_info = cat_info.drop([i for i in cat_info.columns if (i in cat_info.columns and i not in cat_info_col)],axis=1)
@@ -402,6 +383,9 @@ if myCountry == 'PH':
 
     df_haz['value_destroyed'] = df_haz[['value_destroyed_prv','value_destroyed_pub']].sum(axis=1)
     df_haz['hh_share'] = (df_haz['value_destroyed_prv']/df_haz['value_destroyed']).fillna(1.)
+    
+    df_haz.to_csv('~/Desktop/hh_share.csv')
+    #assert(False)
     # Weird things can happen for rp=2000 (negative losses), but they're < 10E-5, so we don't worry much about them
     #df_haz.loc[df_haz.hh_share>1.].to_csv('~/Desktop/hh_share.csv')
 
@@ -467,7 +451,7 @@ if myCountry == 'SL': hazard_ratios['frac_destroyed'] = hazard_ratios[['v','fa']
 if myCountry == 'RO': 
     # This is slightly tricky...
     # For RO, we're using different hazard inputs for EQ and PF, and that's why they're treated differently below
-    # NB: these inputs come from the library lib_collect_hazard_data_RO 
+    # NB: these inputs come from the library lib_collect_hazard_data_RO (this script doesn't get called)
     hazard_ratios.loc[hazard_ratios.hazard=='EQ','frac_destroyed'] = hazard_ratios.loc[hazard_ratios.hazard=='EQ','fa'].copy()
     # ^ EQ hazard is based on "caploss", which is total losses expressed as fraction of total capital stock (currently using gross, but could be net?) 
     hazard_ratios.loc[hazard_ratios.hazard=='PF','frac_destroyed'] = hazard_ratios.loc[hazard_ratios.hazard=='PF',['v','fa']].prod(axis=1)
@@ -620,21 +604,21 @@ _rho = float(df['rho'].mean())
 print('Running hh_reco_rate optimization')
 hazard_ratios['hh_reco_rate'] = 0
 
-v_to_reco_rate = {}
-try:
-    v_to_reco_rate = pickle.load(open('../optimization_libs/'+myCountry+('_'+special_event if special_event != None else '')+'_v_to_reco_rate.p','rb'))
-    #pickle.dump(v_to_reco_rate, open('../optimization_libs/'+myCountry+'_v_to_reco_rate_proto2.p', 'wb'),protocol=2)
-except: print('Was not able to load v to hh_reco_rate library from ../optimization_libs/'+myCountry+'_v_to_reco_rate.p')
+if True:
+    v_to_reco_rate = {}
+    try:
+        v_to_reco_rate = pickle.load(open('../optimization_libs/'+myCountry+('_'+special_event if special_event != None else '')+'_v_to_reco_rate.p','rb'))
+        #pickle.dump(v_to_reco_rate, open('../optimization_libs/'+myCountry+'_v_to_reco_rate_proto2.p', 'wb'),protocol=2)
+    except: print('Was not able to load v to hh_reco_rate library from ../optimization_libs/'+myCountry+'_v_to_reco_rate.p')
 
-hazard_ratios.loc[hazard_ratios.index.duplicated(keep=False)].to_csv('~/Desktop/tmp/dupes.csv')
-assert(hazard_ratios.loc[hazard_ratios.index.duplicated(keep=False)].shape[0]==0)
+    hazard_ratios.loc[hazard_ratios.index.duplicated(keep=False)].to_csv('~/Desktop/tmp/dupes.csv')
+    assert(hazard_ratios.loc[hazard_ratios.index.duplicated(keep=False)].shape[0]==0)
 
-hazard_ratios['hh_reco_rate'] = hazard_ratios.apply(lambda x:optimize_reco(v_to_reco_rate,_pi,_rho,x['v']),axis=1)
-try: 
-    pickle.dump(v_to_reco_rate,open('../optimization_libs/'+myCountry+('_'+special_event if special_event != None else '')+'_v_to_reco_rate.p','wb'))
-    print('gotcha')
-except: print('didnt getcha')
-
+    hazard_ratios['hh_reco_rate'] = hazard_ratios.apply(lambda x:optimize_reco(v_to_reco_rate,_pi,_rho,x['v']),axis=1)
+    try: 
+        pickle.dump(v_to_reco_rate,open('../optimization_libs/'+myCountry+('_'+special_event if special_event != None else '')+'_v_to_reco_rate.p','wb'))
+        print('gotcha')
+    except: print('didnt getcha')
 
 #except:
 #    for _n, _i in enumerate(hazard_ratios.index):
@@ -669,7 +653,10 @@ cat_info, hazard_ratios = get_asset_infos(myCountry,cat_info,hazard_ratios,df_ha
 df.to_csv(intermediate+'/macro'+('_'+special_event if special_event is not None else '')+'.csv',encoding='utf-8', header=True,index=True)
 
 cat_info = cat_info.drop([icol for icol in ['level_0','index'] if icol in cat_info.columns],axis=1)
-#cat_info = cat_info.drop([i for i in ['province'] if i != economy],axis=1)
+
+try: make_regional_inputs_summary_table(myCountry,cat_info.copy()) # this is for PH
+except: pass
+
 cat_info.to_csv(intermediate+'/cat_info'+('_'+special_event if special_event is not None else '')+'.csv',encoding='utf-8', header=True,index=True)
 
 
@@ -693,4 +680,4 @@ summary_df.to_csv(intermediate+'/gdp.csv')
 ##############
 # Write out hazard ratios
 hazard_ratios= hazard_ratios.drop(['frac_destroyed','grdp_to_assets'],axis=1).drop(["flood_fluv_def"],level="hazard")
-hazard_ratios.to_csv(intermediate+'/hazard_ratios'+('_'+special_event if special_event is not None else '')+'.csv',encoding='utf-8', header=True)
+hazard_ratios.dropna().to_csv(intermediate+'/hazard_ratios'+('_'+special_event if special_event is not None else '')+'.csv',encoding='utf-8', header=True)

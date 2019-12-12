@@ -97,8 +97,9 @@ except:
 _hh['dc_post_reco'] = 0
 
 # k recovery
-const_dk_reco = float(_hh['hh_reco_rate'])
-const_dk_reco_time = np.log(1/0.05)/float(_hh['hh_reco_rate'])
+_toy = 10.
+const_dk_reco = float(_hh['hh_reco_rate'])/_toy
+const_dk_reco_time = np.log(1/0.05)/float(_hh['hh_reco_rate'])*_toy
 #const_pds     = (np.log(1/0.05)/3.)*2. # PDS consumed in first half year of recovery 
 const_prod_k  = float(macro.avg_prod_k.mean())
 
@@ -106,9 +107,9 @@ print(_hh.head())
 
 c   = float(_hh['c'])
 di0 = float(_hh['di0'])
-dc0 = float(_hh['dc0'])
+dc0 = float(_hh['dc0']) t
 #pds = float(_hh['help_received'])*3
-savings_usage = dc0*0.5
+savings_usage = dc0*0.82
 
 k     = float(_hh['k'])
 
@@ -130,10 +131,10 @@ t_lins = np.linspace(0,10,200)
 for t in t_lins:
     c_t.append(c)
 
-    dc1 = di0*np.e**(-(t)*const_dk_reco)
+    dc1 = di0*np.e**(-(t)*const_dk_reco)-c*(np.e**(0.000*t)-1)
     dc_k_t.append(dc1)
 
-    dc2 = dkprv*const_dk_reco*np.e**(-(t)*const_dk_reco)
+    dc2 = dkprv*const_dk_reco*np.e**(-(t)*const_dk_reco)-c*(np.e**(0.000*t)-1)
     dc_reco_t.append(dc2)
 
     #dc3 = pds*const_pds*np.e**(-(t)*const_pds)
@@ -163,13 +164,14 @@ plt.annotate('Income\nlosses',[-0.14,(c_t[0]+(c_t[0]-dc_k_t[0]))/2.],fontsize=9,
 
 # Arrow shaft
 _ao = 800
-plt.plot([-.10,-.10],[c_t[0],c_t[0]-dc_k_t[0]+_ao],color=rdbu_pal[1],alpha=1.0,zorder=100)
-# top head
-plt.plot([-.12,-.10],[0.99*c_t[0],c_t[0]],color=rdbu_pal[1],alpha=1.0,zorder=100)
-plt.plot([-.08,-.10],[0.99*c_t[0],c_t[0]],color=rdbu_pal[1],alpha=1.0,zorder=100)
-# bottom head
-plt.plot([-.12,-.10],[1.01*(c_t[0]-dc_k_t[0]+_ao),(c_t[0]-dc_k_t[0]+_ao)],color=rdbu_pal[1],alpha=1.0,zorder=100)
-plt.plot([-.08,-.10],[1.01*(c_t[0]-dc_k_t[0]+_ao),(c_t[0]-dc_k_t[0]+_ao)],color=rdbu_pal[1],alpha=1.0,zorder=100)
+if _toy == 1:
+    plt.plot([-.10,-.10],[c_t[0],c_t[0]-dc_k_t[0]+_ao],color=rdbu_pal[1],alpha=1.0,zorder=100)
+    # top head
+    plt.plot([-.12,-.10],[0.99*c_t[0],c_t[0]],color=rdbu_pal[1],alpha=1.0,zorder=100)
+    plt.plot([-.08,-.10],[0.99*c_t[0],c_t[0]],color=rdbu_pal[1],alpha=1.0,zorder=100)
+    # bottom head
+    plt.plot([-.12,-.10],[1.01*(c_t[0]-dc_k_t[0]+_ao),(c_t[0]-dc_k_t[0]+_ao)],color=rdbu_pal[1],alpha=1.0,zorder=100)
+    plt.plot([-.08,-.10],[1.01*(c_t[0]-dc_k_t[0]+_ao),(c_t[0]-dc_k_t[0]+_ao)],color=rdbu_pal[1],alpha=1.0,zorder=100)
 
 # Reconstruction costs
 plt.fill_between(t_lins,[i-j for i,j in zip(c_t,dc_k_t)],[i-j-k for i,j,k in zip(c_t,dc_k_t,dc_reco_t)],facecolor=rdbu_pal[2],alpha=0.45)
@@ -179,53 +181,57 @@ y_tmpA = c_t[0]-dc_k_t[0]-_ao
 y_tmpB = c_t[0]-dc_k_t[0]-dc_reco_t[0]
 plt.annotate('Reconstruction\ncosts',[-0.14,(y_tmpA+y_tmpB)/2.],fontsize=9,ha='right',va='center',weight='bold')
 
-# Arrow shaft
-plt.plot([-.10,-.10],[y_tmpA,y_tmpB],color=rdbu_pal[2],alpha=1.0)
-# top head
-plt.plot([-.12,-.10],[0.99*y_tmpA,y_tmpA],color=rdbu_pal[2],alpha=1.0)
-plt.plot([-.08,-.10],[0.99*y_tmpA,y_tmpA],color=rdbu_pal[2],alpha=1.0)
-# bottom head
-plt.plot([-.12,-.10],[1.08*y_tmpB,y_tmpB],color=rdbu_pal[2],alpha=1.0)
-plt.plot([-.08,-.10],[1.08*y_tmpB,y_tmpB],color=rdbu_pal[2],alpha=1.0)
+if _toy == 1:
+    # Arrow shaft
+    plt.plot([-.10,-.10],[y_tmpA,y_tmpB],color=rdbu_pal[2],alpha=1.0)
+    # top head
+    plt.plot([-.12,-.10],[0.99*y_tmpA,y_tmpA],color=rdbu_pal[2],alpha=1.0)
+    plt.plot([-.08,-.10],[0.99*y_tmpA,y_tmpA],color=rdbu_pal[2],alpha=1.0)
+    # bottom head
+    plt.plot([-.12,-.10],[1.08*y_tmpB,y_tmpB],color=rdbu_pal[2],alpha=1.0)
+    plt.plot([-.08,-.10],[1.08*y_tmpB,y_tmpB],color=rdbu_pal[2],alpha=1.0)
 
-plt.gca().add_patch(patches.Rectangle((2.13,c_t[0]-1.44*dc_reco_t[26]),1.74,25000,facecolor='white',zorder=98,clip_on=False,ec=greys_pal[5]))
-plt.gca().annotate('Area = lost productivity of\n             destroyed assets',
-                   xy=(0.50,c_t[0]-dc_reco_t[45]), xycoords='data',
-                   xytext=(2.20,c_t[0]-dc_reco_t[26]), textcoords='data', fontsize=10,
-                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.05",lw=1.5),
-                   ha='left',va='center',zorder=99)
-
-plt.gca().add_patch(patches.Rectangle((1.08,c_t[0]-1.12*dc_reco_t[15]),2.49,15000,facecolor='white',zorder=98,clip_on=False,ec=greys_pal[5]))
-plt.gca().annotate(r'Area = total value of destroyed assets',
-                   xy=(0.50,c_t[0]-dc_reco_t[15]), xycoords='data',
-                   xytext=(1.15,c_t[0]-dc_reco_t[15]), textcoords='data', fontsize=10,
-                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.05",lw=1.5),
-                   ha='left',va='center',zorder=99)
+    plt.gca().add_patch(patches.Rectangle((2.13,c_t[0]-1.44*dc_reco_t[26]),1.74,25000,facecolor='white',zorder=98,clip_on=False,ec=greys_pal[5]))
+    plt.gca().annotate('Area = lost productivity of\n             destroyed assets',
+                       xy=(0.50,c_t[0]-dc_reco_t[45]), xycoords='data',
+                       xytext=(2.20,c_t[0]-dc_reco_t[26]), textcoords='data', fontsize=10,
+                       arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.05",lw=1.5),
+                       ha='left',va='center',zorder=99)
+    
+    plt.gca().add_patch(patches.Rectangle((1.08,c_t[0]-1.12*dc_reco_t[15]),2.49,15000,facecolor='white',zorder=98,clip_on=False,ec=greys_pal[5]))
+    plt.gca().annotate(r'Area = total value of destroyed assets',
+                       xy=(0.50,c_t[0]-dc_reco_t[15]), xycoords='data',
+                       xytext=(1.15,c_t[0]-dc_reco_t[15]), textcoords='data', fontsize=10,
+                       arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.05",lw=1.5),
+                       ha='left',va='center',zorder=99)
 
 # C net of everything except savings 
 net_c_t = [i-j-k for i,j,k in zip(c_t,dc_k_t,dc_reco_t)]
 
 # savings usage
-plt.plot([t_lins[0],t_lins[7]],[savings_usage,savings_usage],color=greys_pal[7])
-plt.fill_between(t_lins[:8],[savings_usage for i in t_lins[:8]],net_c_t[:8],facecolor='none',edgecolor=rdbu_pal[9],hatch="XX",linewidth=1,zorder=90)
+#plt.plot([t_lins[0],t_lins[7]],[savings_usage,savings_usage],color=greys_pal[7])
+#plt.fill_between(t_lins[:8],[savings_usage for i in t_lins[:8]],net_c_t[:8],facecolor='none',edgecolor=rdbu_pal[9],hatch="XX",linewidth=1,zorder=90)
 
-plt.gca().add_patch(patches.Rectangle((0.73,0.84*savings_usage),2.35,15000,facecolor='white',zorder=98,clip_on=False,linewidth=1,ec=greys_pal[5]))
-plt.gca().annotate(r'Area = total value of savings + PDS',
-                   xy=(0.10,0.9*savings_usage), xycoords='data',
-                   xytext=(0.80,0.9*savings_usage), textcoords='data', fontsize=10,
-                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.05",lw=1.5),
-                   ha='left',va='center',zorder=99)
-
-plt.gca().annotate('Savings + PDS\nexpenditure',
-                   xy=(0.12,0.82*savings_usage), xycoords='data',
-                   xytext=(+0.35,0.52*savings_usage), textcoords='data', fontsize=9,
-                   arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.10",lw=1.5),
-                   ha='left',va='center',zorder=99,weight='bold')
-
+if _toy == 1.:
+    plt.gca().add_patch(patches.Rectangle((0.73,0.84*savings_usage),2.35,15000,facecolor='white',zorder=98,clip_on=False,linewidth=1,ec=greys_pal[5]))
+    plt.gca().annotate(r'Area = total value of savings + PDS',
+                       xy=(0.10,0.9*savings_usage), xycoords='data',
+                       xytext=(0.80,0.9*savings_usage), textcoords='data', fontsize=10,
+                       arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.05",lw=1.5),
+                       ha='left',va='center',zorder=99)
+    
+    plt.gca().annotate('Savings + PDS\nexpenditure',
+                       xy=(0.12,0.82*savings_usage), xycoords='data',
+                       xytext=(+0.35,0.52*savings_usage), textcoords='data', fontsize=9,
+                       arrowprops=dict(arrowstyle="->",connectionstyle="arc3,rad=-0.10",lw=1.5),
+                       ha='left',va='center',zorder=99,weight='bold')
+    
 
 _c_net = []
 for i in net_c_t:
-    _c_net.append(max(savings_usage,i))
+    if i > savings_usage:
+        _c_net.append(max(savings_usage,i))
+    else: _c_net.append(min(savings_usage,i))
 
 plt.plot(t_lins,_c_net,color=reds_pal[8],ls='--',lw=2.5,zorder=98.9,label='Household consumption')
 plt.plot([-1,0],[c_t[0],c_t[0]],color=reds_pal[8],ls='--',lw=2.5,zorder=100,label='')
@@ -252,12 +258,12 @@ plt.gca().grid(False)
 
 plt.draw()
 fig=plt.gcf()
-fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/stephane_edits/Figures/dc.pdf',format='pdf')
+fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/dc.pdf',format='pdf')
 
 plt.clf()
 plt.close('all')
 
-
+assert(False)
 
 #########################
 # Draw k
@@ -370,7 +376,7 @@ plt.gca().grid(False)
 sns.despine(left=True)
 plt.draw()
 fig=plt.gcf()
-fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/stephane_edits/Figures/dk.pdf',format='pdf')
+fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/dk.pdf',format='pdf')
 
 summary_df = pd.read_csv('../output_country/'+myCountry+'/my_summary_no.csv').reset_index()
 summary_df['res_mean'] = summary_df.groupby([economy,'hazard'])['res_tot'].transform('median')
@@ -427,7 +433,7 @@ for ix in xax:
         #plt.clf()
         plt.close('all')
 
-
+assert(False)
 summary_df = pd.read_csv('../output_country/'+myCountry+'/my_summary_no.csv').reset_index().set_index([economy,'hazard','rp'])[['dk_tot','dw_tot','res_tot']]
 v_df = pd.read_csv('../output_country/'+myCountry+'/fa_v.csv').reset_index().set_index([economy,'hazard','rp'])
 summary_df['fa'] = v_df['fa'].round(2).clip(upper=0.95)

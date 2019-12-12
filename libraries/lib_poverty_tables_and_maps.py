@@ -105,7 +105,7 @@ def poverty_gap_plot(myC,_myiah,event_level,myHaz,drop_spots=None,_mapres=3000):
         plt.cla()
 
 
-def map_recovery_time(myC,HAZ,RP=[100],RECO=['25','75','90'],drop_spots=None,_mapres=3000,special_event=None):
+def map_recovery_time(myC,HAZ,RP=[50,200],RECO=['50','75','90'],drop_spots=None,_mapres=2000,special_event=None):
 
     df = pd.read_csv('../output_country/'+myC+'/time_to_recovery_no.csv')
 
@@ -144,16 +144,23 @@ def map_recovery_time(myC,HAZ,RP=[100],RECO=['25','75','90'],drop_spots=None,_ma
                           else ('Time to reconstruct '+_reco+'% of assets destroyed'
                                 +'\nby '+str(_rp)+'-year '+haz_dict[_haz].lower()+' [years]'
                                 +'\nNational avg. = '+_mean+' years'))
-                make_map_from_svg(
-                    _['time_recovery_'+_reco], 
-                    svg_file,
-                    outname=myC+'_time_to_recover_'+_reco+'pct_'+_haz+str(_rp),
-                    color_maper=plt.cm.get_cmap('Purples'), 
-                    label=_label,
-                    new_title='',
-                    do_qualitative=False,
-                    drop_spots=['Jaffna','Matara','Kilinochchi'],
-                    res=_mapres)
+                try:
+                    make_map_from_svg(
+                        _['time_recovery_'+_reco], 
+                        svg_file,
+                        outname=myC+'_time_to_recover_'+_reco+'pct_'+_haz+str(_rp),
+                        color_maper=plt.cm.get_cmap('Purples'), 
+                        label=_label,
+                        new_title='',
+                        do_qualitative=True,
+                        drop_spots=['Jaffna','Matara','Kilinochchi'],
+                        res=_mapres)
+                except: pass
+
+    purge('img/','map_of_*.png')
+    purge('img/','legend_of_*.png')
+    purge('img/','map_of_*.svg')
+    purge('img/','legend_of_*.svg')
 
 def run_poverty_duration_plot(myC,myHaz='HU',drop_spots=None,special_event=None):
     
@@ -673,5 +680,5 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],
     purge('img/','map_of_*.svg')
     purge('img/','legend_of_*.svg')
     
+map_recovery_time('RO','EQ')
 #run_poverty_tables_and_maps(None)
-#map_recovery_time('PH')

@@ -18,7 +18,7 @@ from libraries.lib_scaleout import get_scaleout_recipients
 from libraries.lib_gather_data import social_to_tx_and_gsp
 from libraries.lib_fiji_sps import run_fijian_SPP, run_fijian_SPS
 from libraries.pandas_helper import get_list_of_index_names, broadcast_simple, concat_categories
-from libraries.lib_country_dir import get_to_USD, get_subsistence_line, average_over_rp, average_over_rp1, get_all_hazards
+from libraries.lib_country_dir import get_to_USD, get_subsistence_line, average_over_rp, average_over_rp1, get_all_hazards, get_middleclass_range
 
 pd.set_option('display.width', 220)
 
@@ -84,31 +84,68 @@ def get_weighted_median(q1,q2,q3,q4,q5,key):
 
     return [median_q1,median_q2,median_q3,median_q4,median_q5]
 
-def apply_policies(pol_str,macro,cat_info,hazard_ratios):
+def apply_policies(economy,pol_str,macro,cat_info,hazard_ratios):
 
+    
     # POLICY: Reduce vulnerability of the poor by 5% of their current exposure
     if pol_str == '_exp095':
         print('--> POLICY('+pol_str+'): Reducing vulnerability of the poor by 5%!')
-
-        cat_info.loc[cat_info.ispoor==1,'v']*=0.95
+        #cat_info.loc[cat_info.ispoor==1,'v']*=0.95
+        # This is commented because it does nothing here...
+        # vulnerability is assigned at (hhid X event level), not by household
 
     # POLICY: Reduce vulnerability of the rich by 5% of their current exposure
     elif pol_str == '_exr095':
         print('--> POLICY('+pol_str+'): Reducing vulnerability of the rich by 5%!')
+        #cat_info.loc[cat_info.ispoor==0,'v']*=0.95
+        # This is commented because it does nothing here...
+        # vulnerability is assigned at (hhid X event level), not by household
 
-        cat_info.loc[cat_info.ispoor==0,'v']*=0.95
+    elif pol_str == '_protection_5yr':
+        print('--> POLICY('+pol_str+'): protect against 5-yr events')
+        #
+        hazard_ratios = hazard_ratios.reset_index('rp')
+        hazard_ratios.loc[hazard_ratios.rp<=5,'fa'] = 0
+        hazard_ratios = hazard_ratios.reset_index().set_index([economy,'hazard','rp','hhid'])
+
+    elif pol_str == '_protection_10yr':
+        print('--> POLICY('+pol_str+'): protect against 10-yr events')
+        #
+        hazard_ratios = hazard_ratios.reset_index('rp')
+        hazard_ratios.loc[hazard_ratios.rp<=10,'fa'] = 0
+        hazard_ratios = hazard_ratios.reset_index().set_index([economy,'hazard','rp','hhid'])
+
+    elif pol_str == '_protection_20yr':
+        print('--> POLICY('+pol_str+'): protect against 20-yr events')
+        #
+        hazard_ratios = hazard_ratios.reset_index('rp')
+        hazard_ratios.loc[hazard_ratios.rp<=20,'fa'] = 0
+        hazard_ratios = hazard_ratios.reset_index().set_index([economy,'hazard','rp','hhid'])
 
     # POLICY: Increase income of the poor by 10%
     elif pol_str == '_pcinc_p_110':
         print('--> POLICY('+pol_str+'): Increase income of the poor by 10%')
+        #
+        cat_info.loc[cat_info.ispoor==1,'k'] += cat_info.loc[cat_info.ispoor==1].eval('(c-pcsoc)*0.1')/float(macro['avg_prod_k'].mean())
+        cat_info.loc[cat_info.ispoor==1,'c'] += cat_info.loc[cat_info.ispoor==1].eval('(c-pcsoc)*0.1')
+        #
+        hazard_ratios = hazard_ratios.drop('k',axis=1).reset_index()
+        hazard_ratios = pd.merge(hazard_ratios,cat_info[['k']].reset_index(),on=['Region','hhid'])
+        hazard_ratios = hazard_ratios.reset_index().set_index([economy,'hazard','rp','hhid'])
+        #
+        cat_info['social'] = cat_info['pcsoc']/cat_info['c']
+        macro['tau_tax'], cat_info['gamma_SP'] = social_to_tx_and_gsp(economy,cat_info)
 
-        cat_info.loc[cat_info.ispoor==1,'c'] *= 1.10
-        cat_info['social'] = cat_info['social']/cat_info['c']
-
-    elif pol_str == '_soc133':
-        # POLICY: Increase social transfers to poor TO one third
-        print('--> POLICY('+pol_str+'): Increase social transfers to poor TO one third of their income')
-        cat_info.loc[(cat_info.ispoor==1)&(cat_info.social<0.334),'social'] = 0.334
+    elif pol_str == '_increase_social':
+        # POLICY: Increase social transfers to poorest 40% of hh BY 25%
+        print('--> POLICY('+pol_str+'): Increase social transfers to bottom 40% of hh by 25%')
+        cat_info.loc[(cat_info.quintile<=2),'c'] += 0.25*cat_info.loc[(cat_info.quintile<=2),'pcsoc']    
+        cat_info.loc[(cat_info.quintile<=2),'pcsoc'] *= 1.25
+        #
+        # Need to recalculate income & taxes here
+        cat_info['social'] = cat_info['pcsoc']/cat_info['c']
+        #macro['tau_tax'], cat_info['gamma_SP'] = social_to_tx_and_gsp(economy,cat_info)
+        # this is updated below
 
         ########################################################
         # POLICY: Increase social transfers to poor BY one third
@@ -134,7 +171,7 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
         cat_info.loc[cat_info.has_ew==0,'ew_expansion'] = 1
 
     # POLICY: Decrease vulnerability of poor by 30%
-    elif pol_str == '_vul070':
+    elif pol_str == '_vul070p':
         print('--> POLICY('+pol_str+'): Decrease vulnerability of poor by 30%')
 
         cat_info.loc[cat_info.ispoor==1,'v']*=0.70
@@ -153,7 +190,7 @@ def apply_policies(pol_str,macro,cat_info,hazard_ratios):
 
     elif pol_str != '':
         print('What is this? --> ',pol_str)
-        assert(False)
+        #assert(False)
 
     return macro,cat_info,hazard_ratios
 
@@ -170,7 +207,7 @@ def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,ev
     #print('\nHazRatios:\n',hazard_ratios.head(2))
 
     cat_info['ew_expansion'] = 0
-    macro,cat_info,hazard_ratios = apply_policies(pol_str,macro,cat_info,hazard_ratios)
+    macro,cat_info,hazard_ratios = apply_policies(economy,pol_str,macro,cat_info,hazard_ratios)
 
     #compute
     return process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_level,default_rp,rm_overlap,verbose_replace=True)
@@ -179,6 +216,7 @@ def compute_with_hazard_ratios(myCountry,pol_str,fname,macro,cat_info,economy,ev
 def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_level,default_rp,rm_overlap,verbose_replace=True):
     flag1=False
     flag2=False
+
 
     if type(hazard_ratios)==pd.DataFrame:
 
@@ -197,13 +235,9 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
 
         hazard_ratios = hazard_ratios.reset_index().set_index(event_level+['hhid'])
 
-        # This drops 1 province from macro
+        # This drops province from the 3 dfs for which we don't have hazard data
         macro = macro.ix[common_places]
-
-        # Nothing drops from cat_info
         cat_info = cat_info.ix[common_places].copy()
-
-        # Nothing drops from hazard_ratios
         hazard_ratios = hazard_ratios.ix[common_places].copy()
 
         if hazard_ratios.empty: hazard_ratios=None
@@ -215,6 +249,7 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     if 'hazard' not in get_list_of_index_names(hazard_ratios):
         print('Should not be here: hazard not in \'hazard_ratios\'')
         hazard_ratios = broadcast_simple(hazard_ratios, pd.Index(['default_hazard'], name='hazard'))
+        assert(False)
 
     #if hazard data has no rp, it is broadcasted to default rp
     if 'rp' not in get_list_of_index_names(hazard_ratios):
@@ -271,6 +306,9 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     # ^ Won't have nominal reco rate any more
 
     global const_pub_reco_rate
+    if pol_str == 'accelerate_reco_25': macro_event['T_rebuild_K']*=0.75
+    if pol_str == 'accelerate_reco_50': macro_event['T_rebuild_K']*=0.50
+    if pol_str == 'accelerate_reco_75': macro_event['T_rebuild_K']*=0.25
     const_pub_reco_rate = float(np.log(1/0.05) / macro_event['T_rebuild_K'].mean())
 
     global const_rho
@@ -313,10 +351,19 @@ def process_input(myCountry,pol_str,macro,cat_info,hazard_ratios,economy,event_l
     cats_event['hh_share'] = cats_event['hh_share'].fillna(1.).clip(upper=1.)
 
     # Transfer vulnerability from haz_ratios to cats_event:
+    # don't know why this happens, seems stupid
     cats_event['v'] = hazard_ratios_event['v']
 
+    if pol_str == '_exp095':
+        cats_event.loc[cats_event.quintile<=2,'v']*=0.95
+    elif pol_str == '_exr095':
+        cats_event.loc[cats_event.quintile>=4,'v']*=0.95
+    elif pol_str == '_vul070p':
+        print('--> POLICY('+pol_str+'): Decrease vulnerability of poor by 30%')
+        cats_event.loc[cats_event.ispoor==1,'v']*=0.70
+
     cats_event['optimal_hh_reco_rate'] = hazard_ratios_event['hh_reco_rate'].copy()
-    cats_event['optimal_hh_reco_rate'] = cats_event['optimal_hh_reco_rate'].fillna(0)
+    cats_event['optimal_hh_reco_rate'].fillna(0,inplace=True)
     # optimize_reco in lib_agents doesn't look at dk_private (just k, v, pi, etc)
     # --> this creates a weird effect for hh without private losses....
     # Why would there be a situation where dk_pub > 0, and dk_private = 0?
@@ -861,6 +908,7 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     ############################
     # Calculate SP payout
     cats_event_iah['help_received'] = 0
+    macro_event['shareable'] = 0.20
 
     if optionPDS=='no':
         macro_event['aid'] = 0
@@ -887,20 +935,23 @@ def compute_response(myCountry, pol_str, macro_event, cats_event_iah,public_cost
     elif optionPDS == 'fiji_SPP': cats_event_iah = run_fijian_SPP(macro_event,cats_event_iah)
     elif optionPDS=='fiji_SPS': cats_event_iah = run_fijian_SPS(macro_event,cats_event_iah)
 
+    elif optionPDS == 'social_scaleup':
+        cats_event_iah.loc[cats_event_iah.eval('helped_cat=="helped"'),'help_received'] = (2/12)*cats_event_iah.loc[cats_event_iah.eval('helped_cat=="helped"'),'pcsoc']
+
     elif optionPDS=='unif_poor':
-        # For this policy: help_received by all helped hh = shareable (0.8) * average losses (dk) of lowest quintile
+        # For this policy: help_received by all helped hh = shareable (0.X) * average losses (dk) of lowest quintile
         cats_event_iah.loc[cats_event_iah.eval('helped_cat=="helped"'),'help_received'] = macro_event['shareable'] * cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),[loss_measure,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),'pcwgt'].sum(level=event_level)
 
     elif optionPDS=='unif_poor_only':
-        # For this policy: help_received by all helped hh in 1st quintile = shareable (0.8) * average losses (dk) of lowest quintile
+        # For this policy: help_received by all helped hh in 1st quintile = shareable (0.X) * average losses (dk) of lowest quintile
         cats_event_iah.loc[cats_event_iah.eval('(helped_cat=="helped")&(quintile==1)'),'help_received']=macro_event['shareable']*cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),[loss_measure,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),'pcwgt'].sum(level=event_level)
 
     elif optionPDS=='unif_poor_q12':
-        # For this policy: help_received by all helped hh in 1st & 2nd quintiles = shareable (0.8) * average losses (dk) of lowest quintile
+        # For this policy: help_received by all helped hh in 1st & 2nd quintiles = shareable (0.X) * average losses (dk) of lowest quintile
         cats_event_iah.loc[cats_event_iah.eval('(helped_cat=="helped")&(quintile<=2)'),'help_received']=macro_event['shareable']*cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),[loss_measure,'pcwgt']].prod(axis=1).sum(level=event_level)/cats_event_iah.loc[cats_event_iah.eval('(affected_cat=="a") & (quintile==1)'),'pcwgt'].sum(level=event_level)
 
     elif 'prop' in optionPDS:
-        # Assuming there is no inclusion error for prop, since it assumes demonstrated losses ... there can still be excl error, though
+        # Here, there is no inclusion error for prop, since it presumes demonstrated losses ... there can still be excl error, though
         cats_event_iah = cats_event_iah.reset_index().set_index(event_level+['hhid','affected_cat'])
 
         if optionPDS=='prop':
@@ -1272,6 +1323,9 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
 
     temp['t_start_prv_reco'] = -1
     temp['t_pov_inc'],temp['t_pov_cons'] = [0., 0.]
+    temp['t_mc_inc'],temp['t_mc_cons'] = [0., 0.]
+    try: middleclass_lower = get_middleclass_range(myC)[0]
+    except: middleclass_lower = 0
     # ^ set these "timers" to collect info about when the hh starts reco, and when it exits poverty
 
     my_avg_prod_k = macro.avg_prod_k.mean()
@@ -1474,11 +1528,13 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
         ########################
         # Mark dc_net at time t=0
         if _t == 0: temp['dc_net_t0'] = temp['dc_net'].copy()
-
+        
         ########################
         # Increment time in poverty
         temp.loc[temp.eval('c-di_t<=pov_line'),'t_pov_inc'] += step_dt
         temp.loc[temp.eval('c-dc_net<=pov_line'),'t_pov_cons'] += step_dt
+        temp.loc[temp.eval('c-di_t>={}'.format(middleclass_lower)),'t_mc_inc'] += step_dt
+        temp.loc[temp.eval('c-dc_net>={}'.format(middleclass_lower)),'t_mc_cons'] += step_dt
 
         ########################
         # Finally, calculate welfare losses
@@ -1518,8 +1574,9 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
 
     ################################
     # Write out the poverty duration info
-    temp[[mac_ix[0],'hazard', 'rp', 'pcwgt', 'c', 'dk0','dc_net_t0','dc_net','t_pov_inc', 't_pov_cons',
-          't_start_prv_reco', 'hh_reco_rate', 'optimal_hh_reco_rate']].to_csv('../output_country/'+myC+'/poverty_duration_'+optionPDS+'.csv')
+    temp[[_ for _ in mic_ix]+['pcwgt', 'c', 'dk0','dc_net_t0','dc_net',
+                              't_pov_inc', 't_pov_cons','t_mc_inc', 't_mc_cons',
+                              't_start_prv_reco', 'hh_reco_rate', 'optimal_hh_reco_rate']].to_csv('../output_country/'+myC+'/poverty_duration_'+optionPDS+'.csv')
     macro[['time_recovery_25','time_recovery_50','time_recovery_75',
            'time_recovery_80','time_recovery_90','time_recovery_95']].to_csv('../output_country/'+myC+'/time_to_recovery_'+optionPDS+'.csv')
 
@@ -1579,10 +1636,13 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     tmp_out['res_sub'] = tmp_out['dk_sub']/tmp_out['dw_sub']
 
     tmp_out['ratio_dw_lim_tot']  = tmp_out['dw_lim']/tmp_out['dw_tot']
-
-    tmp_out['avg_reco_t']         = (np.log(1/0.05)/temp.loc[(temp.affected_cat=='a')&(temp.hh_reco_rate!=0),'hh_reco_rate']).mean(skipna=True,level=[i for i in mac_ix])
-    tmp_out['sub_avg_reco_t']     = (np.log(1/0.05)/temp.loc[(temp.affected_cat=='a')&(temp.welf_class==3)&(temp.hh_reco_rate!=0),'hh_reco_rate']).mean(skipna=True,level=[i for i in mac_ix])
-    tmp_out['non_sub_avg_reco_t'] = (np.log(1/0.05)/temp.loc[(temp.affected_cat=='a')&(temp.welf_class!=3)&(temp.hh_reco_rate!=0),'hh_reco_rate']).mean(skipna=True,level=[i for i in mac_ix])
+    #
+    tmp_out['avg_reco_t']         = (np.log(1/0.05)/(temp.loc[(temp.affected_cat=='a'),['hh_reco_rate','pcwgt']].prod(axis=1).sum(skipna=True,level=[i for i in mac_ix])
+                                                     /temp.loc[(temp.affected_cat=='a'),'pcwgt'].sum(skipna=True,level=[i for i in mac_ix])))
+    tmp_out['sub_avg_reco_t']     = (np.log(1/0.05)/(temp.loc[(temp.affected_cat=='a')&(temp.welf_class==1),['hh_reco_rate','pcwgt']].prod(axis=1).sum(skipna=True,level=[i for i in mac_ix])
+                                                     /temp.loc[(temp.affected_cat=='a')&(temp.welf_class==1),'pcwgt'].sum(skipna=True,level=[i for i in mac_ix])))
+    tmp_out['non_sub_avg_reco_t'] = (np.log(1/0.05)/(temp.loc[(temp.affected_cat=='a')&(temp.welf_class!=1),'hh_reco_rate'].mean(skipna=True,level=[i for i in mac_ix])
+                                                     /temp.loc[(temp.affected_cat=='a')&(temp.welf_class!=1),'pcwgt'].sum(skipna=True,level=[i for i in mac_ix])))
     tmp_out['pct_subs'] = temp.loc[(temp.affected_cat=='a')&(temp.hh_reco_rate==0),'pcwgt'].sum(level=[i for i in mac_ix])/temp.loc[(temp.affected_cat=='a'),'pcwgt'].sum(level=[i for i in mac_ix])
 
     tmp_out.to_csv('../output_country/'+myC+'/my_summary_'+optionPDS+pol_str+'.csv')

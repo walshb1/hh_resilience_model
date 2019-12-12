@@ -308,13 +308,19 @@ if myCountry == 'MW':
 
 
 if True:
+
     svg_file = get_svg_file(myCountry)
     for _h in get_all_hazards(myCountry,iah_out):
 
-        _label = ((haz_dict[_h]+' damage [mil. US$]\nTotal = US$ '
-                   +str(int(round(float((iah_out.loc[(slice(None),(_h)),'Asset risk'].sum(level=economy)*1E-6*to_usd).sum()),0)))+'M') if special_event and special_event.lower() == 'idai'
-                  else (haz_dict[_h]+' risk [mil. US$ per year]\nNational total = US$ '
-                        +str(int(round(float((iah_out.loc[(slice(None),(_h)),'Asset risk'].sum(level=economy)*1E-6*to_usd).sum()),0)))+'M'))
+        _cost = str(int(round(float((iah_out.loc[(slice(None),(_h)),'Asset risk'].sum(level=economy)*1E-6*to_usd).sum()),0)))
+        if len(_cost)>=4:_cost = _cost[:-3]+','+_cost[-3:]
+
+        if special_event and special_event.lower() == 'idai':
+            _label = (haz_dict[_h]+' damage [million US$]\nTotal = US$'
+                      +_cost+' million')
+        else:
+            _label = (haz_dict[_h]+' risk [million US$ per year]\nNational total = US$'
+                      +_cost+' million')
 
         make_map_from_svg(
             iah_out.loc[(slice(None),(_h)),'Asset risk'].sum(level=economy)*1E-6*to_usd,
@@ -332,6 +338,7 @@ if True:
     purge('img/','map_of_*.svg')
     purge('img/','legend_of_*.svg')
 # ^ Save out risk to assets & welfare & resilience by economy/hazard/PDS
+#assert(False)
 
 # 4) Write tables with just NO PDS
 no_pds = iah_out[['Asset risk','Well-being risk']].copy()
@@ -403,7 +410,7 @@ svg_file = get_svg_file(myCountry)
 #######################
 # Maps series
 # --> do tons of maps?
-if False:
+if True:
     curr_dict = {'PH':'PHP',
                  'SL':'SLR',
                  'FJ':'FJD',
@@ -427,11 +434,12 @@ if False:
             natl_mil_vs_bil = ' billion'
         else: 
             natl_mil_vs_bil = ' million'
-        natl_sum = int(round(natl_sum,0))
+        natl_sum = str(int(round(natl_sum,0)))
+        if len(natl_sum)>=4: natl_sum = natl_sum[:-3]+','+natl_sum[-3:]
 
-        _label = (('Cyclone Idai destruction by '+economy.lower()+' ['+_curr.replace('USD','mil. US\$')+']'
+        _label = (('Cyclone Idai destruction by '+economy.lower()+' ['+_curr.replace('USD','million US\$')+']'
                    +'\nTotal = '+_curr.replace('USD','US\$')+str(natl_sum)+natl_mil_vs_bil) if special_event is not None and special_event.lower() == 'idai'
-                  else ('Multihazard asset risk by '+economy.lower()+' ['+_curr.replace('USD','mil. US\$').replace('PHP','bil. PHP')+' per year]'
+                  else ('Multihazard asset risk ['+_curr.replace('USD','million US\$').replace('PHP','bil. PHP')+' per year]'
                         +'\nNational total = '+_curr.replace('USD','US\$')+'$\,$'+str(natl_sum)+natl_mil_vs_bil))
         make_map_from_svg(
             no_pds['Asset risk'].drop('Total')/(1E3*get_currency(myCountry)[2]) if _curr != 'USD' else no_pds['Asset risk'].drop('Total'),
@@ -440,14 +448,14 @@ if False:
             color_maper=plt.cm.get_cmap('GnBu'),
             #svg_handle = 'reg',
             label=_label,
-            new_title='Asset losses ['+_curr.replace('USD','mil. US\$')+'per year]',
+            new_title='Asset losses ['+_curr.replace('USD','million US\$')+'per year]',
             do_qualitative=False,
             drop_spots=places_to_drop,
             res=3000)
 
-        natl_avg = str(round((100.*no_pds['Asset risk'].drop('Total').sum()/grdp.sum()),2))
-        _label = (('Cyclone Idai destruction [% of household income]\nNational avg. = '+natl_avg+'%') if special_event is not None and special_event.lower() == 'idai'
-                  else ('Multihazard asset risk [% of AHE per year]\nNational avg. = '+natl_avg+'%'))
+        natl_avg = str(round((100.*no_pds['Asset risk'].drop('Total').sum()/grdp.sum()),1))
+        _label = (('Cyclone Idai destruction [% of household income]\nNational average = '+natl_avg+'%') if special_event is not None and special_event.lower() == 'idai'
+                  else ('Multihazard asset risk [% of AHE per year]\nNational average = '+natl_avg+'%'))
         
         make_map_from_svg(
             100.*(no_pds['Asset risk']/grdp).drop('Total'),
@@ -473,9 +481,12 @@ if False:
             natl_mil_vs_bil = ' million'
         natl_sum = int(round(natl_sum,0))
 
-        _label = (('Cyclone Idai wellbeing losses ['+_curr.replace('USD','mil. US\$')+']'
+        natl_sum = str(int(round(natl_sum,0)))
+        if len(natl_sum)>=4: natl_sum = natl_sum[:-3]+','+natl_sum[-3:]
+
+        _label = (('Cyclone Idai well-being losses ['+_curr.replace('USD','million US\$')+']'
                    +'\nTotal = '+_curr.replace('USD','US\$')+str(natl_sum)+natl_mil_vs_bil) if special_event is not None and special_event.lower() == 'idai'
-                  else ('Wellbeing losses by '+economy.lower()+' ['+_curr.replace('USD','mil. US\$').replace('PHP','bil. PHP')+' per year]'
+                  else ('Well-being losses ['+_curr.replace('USD','million US\$').replace('PHP','bil. PHP')+' per year]'
                         +'\nNational total = '+_curr.replace('USD','US\$')+'$\,$'+str(natl_sum)+natl_mil_vs_bil))
 
         make_map_from_svg(
@@ -485,14 +496,14 @@ if False:
             color_maper=plt.cm.get_cmap('OrRd'),
             #svg_handle = 'reg',
             label=_label,
-            new_title='Wellbeing losses ['+_curr.replace('USD','mUS\$').replace('PHP','bil. PHP')+' per year]',
+            new_title='Well-being losses ['+_curr.replace('USD','million US\$').replace('PHP','billion PHP')+' per year]',
             do_qualitative=False,
             drop_spots=places_to_drop,
             res=_mapres)
         
-        natl_avg = str(round(100*(no_pds['Well-being risk'].drop('Total').sum()/grdp.sum()),2))
-        _label = (('Cyclone Idai wellbeing losses [% of household incomes]\nTotal = '+natl_avg+'%') if special_event is not None and special_event.lower() == 'idai'
-                  else ('Wellbeing losses [% of AHE per year]\nNational avg. = '+natl_avg+'%'))
+        natl_avg = str(round(100*(no_pds['Well-being risk'].drop('Total').sum()/grdp.sum()),1))
+        _label = (('Cyclone Idai well-being losses [% of household incomes]\nTotal = '+natl_avg+'%') if special_event is not None and special_event.lower() == 'idai'
+                  else ('Well-being losses [% of AHE per year]\nNational average = '+natl_avg+'%'))
         make_map_from_svg(
             (100.*no_pds['Well-being risk']/grdp).drop('Total'),
             svg_file,
@@ -500,12 +511,12 @@ if False:
             color_maper=plt.cm.get_cmap('OrRd'),
             #svg_handle = 'reg',
             label=_label,
-            new_title='Wellbeing losses [% of AHE per year]',
+            new_title='Well-being losses [% of AHE per year]',
             do_qualitative=False,
             drop_spots=places_to_drop,
             res=_mapres)
         
-
+    
     #######################
     print('Map Resilience')
     natl_average = 100.*(no_pds['Asset risk'].drop('Total').sum()/no_pds['Well-being risk'].drop('Total').sum()) 
@@ -515,7 +526,7 @@ if False:
         outname=myCountry+'_resilience'+('_'+sub_eth.lower().replace('-','') if select_ethnicity else ''),
         color_maper=plt.cm.get_cmap('RdYlGn'),
         #svg_handle = 'reg',
-        label='Socioeconomic resilience'+(r' $\endash$ '+sub_eth+' ' if select_ethnicity else ' ')+'[%]\n'+r'National avg. = '+str(int(round(natl_average,0)))+'%',
+        label='Socioeconomic resilience'+(r' $\endash$ '+sub_eth+' ' if select_ethnicity else ' ')+'[%]\n'+r'National average = '+str(int(round(natl_average,0)))+'%',
         new_title='Socioeconomic resilience [%]',
         do_qualitative=False,
         res=_mapres,
@@ -534,9 +545,9 @@ if False:
         outname=myCountry+'_asset_risk_per_cap_'+sub_eth.lower().replace('-','')+'_usd',
         color_maper=plt.cm.get_cmap('GnBu'),
         #svg_handle = 'reg',
-        label=('Asset losses '+r'$\endash$ '+sub_eth+' [per person, per year]\nNational avg. = $'+natl_average if myCountry == 'SL' and select_ethnicity 
+        label=('Asset losses '+r'$\endash$ '+sub_eth+' [per person, per year]\nNational average = $'+natl_average if myCountry == 'SL' and select_ethnicity 
                else ('Asset losses from Cyclone Idai (US\$ per person)\nAverage = US$'+natl_average+' per cap.') if special_event is not None and special_event.lower() == 'idai'
-               else ('Asset losses [per person, per year]\nNational avg. = $'+natl_average+' per cap.')),
+               else ('Asset losses [per person, per year]\nNational average = $'+natl_average+' per cap.')),
         new_title='Asset losses [US\$ per person, per year]',
         do_qualitative=False,
         drop_spots=places_to_drop,
@@ -550,10 +561,10 @@ if False:
         outname=myCountry+'_welf_risk_per_cap_'+sub_eth.lower().replace('-','')+'_usd',
         color_maper=plt.cm.get_cmap('OrRd'),
         #svg_handle = 'reg',
-        label=('Wellbeing losses '+r'$\endash$ '+sub_eth+' [US\$ per person, per year]\nNational avg. = $'+natl_average if myCountry == 'SL' and select_ethnicity 
-               else ('Wellbeing losses from Cyclone Idai (US\$ per person)\nAverage = $'+natl_average+' per cap.') if special_event is not None and special_event.lower() == 'idai'
-               else 'Wellbeing losses [US\$ per person, per year]\nNational avg. = $'+natl_average+' per cap.'),
-        new_title='Wellbeing losses [US\$ per person, per year]',
+        label=('Well-being losses '+r'$\endash$ '+sub_eth+' [US\$ per person, per year]\nNational average = $'+natl_average if myCountry == 'SL' and select_ethnicity 
+               else ('Well-being losses from Cyclone Idai (US\$ per person)\nAverage = $'+natl_average+' per cap.') if special_event is not None and special_event.lower() == 'idai'
+               else 'Well-being losses [US\$ per person, per year]\nNational average = $'+natl_average+' per cap.'),
+        new_title='Well-being losses [US\$ per person, per year]',
         do_qualitative=False,
         drop_spots=places_to_drop,
         #force_max=60,
@@ -565,7 +576,6 @@ if False:
     purge('img/','map_of_*.svg')
     purge('img/','legend_of_*.svg')
     plt.close('all')
-
 
 ####################################
 # Make plot comparing resileince of sinhalese * non-sinhalese
@@ -654,7 +664,7 @@ if myCountry == 'SL':
         for _ix in _comp.index:
             plt.plot([_comp.loc[_ix,'Resilience of non-Sinhalese'],_comp.loc[_ix,'Resilience of Sinhalese']],[_ix,_ix],
                      ls=':',lw=0.5,color=greys_pal[1],zorder=90)
-            plt.annotate(_comp.loc[_ix,'district'].replace('Total','National avg.'),xy=(_comp.loc[_ix,['Resilience of non-Sinhalese','Resilience of Sinhalese']].max()+2.5,_ix),
+            plt.annotate(_comp.loc[_ix,'district'].replace('Total','National average'),xy=(_comp.loc[_ix,['Resilience of non-Sinhalese','Resilience of Sinhalese']].max()+2.5,_ix),
                          ha='left',va='center',clip_on=False,annotation_clip=False,
                          fontsize=(6.5 if _comp.loc[_ix,'is_majority']==False else 6),
                          weight=('bold' if _comp.loc[_ix,'is_majority']==False else 'light'))
@@ -757,18 +767,19 @@ if myCountry == 'SL':
 
 ####################################
 # Save out iah by economic unit, *only for poorest quintile*
-no_pds_q1 = pd.DataFrame(index=iah.sum(level=[economy,'hazard','rp']).index)
+for _q in [1,5]:
+    no_pds_q1 = pd.DataFrame(index=iah.sum(level=[economy,'hazard','rp']).index)
 
-no_pds_q1['Asset risk'] = iah.loc[(iah.quintile==1),['dk0','pcwgt_no']].prod(axis=1).sum(level=[economy,'hazard','rp'])*1E-6
-no_pds_q1['Well-being risk'] = iah.loc[(iah.quintile==1),['dw_no','pcwgt_no']].prod(axis=1).sum(level=[economy,'hazard','rp'])*1E-6
-no_pds_q1['TOTAL Asset risk'] = iah[['dk0','pcwgt_no']].prod(axis=1).sum(level=[economy,'hazard','rp'])*1E-6
-no_pds_q1['TOTAL Well-being risk'] = iah[['dw_no','pcwgt_no']].prod(axis=1).sum(level=[economy,'hazard','rp'])*1E-6
-# needs external DWs!!!
+    no_pds_q1['Asset risk'] = iah.loc[(iah.quintile==_q),['dk0','pcwgt_no']].prod(axis=1).sum(level=[economy,'hazard','rp'])*1E-6
+    no_pds_q1['Well-being risk'] = iah.loc[(iah.quintile==_q),['dw_no','pcwgt_no']].prod(axis=1).sum(level=[economy,'hazard','rp'])*1E-6
+    no_pds_q1['TOTAL Asset risk'] = iah[['dk0','pcwgt_no']].prod(axis=1).sum(level=[economy,'hazard','rp'])*1E-6
+    no_pds_q1['TOTAL Well-being risk'] = iah[['dw_no','pcwgt_no']].prod(axis=1).sum(level=[economy,'hazard','rp'])*1E-6
+    # needs external DWs!!!
 
-no_pds_q1.to_csv(out_files+'risk_q1_by_economy_hazard_rp.csv')
-no_pds_q1,_ = average_over_rp(no_pds_q1,'default_rp')
-no_pds_q1['SE capacity']  = 100*no_pds_q1['Asset risk']/no_pds_q1['Well-being risk']
-no_pds_q1.to_csv(out_files+'risk_q1_by_economy_hazard.csv')
+    no_pds_q1.to_csv(out_files+'risk_q1_by_economy_hazard_rp.csv')
+    no_pds_q1,_ = average_over_rp(no_pds_q1,'default_rp')
+    no_pds_q1['SE capacity']  = 100*no_pds_q1['Asset risk']/no_pds_q1['Well-being risk']
+    no_pds_q1.to_csv(out_files+'risk_q{}_by_economy_hazard.csv'.format(_q))
 
 
 no_pds_q1 = no_pds_q1.sum(level=economy)
@@ -874,7 +885,7 @@ iah_ntl['c_sub_pc_change'] = iah_ntl['c_sub_pc_f'] - iah_ntl['sub_pc_i']
 iah_ntl['i_sub_pc_change'] = iah_ntl['i_sub_pc_f'] - iah_ntl['sub_pc_i']
 #
 print('\n\nInitial poverty incidence:\n',iah_ntl['pov_pc_i'].mean())
-print('--> In case of SL: THIS IS NOT RIGHT! Maybe because of the 3 provinces that dropped off?')
+#print('--> In case of SL: THIS IS NOT RIGHT! Maybe because of the 3 provinces that dropped off?')
 print('\nFinal income poverty incidence:\n',iah_ntl['i_pov_pc_change'].mean())
 print('Final consumption poverty incidence:\n',iah_ntl['c_pov_pc_change'].mean())
 
@@ -905,7 +916,7 @@ if myCountry == 'PH': myHaz = [['VIII - Eastern Visayas'],['HU'],[100]]
 if myCountry == 'SL': myHaz = [['Rathnapura','Colombo'],get_all_hazards(myCountry,myiah),get_all_rps(myCountry,myiah)]
 if myCountry == 'MW': myHaz = [['Chikwawa','Blantyre','Nsanje'],get_all_hazards(myCountry,myiah),get_all_rps(myCountry,myiah)]
 if myCountry == 'RO': myHaz = [['Bucharest-Ilfov'],get_all_hazards(myCountry,myiah),get_all_rps(myCountry,myiah)]
-if myCountry == 'BO': myHaz = [['La Paz','Beni'],get_all_hazards(myCountry,myiah),[50]]
+if myCountry == 'BO': myHaz = [['La Paz','Beni'],get_all_hazards(myCountry,myiah),[50,100]]
 
 ##################################################################
 if myCountry == 'SL': SL_PMT_plots(myCountry,economy,event_level,myiah,myHaz,my_PDS,_wprime,base_str,to_usd)
@@ -913,7 +924,7 @@ if myCountry == 'SL': SL_PMT_plots(myCountry,economy,event_level,myiah,myHaz,my_
 ##################################################################
 # This code generates output on poverty dimensions
 # ^ this is by household (iah != iah_avg here)
-if True:
+if False:
 
     _myiah = myiah.reset_index().set_index(event_level+['hhid','affected_cat','helped_cat'])[['pcwgt_no','ispoor',
                                                                                               'c_initial','c_post_reco',
@@ -945,7 +956,7 @@ purge('img/','legend_of_*.svg')
 if True:         
     with Pool(processes=1,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
-        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[myiah.copy()],myHaz[0],myHaz[1],myHaz[2],[True],['USD'])))
+        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[myiah.copy()],myHaz[0],myHaz[1],myHaz[2],[(False,False,True)],['USD'])))
 
 ##################################################################
 # This code generates the histograms showing income before & after disaster (in local_curr)
@@ -953,12 +964,12 @@ if True:
 if True:
     with Pool(processes=1,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
-        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[myiah.copy()],myHaz[0],myHaz[1],myHaz[2],[True])))
+        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[myiah.copy()],myHaz[0],myHaz[1],myHaz[2],[(False,False,True)])))
 
 ##################################################################
 # This code generates the histograms including [k,dk,dc,dw,&pds]
 # ^ this is by province/region, so it will use myiah (iah = iah_avg here)
-if True:
+if False:
     with Pool(processes=2,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2],[my_PDS]))),'THREADS')
         pool.starmap(plot_impact_by_quintile,list(product([myCountry],myHaz[0],myHaz[1],myHaz[2],[myiah.copy()],[my_PDS])))
@@ -967,7 +978,7 @@ if True:
 ##################################################################
 # This code generates the histograms 
 # ^ this is only for affected households (iah = iah_avg here) <--because we're summing, not averaging
-if True:
+if False:
     with Pool(processes=1,maxtasksperchild=1) as pool:
         print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
         pool.starmap(plot_relative_losses,list(product([myCountry],myHaz[0],myHaz[1],myHaz[2],[myiah.copy()])))  
