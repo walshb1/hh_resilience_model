@@ -680,5 +680,5 @@ def run_poverty_tables_and_maps(myC,pov_df,event_level=['region','hazard','rp'],
     purge('img/','map_of_*.svg')
     purge('img/','legend_of_*.svg')
     
-map_recovery_time('RO','EQ')
+#map_recovery_time('RO','EQ')
 #run_poverty_tables_and_maps(None)

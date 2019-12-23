@@ -70,6 +70,7 @@ def get_economic_unit(myC):
     if myC == 'MW': return 'district'
     if myC == 'RO': return 'Region'
     if myC == 'BO': return 'departamento'
+    if myC == 'AM': return 'Region'
     assert(False)
 
 def get_currency(myC):
@@ -79,7 +80,8 @@ def get_currency(myC):
     'SL': ['LKR',1.E9,1./150.],
     'MW': ['MWK',1.E9,1./724.64],
     'BO': ['BoB',1.E9,1./6.9],
-    'RO': ['RON',1.E9,1/4.166667]
+    'RO': ['RON',1.E9,1/4.166667],
+    'AM': ['AMD',1.E9,1/477.]
     }
     try:
         return d[myC]
@@ -1927,6 +1929,7 @@ def get_to_USD(myC):
     if myC == 'MW': return 720.0
     if myC == 'RO': return 4.0
     if myC == 'BO': return 6.93
+    if myC == 'AM': return 477
     assert(False)
 
 def get_pop_scale_fac(myC):

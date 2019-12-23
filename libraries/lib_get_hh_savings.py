@@ -10,7 +10,10 @@ def get_hh_savings(myC, econ_unit, pol, fstr=None,return_regional_avg=False):
 
 
     # Now run country-dependent options:
-    if myC == 'SL' or myC == 'MW' or myC == 'BO': return hh_df.eval('c/12.').to_frame(name='precautionary_savings')
+    if (myC == 'SL' 
+        or myC == 'MW' 
+        or myC == 'BO'
+        or myC == 'AM'): return hh_df.eval('c/12.').to_frame(name='precautionary_savings')
     if myC == 'RO': return pd.read_csv('../intermediate/RO/hh_savings.csv')[['hhid','precautionary_savings']].set_index('hhid')
 
     if myC == 'PH':

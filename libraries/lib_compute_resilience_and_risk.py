@@ -1324,6 +1324,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     temp['t_start_prv_reco'] = -1
     temp['t_pov_inc'],temp['t_pov_cons'] = [0., 0.]
     temp['t_mc_inc'],temp['t_mc_cons'] = [0., 0.]
+    temp['dc_sum'] = 0.
     try: middleclass_lower = get_middleclass_range(myC)[0]
     except: middleclass_lower = 0
     # ^ set these "timers" to collect info about when the hh starts reco, and when it exits poverty
@@ -1528,7 +1529,11 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
         ########################
         # Mark dc_net at time t=0
         if _t == 0: temp['dc_net_t0'] = temp['dc_net'].copy()
-        
+
+        ########################
+        # Sum over dc(t)
+        temp['dc_sum'] += temp['dc_net']*step_dt
+
         ########################
         # Increment time in poverty
         temp.loc[temp.eval('c-di_t<=pov_line'),'t_pov_inc'] += step_dt
@@ -1564,7 +1569,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
 
         # Save out the files for debugging
         if ((counter<=10) or (counter%50 == 0)): temp.head(200).to_csv(tmp+'temp_'+optionPDS+pol_str+'_'+str(counter)+'.csv')
-
+        
         counter+=1
         gc.collect()
 
@@ -1574,7 +1579,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
 
     ################################
     # Write out the poverty duration info
-    temp[[_ for _ in mic_ix]+['pcwgt', 'c', 'dk0','dc_net_t0','dc_net',
+    temp[[_ for _ in mic_ix]+['pcwgt', 'c', 'dk0','dc_net_t0','dc_net','dc_sum',
                               't_pov_inc', 't_pov_cons','t_mc_inc', 't_mc_cons',
                               't_start_prv_reco', 'hh_reco_rate', 'optimal_hh_reco_rate']].to_csv('../output_country/'+myC+'/poverty_duration_'+optionPDS+'.csv')
     macro[['time_recovery_25','time_recovery_50','time_recovery_75',
@@ -1624,6 +1629,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     tmp_out = pd.DataFrame(index=temp.sum(level=[i for i in mac_ix]).index)
 
     tmp_out['dk_tot'] = temp[['dk0','pcwgt']].prod(axis=1).sum(level=[i for i in mac_ix])/1.E6
+    tmp_out['dc_tot'] = temp[['dc_sum','pcwgt']].prod(axis=1).sum(level=[i for i in mac_ix])/1.E6
     tmp_out['dw_tot'] = temp[['dw_curr','pcwgt']].prod(axis=1).sum(level=[i for i in mac_ix])/1.E6
     tmp_out['res_tot'] = tmp_out['dk_tot']/tmp_out['dw_tot']
 

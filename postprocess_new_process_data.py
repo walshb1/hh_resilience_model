@@ -416,7 +416,8 @@ if True:
                  'FJ':'FJD',
                  'RO':'RON',
                  'MW':'MWK',
-                 'BO':'BOB'}
+                 'BO':'BOB',
+                 'AM':'AMD'}
     
     # GDP prov
     grdp = 1E-6*df[['pop','gdp_pc_prov']].prod(axis=1).mean(level=economy).squeeze()
@@ -917,6 +918,7 @@ if myCountry == 'SL': myHaz = [['Rathnapura','Colombo'],get_all_hazards(myCountr
 if myCountry == 'MW': myHaz = [['Chikwawa','Blantyre','Nsanje'],get_all_hazards(myCountry,myiah),get_all_rps(myCountry,myiah)]
 if myCountry == 'RO': myHaz = [['Bucharest-Ilfov'],get_all_hazards(myCountry,myiah),get_all_rps(myCountry,myiah)]
 if myCountry == 'BO': myHaz = [['La Paz','Beni'],get_all_hazards(myCountry,myiah),[50,100]]
+if myCountry == 'AM': myHaz = [['Yerevan','Aragatsotn','Ararat'],get_all_hazards(myCountry,myiah),[50,200]]
 
 ##################################################################
 if myCountry == 'SL': SL_PMT_plots(myCountry,economy,event_level,myiah,myHaz,my_PDS,_wprime,base_str,to_usd)
