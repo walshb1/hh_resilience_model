@@ -265,8 +265,6 @@ plt.yticks([k_t[0]],[r'$k_h$'])
 plt.draw()
 fig=plt.gcf()
 fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/dk.pdf',format='pdf')
-assert(False)
-
 
 
 summary_df = pd.read_csv('debug/my_summary_no.csv').reset_index()

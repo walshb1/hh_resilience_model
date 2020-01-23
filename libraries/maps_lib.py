@@ -187,7 +187,7 @@ def make_map_from_svg(series_in, svg_file_path, outname, color_maper=plt.cm.get_
     
         if os.path.isfile(merged_path):
             return Image(merged_path)
-        
+
     
 import matplotlib as mpl
 
