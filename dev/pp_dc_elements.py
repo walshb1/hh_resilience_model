@@ -76,7 +76,7 @@ def export_legend(legend, filename='../check_plots/legend.pdf', expand=[-5,-5,5,
 # Load output files
 pol_str = ''#'_v95'#could be {'_v95'}
 base_str = 'no'
-pds_str = 'unif_poor'
+pds_str = 'no'
 
 macro = pd.read_csv(output+'macro_tax_'+pds_str+'_.csv')
 
@@ -267,7 +267,7 @@ fig=plt.gcf()
 fig.savefig('/Users/brian/Desktop/Dropbox/Bank/unbreakable_writeup/Figures/dk.pdf',format='pdf')
 
 
-summary_df = pd.read_csv('debug/my_summary_no.csv').reset_index()
+summary_df = pd.read_csv('../output_country/PH/my_summary_no.csv').reset_index()
 summary_df = summary_df.loc[summary_df.rp!=2000].sort_values(by=['hazard','region','rp'])
 
 all_regions = np.unique(summary_df['region'].dropna())
@@ -289,7 +289,7 @@ for iHaz in ['SS','PF','HU','EQ']:
         while name != all_regions[col_ix]:
             col_ix += 1
         
-        ax.semilogx(iReg.rp,(100*iReg.res_tot).clip(upper=200), marker='.', linestyle='', ms=9, label=name,color=reg_pal[col_ix])
+        plt.semilogx(iReg.rp,(100*iReg.res_tot).clip(upper=200), marker='.', linestyle='', ms=9, label=name,color=reg_pal[col_ix])
         col_ix+=1
 
     plt.xlabel(haz_dict[iHaz]+' return period [years]',fontsize=16)
@@ -314,7 +314,7 @@ for iHaz in ['SS','PF','HU','EQ']:
         while name != all_regions[col_ix]:
             col_ix += 1
 
-        ax.plot(iReg.rp,(100*iReg.res_tot).clip(upper=200),color=reg_pal[col_ix])
+        plt.plot(iReg.rp,(100*iReg.res_tot).clip(upper=200),color=reg_pal[col_ix])
         col_ix+=1
 
     fig.savefig('/Users/brian/Desktop/BANK/hh_resilience_model/check_plots/reg_resilience_'+iHaz+'.pdf',format='pdf')

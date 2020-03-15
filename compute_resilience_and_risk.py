@@ -83,6 +83,7 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     #read data
     macro = pd.read_csv(intermediate+'macro'+('_'+special_event if special_event is not None else '')+'.csv', index_col=economy)
     cat_info = pd.read_csv(intermediate+'cat_info'+('_'+special_event if special_event is not None else '')+'.csv',  index_col=[economy, income_cats])
+    cat_info = cat_info.loc[cat_info.c>0]
 
     #calc_delta_welfare(None,None,'','no',study=True)
     #assert(False)
@@ -177,6 +178,11 @@ def launch_compute_resilience_and_risk_thread(myCountry,pol_str='',optionPDS='no
     # print(((result1-results)/results).max())
     # print(((iah1-iah.reset_index().set_index(event_level+['income_cat','affected_cat','helped_cat']))/iah1).max())
 
+
+
+
+
+
 if __name__ == '__main__':
 
     myCountry = 'SL'
@@ -229,26 +235,36 @@ if __name__ == '__main__':
     elif myCountry == 'BO':
         pds_str = ['no','unif_poor']
         pol_str = ['']
-
+    
     else: 
         pds_str = ['no']
         pol_str = ['']
 
-
-
     # These lines launch
-    if debug:
-        print('Running in debug (+PH) mode!')
-        launch_compute_resilience_and_risk_thread(myCountry,'','no',special_event)
-    elif myCountry == 'PH':
-        #for _pds in pds_str: launch_compute_resilience_and_risk_thread(myCountry,'',_pds)
-        launch_compute_resilience_and_risk_thread(myCountry,'','no')
+    if myCountry != 'ECA':
+        if debug:
+            print('Running in debug (+PH) mode!')
+            launch_compute_resilience_and_risk_thread(myCountry,'','no',special_event)
+        elif myCountry == 'PH':
+            launch_compute_resilience_and_risk_thread(myCountry,'','no')
 
-        for _pol in ['accelerate_reco_75']: 
-            launch_compute_resilience_and_risk_thread(myCountry,_pol,'no')
+        else:
+            with Pool(processes=3,maxtasksperchild=1) as pool:
+                print('LAUNCHING',len(list(product(eca_countries,pol_str,pds_str))),'THREADS:\n',list(product(myCountry,pol_str,pds_str)))
+                pool.starmap(launch_compute_resilience_and_risk_thread, list(product(myCountry,pol_str,pds_str)))        
 
 
+    # Controls for running all 8 ECA countries
     else:
-        with Pool(processes=2,maxtasksperchild=1) as pool:
-            print('LAUNCHING',len(list(product([myCountry],pol_str,pds_str))),'THREADS:\n',list(product([myCountry],pol_str,pds_str)))
-            pool.starmap(launch_compute_resilience_and_risk_thread, list(product([myCountry],pol_str,pds_str)))
+
+        pds_str = ['no']
+        pol_str = ['']
+        eca_countries = ['TR','HR','GE','BG','AL','AM']#,'GR','RO']
+        
+        launch_compute_resilience_and_risk_thread('HR','','no')
+        for myCountry in eca_countries:
+            launch_compute_resilience_and_risk_thread(myCountry,'','no')
+
+        #with Pool(processes=3,maxtasksperchild=1) as pool:
+        #    print('LAUNCHING',len(list(product(eca_countries,pol_str,pds_str))),'THREADS:\n',list(product(eca_countries,pol_str,pds_str)))
+        #    pool.starmap(launch_compute_resilience_and_risk_thread, list(product(eca_countries,pol_str,pds_str)))        

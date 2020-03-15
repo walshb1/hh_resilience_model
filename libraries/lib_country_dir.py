@@ -64,13 +64,13 @@ def set_directories(myCountry):  # get current directory
     return intermediate
 
 def get_economic_unit(myC):
+    eca_countries = ['AM','BG','TR','HR','GR','GE','RO','AL']
+    if myC in eca_countries: return 'Region'
     if myC == 'PH': return 'region'#'province'
     if myC == 'FJ': return 'Division'#'tikina'
     if myC == 'SL': return 'district'
     if myC == 'MW': return 'district'
-    if myC == 'RO': return 'Region'
     if myC == 'BO': return 'departamento'
-    if myC == 'AM': return 'Region'
     assert(False)
 
 def get_currency(myC):
@@ -185,8 +185,11 @@ def get_places(myC):
         #return df
 
     if myC == 'PH':
-        df = pd.read_excel(inputs+'population_2015.xlsx',sheet_name='population').set_index('province').rename(columns={'population':'psa_pop'})
-        return df
+        df_prov = pd.read_excel(inputs+'population_2015.xlsx',sheet_name='population').set_index('province').rename(columns={'population':'psa_pop'})
+        df_reg = pd.read_csv(inputs+'prov_to_reg_dict.csv').set_index('region')
+        df_reg = pd.merge(df_prov,df_reg,left_index=True,right_on='province').sum(level='region')[['psa_pop']]
+
+        return df_reg
 
     if myC == 'FJ':
         df = pd.read_excel(inputs+'HIES 2013-14 Housing Data.xlsx',sheet_name='Sheet1').set_index('Division').dropna(how='all')[['HHsize','Weight']].prod(axis=1).sum(level='Division').to_frame()
@@ -684,6 +687,15 @@ def load_survey_data(myC):
         df['has_ew'] = df[['radio_qty','tv_qty','cellphone_qty','pc_qty']].sum(axis=1).clip(upper=1)
         df = df.drop(['radio_qty','tv_qty','cellphone_qty','pc_qty'],axis=1)
 
+        _mc_lo,_mc_hi = get_middleclass_range('PH')
+        df['ismiddleclass'] = (df.pcinc>=_mc_lo)#&(df.pcinc<=_mc_hi)
+
+        _lo,_hi = get_secure_range('PH')
+        df['issecure'] = (df.pcinc>=_lo)&(df.pcinc<=_hi)
+
+        _lo,_hi = get_vulnerable_range('PH')
+        df['isvulnerable'] = (df.pcinc>=_lo)&(df.pcinc<=_hi)
+
         # plot 1
         plot_simple_hist(df.loc[df.axfin==1],['tot_savings'],['hh savings'],'../output_plots/PH/hh_savings.pdf',uclip=None,nBins=25)
 
@@ -836,7 +848,7 @@ def load_survey_data(myC):
         df['pov_line'] = 0.
         df.loc[df.Sector=='Urban','pov_line'] = get_poverty_line(myC,sec='Urban')
         df.loc[df.Sector=='Rural','pov_line'] = get_poverty_line(myC,sec='Rural')
-
+        
         if inc_sf != None: df['hhinc'], df['pov_line'] = scale_hh_income_to_match_GDP(df[['hhinc','hhwgt','hhsize','AE','Sector','pov_line']],inc_sf,flat=True)
 
         df['hh_pov_line'] = df[['pov_line','AE']].prod(axis=1)
@@ -1900,8 +1912,33 @@ def get_middleclass_range(myC):
         _lower = _pl*(10/5.5)
         _upper = _pl*(50./5.5)
         #_upper = 
+
+    elif myC == 'PH':
+        _pl = get_poverty_line(myC)
+        _lower = _pl*(15/3.2)
+        _upper = 0#_pl*(50/1.90)   
+
     else: assert(False)
     return(_lower,_upper)
+
+def get_secure_range(myC):
+    if myC == 'PH':
+        _pl = get_poverty_line(myC)
+        _lower = _pl*(5.5/3.2)
+        _upper = _pl*(15/3.2)   
+
+    else: assert(False)
+    return(_lower,_upper)
+
+def get_vulnerable_range(myC):
+    if myC == 'PH':
+        _pl = get_poverty_line(myC)
+        _lower = _pl*(3.2/3.2)
+        _upper = _pl*(5.5/3.2)   
+
+    else: assert(False)
+    return(_lower,_upper)
+
 
 
 def get_subsistence_line(myC):
@@ -1922,6 +1959,8 @@ def get_subsistence_line(myC):
         return False
 
 def get_to_USD(myC):
+    eca_countries = ['AM','BG','TR','HR','GR','GE','RO','AL']
+    if myC in eca_countries: return  1.0
 
     if myC == 'PH': return 50.70
     if myC == 'FJ': return 2.01

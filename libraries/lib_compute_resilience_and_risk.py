@@ -12,13 +12,13 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 from scipy.interpolate import interp1d
-from libraries.lib_agents import smart_savers
+from libraries.lib_agents import smart_savers#, optimize_reco
 from libraries.lib_get_hh_savings import get_hh_savings
 from libraries.lib_scaleout import get_scaleout_recipients
 from libraries.lib_gather_data import social_to_tx_and_gsp
 from libraries.lib_fiji_sps import run_fijian_SPP, run_fijian_SPS
 from libraries.pandas_helper import get_list_of_index_names, broadcast_simple, concat_categories
-from libraries.lib_country_dir import get_to_USD, get_subsistence_line, average_over_rp, average_over_rp1, get_all_hazards, get_middleclass_range
+from libraries.lib_country_dir import get_to_USD, get_subsistence_line, average_over_rp, average_over_rp1, get_all_hazards, get_middleclass_range, get_secure_range, get_vulnerable_range
 
 pd.set_option('display.width', 220)
 
@@ -1090,15 +1090,22 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
 
     ###################
     #calc_delta_welfare
-    cats_event_iah['dc_pre_reco'], cats_event_iah['dc_post_reco'], cats_event_iah['dw'] = [0,0,0]
+    cats_event_iah['dc_pre_reco'], cats_event_iah['dc_post_reco'], cats_event_iah['di_aggregate'], cats_event_iah['dc_aggregate'], cats_event_iah['dw'] = [0,0,0,0,0]
+    
+    cats_event_iah.to_csv('~/Desktop/tmp/testing.csv')
+    #assert(False)
 
-    _dc_pre_reco,_dc_post_reco,_dw = calc_delta_welfare(myCountry,cats_event_iah,macro_event,pol_str,optionPDS)
+    _dc_pre_reco,_dc_post_reco,_di_aggregate, _dc_aggregate, _dw = calc_delta_welfare(myCountry,cats_event_iah,macro_event,pol_str,optionPDS,study=False)
     cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dc_pre_reco'] = _dc_pre_reco
     cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dc_post_reco'] = _dc_post_reco
+    cats_event_iah.loc[cats_event_iah.pcwgt!=0,'di_aggregate'] = _di_aggregate
+    cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dc_aggregate'] = _dc_aggregate
     cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dw'] = _dw
 
     assert(cats_event_iah['dc_pre_reco'].shape[0] == cats_event_iah['dc_pre_reco'].dropna().shape[0])
     assert(cats_event_iah['dc_post_reco'].shape[0] == cats_event_iah['dc_post_reco'].dropna().shape[0])
+    assert(cats_event_iah['di_aggregate'].shape[0] == cats_event_iah['di_aggregate'].dropna().shape[0])
+    assert(cats_event_iah['dc_aggregate'].shape[0] == cats_event_iah['dc_aggregate'].dropna().shape[0])
     assert(cats_event_iah['dw'].shape[0] == cats_event_iah['dw'].dropna().shape[0])
 
     cats_event_iah = cats_event_iah.reset_index().set_index(event_level)
@@ -1205,7 +1212,10 @@ def interpolate_rps(fa_ratios,protection_list,option):
         flag_stack = True
 
     if type(protection_list) in [pd.Series, pd.DataFrame]:
-        protection_list=protection_list.squeeze().unique().tolist()
+        if protection_list.shape[0] == 1:
+            protection_list=[protection_list.squeeze()]
+        else: protection_list=protection_list.squeeze().unique().tolist()
+        
 
     #in case of a Multicolumn dataframe, perform this function on each one of the higher level columns
     if type(fa_ratios.columns)==pd.MultiIndex:
@@ -1324,9 +1334,15 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     temp['t_start_prv_reco'] = -1
     temp['t_pov_inc'],temp['t_pov_cons'] = [0., 0.]
     temp['t_mc_inc'],temp['t_mc_cons'] = [0., 0.]
-    temp['dc_sum'] = 0.
-    try: middleclass_lower = get_middleclass_range(myC)[0]
-    except: middleclass_lower = 0
+    temp['t_sec_inc'],temp['t_sec_cons'] = [0., 0.]
+    temp['t_vul_inc'],temp['t_vul_cons'] = [0., 0.]
+    temp['di_sum'], temp['dc_sum'] = [0.,0.]
+    try: 
+        middleclass_lower = get_middleclass_range(myC)[0]
+        secure_lower = get_secure_range(myC)[0]
+        vulnerable_lower = get_vulnerable_range(myC)[0]
+    except: middleclass_lower, secure_lower, vulnerable_lower = 0,0,0
+
     # ^ set these "timers" to collect info about when the hh starts reco, and when it exits poverty
 
     my_avg_prod_k = macro.avg_prod_k.mean()
@@ -1440,6 +1456,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
         temp['di_pub_t'].update(temp.eval('di0_pub*@math.e**(-@_t*@const_pub_reco_rate)').round(2))
 
         temp['di_t'].update(temp.eval('di_prv_t + di_pub_t').round(2))
+        temp['di_sum'] += temp['di_t']*step_dt
 
         ####################################
         # Calculate di(t) & dc(t)
@@ -1538,8 +1555,13 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
         # Increment time in poverty
         temp.loc[temp.eval('c-di_t<=pov_line'),'t_pov_inc'] += step_dt
         temp.loc[temp.eval('c-dc_net<=pov_line'),'t_pov_cons'] += step_dt
-        temp.loc[temp.eval('c-di_t>={}'.format(middleclass_lower)),'t_mc_inc'] += step_dt
-        temp.loc[temp.eval('c-dc_net>={}'.format(middleclass_lower)),'t_mc_cons'] += step_dt
+        if myC == 'PH':
+            temp.loc[temp.eval('c-di_t>={}'.format(middleclass_lower)),'t_mc_inc'] += step_dt
+            temp.loc[temp.eval('c-dc_net>={}'.format(middleclass_lower)),'t_mc_cons'] += step_dt
+            temp.loc[temp.eval('c-di_t>={}'.format(secure_lower)),'t_sec_inc'] += step_dt
+            temp.loc[temp.eval('c-dc_net>={}'.format(secure_lower)),'t_sec_cons'] += step_dt
+            temp.loc[temp.eval('c-di_t>={}'.format(vulnerable_lower)),'t_vul_inc'] += step_dt
+            temp.loc[temp.eval('c-dc_net>={}'.format(vulnerable_lower)),'t_vul_cons'] += step_dt
 
         ########################
         # Finally, calculate welfare losses
@@ -1580,7 +1602,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     ################################
     # Write out the poverty duration info
     temp[[_ for _ in mic_ix]+['pcwgt', 'c', 'dk0','dc_net_t0','dc_net','dc_sum',
-                              't_pov_inc', 't_pov_cons','t_mc_inc', 't_mc_cons',
+                              't_pov_inc', 't_pov_cons','t_mc_inc', 't_mc_cons','t_sec_inc', 't_sec_cons','t_vul_inc', 't_vul_cons',
                               't_start_prv_reco', 'hh_reco_rate', 'optimal_hh_reco_rate']].to_csv('../output_country/'+myC+'/poverty_duration_'+optionPDS+'.csv')
     macro[['time_recovery_25','time_recovery_50','time_recovery_75',
            'time_recovery_80','time_recovery_90','time_recovery_95']].to_csv('../output_country/'+myC+'/time_to_recovery_'+optionPDS+'.csv')
@@ -1602,6 +1624,9 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     temp = pd.concat([temp,temp_na]).reset_index().set_index([i for i in mic_ix]).sort_index()
     temp['dc_net'] = temp['dc_net'].fillna(temp['dc_t'])
     temp['dc_net_t0'] = temp['dc_net_t0'].fillna(0)
+    temp['di_sum'] = temp['di_sum'].fillna(0)
+    temp['dc_sum'] = temp['dc_sum'].fillna(0)
+
 
     if temp['dw'].shape[0] != temp.dropna(subset=['dw']).shape[0]:
         temp['dw'] = temp['dw'].fillna(-1E9)
@@ -1659,7 +1684,7 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     ##################################
 
     temp = temp.reset_index().set_index([i for i in mic_ix])
-    return temp['dc_net_t0'],temp['dc_net'],temp['dw']
+    return temp['dc_net_t0'],temp['dc_net'],temp['di_sum'],temp['dc_sum'],temp['dw']
 
 def welf1(c,elast,comp):
     """"Welfare function"""

@@ -22,6 +22,7 @@ import pickle
 from libraries.lib_asset_info import *
 from libraries.lib_country_dir import *
 from libraries.lib_gather_data import *
+from libraries.lib_aspire_data import *
 from libraries.lib_sea_level_rise import *
 from libraries.replace_with_warning import *
 from libraries.lib_agents import optimize_reco
@@ -90,7 +91,11 @@ if myCountry == 'SL': df['protection'] = 5
 
 ##########################
 # Big function loads standardized hh survey info
-cat_info = load_survey_data(myCountry)
+cat_info = load_survey_data(myCountry)    
+
+if cat_info.pcsoc.sum() == 0:
+    load_aspire_data(myCountry,cat_info)
+
 run_urban_plots(myCountry,cat_info.copy())
 print('Survey population:',cat_info.pcwgt.sum())
 
@@ -320,7 +325,7 @@ cat_info =cat_info.dropna()
 
 # Cleanup dfs for writing out
 cat_info_col = [economy,'province','hhid','region','pcwgt','aewgt','hhwgt','np','score','v','v_ag','c','pcinc_ag_gross',
-                'pcsoc','social','c_5','hhsize','ethnicity','hhsize_ae','gamma_SP','k','quintile','ispoor','ismiddleclass','isrural','issub',
+                'pcsoc','social','c_5','hhsize','ethnicity','hhsize_ae','gamma_SP','k','quintile','ispoor','ismiddleclass','issecure','isvulnerable','isrural','issub',
                 'pcinc','aeinc','pcexp','pov_line','SP_FAP','SP_CPP','SP_SPS','nOlds','has_ew',
                 'SP_PBS','SP_FNPF','SPP_core','SPP_add','axfin','pcsamurdhi','gsp_samurdhi','frac_remittance','N_children']
 cat_info = cat_info.drop([i for i in cat_info.columns if (i in cat_info.columns and i not in cat_info_col)],axis=1)
