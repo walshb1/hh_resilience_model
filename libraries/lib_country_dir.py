@@ -76,17 +76,23 @@ def get_economic_unit(myC):
 def get_currency(myC):
     """Dictionary lookup of currency, multiplier, and exchange rate from ISO key"""
     d = {'PH': ['b. PhP',1.E9,1./50.],
-    'FJ': ['k. F\$',1.E3,1./2.],
-    'SL': ['LKR',1.E9,1./150.],
-    'MW': ['MWK',1.E9,1./724.64],
-    'BO': ['BoB',1.E9,1./6.9],
-    'RO': ['RON',1.E9,1/4.166667],
-    'AM': ['AMD',1.E9,1/477.]
-    }
+         'FJ': ['k. F\$',1.E3,1./2.],
+         'SL': ['LKR',1.E9,1./150.],
+         'MW': ['MWK',1.E9,1./724.64],
+         'BO': ['BoB',1.E9,1./6.9],
+         'AM': ['PPP',1E0,1.],
+         'AL': ['PPP',1E0,1.],
+         'HR': ['PPP',1E0,1.],
+         'BG': ['PPP',1E0,1.],
+         'RO': ['PPP',1.E9,1/4.166667],
+         'TR': ['PPP',1E0,1.],
+         'GE': ['PPP',1E0,1.],
+         'GR': ['PPP',1E0,1.]
+         }
     try:
         return d[myC]
     except KeyError:
-        return ['XXX',1.E0]
+        return ['XXX',1E0,1]
 
 def get_hhid_elements(myC):
     if myC == 'RO': return ['Region','County','centra','hhcode','nrgl','mediu']
@@ -1901,16 +1907,18 @@ def get_poverty_line(myC,by_district=True,sec=None):
         # apply PPP to estimate 2016 value...
         pov_line *= 11445.5/11669.1
 
-    if myC == 'RO': pov_line = 40*1.719*365 # 1.729 = ppp conversion factor (2018) data.worldbank.org
+    #if myC == 'RO': pov_line = 40*1.719*365 # 1.729 = ppp conversion factor (2018) data.worldbank.org
     if myC == 'BO': pov_line = 1.9*3.430*365 # 3.430 = ppp conv factor
 
+    if myC in ['AL','AM','BG','HR','GE','GR','RO','TR']: pov_line = 5.50*365
+    # ['AL','AM','BG','HR','GE','GR','RO','TR']
     return pov_line
 
 def get_middleclass_range(myC):
-    if myC == 'RO': 
+    if myC in ['AL','AM','BG','HR','GE','GR','RO','TR']:
         _pl = get_poverty_line(myC)
-        _lower = _pl*(10/5.5)
-        _upper = _pl*(50./5.5)
+        _lower = _pl*(15/5.5)
+        _upper = _pl*(45/5.5)
         #_upper = 
 
     elif myC == 'PH':

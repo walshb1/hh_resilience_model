@@ -37,6 +37,7 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,labels=(Fal
     economy = get_economic_unit(myC)
 
     iah = iah.loc[iah.pcwgt_no!=0].copy()
+    iah['pov_line'] = get_poverty_line(myC)
 
     try: plt.close('all')
     except: pass
@@ -67,30 +68,30 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,labels=(Fal
 
     upper_clip = 1E6
     if myC == 'PH': 
-        if aReg == 'VIII - Eastern Visayas': 
-            upper_clip = 1.25E5
-            # Hack hack hack
+        if aReg == 'VIII - Eastern Visayas': upper_clip = 1.25E5 # Hack hack hack
         else: upper_clip = 1.5E5
-    if myC == 'FJ': upper_clip = 2E4
-    if myC == 'SL': 
+    elif myC == 'FJ': upper_clip = 2E4
+    elif myC == 'SL': 
         upper_clip = 3.25E5
         if aReg == 'Rathnapura': upper_clip = 3.0E5
-    if myC == 'MW': 
+    elif myC == 'MW': 
         if aReg == 'Lilongwe': upper_clip = 4.0E5
         else: upper_clip = 2.5E5
-    if myC == 'RO': upper_clip = 2E5
-    if myC == 'BO': upper_clip = 5E4
+    elif myC == 'BO': upper_clip = 5E4
+    elif myC == 'AM': upper_clip = 9E3
+    elif myC == 'BG': upper_clip = 2E4
+    elif myC == 'AL': upper_clip = 5.6E3
+    elif myC == 'RO': upper_clip = 5E4
+    elif myC == 'GR': upper_clip = 3E4
+    elif myC == 'TR': upper_clip = 3E4
+    elif myC == 'HR': upper_clip = 5E4
+    else: upper_clip = 1E4
 
     sf_x = 1
-    if currency.lower() == 'usd': sf_x = get_currency(myC)[2]
-    elif myC == 'PH': currency = 'kPhP'; sf_x = 1E-3
-    elif myC == 'MW': currency = ',000 MWK'; sf_x = 1E-3
-    elif myC == 'SL': currency = ',000 LKR'; sf_x = 1E-3
-    elif myC == 'RO': currency = ',000 RON'; sf_x = 1E-3
-    else: currency = get_currency(myC)[0]
+    #if currency.lower() == 'usd': sf_x = get_currency(myC)[2]
+    currency = get_currency(myC)[0]
 
-    for _fom,_fom_lab in [('i','Income'),
-                          ('c','Consumption')]:
+    for _fom,_fom_lab in [('c','Consumption')]:
 
         ax=plt.gca()
         plt.cla()
@@ -103,8 +104,16 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,labels=(Fal
         if aReg == 'II - Cagayan Valley' and aDis == 'HU': plt.ylim(0,400)
         elif aReg == 'VIII - Eastern Visayas' and aDis == 'HU': plt.ylim(0,500)
         elif aReg == 'Rathnapura': plt.ylim(0,130)
-        elif aReg == 'Bucharest-Ilfov': plt.ylim(0,220)
+        #elif aReg == 'Bucharest-Ilfov': plt.ylim(0,220)
         elif aReg == 'Beni': plt.ylim(0,40)
+
+        if aReg == 'Gergharkunik': plt.ylim(0,25)
+        if aReg == 'Yerevan': plt.ylim(0,70)
+        if myC == 'BG': plt.ylim(0,250)
+        if myC == 'GE': plt.ylim(0,100)
+        if myC == 'GR': plt.ylim(0,330)
+        if myC == 'TR': plt.ylim(0,6000)
+        if myC == 'HR': plt.ylim(0,500)
 
         plt.xlabel(_fom_lab+r' ('+currency+' per person, per year)',labelpad=8,fontsize=8)
         plt.ylabel('Population'+get_pop_scale_fac(myC)[1],labelpad=8,fontsize=8)
@@ -148,7 +157,7 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,labels=(Fal
         while not _success and _counter < 15:
             try:
                 _fout = output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_'+currency[-3:].lower()+'_1of3.pdf'
-                ax.get_figure().savefig(_fout,format='pdf',bbox_inches='tight')                    
+                #ax.get_figure().savefig(_fout,format='pdf',bbox_inches='tight')                    
                 _success = True
             except:
                 print('no good! try again in plot_income_and_consumption_distributions (1/3-'+str(_counter)+')')
@@ -182,7 +191,7 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,labels=(Fal
         while not _success and _counter < 10:
             try:
                 _fout = output_plots+'npr_poverty_'+_fom+'_'+aReg.replace(' ','').replace('-','')+'_'+aDis+'_'+str(anRP)+'_'+currency[-3:].lower()+'_2of3.pdf'
-                ax.get_figure().savefig(_fout,format='pdf',bbox_inches='tight')
+                #ax.get_figure().savefig(_fout,format='pdf',bbox_inches='tight')
                 _success = True
             except:
                 print('no good! try again in plot_income_and_consumption_distributions (2/3)')
@@ -235,9 +244,9 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,labels=(Fal
             iah['midclass_line_lo'] = get_middleclass_range(myC)[0]            
             iah['midclass_line_hi'] = get_middleclass_range(myC)[1]
             net_chg_midclass_c = int(iah.loc[iah.eval(reg_crit+('&(hazard==@aDis)&(rp==@anRP)&'
-                                                                +'(c_initial>=midclass_line_lo)&(c_initial<midclass_line_hi)&(c_pre_reco<midclass_line_lo)')),'pcwgt_no'].sum())
+                                                                +'(c_initial>=midclass_line_lo)&(c_pre_reco<midclass_line_lo)')),'pcwgt_no'].sum())
             net_chg_midclass_i = int(iah.loc[iah.eval(reg_crit+('&(hazard==@aDis)&(rp==@anRP)&'
-                                                                +'(c_initial>=midclass_line_lo)&(c_initial<midclass_line_hi)&(i_pre_reco<midclass_line_lo)')),'pcwgt_no'].sum())
+                                                                +'(c_initial>=midclass_line_lo)&(i_pre_reco<midclass_line_lo)')),'pcwgt_no'].sum())
         except: net_chg_midclass_c, net_chg_midclass_i = 0,0
 
         net_chg_pov = int(round((net_chg_pov_i if _fom == 'i' else net_chg_pov_c)/100.,0)*100)
@@ -253,23 +262,26 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,labels=(Fal
 
         trans = ax.get_xaxis_transform() # x in data units, y in axes fraction
 
-        pov_anno_y = 0.80
+        mc_anno_y = 0.80
+        pov_anno_y = 0.99
         sub_anno_y = 0.95
         anno_y_offset = 0.045
 
+        _,mc_anno_y_data = axis_data_coords_sys_transform(ax,0,mc_anno_y,inverse=False)
         _,pov_anno_y_data = axis_data_coords_sys_transform(ax,0,pov_anno_y,inverse=False)
         _,sub_anno_y_data = axis_data_coords_sys_transform(ax,0,sub_anno_y,inverse=False)
     
         if label_middleclass:
-            middleclass = get_middleclass_range('RO')
-            #plt.plot([sf_x*middleclass[0],sf_x*middleclass[0]],[0,pov_anno_y_data],'k-',lw=1.0,color=greys_pal[8],zorder=100,alpha=0.85,ls=':')
-            #plt.fill_between([sf_x*middleclass[0],sf_x*middleclass[1]],[pov_anno_y_data,pov_anno_y_data],color=greys_pal[2],alpha=0.3)
-            plt.fill_between([0,sf_x*middleclass[0]],[pov_anno_y_data,pov_anno_y_data],color=greys_pal[2],alpha=0.3)
 
-            #ax.annotate('Middle class',xy=(sf_x*1.1*middleclass[0],pov_anno_y),xycoords=trans,ha='left',va='top',fontsize=9,
-            #            annotation_clip=False,weight='bold',color=greys_pal[7])
-            ax.annotate(int_w_commas(net_chg_midclass)+' ('+str(net_chg_midclass_pct)+'%)\ndrop from middle class',
-                        weight='light',color=greys_pal[7],xy=(sf_x*1.1*middleclass[0],pov_anno_y-anno_y_offset),
+            middleclass = get_middleclass_range('RO')
+            plt.plot([sf_x*middleclass[0],sf_x*middleclass[0]],[0,mc_anno_y_data],'k-',lw=1.0,color=greys_pal[8],zorder=100,alpha=0.85,ls=':')
+            #plt.fill_between([sf_x*middleclass[0],sf_x*middleclass[1]],[pov_anno_y_data,pov_anno_y_data],color=greys_pal[2],alpha=0.3)
+            #plt.fill_between([0,sf_x*middleclass[0]],[pov_anno_y_data,pov_anno_y_data],color=greys_pal[2],alpha=0.3)
+
+            ax.annotate('Middle class',xy=(sf_x*(middleclass[0]+0.1*iah.pov_line.mean()),mc_anno_y),xycoords=trans,ha='left',va='top',fontsize=9,
+                        annotation_clip=False,weight='bold',color=greys_pal[7])
+            ax.annotate(int_w_commas(net_chg_midclass)+' drop from middle class\n ('+str(net_chg_midclass_pct)+'% decrease)',
+                        weight='light',color=greys_pal[7],xy=(sf_x*(middleclass[0]+0.1*iah.pov_line.mean()),mc_anno_y-anno_y_offset),
                         xycoords=trans,ha='left',va='top',fontsize=9,annotation_clip=False)
 
         if label_poverty:
@@ -313,4 +325,4 @@ def plot_income_and_consumption_distributions(myC,iah,aReg,aDis,anRP,labels=(Fal
                 print('wrote '+aReg+'_poverty_'+_fom+'_'+aDis+'_'+str(anRP)+'.pdf')
             except:
                 print('no good! try again in plot_income_and_consumption_distributions')
-                _counter+= 1
+                _counter+=1

@@ -307,7 +307,7 @@ if myCountry == 'MW':
     iah_out.to_csv(out_files+'risk_by_economy_hazard'+('_'+sub_eth.lower().replace('-','').replace(' ','') if select_ethnicity else '')+'.csv')
 
 
-if True:
+if False:
 
     svg_file = get_svg_file(myCountry)
     for _h in get_all_hazards(myCountry,iah_out):
@@ -400,8 +400,10 @@ no_pds['SE capacity']  = (100.*no_pds['Asset risk']/no_pds['Well-being risk'])/1
 (1.E3*no_pds).round(1).to_csv(out_files+'risk_by_economy_usd'+('_'+sub_eth.lower().replace('-','').replace(' ','') if select_ethnicity else '')+'.csv')
 
 #
-(1.E3*no_pds[['Asset risk','SE capacity','Well-being risk']]).sort_values(['Well-being risk'],ascending=False).round(0).astype('int').to_latex('latex/'+myCountry+'/risk_by_economy_usd.tex')
-print('Wrote latex! Sums:\n',no_pds.loc['Total',['Asset risk','Well-being risk']])
+try: 
+    (1.E3*no_pds[['Asset risk','SE capacity','Well-being risk']]).sort_values(['Well-being risk'],ascending=False).round(0).astype('int').to_latex('latex/'+myCountry+'/risk_by_economy_usd.tex')
+    print('Wrote latex! Sums:\n',no_pds.loc['Total',['Asset risk','Well-being risk']])
+except: pass
 
 
 # LOAD SVG FILES
@@ -410,7 +412,7 @@ svg_file = get_svg_file(myCountry)
 #######################
 # Maps series
 # --> do tons of maps?
-if True:
+if False:
     curr_dict = {'PH':'PHP',
                  'SL':'SLR',
                  'FJ':'FJD',
@@ -517,7 +519,7 @@ if True:
             drop_spots=places_to_drop,
             res=_mapres)
         
-    
+
     #######################
     print('Map Resilience')
     natl_average = 100.*(no_pds['Asset risk'].drop('Total').sum()/no_pds['Well-being risk'].drop('Total').sum()) 
@@ -916,9 +918,16 @@ if myCountry == 'PH': myHaz = [['VIII - Eastern Visayas'],['HU'],[100]]
 #if myCountry == 'SL': myHaz = [['Rathnapura','Colombo'],get_all_hazards(myCountry,myiah),[25,50,100]]
 if myCountry == 'SL': myHaz = [['Rathnapura','Colombo'],get_all_hazards(myCountry,myiah),get_all_rps(myCountry,myiah)]
 if myCountry == 'MW': myHaz = [['Chikwawa','Blantyre','Nsanje'],get_all_hazards(myCountry,myiah),get_all_rps(myCountry,myiah)]
-if myCountry == 'RO': myHaz = [['Bucharest-Ilfov'],get_all_hazards(myCountry,myiah),get_all_rps(myCountry,myiah)]
 if myCountry == 'BO': myHaz = [['La Paz','Beni'],get_all_hazards(myCountry,myiah),[50,100]]
-if myCountry == 'AM': myHaz = [['Yerevan','Aragatsotn','Ararat'],get_all_hazards(myCountry,myiah),[50,200]]
+
+if myCountry == 'AM': myHaz = [['Yerevan','Gergharkunik'],get_all_hazards(myCountry,myiah),[200]]
+if myCountry == 'AL': myHaz = [['Tirane','Shkoder'],get_all_hazards(myCountry,myiah),[200]]
+if myCountry == 'BG': myHaz = [['Yugozapadna i Yuzhna tsentralna Bulgaria','Yugozapadna i Yuzhna tsentralna Bulgaria'],get_all_hazards(myCountry,myiah),[200]]
+if myCountry == 'HR': myHaz = [['Croatia','Croatia'],get_all_hazards(myCountry,myiah),[200]]
+if myCountry == 'GE': myHaz = [['Tbilisi','Tbilisi'],get_all_hazards(myCountry,myiah),[200]]
+if myCountry == 'GR': myHaz = [['Attica','North Greece'],get_all_hazards(myCountry,myiah),[200]]
+if myCountry == 'RO': myHaz = [['Bucharest-Ilfov','North-East'],get_all_hazards(myCountry,myiah),[200]]
+if myCountry == 'TR': myHaz = [['Turkey','Turkey'],get_all_hazards(myCountry,myiah),[200]]
 
 ##################################################################
 if myCountry == 'SL': SL_PMT_plots(myCountry,economy,event_level,myiah,myHaz,my_PDS,_wprime,base_str,to_usd)
@@ -964,9 +973,14 @@ if True:
 # This code generates the histograms showing income before & after disaster (in local_curr)
 # ^ this is at household level (iah != iah_avg here)
 if True:
-    with Pool(processes=1,maxtasksperchild=1) as pool:
-        print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
-        pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[myiah.copy()],myHaz[0],myHaz[1],myHaz[2],[(False,False,True)])))
+    #with Pool(processes=1,maxtasksperchild=1) as pool:
+    #    print('LAUNCHING',len(list(product(myHaz[0],myHaz[1],myHaz[2]))),'THREADS')
+    #    pool.starmap(plot_income_and_consumption_distributions,list(product([myCountry],[myiah.copy()],myHaz[0],myHaz[1],myHaz[2],[(False,False,True)])))
+    for _loc in myHaz[0]:
+        for _haz in myHaz[1]:
+            for _rp in myHaz[2]:
+                plot_income_and_consumption_distributions(myCountry,myiah.copy(),_loc,_haz,_rp,(False,True,True))
+                
 
 ##################################################################
 # This code generates the histograms including [k,dk,dc,dw,&pds]
