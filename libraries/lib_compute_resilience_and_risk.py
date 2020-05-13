@@ -1102,6 +1102,8 @@ def calc_dw_inside_affected_province(myCountry,pol_str,optionPDS,macro_event,cat
     cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dc_aggregate'] = _dc_aggregate
     cats_event_iah.loc[cats_event_iah.pcwgt!=0,'dw'] = _dw
 
+    cats_event_iah.to_csv('~/Desktop/tmp/cats_event_iah.csv')
+
     assert(cats_event_iah['dc_pre_reco'].shape[0] == cats_event_iah['dc_pre_reco'].dropna().shape[0])
     assert(cats_event_iah['dc_post_reco'].shape[0] == cats_event_iah['dc_post_reco'].dropna().shape[0])
     assert(cats_event_iah['di_aggregate'].shape[0] == cats_event_iah['di_aggregate'].dropna().shape[0])
@@ -1359,7 +1361,9 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
     try: hh_sav.index = hh_sav.index.astype('int')
     except: pass
 
-    temp = pd.merge(temp.reset_index(),hh_sav.reset_index(),on='hhid').rename(columns={'precautionary_savings':'sav_f'})
+    if False:
+        temp = pd.merge(temp.reset_index(),hh_sav.reset_index(),on='hhid').rename(columns={'precautionary_savings':'sav_f'})
+    else: temp['sav_f'] = 0
 
     try: temp['sav_f'] = temp['sav_f'].round(2)
     except: pass
@@ -1399,24 +1403,27 @@ def calc_delta_welfare(myC, temp, macro, pol_str,optionPDS,study=False):
             pickle_path = '../optimization_libs/'+myC+'_'+optionPDS+'_optimal_savings_rate.p'
             if os.path.exists(pickle_path): os.remove(pickle_path)
 
-            _opt_ct, _opt_tot = 0, temp.shape[0]
-            temp[['sav_offset_to','t_exhaust_sav']] = temp.apply(lambda x:pd.Series(smart_savers(x.c,x.dc0,x.hh_reco_rate,macro.avg_prod_k.mean(),x.sav_f,_opt_tot)),axis=1)
+            try: 
+                _opt_ct, _opt_tot = 0, temp.shape[0]
+                temp[['sav_offset_to','t_exhaust_sav']] = temp.apply(lambda x:pd.Series(smart_savers(x.c,x.dc0,x.hh_reco_rate,macro.avg_prod_k.mean(),x.sav_f,_opt_tot)),axis=1)
 
-            opt_in = temp[['c','dk0','hh_reco_rate','sav_f','sav_offset_to','t_exhaust_sav']].copy()
-            opt_in['avg_prod_k'] = macro.avg_prod_k.mean()
 
-            if opt_in.dropna().shape[0]!=opt_in.shape[0]:
-                opt_in.to_csv('~/Desktop/tmp/MW_fail.csv')
-                assert(opt_in.dropna().shape[0]==opt_in.shape[0])
+                opt_in = temp[['c','dk0','hh_reco_rate','sav_f','sav_offset_to','t_exhaust_sav']].copy()
+                opt_in['avg_prod_k'] = macro.avg_prod_k.mean()
 
-            opt_in[['c','dk0','sav_f']] = opt_in[['c','dk0','sav_f']].astype('int')
-            opt_in[['hh_reco_rate','avg_prod_k']] = opt_in[['hh_reco_rate','avg_prod_k']].round(3)
+                if opt_in.dropna().shape[0]!=opt_in.shape[0]:
+                    opt_in.to_csv('~/Desktop/tmp/MW_fail.csv')
+                    assert(opt_in.dropna().shape[0]==opt_in.shape[0])
 
-            # 2 dfs for merging
-            opt_in = opt_in.reset_index().set_index(['c','dk0','hh_reco_rate','avg_prod_k','sav_f']).drop('index',axis=1)
+                opt_in[['c','dk0','sav_f']] = opt_in[['c','dk0','sav_f']].astype('int')
+                opt_in[['hh_reco_rate','avg_prod_k']] = opt_in[['hh_reco_rate','avg_prod_k']].round(3)
 
-            with open('../optimization_libs/'+myC+'_'+optionPDS+'_optimal_savings_rate.p','wb') as pout:
-                pickle.dump(opt_in.loc[opt_in.index.unique()], pout)
+                # 2 dfs for merging
+                opt_in = opt_in.reset_index().set_index(['c','dk0','hh_reco_rate','avg_prod_k','sav_f']).drop('index',axis=1)
+
+                with open('../optimization_libs/'+myC+'_'+optionPDS+'_optimal_savings_rate.p','wb') as pout:
+                    pickle.dump(opt_in.loc[opt_in.index.unique()], pout)
+            except: pass
 
     gc.collect()
 

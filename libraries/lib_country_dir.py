@@ -8,6 +8,7 @@ from libraries.lib_drought import *
 from libraries.lib_gather_data import *
 from libraries.plot_hist import plot_simple_hist
 from libraries.pandas_helper import categorize_strings
+from libraries.lib_get_hhid_lfs import *
 #
 # country-specific
 from libraries.lib_RO_housing_plots import housing_plots
@@ -317,7 +318,7 @@ def get_places_dict(myC):
 
     return p_code,r_code
 
-def load_survey_data(myC):
+def load_survey_data(myC,isCOVID=False):
     df = None
     #Each survey/country should have the following:
     # -> hhid household id
@@ -670,8 +671,24 @@ def load_survey_data(myC):
         df['pcexp'] = df['hhexp']/df['hhsize']
 
         # These lines use income as income
-        df = df.rename(columns={'pcinc_s':'pcinc'})
+        get_hhid_FIES(df)
+        get_hhid_lfs(df)
+        if isCOVID:
+
+            df['hhid_lfs'] = df['hhid_lfs'].astype('int')
+
+            df_covid = pd.read_csv('../inputs/PH/FIES2015_COVID.csv')
+            df_covid['hhid_lfs'] = df_covid['hhid_lfs'].astype('int')
+            df_covid['hhinc'] *= 12/df_covid['ppp_factor']
+            df_covid['pcinc'] = df_covid.eval('hhinc/hhsize')
+
+            df = pd.merge(df,df_covid[['hhid_lfs','pcinc']],on='hhid_lfs')
+
+        else: df = df.rename(columns={'pcinc_s':'pcinc'})
+        #df = df.rename(columns={'hhid_lfs':'hhid'})    
+
         df['hhinc'] = df[['pcinc','hhsize']].prod(axis=1)
+
 
         # These lines use disbursements as proxy for income
         #df = df.rename(columns={'totdis':'hhinc'})
@@ -798,7 +815,6 @@ def load_survey_data(myC):
         prov_code,region_code = get_places_dict(myC)
 
         df = df.reset_index()
-        get_hhid_FIES(df)
         df = df.rename(columns={'w_prov':'province','w_regn':'region'}).reset_index()
         df['province'].replace(prov_code,inplace=True)     
         df['region'].replace(region_code,inplace=True)
@@ -807,7 +823,7 @@ def load_survey_data(myC):
         #print(df.head())
         #assert(False)
         #
-        #get_hhid_FIES(cat_info)
+        #
         #cat_info = cat_info.rename(columns={'w_prov':'province','w_regn':'region'}).reset_index()
         #cat_info['province'].replace(prov_code,inplace=True)     
         #cat_info['region'].replace(region_code,inplace=True)

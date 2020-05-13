@@ -53,6 +53,8 @@ else:
     myCountry = 'BO'
     print('Setting country to BO. Currently implemented: MW, PH, FJ, SL, BO')
 
+if myCountry == 'PH': isCOVID = True
+
 #####################################
 # Primary library used is lib_country_dir.py
 
@@ -91,7 +93,7 @@ if myCountry == 'SL': df['protection'] = 5
 
 ##########################
 # Big function loads standardized hh survey info
-cat_info = load_survey_data(myCountry)    
+cat_info = load_survey_data(myCountry,isCOVID=False)#isCOVID)    
 
 if cat_info.pcsoc.sum() == 0:
     load_aspire_data(myCountry,cat_info)
@@ -339,6 +341,8 @@ special_event=None
 
 # SL FLAG: get_hazard_df returns two of the same flooding data, and doesn't use the landslide data that is analyzed within the function.
 df_haz,df_tikina = get_hazard_df(myCountry,economy,agg_or_occ='Agg',rm_overlap=True,special_event=special_event)
+if isCOVID: df_haz.loc[df_haz['hazard']=='HU']
+
 if myCountry == 'FJ': _ = get_SLR_hazard(myCountry,df_tikina)
 
 # Edit & Shuffle provinces
